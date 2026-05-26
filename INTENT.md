@@ -11,6 +11,9 @@ Load-bearing constraints:
 - CLI input and output are NOTA.
 - Component/process communication is binary rkyv.
 - Rust data types are generated from `schema/spirit.schema`.
+- Schema lowering goes through `schema-next`'s macro registry before Rust
+  emission; the build must fail if the registry does not reach nested
+  struct-field and enum-variant type bodies.
 - The schema declares the runtime triad surfaces:
   `Input`/`Output` for Signal and `SemaCommand`/`SemaResponse` for
   state work.

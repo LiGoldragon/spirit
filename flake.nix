@@ -96,6 +96,8 @@
           '';
           generated-at-build-time = pkgs.runCommand "spirit-next-generated-at-build-time" { } ''
             grep -R "SchemaEngine::default" ${src}/build.rs >/dev/null
+            grep -R "lower_source_with_context" ${src}/build.rs >/dev/null
+            grep -R "macros_applied" ${src}/build.rs >/dev/null
             grep -R "RustEmitter.emit_file" ${src}/build.rs >/dev/null
             grep -R "include!(concat!(env!(\"OUT_DIR\")" ${src}/src/lib.rs >/dev/null
             touch $out

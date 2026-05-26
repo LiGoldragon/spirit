@@ -11,6 +11,7 @@ a real CLI and daemon pair.
 schema/spirit.schema
   -> build.rs
   -> schema-next::SchemaEngine
+  -> schema-next::MacroRegistry
   -> schema-rust-next::RustEmitter
   -> generated module
   -> engine/store/transport shims
@@ -99,6 +100,11 @@ this pilot. It rebuilds `spirit-next` with local checkouts of `nota-next`,
 the intended loop while improving the NOTA parser, schema lowering, or Rust
 emitter: edit a substrate repo, run the consumer check here, and prove the
 generated Rust still compiles and crosses the CLI/daemon rkyv boundary.
+
+`build.rs` lowers with `SchemaEngine::lower_source_with_context` and asserts
+that the schema-next macro registry reached nested struct-field and enum-
+variant macros. The build therefore exercises the macro engine directly before
+Rust emission.
 
 ## Known limits
 
