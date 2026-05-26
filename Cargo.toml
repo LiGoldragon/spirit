@@ -1,0 +1,37 @@
+[package]
+name         = "spirit-next"
+version      = "0.1.0"
+edition      = "2024"
+rust-version = "1.85"
+license      = "MIT OR Apache-2.0"
+repository   = "https://github.com/LiGoldragon/spirit-next"
+description  = "Runnable schema-derived Spirit pilot: NOTA CLI, rkyv socket, generated schema types."
+publish      = false
+
+[lib]
+name = "spirit_next"
+path = "src/lib.rs"
+
+[[bin]]
+name = "spirit-next"
+path = "src/bin/spirit-next.rs"
+
+[[bin]]
+name = "spirit-next-daemon"
+path = "src/bin/spirit-next-daemon.rs"
+
+[dependencies]
+nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }
+rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
+
+[build-dependencies]
+schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }
+schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints.rust]
+unsafe_code = "forbid"
+unused      = { level = "warn", priority = -1 }
+dead_code   = "warn"
