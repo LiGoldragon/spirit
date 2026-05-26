@@ -9,9 +9,10 @@ schema/spirit.schema
   -> schema-next Asschema
   -> schema-rust-next generated Rust
   -> CLI NOTA input
-  -> rkyv socket bytes
-  -> daemon engine
-  -> rkyv socket bytes
+  -> generated Signal frame (short header + rkyv)
+  -> daemon Executor
+  -> generated SEMA command/response
+  -> generated Signal frame (short header + rkyv)
   -> CLI NOTA output
 ```
 
@@ -35,6 +36,17 @@ SPIRIT_NEXT_SOCKET=/tmp/spirit-next.sock \
 
 The CLI accepts NOTA. The daemon socket carries length-prefixed rkyv bytes
 with an 8-byte short header.
+
+## Runtime triad
+
+`spirit-next` is the implementation target for the refined runtime triad:
+
+- Signal is generated `Input`/`Output` plus the generated route/header/rkyv
+  frame methods.
+- Executor is `Engine::handle`, which lowers `Input` to `SemaCommand` and
+  maps `SemaResponse` back to `Output`.
+- SEMA is `Store::apply(SemaCommand)`, currently in-memory and deliberately
+  isolated as the single write path.
 
 ## Local schema stack check
 

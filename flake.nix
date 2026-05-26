@@ -101,9 +101,34 @@
             touch $out
           '';
           binary-boundary-test = pkgs.runCommand "spirit-next-binary-boundary-test" { } ''
-            grep -R "rkyv::to_bytes" ${src}/src/transport.rs >/dev/null
-            grep -R "rkyv::from_bytes" ${src}/src/transport.rs >/dev/null
+            grep -R "encode_signal_frame" ${src}/src/transport.rs >/dev/null
+            grep -R "decode_signal_frame" ${src}/src/transport.rs >/dev/null
+            ! grep -R "rkyv::to_bytes" ${src}/src/transport.rs
+            ! grep -R "rkyv::from_bytes" ${src}/src/transport.rs
             grep -R "Command::new(env!(\"CARGO_BIN_EXE_spirit-next\"))" ${src}/tests/process_boundary.rs >/dev/null
+            touch $out
+          '';
+          generated-signal-plane-used = pkgs.runCommand "spirit-next-generated-signal-plane-used" { } ''
+            grep -R "InputRoute" ${src}/src/lib.rs >/dev/null
+            grep -R "OutputRoute" ${src}/src/lib.rs >/dev/null
+            grep -R "SignalFrameError" ${src}/src/lib.rs >/dev/null
+            grep -R "SemaCommand" ${src}/schema/spirit.schema >/dev/null
+            grep -R "SemaResponse" ${src}/schema/spirit.schema >/dev/null
+            grep -R "Input::decode_signal_frame" ${src}/src/transport.rs >/dev/null
+            grep -R "Output::decode_signal_frame" ${src}/src/transport.rs >/dev/null
+            grep -R "input.encode_signal_frame" ${src}/src/transport.rs >/dev/null
+            grep -R "output.encode_signal_frame" ${src}/src/transport.rs >/dev/null
+            ! grep -R "pub enum InputRoute" ${src}/src/transport.rs
+            ! grep -R "short_header::" ${src}/src/transport.rs
+            grep -R "generated_input_surface_owns_route_header_and_rkyv_frame" ${src}/tests/generated_signal_plane.rs >/dev/null
+            touch $out
+          '';
+          runtime-triad-visible = pkgs.runCommand "spirit-next-runtime-triad-visible" { } ''
+            grep -R "lower_to_sema" ${src}/src/engine.rs >/dev/null
+            grep -R "SemaResponse" ${src}/src/engine.rs >/dev/null
+            grep -R "pub fn apply(&mut self, command: SemaCommand)" ${src}/src/store.rs >/dev/null
+            grep -R "executor_lowers_signal_input_to_generated_sema_command" ${src}/tests/runtime_triad.rs >/dev/null
+            grep -R "sema_store_is_the_single_writer_for_records" ${src}/tests/runtime_triad.rs >/dev/null
             touch $out
           '';
           local-schema-source-patches = pkgs.runCommand "spirit-next-local-schema-source-patches" { } ''

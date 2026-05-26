@@ -27,13 +27,18 @@ schema/spirit.schema
 - From the nspawn pipeline prototypes: prove the real process boundary, not
   only in-memory function calls.
 
-## Runtime shape
+## Runtime triad
 
-The daemon owns an in-memory `Store`. The CLI:
+The daemon is shaped as the Signal / Executor / SEMA runtime triad.
+
+### Signal
+
+The CLI:
 
 1. reads one NOTA argument;
 2. parses it into generated `Input`;
-3. frames it as short-header + rkyv archive bytes;
+3. asks generated `Input` to frame itself as short-header + rkyv archive
+   bytes;
 4. sends it over a Unix socket;
 5. decodes generated `Output`;
 6. prints NOTA.
@@ -41,11 +46,35 @@ The daemon owns an in-memory `Store`. The CLI:
 The daemon:
 
 1. reads a length-prefixed binary frame;
-2. triages by short header;
+2. asks generated `Input` to triage by short header and decode itself;
 3. decodes generated `Input`;
 4. dispatches through `Engine`;
-5. frames generated `Output` as binary rkyv;
+5. asks generated `Output` to frame itself as binary rkyv;
 6. writes it back.
+
+The hand-written transport module owns only length-prefix socket I/O. It does
+not own route enums, short-header matching, or rkyv archive encode/decode.
+
+### Executor
+
+`Engine::handle` is the executor entry point. It performs the runtime decision
+shape explicitly:
+
+```text
+Input -> SemaCommand -> SemaResponse -> Output
+```
+
+The schema emits those nouns. Rust attaches the behavior:
+
+- `Input::lower_to_sema` maps the external Signal request to state work.
+- `SemaResponse::into_output` maps state response back to Signal reply.
+- `Engine::handle` composes the two around the SEMA writer.
+
+### SEMA
+
+`Store` is the current SEMA writer. The MVP store is still in memory, but all
+state mutation goes through `Store::apply(SemaCommand)`. The next durable slice
+replaces the storage backend with redb without changing the executor shape.
 
 ## Implementation methods
 
@@ -53,9 +82,10 @@ Schema-generated types are the implementation nouns. Hand-written runtime code
 attaches behavior to those nouns or to state-owning runtime objects:
 
 - `Input` is matched by `Engine::handle`.
-- `Entry` is persisted by `Store::record`.
-- `Query` is interpreted by `Store::observe`.
-- `Output` is framed by the transport boundary.
+- `Input` lowers to generated `SemaCommand`.
+- `SemaCommand` is applied by `Store::apply`.
+- `SemaResponse` becomes generated `Output`.
+- `Input` and `Output` frame themselves at the Signal boundary.
 
 When a data shape changes, edit `schema/spirit.schema` first, then regenerate
 through `build.rs`, then update the methods that act on the regenerated types.
@@ -75,6 +105,8 @@ generated Rust still compiles and crosses the CLI/daemon rkyv boundary.
 - The schema language does not yet express vectors, so this pilot uses one
   topic per record.
 - Storage is in-memory, not redb.
-- The signal frame, executor lowering, SEMA command/response, and async
-  exchange identifiers are still hand-written shims or absent.
-- The next slice should replace those shims with schema-derived code.
+- Async exchange identifiers are absent.
+- Schema diff/upgrade is absent.
+- The repo-triad split (`spirit`, `signal-spirit`, `core-signal-spirit`) is
+  not represented in this pilot repo.
+- The next slice should make SEMA durable and start schema diff/upgrade.

@@ -1,4 +1,4 @@
-use crate::{Entry, Kind, Query, Topic};
+use crate::{Entry, ErrorMessage, Query, RecordIdentifier, RecordSet, SemaCommand, SemaResponse};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StoredRecord {
@@ -22,17 +22,30 @@ impl Default for Store {
 }
 
 impl Store {
-    pub fn record(&mut self, entry: Entry) -> u64 {
+    pub fn apply(&mut self, command: SemaCommand) -> SemaResponse {
+        match command {
+            SemaCommand::Record(entry) => {
+                let identifier = self.record(entry);
+                SemaResponse::Recorded(RecordIdentifier(identifier))
+            }
+            SemaCommand::Observe(query) => match self.observe(&query) {
+                Some(entry) => SemaResponse::Observed(RecordSet(entry)),
+                None => SemaResponse::Missed(ErrorMessage(String::from("no matching record"))),
+            },
+        }
+    }
+
+    fn record(&mut self, entry: Entry) -> u64 {
         let identifier = self.next_identifier;
         self.next_identifier += 1;
         self.records.push(StoredRecord { identifier, entry });
         identifier
     }
 
-    pub fn observe(&self, query: &Query) -> Option<Entry> {
+    fn observe(&self, query: &Query) -> Option<Entry> {
         self.records
             .iter()
-            .find(|record| entry_matches(&record.entry, &query.topic, &query.kind))
+            .find(|record| record.entry.matches(query))
             .map(|record| record.entry.clone())
     }
 
@@ -45,6 +58,8 @@ impl Store {
     }
 }
 
-fn entry_matches(entry: &Entry, topic: &Topic, kind: &Kind) -> bool {
-    entry.topic == *topic && entry.kind == *kind
+impl Entry {
+    pub fn matches(&self, query: &Query) -> bool {
+        self.topic == query.topic && self.kind == query.kind
+    }
 }

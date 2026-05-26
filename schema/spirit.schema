@@ -2,6 +2,8 @@
 [
   (Input (Record Entry) (Observe Query))
   (Output (RecordAccepted RecordIdentifier) (RecordsObserved RecordSet) (Error ErrorMessage))
+  (SemaCommand (Record Entry) (Observe Query))
+  (SemaResponse (Recorded RecordIdentifier) (Observed RecordSet) (Missed ErrorMessage))
 ]
 {
   Topic [Text]
