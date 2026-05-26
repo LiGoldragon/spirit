@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+
+nota_next_path="${NOTA_NEXT_PATH:-/git/github.com/LiGoldragon/nota-next}"
+schema_next_path="${SCHEMA_NEXT_PATH:-/git/github.com/LiGoldragon/schema-next}"
+schema_rust_next_path="${SCHEMA_RUST_NEXT_PATH:-/git/github.com/LiGoldragon/schema-rust-next}"
+
+for path in "$nota_next_path" "$schema_next_path" "$schema_rust_next_path"; do
+  if [[ ! -d "$path" ]]; then
+    printf 'missing local dependency checkout: %s\n' "$path" >&2
+    exit 2
+  fi
+done
+
+exec nix flake check "$repo_root" \
+  --override-input nota-next-source "path:$nota_next_path" \
+  --override-input schema-next-source "path:$schema_next_path" \
+  --override-input schema-rust-next-source "path:$schema_rust_next_path" \
+  "$@"

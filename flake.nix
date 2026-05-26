@@ -9,9 +9,25 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     crane.url = "github:ipetkov/crane";
+    nota-next-source = {
+      url = "github:LiGoldragon/nota-next";
+      flake = false;
+    };
+    schema-next-source = {
+      url = "github:LiGoldragon/schema-next";
+      flake = false;
+    };
+    schema-rust-next-source = {
+      url = "github:LiGoldragon/schema-rust-next";
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, fenix, crane }:
+  outputs = { self, nixpkgs, flake-utils, fenix, crane
+    , nota-next-source
+    , schema-next-source
+    , schema-rust-next-source
+  }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; };
@@ -27,11 +43,38 @@
           type == "regular" && pkgs.lib.hasSuffix ".schema" path;
         sourceFilter = path: type:
           (craneLib.filterCargoSources path type) || (schemaFilter path type);
-        src = pkgs.lib.cleanSourceWith {
+        cleanSource = pkgs.lib.cleanSourceWith {
           src = ./.;
           filter = sourceFilter;
           name = "source";
         };
+        src = pkgs.runCommand "spirit-next-source-with-local-schema-patches" {
+          notaNextSource = nota-next-source;
+          schemaNextSource = schema-next-source;
+          schemaRustNextSource = schema-rust-next-source;
+        } ''
+          cp -R ${cleanSource} $out
+          chmod -R u+w $out
+          mkdir -p $out/vendor-sources
+          cp -R "$notaNextSource" $out/vendor-sources/nota-next
+          cp -R "$schemaNextSource" $out/vendor-sources/schema-next
+          cp -R "$schemaRustNextSource" $out/vendor-sources/schema-rust-next
+
+          cat >> $out/Cargo.toml <<'EOF'
+          [patch."https://github.com/LiGoldragon/nota-next.git"]
+          nota-next = { path = "vendor-sources/nota-next" }
+
+          [patch."https://github.com/LiGoldragon/schema-next.git"]
+          schema-next = { path = "vendor-sources/schema-next" }
+
+          [patch."https://github.com/LiGoldragon/schema-rust-next.git"]
+          schema-rust-next = { path = "vendor-sources/schema-rust-next" }
+          EOF
+
+          sed -i '\|^source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#|d' $out/Cargo.lock
+          sed -i '\|^source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#|d' $out/Cargo.lock
+          sed -i '\|^source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#|d' $out/Cargo.lock
+        '';
         cargoVendorDirectory = craneLib.vendorCargoDeps { inherit src; };
         commonArguments = {
           inherit src cargoVendorDirectory;
@@ -45,7 +88,7 @@
           build = craneLib.cargoBuild (commonArguments // { inherit cargoArtifacts; });
           test = craneLib.cargoTest (commonArguments // { inherit cargoArtifacts; });
           no-old-signal-macro = pkgs.runCommand "spirit-next-no-old-signal-macro" { } ''
-            if grep -R "signal_channel!" ${src}; then
+            if grep -R "signal_channel!" ${src}/build.rs ${src}/schema ${src}/src ${src}/tests; then
               echo "spirit-next must not use the old signal_channel macro" >&2
               exit 1
             fi
@@ -61,6 +104,18 @@
             grep -R "rkyv::to_bytes" ${src}/src/transport.rs >/dev/null
             grep -R "rkyv::from_bytes" ${src}/src/transport.rs >/dev/null
             grep -R "Command::new(env!(\"CARGO_BIN_EXE_spirit-next\"))" ${src}/tests/process_boundary.rs >/dev/null
+            touch $out
+          '';
+          local-schema-source-patches = pkgs.runCommand "spirit-next-local-schema-source-patches" { } ''
+            grep -R 'patch."https://github.com/LiGoldragon/nota-next.git"' ${src}/Cargo.toml >/dev/null
+            grep -R 'patch."https://github.com/LiGoldragon/schema-next.git"' ${src}/Cargo.toml >/dev/null
+            grep -R 'patch."https://github.com/LiGoldragon/schema-rust-next.git"' ${src}/Cargo.toml >/dev/null
+            test -d ${src}/vendor-sources/nota-next
+            test -d ${src}/vendor-sources/schema-next
+            test -d ${src}/vendor-sources/schema-rust-next
+            ! grep -R 'source = "git+https://github.com/LiGoldragon/nota-next.git' ${src}/Cargo.lock
+            ! grep -R 'source = "git+https://github.com/LiGoldragon/schema-next.git' ${src}/Cargo.lock
+            ! grep -R 'source = "git+https://github.com/LiGoldragon/schema-rust-next.git' ${src}/Cargo.lock
             touch $out
           '';
           fmt = craneLib.cargoFmt { inherit src; };

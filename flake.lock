@@ -70,12 +70,31 @@
         "type": "github"
       }
     },
+    "nota-next-source": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1779804126,
+        "narHash": "sha256-QHWNxQaTrUp62UXeeYHu6zu5V6xJj/W+VyTvhL8mMKw=",
+        "owner": "LiGoldragon",
+        "repo": "nota-next",
+        "rev": "6b4364d94206a321db3489b8da59a88750a7c594",
+        "type": "github"
+      },
+      "original": {
+        "owner": "LiGoldragon",
+        "repo": "nota-next",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "crane": "crane",
         "fenix": "fenix",
         "flake-utils": "flake-utils",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "nota-next-source": "nota-next-source",
+        "schema-next-source": "schema-next-source",
+        "schema-rust-next-source": "schema-rust-next-source"
       }
     },
     "rust-analyzer-src": {
@@ -92,6 +111,38 @@
         "owner": "rust-lang",
         "ref": "nightly",
         "repo": "rust-analyzer",
+        "type": "github"
+      }
+    },
+    "schema-next-source": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1779804344,
+        "narHash": "sha256-fuDLXPVG9r9h8SZTHkY1tphNsqCbiuya++Q53zMCfNk=",
+        "owner": "LiGoldragon",
+        "repo": "schema-next",
+        "rev": "19591a7a7f5366a3afe7c807c42074b22400e4b5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "LiGoldragon",
+        "repo": "schema-next",
+        "type": "github"
+      }
+    },
+    "schema-rust-next-source": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1779806023,
+        "narHash": "sha256-Ls3qc+pna9LOlCodW7f9jCGcI4ahrZaybaZGWqbx8pc=",
+        "owner": "LiGoldragon",
+        "repo": "schema-rust-next",
+        "rev": "f76d6483b477e19e4d56de42e571e970115e31c0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "LiGoldragon",
+        "repo": "schema-rust-next",
         "type": "github"
       }
     },

@@ -47,6 +47,29 @@ The daemon:
 5. frames generated `Output` as binary rkyv;
 6. writes it back.
 
+## Implementation methods
+
+Schema-generated types are the implementation nouns. Hand-written runtime code
+attaches behavior to those nouns or to state-owning runtime objects:
+
+- `Input` is matched by `Engine::handle`.
+- `Entry` is persisted by `Store::record`.
+- `Query` is interpreted by `Store::observe`.
+- `Output` is framed by the transport boundary.
+
+When a data shape changes, edit `schema/spirit.schema` first, then regenerate
+through `build.rs`, then update the methods that act on the regenerated types.
+Do not hand-write parallel type mirrors.
+
+## Local stack testing
+
+`scripts/check-local-schema-stack` runs the central local override test for
+this pilot. It rebuilds `spirit-next` with local checkouts of `nota-next`,
+`schema-next`, and `schema-rust-next` by overriding Nix source inputs. This is
+the intended loop while improving the NOTA parser, schema lowering, or Rust
+emitter: edit a substrate repo, run the consumer check here, and prove the
+generated Rust still compiles and crosses the CLI/daemon rkyv boundary.
+
 ## Known limits
 
 - The schema language does not yet express vectors, so this pilot uses one

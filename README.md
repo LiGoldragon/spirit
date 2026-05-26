@@ -35,3 +35,17 @@ SPIRIT_NEXT_SOCKET=/tmp/spirit-next.sock \
 
 The CLI accepts NOTA. The daemon socket carries length-prefixed rkyv bytes
 with an 8-byte short header.
+
+## Local schema stack check
+
+When editing `nota-next`, `schema-next`, or `schema-rust-next` together with
+this consumer, run the local override check:
+
+```sh
+scripts/check-local-schema-stack
+```
+
+It runs `nix flake check` while overriding the schema-stack source inputs to
+the latest local checkouts under `/git/github.com/LiGoldragon/`. Override those
+paths with `NOTA_NEXT_PATH`, `SCHEMA_NEXT_PATH`, and
+`SCHEMA_RUST_NEXT_PATH` when testing a different checkout.
