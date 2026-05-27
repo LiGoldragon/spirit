@@ -8,12 +8,13 @@ a real CLI and daemon pair.
 ## Layers
 
 ```text
-schema/spirit.schema
+schema/lib.schema
   -> build.rs
+  -> schema-next::SchemaPackage
   -> schema-next::SchemaEngine
   -> schema-next::MacroRegistry
   -> schema-rust-next::RustEmitter
-  -> generated module
+  -> generated module at OUT_DIR/schema/lib.rs
   -> engine/store/transport shims
 ```
 
@@ -88,7 +89,7 @@ attaches behavior to those nouns or to state-owning runtime objects:
 - `SemaResponse` becomes generated `Output`.
 - `Input` and `Output` frame themselves at the Signal boundary.
 
-When a data shape changes, edit `schema/spirit.schema` first, then regenerate
+When a data shape changes, edit `schema/lib.schema` first, then regenerate
 through `build.rs`, then update the methods that act on the regenerated types.
 Do not hand-write parallel type mirrors.
 

@@ -1,7 +1,7 @@
 //! `spirit-next` runtime.
 //!
 //! This crate is a running schema-derived Spirit pilot. The public wire
-//! types are generated at build time from `schema/spirit.schema` through
+//! types are generated at build time from `schema/lib.schema` through
 //! `schema-next` and `schema-rust-next`; the hand-written code here is the
 //! runtime shim around those generated interfaces.
 
@@ -13,14 +13,16 @@ pub mod engine;
 pub mod store;
 pub mod transport;
 
-pub mod generated {
-    include!(concat!(env!("OUT_DIR"), "/spirit_next_generated.rs"));
+pub mod schema {
+    pub mod lib {
+        include!(concat!(env!("OUT_DIR"), "/schema/lib.rs"));
+    }
 }
 
 pub use config::{Configuration, ConfigurationError};
 pub use daemon::{Daemon, DaemonError};
 pub use engine::Engine;
-pub use generated::{
+pub use schema::lib::{
     Description, Entry, ErrorMessage, Input, InputRoute, Kind, Magnitude, Output, OutputRoute,
     Query, RecordIdentifier, RecordSet, SemaCommand, SemaResponse, SignalFrameError, Topic,
 };

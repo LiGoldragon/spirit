@@ -230,7 +230,7 @@ dependencies = [
 [[package]]
 name = "nota-next"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#6b4364d94206a321db3489b8da59a88750a7c594"
+source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#1c11876b7c90fec53b4c9aafe941543cbdeddeaa"
 
 [[package]]
 name = "once_cell"
@@ -368,7 +368,7 @@ checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 [[package]]
 name = "schema-next"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#8c821cba7ebe9dabade8c203410314536c86de9d"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#807c5250c313e0dbedf0e4d2dbc41cb97116a44e"
 dependencies = [
  "nota-next",
 ]
@@ -376,7 +376,7 @@ dependencies = [
 [[package]]
 name = "schema-rust-next"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#b5a851a13bb203cc68ac59317030ad821aad20d7"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#5ca1c964611ee54408fdda854ee03c3056c8dc01"
 dependencies = [
  "schema-next",
 ]

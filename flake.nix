@@ -95,13 +95,15 @@
             touch $out
           '';
           generated-at-build-time = pkgs.runCommand "spirit-next-generated-at-build-time" { } ''
+            grep -R "SchemaPackage::new" ${src}/build.rs >/dev/null
             grep -R "SchemaEngine::default" ${src}/build.rs >/dev/null
             grep -R "lower_source_with_context" ${src}/build.rs >/dev/null
             grep -R "macros_applied" ${src}/build.rs >/dev/null
             grep -R "SchemaStructDefinition" ${src}/build.rs >/dev/null
             grep -R "SchemaEnumDefinition" ${src}/build.rs >/dev/null
             grep -R "RustEmitter::default().emit_file" ${src}/build.rs >/dev/null
-            grep -R "include!(concat!(env!(\"OUT_DIR\")" ${src}/src/lib.rs >/dev/null
+            grep -R "schema/lib.schema" ${src}/build.rs >/dev/null
+            grep -R "include!(concat!(env!(\"OUT_DIR\"), \"/schema/lib.rs\"))" ${src}/src/lib.rs >/dev/null
             touch $out
           '';
           binary-boundary-test = pkgs.runCommand "spirit-next-binary-boundary-test" { } ''
@@ -116,8 +118,8 @@
             grep -R "InputRoute" ${src}/src/lib.rs >/dev/null
             grep -R "OutputRoute" ${src}/src/lib.rs >/dev/null
             grep -R "SignalFrameError" ${src}/src/lib.rs >/dev/null
-            grep -R "SemaCommand" ${src}/schema/spirit.schema >/dev/null
-            grep -R "SemaResponse" ${src}/schema/spirit.schema >/dev/null
+            grep -R "SemaCommand" ${src}/schema/lib.schema >/dev/null
+            grep -R "SemaResponse" ${src}/schema/lib.schema >/dev/null
             grep -R "Input::decode_signal_frame" ${src}/src/transport.rs >/dev/null
             grep -R "Output::decode_signal_frame" ${src}/src/transport.rs >/dev/null
             grep -R "input.encode_signal_frame" ${src}/src/transport.rs >/dev/null

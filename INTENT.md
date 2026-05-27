@@ -10,7 +10,8 @@ Load-bearing constraints:
 
 - CLI input and output are NOTA.
 - Component/process communication is binary rkyv.
-- Rust data types are generated from `schema/spirit.schema`.
+- Rust data types are generated from the crate-local `schema/lib.schema`
+  entrypoint.
 - Schema lowering goes through `schema-next`'s macro registry before Rust
   emission; the build must fail if the registry does not reach nested
   struct-field and enum-variant type bodies.

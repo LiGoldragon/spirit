@@ -5,9 +5,9 @@ Runnable schema-derived Spirit pilot.
 `spirit-next` proves the first practical version of the new architecture:
 
 ```text
-schema/spirit.schema
+schema/lib.schema
   -> schema-next Asschema
-  -> schema-rust-next generated Rust
+  -> schema-rust-next generated Rust at OUT_DIR/schema/lib.rs
   -> CLI NOTA input
   -> generated Signal frame (short header + rkyv)
   -> daemon Executor
