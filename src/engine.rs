@@ -2,8 +2,8 @@ use std::{convert::Infallible, sync::Mutex};
 
 use crate::{
     DatabaseMarker, Entry, Input, InputNexus, Integer, MailIdentifier, MailLedgerEvent,
-    MessageIdentifier, MessageProcessed, MessageSent, NexusMail, Output, ProcessedMail, Query,
-    SemaCommand, SemaResponse, SentMail, ShortHeader, store::Store,
+    MessageIdentifier, MessageProcessed, MessageSent, NexusInput, NexusMail, NexusOutput, Output,
+    ProcessedMail, Query, SemaInput, SemaOutput, SentMail, ShortHeader, store::Store,
 };
 
 #[derive(Debug, Default)]
@@ -17,9 +17,15 @@ impl Engine {
     pub fn handle(&self, input: Input) -> Output {
         let identifier = self.issue_message_identifier();
         self.remember_message_sent(input.message_sent(identifier));
-        let processed = input
+        let nexus_step = input
             .dispatch_mail_with_nexus(identifier, self)
             .expect("spirit-next nexus is infallible");
+        let sema_input = nexus_step.into_reply().into_sema_input();
+        let sema_output = self.store.lock().expect("store lock").apply(sema_input);
+        let output = NexusInput::Sema(sema_output)
+            .into_nexus_output()
+            .into_signal_output();
+        let processed = MessageProcessed::new(identifier, output);
         self.remember_message_processed(&processed);
         processed.into_reply()
     }
@@ -72,40 +78,61 @@ impl Engine {
             .expect("mail ledger lock")
             .push(event.processed_mail_event());
     }
-
-    fn apply_sema_command(&self, command: SemaCommand) -> Output {
-        let response = self.store.lock().expect("store lock").apply(command);
-        response.into_output()
-    }
 }
 
 impl InputNexus for Engine {
-    type Reply = Output;
+    type Reply = NexusOutput;
     type Error = Infallible;
 
     fn record(&self, mail: NexusMail<Entry>) -> Result<Self::Reply, Self::Error> {
-        Ok(self.apply_sema_command(mail.into_sema_command()))
+        Ok(mail.into_nexus_input().into_nexus_output())
     }
 
     fn observe(&self, mail: NexusMail<Query>) -> Result<Self::Reply, Self::Error> {
-        Ok(self.apply_sema_command(mail.into_sema_command()))
+        Ok(mail.into_nexus_input().into_nexus_output())
     }
 }
 
 impl NexusMail<Entry> {
-    pub fn into_sema_command(self) -> SemaCommand {
-        SemaCommand::Record(self.into_payload())
+    pub fn into_nexus_input(self) -> NexusInput {
+        NexusInput::Signal(Input::Record(self.into_payload()))
     }
 }
 
 impl NexusMail<Query> {
-    pub fn into_sema_command(self) -> SemaCommand {
-        SemaCommand::Observe(self.into_payload())
+    pub fn into_nexus_input(self) -> NexusInput {
+        NexusInput::Signal(Input::Observe(self.into_payload()))
     }
 }
 
-impl SemaResponse {
-    pub fn into_output(self) -> Output {
+impl NexusInput {
+    pub fn into_nexus_output(self) -> NexusOutput {
+        match self {
+            Self::Signal(Input::Record(entry)) => NexusOutput::Sema(SemaInput::Record(entry)),
+            Self::Signal(Input::Observe(query)) => NexusOutput::Sema(SemaInput::Observe(query)),
+            Self::Sema(output) => NexusOutput::Signal(output.into_signal_output()),
+        }
+    }
+}
+
+impl NexusOutput {
+    pub fn into_sema_input(self) -> SemaInput {
+        match self {
+            Self::Sema(input) => input,
+            Self::Signal(_) => panic!("nexus output is a signal reply, not a SEMA input"),
+        }
+    }
+
+    pub fn into_signal_output(self) -> Output {
+        match self {
+            Self::Signal(output) => output,
+            Self::Sema(_) => panic!("nexus output is a SEMA input, not a signal reply"),
+        }
+    }
+}
+
+impl SemaOutput {
+    pub fn into_signal_output(self) -> Output {
         match self {
             Self::Recorded(identifier) => Output::RecordAccepted(identifier),
             Self::Observed(records) => Output::RecordsObserved(records),

@@ -1,6 +1,6 @@
 use crate::{
     CommitSequence, DatabaseMarker, Entry, ErrorMessage, ErrorReport, Magnitude, ObservedRecords,
-    Query, RecordIdentifier, RecordSet, SemaCommand, SemaReceipt, SemaResponse, StateDigest,
+    Query, RecordIdentifier, RecordSet, SemaInput, SemaOutput, SemaReceipt, StateDigest,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -27,21 +27,21 @@ impl Default for Store {
 }
 
 impl Store {
-    pub fn apply(&mut self, command: SemaCommand) -> SemaResponse {
+    pub fn apply(&mut self, command: SemaInput) -> SemaOutput {
         match command {
-            SemaCommand::Record(entry) => {
+            SemaInput::Record(entry) => {
                 let identifier = self.record(entry);
-                SemaResponse::Recorded(SemaReceipt {
+                SemaOutput::Recorded(SemaReceipt {
                     record_identifier: RecordIdentifier(identifier),
                     database_marker: self.database_marker(),
                 })
             }
-            SemaCommand::Observe(query) => match self.observe(&query) {
-                Some(entry) => SemaResponse::Observed(ObservedRecords {
+            SemaInput::Observe(query) => match self.observe(&query) {
+                Some(entry) => SemaOutput::Observed(ObservedRecords {
                     record_set: RecordSet(entry),
                     database_marker: self.database_marker(),
                 }),
-                None => SemaResponse::Missed(ErrorReport {
+                None => SemaOutput::Missed(ErrorReport {
                     error_message: ErrorMessage(String::from("no matching record")),
                     database_marker: self.database_marker(),
                 }),

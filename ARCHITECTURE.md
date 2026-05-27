@@ -66,14 +66,19 @@ and the generated `InputNexus` trait dispatches to one method per Signal
 variant. While Nexus owns that mail object, the message is being processed.
 
 ```text
-Input -> NexusMail<Payload> -> SemaCommand -> SemaResponse -> MessageProcessed<Output> -> Output
+Input -> NexusInput -> NexusOutput::Sema(SemaInput)
+  -> SemaOutput
+  -> NexusInput::Sema -> NexusOutput::Signal(Output)
+  -> MessageProcessed<Output>
 ```
 
 The schema emits those nouns. Rust attaches the behavior:
 
-- `NexusMail<Entry>::into_sema_command` and
-  `NexusMail<Query>::into_sema_command` map Signal payload mail to state work.
-- `SemaResponse::into_output` maps state response back to Signal reply.
+- `NexusMail<Entry>::into_nexus_input` and
+  `NexusMail<Query>::into_nexus_input` map Signal payload mail into the Nexus
+  language.
+- `NexusInput::into_nexus_output` maps Signal-side Nexus input to
+  `SemaInput`, and maps `SemaOutput` back to Signal `Output`.
 - `Engine::handle` records generated `MailLedgerEvent` values for sent and
   processed mail and composes Nexus dispatch around the SEMA writer.
 - `MessageSent::into_mail_ledger_event` and
@@ -83,11 +88,18 @@ The schema emits those nouns. Rust attaches the behavior:
 ### SEMA
 
 `Store` is the current SEMA writer. The MVP store is still in memory, but all
-state mutation goes through `Store::apply(SemaCommand)`. SEMA replies carry a
+state mutation goes through `Store::apply(SemaInput)`. SEMA replies carry a
 generated `DatabaseMarker` with `CommitSequence` and `StateDigest`, so Signal
 outputs include the state marker that Nexus uses to close processed mail.
 The next durable slice replaces the storage backend with redb without changing
 the Nexus shape.
+
+### Reuse
+
+The schema declares reusable import/export nouns for language planes:
+`Import [SourcePath LocalPath]` and `Export [LocalPath PublicPath]`.
+The paths are single-colon namespaces, mirroring Rust crate/module paths with
+`:` instead of `::`, for example `signal:sema:Magnitude`.
 
 ## Implementation methods
 
@@ -96,9 +108,12 @@ attaches behavior to those nouns or to state-owning runtime objects:
 
 - `Input` is accepted by `Engine::handle`.
 - `Input` emits `MessageSent` and dispatches as `NexusMail<Payload>`.
-- `NexusMail<Payload>` lowers to generated `SemaCommand`.
-- `SemaCommand` is applied by `Store::apply`.
-- `SemaResponse` becomes generated `Output` carrying a `DatabaseMarker`.
+- `NexusMail<Payload>` becomes generated `NexusInput`.
+- `NexusInput` becomes generated `NexusOutput`.
+- `NexusOutput::Sema` carries generated `SemaInput`.
+- `SemaInput` is applied by `Store::apply`.
+- `SemaOutput` becomes `NexusInput::Sema` and then generated `Output` carrying
+  a `DatabaseMarker`.
 - `MailLedgerEvent` stores sent and processed mail markers in the runtime
   ledger.
 - `Input` and `Output` frame themselves at the Signal boundary.

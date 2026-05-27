@@ -1,8 +1,9 @@
 use spirit_next::{
-    CommitSequence, DatabaseMarker, Description, Engine, Entry, ErrorMessage, ErrorReport, Input,
-    Kind, Magnitude, MailIdentifier, MailLedgerEvent, MessageIdentifier, NexusMail, Output,
-    ProcessedMail, Query, RecordIdentifier, RecordSet, SemaCommand, SemaReceipt, SemaResponse,
-    SentMail, ShortHeader, StateDigest, Store, Topic,
+    CommitSequence, DatabaseMarker, Description, Engine, Entry, ErrorMessage, ErrorReport, Export,
+    Import, Input, Kind, LocalPath, Magnitude, MailIdentifier, MailLedgerEvent, MessageIdentifier,
+    NexusInput, NexusMail, NexusOutput, Output, ProcessedMail, PublicPath, Query, RecordIdentifier,
+    RecordSet, SemaInput, SemaOutput, SemaReceipt, SentMail, ShortHeader, SourcePath, StateDigest,
+    Store, Topic,
 };
 
 fn entry(description: &str) -> Entry {
@@ -24,13 +25,15 @@ fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
 #[test]
 fn nexus_mail_lowers_signal_payload_to_generated_sema_command() {
     let command = NexusMail::new(MessageIdentifier(1), entry("nexus mail lowers to SEMA"))
-        .into_sema_command();
+        .into_nexus_input()
+        .into_nexus_output()
+        .into_sema_input();
 
     match command {
-        SemaCommand::Record(recorded) => {
+        SemaInput::Record(recorded) => {
             assert_eq!(recorded.description.0, "nexus mail lowers to SEMA");
         }
-        SemaCommand::Observe(_) => panic!("record input should lower to record command"),
+        SemaInput::Observe(_) => panic!("record input should lower to record command"),
     }
 }
 
@@ -38,11 +41,11 @@ fn nexus_mail_lowers_signal_payload_to_generated_sema_command() {
 fn sema_store_is_the_single_writer_for_records() {
     let mut store = Store::default();
 
-    let response = store.apply(SemaCommand::Record(entry("SEMA writes durable facts")));
+    let response = store.apply(SemaInput::Record(entry("SEMA writes durable facts")));
 
     assert_eq!(
         response,
-        SemaResponse::Recorded(SemaReceipt {
+        SemaOutput::Recorded(SemaReceipt {
             record_identifier: RecordIdentifier(1),
             database_marker: marker(1, 39),
         })
@@ -52,11 +55,12 @@ fn sema_store_is_the_single_writer_for_records() {
 
 #[test]
 fn sema_response_maps_back_to_signal_output() {
-    let output = SemaResponse::Missed(ErrorReport {
+    let output = NexusInput::Sema(SemaOutput::Missed(ErrorReport {
         error_message: ErrorMessage(String::from("no matching record")),
         database_marker: marker(0, 0),
-    })
-    .into_output();
+    }))
+    .into_nexus_output()
+    .into_signal_output();
 
     assert_eq!(
         output,
@@ -64,6 +68,46 @@ fn sema_response_maps_back_to_signal_output() {
             error_message: ErrorMessage(String::from("no matching record")),
             database_marker: marker(0, 0),
         })
+    );
+}
+
+#[test]
+fn nexus_and_sema_have_explicit_input_output_languages() {
+    let nexus_input = NexusInput::Signal(Input::Record(entry("language input")));
+    let nexus_output = nexus_input.into_nexus_output();
+    assert!(matches!(
+        nexus_output,
+        NexusOutput::Sema(SemaInput::Record(_))
+    ));
+
+    let sema_output = SemaOutput::Recorded(SemaReceipt {
+        record_identifier: RecordIdentifier(3),
+        database_marker: marker(4, 127),
+    });
+    let signal_output = NexusInput::Sema(sema_output)
+        .into_nexus_output()
+        .into_signal_output();
+    assert!(matches!(signal_output, Output::RecordAccepted(_)));
+}
+
+#[test]
+fn import_export_paths_use_single_colon_namespaces() {
+    let import = Import {
+        source_path: SourcePath(String::from("signal:sema:Magnitude")),
+        local_path: LocalPath(String::from("spirit:core:Magnitude")),
+    };
+    let export = Export {
+        local_path: LocalPath(String::from("spirit:core:SemaOutput")),
+        public_path: PublicPath(String::from("spirit:sema:SemaOutput")),
+    };
+
+    assert_eq!(
+        import.to_nota(),
+        "([signal:sema:Magnitude] [spirit:core:Magnitude])"
+    );
+    assert_eq!(
+        export.to_nota(),
+        "([spirit:core:SemaOutput] [spirit:sema:SemaOutput])"
     );
 }
 

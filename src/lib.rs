@@ -23,12 +23,13 @@ pub use config::{Configuration, ConfigurationError};
 pub use daemon::{Daemon, DaemonError};
 pub use engine::Engine;
 pub use schema::lib::{
-    CommitSequence, DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport, Input,
-    InputNexus, InputRoute, Integer, Kind, Magnitude, MailIdentifier, MailLedgerEvent,
-    MessageIdentifier, MessageProcessed, MessageProcessedHook, MessageRoot, MessageSent,
-    MessageSentHook, NexusMail, ObservedRecords, Output, OutputRoute, ProcessedMail, Query,
-    RecordIdentifier, RecordSet, SemaCommand, SemaReceipt, SemaResponse, SentMail, ShortHeader,
-    SignalFrameError, StateDigest, Topic,
+    CommitSequence, DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport, Export, Import,
+    Input, InputNexus, InputRoute, Integer, Kind, LocalPath, Magnitude, MailIdentifier,
+    MailLedgerEvent, MessageIdentifier, MessageProcessed, MessageProcessedHook, MessageRoot,
+    MessageSent, MessageSentHook, NexusInput, NexusMail, NexusOutput, NexusReuse, ObservedRecords,
+    Output, OutputRoute, ProcessedMail, PublicPath, Query, RecordIdentifier, RecordSet, SemaInput,
+    SemaOutput, SemaReceipt, SemaReuse, SentMail, ShortHeader, SignalFrameError, SignalReuse,
+    SourcePath, StateDigest, Topic,
 };
 pub use store::Store;
 pub use transport::{SignalTransport, TransportError};

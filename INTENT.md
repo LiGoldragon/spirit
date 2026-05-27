@@ -21,18 +21,22 @@ Load-bearing constraints:
 - `build.rs` is a freshness witness for the generated source. It regenerates
   in memory and fails if `src/schema/lib.rs` is missing or stale.
 - The schema declares the runtime triad surfaces:
-  `Input`/`Output` for Signal and `SemaCommand`/`SemaResponse` for
-  state work.
+  `Input`/`Output` for Signal, `NexusInput`/`NexusOutput` for execution mail,
+  and `SemaInput`/`SemaOutput` for state work.
+- Each language plane has input/output and reusable import/export vocabulary.
+  Import/export paths mirror Rust module namespaces with a single colon rather
+  than double colon, for example `signal:sema:Magnitude`.
 - Nexus is the execution and mail-keeper plane between Signal and SEMA. Signal
   input becomes `NexusMail<Payload>` with a `MessageIdentifier`; while Nexus
   owns that object, the mail is being processed.
-- Nexus lowers generated Signal payload mail into generated SEMA command, then
-  turns generated SEMA response into generated Signal output and records
+- Nexus lowers generated Signal payload mail into generated `NexusInput`, then
+  emits generated `NexusOutput::Sema(SemaInput)`. When SEMA replies with
+  `SemaOutput`, Nexus turns it into generated Signal output and records
   `MessageProcessed<Output>`.
 - Nexus mail lifecycle state is represented with generated schema nouns:
   `MailLedgerEvent`, `SentMail`, and `ProcessedMail`.
 - The store is the SEMA writer. Runtime state changes pass through
-  `Store::apply(SemaCommand)` rather than direct mutation from the Signal
+  `Store::apply(SemaInput)` rather than direct mutation from the Signal
   layer.
 - SEMA replies carry generated `DatabaseMarker` values so Signal replies can
   report the state commit sequence and digest that accepted or observed the

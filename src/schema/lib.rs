@@ -114,13 +114,64 @@ impl<'a> NotaText<'a> {
 }
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub enum SemaCommand {
+pub struct SourcePath(pub Text);
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct LocalPath(pub Text);
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct PublicPath(pub Text);
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Import {
+    pub source_path: SourcePath,
+    pub local_path: LocalPath,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Export {
+    pub local_path: LocalPath,
+    pub public_path: PublicPath,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct SignalReuse {
+    pub import: Import,
+    pub export: Export,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct NexusReuse {
+    pub import: Import,
+    pub export: Export,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct SemaReuse {
+    pub import: Import,
+    pub export: Export,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum NexusInput {
+    Signal(Input),
+    Sema(SemaOutput),
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum NexusOutput {
+    Sema(SemaInput),
+    Signal(Output),
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum SemaInput {
     Record(Entry),
     Observe(Query),
 }
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub enum SemaResponse {
+pub enum SemaOutput {
     Recorded(SemaReceipt),
     Observed(ObservedRecords),
     Missed(ErrorReport),
@@ -242,17 +293,181 @@ pub enum Output {
     Error(ErrorReport),
 }
 
-impl SemaCommand {
+impl SourcePath {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        Ok(Self(NotaBlock::new(block).parse_text()?))
+    }
+
+    pub fn to_nota(&self) -> String {
+        NotaText::new(&self.0).format()
+    }
+}
+
+impl LocalPath {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        Ok(Self(NotaBlock::new(block).parse_text()?))
+    }
+
+    pub fn to_nota(&self) -> String {
+        NotaText::new(&self.0).format()
+    }
+}
+
+impl PublicPath {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        Ok(Self(NotaBlock::new(block).parse_text()?))
+    }
+
+    pub fn to_nota(&self) -> String {
+        NotaText::new(&self.0).format()
+    }
+}
+
+impl Import {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "Import", 2)?;
+        Ok(Self {
+            source_path: SourcePath::from_nota_block(&children[0])?,
+            local_path: LocalPath::from_nota_block(&children[1])?,
+        })
+    }
+
+    pub fn to_nota(&self) -> String {
+        let fields = [
+            self.source_path.to_nota(),
+            self.local_path.to_nota(),
+        ];
+        format!("({})", fields.join(" "))
+    }
+}
+
+impl Export {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "Export", 2)?;
+        Ok(Self {
+            local_path: LocalPath::from_nota_block(&children[0])?,
+            public_path: PublicPath::from_nota_block(&children[1])?,
+        })
+    }
+
+    pub fn to_nota(&self) -> String {
+        let fields = [
+            self.local_path.to_nota(),
+            self.public_path.to_nota(),
+        ];
+        format!("({})", fields.join(" "))
+    }
+}
+
+impl SignalReuse {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "SignalReuse", 2)?;
+        Ok(Self {
+            import: Import::from_nota_block(&children[0])?,
+            export: Export::from_nota_block(&children[1])?,
+        })
+    }
+
+    pub fn to_nota(&self) -> String {
+        let fields = [
+            self.import.to_nota(),
+            self.export.to_nota(),
+        ];
+        format!("({})", fields.join(" "))
+    }
+}
+
+impl NexusReuse {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "NexusReuse", 2)?;
+        Ok(Self {
+            import: Import::from_nota_block(&children[0])?,
+            export: Export::from_nota_block(&children[1])?,
+        })
+    }
+
+    pub fn to_nota(&self) -> String {
+        let fields = [
+            self.import.to_nota(),
+            self.export.to_nota(),
+        ];
+        format!("({})", fields.join(" "))
+    }
+}
+
+impl SemaReuse {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "SemaReuse", 2)?;
+        Ok(Self {
+            import: Import::from_nota_block(&children[0])?,
+            export: Export::from_nota_block(&children[1])?,
+        })
+    }
+
+    pub fn to_nota(&self) -> String {
+        let fields = [
+            self.import.to_nota(),
+            self.export.to_nota(),
+        ];
+        format!("({})", fields.join(" "))
+    }
+}
+
+impl NexusInput {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         if let Some(variant) = block.demote_to_string() {
-            return Err(NotaDecodeError::UnknownVariant { enum_name: "SemaCommand", variant: variant.to_owned() });
+            return Err(NotaDecodeError::UnknownVariant { enum_name: "NexusInput", variant: variant.to_owned() });
         }
-        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "SemaCommand", 2)?;
+        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "NexusInput", 2)?;
+        let variant = children[0].demote_to_string().ok_or(NotaDecodeError::ExpectedAtom { type_name: "enum variant" })?;
+        match variant {
+            "Signal" => Ok(Self::Signal(Input::from_nota_block(&children[1])?)),
+            "Sema" => Ok(Self::Sema(SemaOutput::from_nota_block(&children[1])?)),
+            other => Err(NotaDecodeError::UnknownVariant { enum_name: "NexusInput", variant: other.to_owned() }),
+        }
+    }
+
+    pub fn to_nota(&self) -> String {
+        match self {
+            Self::Signal(payload) => format!("(Signal {})", payload.to_nota()),
+            Self::Sema(payload) => format!("(Sema {})", payload.to_nota()),
+        }
+    }
+}
+
+impl NexusOutput {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        if let Some(variant) = block.demote_to_string() {
+            return Err(NotaDecodeError::UnknownVariant { enum_name: "NexusOutput", variant: variant.to_owned() });
+        }
+        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "NexusOutput", 2)?;
+        let variant = children[0].demote_to_string().ok_or(NotaDecodeError::ExpectedAtom { type_name: "enum variant" })?;
+        match variant {
+            "Sema" => Ok(Self::Sema(SemaInput::from_nota_block(&children[1])?)),
+            "Signal" => Ok(Self::Signal(Output::from_nota_block(&children[1])?)),
+            other => Err(NotaDecodeError::UnknownVariant { enum_name: "NexusOutput", variant: other.to_owned() }),
+        }
+    }
+
+    pub fn to_nota(&self) -> String {
+        match self {
+            Self::Sema(payload) => format!("(Sema {})", payload.to_nota()),
+            Self::Signal(payload) => format!("(Signal {})", payload.to_nota()),
+        }
+    }
+}
+
+impl SemaInput {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        if let Some(variant) = block.demote_to_string() {
+            return Err(NotaDecodeError::UnknownVariant { enum_name: "SemaInput", variant: variant.to_owned() });
+        }
+        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "SemaInput", 2)?;
         let variant = children[0].demote_to_string().ok_or(NotaDecodeError::ExpectedAtom { type_name: "enum variant" })?;
         match variant {
             "Record" => Ok(Self::Record(Entry::from_nota_block(&children[1])?)),
             "Observe" => Ok(Self::Observe(Query::from_nota_block(&children[1])?)),
-            other => Err(NotaDecodeError::UnknownVariant { enum_name: "SemaCommand", variant: other.to_owned() }),
+            other => Err(NotaDecodeError::UnknownVariant { enum_name: "SemaInput", variant: other.to_owned() }),
         }
     }
 
@@ -264,18 +479,18 @@ impl SemaCommand {
     }
 }
 
-impl SemaResponse {
+impl SemaOutput {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         if let Some(variant) = block.demote_to_string() {
-            return Err(NotaDecodeError::UnknownVariant { enum_name: "SemaResponse", variant: variant.to_owned() });
+            return Err(NotaDecodeError::UnknownVariant { enum_name: "SemaOutput", variant: variant.to_owned() });
         }
-        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "SemaResponse", 2)?;
+        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "SemaOutput", 2)?;
         let variant = children[0].demote_to_string().ok_or(NotaDecodeError::ExpectedAtom { type_name: "enum variant" })?;
         match variant {
             "Recorded" => Ok(Self::Recorded(SemaReceipt::from_nota_block(&children[1])?)),
             "Observed" => Ok(Self::Observed(ObservedRecords::from_nota_block(&children[1])?)),
             "Missed" => Ok(Self::Missed(ErrorReport::from_nota_block(&children[1])?)),
-            other => Err(NotaDecodeError::UnknownVariant { enum_name: "SemaResponse", variant: other.to_owned() }),
+            other => Err(NotaDecodeError::UnknownVariant { enum_name: "SemaOutput", variant: other.to_owned() }),
         }
     }
 

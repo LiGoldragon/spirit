@@ -123,8 +123,12 @@
             grep -R "InputRoute" ${src}/src/lib.rs >/dev/null
             grep -R "OutputRoute" ${src}/src/lib.rs >/dev/null
             grep -R "SignalFrameError" ${src}/src/lib.rs >/dev/null
-            grep -R "SemaCommand" ${src}/schema/lib.schema >/dev/null
-            grep -R "SemaResponse" ${src}/schema/lib.schema >/dev/null
+            grep -R "NexusInput" ${src}/schema/lib.schema >/dev/null
+            grep -R "NexusOutput" ${src}/schema/lib.schema >/dev/null
+            grep -R "SemaInput" ${src}/schema/lib.schema >/dev/null
+            grep -R "SemaOutput" ${src}/schema/lib.schema >/dev/null
+            grep -R "Import \\[SourcePath LocalPath\\]" ${src}/schema/lib.schema >/dev/null
+            grep -R "Export \\[LocalPath PublicPath\\]" ${src}/schema/lib.schema >/dev/null
             grep -R "Input::decode_signal_frame" ${src}/src/transport.rs >/dev/null
             grep -R "Output::decode_signal_frame" ${src}/src/transport.rs >/dev/null
             grep -R "input.encode_signal_frame" ${src}/src/transport.rs >/dev/null
@@ -135,6 +139,10 @@
             grep -R "MessageProcessed<Reply>" ${src}/src/schema/lib.rs >/dev/null
             grep -R "MailLedgerEvent" ${src}/src/schema/lib.rs >/dev/null
             grep -R "DatabaseMarker" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "pub enum NexusInput" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "pub enum NexusOutput" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "pub enum SemaInput" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "pub enum SemaOutput" ${src}/src/schema/lib.rs >/dev/null
             grep -R "pub struct SignalTransport" ${src}/src/transport.rs >/dev/null
             ! grep -R "pub enum InputRoute" ${src}/src/transport.rs
             ! grep -R "short_header::" ${src}/src/transport.rs
@@ -151,15 +159,20 @@
             grep -R "message_sent" ${src}/src/engine.rs >/dev/null
             grep -R "MailLedgerEvent" ${src}/src/engine.rs >/dev/null
             grep -R "into_mail_ledger_event" ${src}/src/engine.rs >/dev/null
+            grep -R "into_nexus_output" ${src}/src/engine.rs >/dev/null
+            grep -R "into_sema_input" ${src}/src/engine.rs >/dev/null
+            grep -R "into_signal_output" ${src}/src/engine.rs >/dev/null
             grep -R "database_marker" ${src}/src/engine.rs >/dev/null
             grep -R "sent_message_count" ${src}/src/engine.rs >/dev/null
             grep -R "processed_message_count" ${src}/src/engine.rs >/dev/null
-            grep -R "SemaResponse" ${src}/src/engine.rs >/dev/null
+            grep -R "SemaOutput" ${src}/src/engine.rs >/dev/null
             grep -R "DatabaseMarker" ${src}/src/store.rs >/dev/null
             grep -R "StateDigest" ${src}/src/store.rs >/dev/null
-            grep -R "pub fn apply(&mut self, command: SemaCommand)" ${src}/src/store.rs >/dev/null
+            grep -R "pub fn apply(&mut self, command: SemaInput)" ${src}/src/store.rs >/dev/null
             grep -R "nexus_mail_lowers_signal_payload_to_generated_sema_command" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "sema_store_is_the_single_writer_for_records" ${src}/tests/runtime_triad.rs >/dev/null
+            grep -R "nexus_and_sema_have_explicit_input_output_languages" ${src}/tests/runtime_triad.rs >/dev/null
+            grep -R "import_export_paths_use_single_colon_namespaces" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "MailLedgerEvent::Processed" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "sent_message_count" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "processed_message_count" ${src}/tests/runtime_triad.rs >/dev/null

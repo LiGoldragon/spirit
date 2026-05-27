@@ -2,8 +2,18 @@
 (Input ((Record Entry) (Observe Query)))
 (Output ((RecordAccepted SemaReceipt) (RecordsObserved ObservedRecords) (Error ErrorReport)))
 {
-  SemaCommand ((Record Entry) (Observe Query))
-  SemaResponse ((Recorded SemaReceipt) (Observed ObservedRecords) (Missed ErrorReport))
+  SourcePath [Text]
+  LocalPath [Text]
+  PublicPath [Text]
+  Import [SourcePath LocalPath]
+  Export [LocalPath PublicPath]
+  SignalReuse [Import Export]
+  NexusReuse [Import Export]
+  SemaReuse [Import Export]
+  NexusInput ((Signal Input) (Sema SemaOutput))
+  NexusOutput ((Sema SemaInput) (Signal Output))
+  SemaInput ((Record Entry) (Observe Query))
+  SemaOutput ((Recorded SemaReceipt) (Observed ObservedRecords) (Missed ErrorReport))
   Topic [Text]
   Description [Text]
   ErrorMessage [Text]
