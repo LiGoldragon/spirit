@@ -26,6 +26,9 @@ Load-bearing constraints:
 - Each language plane has input/output and reusable import/export vocabulary.
   Import/export paths mirror Rust module namespaces with a single colon rather
   than double colon, for example `signal:sema:Magnitude`.
+- Signal, Nexus, and SEMA use the same authored schema shape: imports/exports,
+  input, output, and namespace. Their generated Rust differs by trait support
+  and runtime ownership, not by a separate notation.
 - Nexus is the execution and mail-keeper plane between Signal and SEMA. Signal
   input becomes `NexusMail<Payload>` with a `MessageIdentifier`; while Nexus
   owns that object, the mail is being processed.
@@ -35,6 +38,10 @@ Load-bearing constraints:
   `MessageProcessed<Output>`.
 - Nexus mail lifecycle state is represented with generated schema nouns:
   `MailLedgerEvent`, `SentMail`, and `ProcessedMail`.
+- Async mail flow is implemented as object flow. `Engine` owns Nexus behavior,
+  `Store` owns SEMA behavior, and generated schema nouns are the method
+  surfaces that move through them. The pilot should not grow free routing
+  helpers beside the generated objects.
 - The store is the SEMA writer. Runtime state changes pass through
   `Store::apply(SemaInput)` rather than direct mutation from the Signal
   layer.

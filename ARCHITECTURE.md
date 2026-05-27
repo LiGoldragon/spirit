@@ -101,6 +101,12 @@ The schema declares reusable import/export nouns for language planes:
 The paths are single-colon namespaces, mirroring Rust crate/module paths with
 `:` instead of `::`, for example `signal:sema:Magnitude`.
 
+The same root shape applies to the three Spirit language planes in this pilot:
+Signal (`Input`/`Output`), Nexus (`NexusInput`/`NexusOutput`), and SEMA
+(`SemaInput`/`SemaOutput`). Each plane has imports/exports and a namespace
+available to it; the implementation difference is which actor object owns the
+method after the generated type exists.
+
 ## Implementation methods
 
 Schema-generated types are the implementation nouns. Hand-written runtime code
@@ -117,6 +123,11 @@ attaches behavior to those nouns or to state-owning runtime objects:
 - `MailLedgerEvent` stores sent and processed mail markers in the runtime
   ledger.
 - `Input` and `Output` frame themselves at the Signal boundary.
+
+This is the local version of the async mail actor pattern. `Engine` is the
+data-bearing Nexus actor object for the pilot, and `Store` is the data-bearing
+SEMA writer. The generated mail nouns move between those objects; the code must
+not replace that movement with module-level routing helpers.
 
 When a data shape changes, edit `schema/lib.schema` first, then regenerate
 through `build.rs`, then update the methods that act on the regenerated types.
