@@ -2,23 +2,45 @@ use std::{convert::Infallible, sync::Mutex};
 
 use crate::{
     DatabaseMarker, Entry, Input, InputNexus, Integer, MailIdentifier, MailLedgerEvent,
-    MessageIdentifier, MessageProcessed, MessageSent, NexusInput, NexusMail, NexusOutput, Output,
-    ProcessedMail, Query, SemaInput, SemaOutput, SentMail, ShortHeader, store::Store,
+    MessageIdentifier, MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook,
+    NexusInput, NexusMail, NexusOutput, Output, ProcessedMail, Query, SemaInput, SemaOutput,
+    SentMail, ShortHeader, store::Store,
 };
 
 #[derive(Debug, Default)]
 pub struct Engine {
+    signal_actor: SignalActor,
     store: Mutex<Store>,
+    mail_ledger: MailLedger,
+}
+
+#[derive(Debug, Default)]
+pub struct SignalActor {
     next_message_identifier: Mutex<Integer>,
-    mail_ledger: Mutex<Vec<MailLedgerEvent>>,
+}
+
+#[derive(Debug)]
+pub struct SignalAccepted {
+    input: Input,
+    sent: MessageSent,
+}
+
+#[derive(Debug, Default)]
+pub struct MailLedger {
+    events: Mutex<Vec<MailLedgerEvent>>,
+}
+
+#[derive(Debug)]
+pub struct MailLedgerHook<'a> {
+    ledger: &'a MailLedger,
 }
 
 impl Engine {
     pub fn handle(&self, input: Input) -> Output {
-        let identifier = self.issue_message_identifier();
-        self.remember_message_sent(input.message_sent(identifier));
-        let nexus_step = input
-            .dispatch_mail_with_nexus(identifier, self)
+        let signal = self.signal_actor.accept(input);
+        let identifier = signal.identifier();
+        let nexus_step = signal
+            .push_to_nexus(self, &mut self.mail_ledger.hook())
             .expect("spirit-next nexus is infallible");
         let sema_input = nexus_step.into_reply().into_sema_input();
         let sema_output = self.store.lock().expect("store lock").apply(sema_input);
@@ -26,7 +48,9 @@ impl Engine {
             .into_nexus_output()
             .into_signal_output();
         let processed = MessageProcessed::new(identifier, output);
-        self.remember_message_processed(&processed);
+        processed
+            .push_to(&mut self.mail_ledger.hook())
+            .expect("spirit-next mail ledger is infallible");
         processed.into_reply()
     }
 
@@ -35,25 +59,25 @@ impl Engine {
     }
 
     pub fn sent_message_count(&self) -> usize {
-        self.mail_ledger
-            .lock()
-            .expect("mail ledger lock")
-            .iter()
-            .filter(|event| event.is_sent())
-            .count()
+        self.mail_ledger.sent_message_count()
     }
 
     pub fn processed_message_count(&self) -> usize {
-        self.mail_ledger
-            .lock()
-            .expect("mail ledger lock")
-            .iter()
-            .filter(|event| event.is_processed())
-            .count()
+        self.mail_ledger.processed_message_count()
     }
 
     pub fn mail_ledger(&self) -> Vec<MailLedgerEvent> {
-        self.mail_ledger.lock().expect("mail ledger lock").clone()
+        self.mail_ledger.events()
+    }
+}
+
+impl SignalActor {
+    pub fn accept(&self, input: Input) -> SignalAccepted {
+        let identifier = self.issue_message_identifier();
+        SignalAccepted {
+            sent: input.message_sent(identifier),
+            input,
+        }
     }
 
     fn issue_message_identifier(&self) -> MessageIdentifier {
@@ -64,19 +88,83 @@ impl Engine {
         *next += 1;
         MessageIdentifier(*next)
     }
+}
 
-    fn remember_message_sent(&self, event: MessageSent) {
-        self.mail_ledger
+impl SignalAccepted {
+    pub fn identifier(&self) -> MessageIdentifier {
+        self.sent.identifier
+    }
+
+    pub fn message_sent(&self) -> &MessageSent {
+        &self.sent
+    }
+
+    pub fn push_to_nexus<Nexus, Hook, Error>(
+        self,
+        nexus: &Nexus,
+        hook: &mut Hook,
+    ) -> Result<MessageProcessed<Nexus::Reply>, Error>
+    where
+        Nexus: InputNexus<Error = Error>,
+        Hook: MessageSentHook<Error = Error>,
+    {
+        let identifier = self.identifier();
+        self.sent.push_to(hook)?;
+        self.input.dispatch_mail_with_nexus(identifier, nexus)
+    }
+}
+
+impl MailLedger {
+    pub fn hook(&self) -> MailLedgerHook<'_> {
+        MailLedgerHook { ledger: self }
+    }
+
+    pub fn events(&self) -> Vec<MailLedgerEvent> {
+        self.events.lock().expect("mail ledger lock").clone()
+    }
+
+    pub fn sent_message_count(&self) -> usize {
+        self.events
+            .lock()
+            .expect("mail ledger lock")
+            .iter()
+            .filter(|event| event.is_sent())
+            .count()
+    }
+
+    pub fn processed_message_count(&self) -> usize {
+        self.events
+            .lock()
+            .expect("mail ledger lock")
+            .iter()
+            .filter(|event| event.is_processed())
+            .count()
+    }
+}
+
+impl MessageSentHook for MailLedgerHook<'_> {
+    type Error = Infallible;
+
+    fn message_sent(&mut self, event: MessageSent) -> Result<(), Self::Error> {
+        self.ledger
+            .events
             .lock()
             .expect("mail ledger lock")
             .push(event.into_mail_ledger_event());
+        Ok(())
     }
+}
 
-    fn remember_message_processed(&self, event: &MessageProcessed<Output>) {
-        self.mail_ledger
+impl MessageProcessedHook<Output> for MailLedgerHook<'_> {
+    type Error = Infallible;
+
+    fn message_processed(&mut self, event: MessageProcessed<Output>) -> Result<(), Self::Error> {
+        self.ledger
+            .events
             .lock()
             .expect("mail ledger lock")
             .push(event.processed_mail_event());
+        Ok(())
     }
 }
 

@@ -59,11 +59,14 @@ not own route enums, short-header matching, or rkyv archive encode/decode.
 
 ### Nexus
 
-`Engine::handle` is the Nexus entry point. Nexus is the runtime mail keeper:
-when Signal input enters Nexus, `Input::message_sent` records the sent event,
-`Input::dispatch_mail_with_nexus` wraps the payload as `NexusMail<Payload>`,
-and the generated `InputNexus` trait dispatches to one method per Signal
-variant. While Nexus owns that mail object, the message is being processed.
+`SignalActor::accept` is the Signal validation/admission point. Once a decoded
+Signal root is accepted, it becomes `SignalAccepted`: the original generated
+`Input` plus a generated `MessageSent` lifecycle event. `SignalAccepted`
+pushes that object to Nexus by firing the sent hook and then calling generated
+`Input::dispatch_mail_with_nexus`, which wraps the payload as
+`NexusMail<Payload>`. The generated `InputNexus` trait dispatches to one method
+per Signal variant. While Nexus owns that mail object, the message is being
+processed.
 
 ```text
 Input -> NexusInput -> NexusOutput::Sema(SemaInput)
@@ -79,8 +82,9 @@ The schema emits those nouns. Rust attaches the behavior:
   language.
 - `NexusInput::into_nexus_output` maps Signal-side Nexus input to
   `SemaInput`, and maps `SemaOutput` back to Signal `Output`.
-- `Engine::handle` records generated `MailLedgerEvent` values for sent and
-  processed mail and composes Nexus dispatch around the SEMA writer.
+- `Engine::handle` composes Signal admission, Nexus dispatch, and the SEMA
+  writer. Generated sent/processed lifecycle events are pushed through
+  `MailLedgerHook` instead of being recorded by direct helper calls.
 - `MessageSent::into_mail_ledger_event` and
   `MessageProcessed<Output>::processed_mail_event` attach runtime behavior to
   generated schema nouns instead of free helper functions.
@@ -112,8 +116,9 @@ method after the generated type exists.
 Schema-generated types are the implementation nouns. Hand-written runtime code
 attaches behavior to those nouns or to state-owning runtime objects:
 
-- `Input` is accepted by `Engine::handle`.
-- `Input` emits `MessageSent` and dispatches as `NexusMail<Payload>`.
+- `Input` is accepted by `SignalActor::accept`, producing `SignalAccepted`.
+- `SignalAccepted` emits `MessageSent` through a hook and dispatches as
+  `NexusMail<Payload>`.
 - `NexusMail<Payload>` becomes generated `NexusInput`.
 - `NexusInput` becomes generated `NexusOutput`.
 - `NexusOutput::Sema` carries generated `SemaInput`.
@@ -124,10 +129,11 @@ attaches behavior to those nouns or to state-owning runtime objects:
   ledger.
 - `Input` and `Output` frame themselves at the Signal boundary.
 
-This is the local version of the async mail actor pattern. `Engine` is the
-data-bearing Nexus actor object for the pilot, and `Store` is the data-bearing
-SEMA writer. The generated mail nouns move between those objects; the code must
-not replace that movement with module-level routing helpers.
+This is the local version of the async mail actor pattern. `SignalActor` is the
+Signal admission actor, `Engine` is the data-bearing Nexus actor object for the
+pilot, `MailLedger` is the hookable lifecycle sink, and `Store` is the
+data-bearing SEMA writer. The generated mail nouns move between those objects;
+the code must not replace that movement with module-level routing helpers.
 
 When a data shape changes, edit `schema/lib.schema` first, then regenerate
 through `build.rs`, then update the methods that act on the regenerated types.

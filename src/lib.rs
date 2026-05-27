@@ -21,7 +21,7 @@ pub mod schema {
 
 pub use config::{Configuration, ConfigurationError};
 pub use daemon::{Daemon, DaemonError};
-pub use engine::Engine;
+pub use engine::{Engine, MailLedger, MailLedgerHook, SignalAccepted, SignalActor};
 pub use schema::lib::{
     CommitSequence, DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport, Export, Import,
     Input, InputNexus, InputRoute, Integer, Kind, LocalPath, Magnitude, MailIdentifier,

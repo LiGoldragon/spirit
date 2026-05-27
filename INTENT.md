@@ -32,6 +32,10 @@ Load-bearing constraints:
 - Nexus is the execution and mail-keeper plane between Signal and SEMA. Signal
   input becomes `NexusMail<Payload>` with a `MessageIdentifier`; while Nexus
   owns that object, the mail is being processed.
+- Signal admission is explicit in the pilot. `SignalActor::accept` validates
+  the generated `Input` enough to create `SignalAccepted`, and
+  `SignalAccepted::push_to_nexus` fires the generated `MessageSent` hook before
+  the object enters Nexus.
 - Nexus lowers generated Signal payload mail into generated `NexusInput`, then
   emits generated `NexusOutput::Sema(SemaInput)`. When SEMA replies with
   `SemaOutput`, Nexus turns it into generated Signal output and records
@@ -39,9 +43,10 @@ Load-bearing constraints:
 - Nexus mail lifecycle state is represented with generated schema nouns:
   `MailLedgerEvent`, `SentMail`, and `ProcessedMail`.
 - Async mail flow is implemented as object flow. `Engine` owns Nexus behavior,
-  `Store` owns SEMA behavior, and generated schema nouns are the method
-  surfaces that move through them. The pilot should not grow free routing
-  helpers beside the generated objects.
+  `SignalActor` owns Signal admission, `MailLedger` owns lifecycle hook
+  recording, `Store` owns SEMA behavior, and generated schema nouns are the
+  method surfaces that move through them. The pilot should not grow free
+  routing helpers beside the generated objects.
 - The store is the SEMA writer. Runtime state changes pass through
   `Store::apply(SemaInput)` rather than direct mutation from the Signal
   layer.
