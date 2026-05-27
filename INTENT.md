@@ -22,7 +22,7 @@ Load-bearing constraints:
   in memory and fails if `src/schema/lib.rs` is missing or stale.
 - The schema declares the runtime triad surfaces:
   `Input`/`Output` for Signal, `NexusInput`/`NexusOutput` for execution mail,
-  and `SemaInput`/`SemaOutput` for state work.
+  and `SemaInput`/`SemaOutput` for database work.
 - Each language plane has input/output and reusable import/export vocabulary.
   Import/export paths mirror Rust module namespaces with a single colon rather
   than double colon, for example `signal:sema:Magnitude`.
@@ -59,13 +59,16 @@ Load-bearing constraints:
   `MailLedgerEvent` for lifecycle hooks, `NexusInput`/`NexusOutput` for Nexus
   execution, and `SemaInput`/`SemaOutput` for SEMA operations. Test-only enums
   are not valid substitutes for the schema objects whose path is being proved.
-- The store is the SEMA writer. Runtime state changes pass through
-  the generated `SemaEngine::apply(SemaInput) -> SemaOutput` surface rather
-  than direct mutation from the Signal layer.
+- The store is the SEMA writer. SEMA means database work: real SEMA writes
+  durable state to the component database file. Runtime state changes pass
+  through the generated `SemaEngine::apply(SemaInput) -> SemaOutput` surface
+  rather than direct mutation from the Signal layer.
 - SEMA replies carry generated `DatabaseMarker` values so Signal replies can
   report the state commit sequence and digest that accepted or observed the
   request.
 - The old signal macro path is not used.
 - The daemon/CLI implementation is a shim around generated interfaces until
-  durable redb storage, schema diff/upgrade, and the final repo-triad split
-  land.
+  durable database storage, schema diff/upgrade, and the final repo-triad split
+  land. The current physical store will likely start as redb; a `.sema`
+  extension is the clearer architectural file name once that durable artifact
+  lands.

@@ -94,13 +94,17 @@ The schema emits those nouns. Rust attaches the behavior:
 
 ### SEMA
 
-`Store` is the current SEMA writer. The MVP store is still in memory, but all
-state mutation goes through the generated `SemaEngine` trait:
+`Store` is the current SEMA writer. SEMA means database work: the full SEMA
+plane writes durable state to the component database file. The MVP store is
+still in memory, so it only proves the SEMA language and trait boundary, but all
+state mutation still goes through the generated `SemaEngine` trait:
 `SemaEngine::apply(SemaInput) -> SemaOutput`. SEMA replies carry a generated
 `DatabaseMarker` with `CommitSequence` and `StateDigest`, so Signal outputs
 include the state marker that Nexus uses to close processed mail.
-The next durable slice replaces the storage backend with redb without changing
-the Nexus shape.
+The next durable slice replaces the storage backend with a redb-backed database
+artifact without changing the Nexus shape. The file extension may become
+`.sema` rather than `.redb` so the file name reflects the architectural plane
+instead of the implementation library.
 
 ### Reuse
 
@@ -178,7 +182,9 @@ of the operation. The process-boundary test also checks generated
 
 - The schema language does not yet express vectors, so this pilot uses one
   topic per record.
-- Storage and the mail ledger are in-memory, not redb.
+- Storage and the mail ledger are in-memory. Storage is not yet true SEMA in
+  the durable database-work sense because it does not write a redb-backed
+  database artifact, potentially named with a `.sema` extension.
 - `StateDigest` is a deterministic prototype marker, not a content-addressed
   state hash.
 - Schema diff/upgrade is absent.
