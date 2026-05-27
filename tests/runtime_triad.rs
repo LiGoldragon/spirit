@@ -16,26 +16,22 @@ struct SentHookProbe {
 #[derive(Default)]
 struct NexusProbe {
     accepted_identifiers: RefCell<Vec<MessageIdentifier>>,
+    trace: RefCell<Vec<TraceEvent>>,
 }
 
-impl SentHookProbe {
-    fn events(&self) -> &[MessageSent] {
-        &self.events
-    }
-}
-
-impl MessageSentHook for SentHookProbe {
-    type Error = Infallible;
-
-    fn message_sent(&mut self, event: MessageSent) -> Result<(), Self::Error> {
-        self.events.push(event);
-        Ok(())
-    }
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum TraceEvent {
+    SentHook(MessageIdentifier),
+    NexusAccepted(MessageIdentifier),
 }
 
 impl NexusProbe {
     fn accepted_identifiers(&self) -> Vec<MessageIdentifier> {
         self.accepted_identifiers.borrow().clone()
+    }
+
+    fn trace(&self) -> Vec<TraceEvent> {
+        self.trace.borrow().clone()
     }
 }
 
@@ -44,6 +40,9 @@ impl InputNexus for NexusProbe {
     type Error = Infallible;
 
     fn record(&self, mail: NexusMail<Entry>) -> Result<Self::Reply, Self::Error> {
+        self.trace
+            .borrow_mut()
+            .push(TraceEvent::NexusAccepted(mail.identifier()));
         self.accepted_identifiers
             .borrow_mut()
             .push(mail.identifier());
@@ -51,6 +50,9 @@ impl InputNexus for NexusProbe {
     }
 
     fn observe(&self, mail: NexusMail<Query>) -> Result<Self::Reply, Self::Error> {
+        self.trace
+            .borrow_mut()
+            .push(TraceEvent::NexusAccepted(mail.identifier()));
         self.accepted_identifiers
             .borrow_mut()
             .push(mail.identifier());
@@ -74,6 +76,32 @@ fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
     }
 }
 
+impl SentHookProbe {
+    fn record_into_trace(self, nexus: &NexusProbe) -> SentHookTrace<'_> {
+        SentHookTrace {
+            events: self.events,
+            trace: &nexus.trace,
+        }
+    }
+}
+
+struct SentHookTrace<'a> {
+    events: Vec<MessageSent>,
+    trace: &'a RefCell<Vec<TraceEvent>>,
+}
+
+impl MessageSentHook for SentHookTrace<'_> {
+    type Error = Infallible;
+
+    fn message_sent(&mut self, event: MessageSent) -> Result<(), Self::Error> {
+        self.trace
+            .borrow_mut()
+            .push(TraceEvent::SentHook(event.identifier));
+        self.events.push(event);
+        Ok(())
+    }
+}
+
 #[test]
 fn nexus_mail_lowers_signal_payload_to_generated_sema_command() {
     let command = NexusMail::new(MessageIdentifier(1), entry("nexus mail lowers to SEMA"))
@@ -93,19 +121,27 @@ fn nexus_mail_lowers_signal_payload_to_generated_sema_command() {
 fn signal_actor_pushes_accepted_message_through_sent_hook_to_nexus() {
     let signal_actor = SignalActor::default();
     let accepted = signal_actor.accept(Input::Record(entry("signal pushes to nexus")));
-    let mut hook = SentHookProbe::default();
     let nexus = NexusProbe::default();
+    let mut hook = SentHookProbe::default().record_into_trace(&nexus);
 
     assert_eq!(accepted.message_sent().identifier, MessageIdentifier(1));
-    assert_eq!(hook.events(), &[]);
+    assert_eq!(hook.events, []);
+    assert_eq!(nexus.trace(), []);
 
     let processed = accepted
         .push_to_nexus(&nexus, &mut hook)
         .expect("signal to nexus push");
 
-    assert_eq!(hook.events().len(), 1);
-    assert_eq!(hook.events()[0].identifier, MessageIdentifier(1));
+    assert_eq!(hook.events.len(), 1);
+    assert_eq!(hook.events[0].identifier, MessageIdentifier(1));
     assert_eq!(nexus.accepted_identifiers(), vec![MessageIdentifier(1)]);
+    assert_eq!(
+        nexus.trace(),
+        vec![
+            TraceEvent::SentHook(MessageIdentifier(1)),
+            TraceEvent::NexusAccepted(MessageIdentifier(1)),
+        ]
+    );
     assert!(matches!(
         processed.into_reply(),
         NexusOutput::Sema(SemaInput::Record(_))
