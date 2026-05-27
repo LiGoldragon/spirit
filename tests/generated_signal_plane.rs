@@ -51,7 +51,7 @@ fn generated_signal_surface_rejects_unknown_header_before_body_decode() {
     assert_eq!(
         error,
         SignalFrameError::UnknownHeader {
-            surface: "Input",
+            root_enum: "Input",
             header: 0xFFFF_FFFF_FFFF_FFFF
         }
     );

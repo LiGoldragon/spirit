@@ -18,17 +18,17 @@ fn main() {
     if !context
         .macros_applied()
         .windows(2)
-        .any(|pair| pair == ["TypeDeclaration", "StructFields"])
+        .any(|pair| pair == ["SchemaStructDefinition", "SchemaStructFields"])
         || !context
             .macros_applied()
             .windows(2)
-            .any(|pair| pair == ["TypeDeclaration", "EnumVariants"])
+            .any(|pair| pair == ["SchemaEnumDefinition", "SchemaEnumVariants"])
     {
         panic!(
             "spirit-next schema generation must use schema-next registry macros for type bodies"
         );
     }
-    let generated = RustEmitter.emit_file(&asschema);
+    let generated = RustEmitter::default().emit_file(&asschema);
 
     let output_directory = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR set"));
     fs::write(

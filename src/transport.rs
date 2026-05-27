@@ -42,45 +42,60 @@ impl From<SignalFrameError> for TransportError {
     }
 }
 
-pub fn exchange(
-    socket_path: impl AsRef<Path>,
-    input: &Input,
-) -> Result<(OutputRoute, Output), TransportError> {
-    let mut stream = UnixStream::connect(socket_path)?;
-    write_input(&mut stream, input)?;
-    read_output(&mut stream)
+pub struct SignalTransport<Stream> {
+    stream: Stream,
 }
 
-pub fn write_input(writer: &mut impl Write, input: &Input) -> Result<(), TransportError> {
-    write_frame(writer, input.encode_signal_frame()?)
+impl SignalTransport<UnixStream> {
+    pub fn connect(socket_path: impl AsRef<Path>) -> Result<Self, TransportError> {
+        Ok(Self::new(UnixStream::connect(socket_path)?))
+    }
 }
 
-pub fn read_input(reader: &mut impl Read) -> Result<(InputRoute, Input), TransportError> {
-    Ok(Input::decode_signal_frame(&read_frame(reader)?)?)
-}
+impl<Stream> SignalTransport<Stream>
+where
+    Stream: Read + Write,
+{
+    pub fn new(stream: Stream) -> Self {
+        Self { stream }
+    }
 
-pub fn write_output(writer: &mut impl Write, output: &Output) -> Result<(), TransportError> {
-    write_frame(writer, output.encode_signal_frame()?)
-}
+    pub fn exchange(&mut self, input: &Input) -> Result<(OutputRoute, Output), TransportError> {
+        self.write_input(input)?;
+        self.read_output()
+    }
 
-pub fn read_output(reader: &mut impl Read) -> Result<(OutputRoute, Output), TransportError> {
-    Ok(Output::decode_signal_frame(&read_frame(reader)?)?)
-}
+    pub fn write_input(&mut self, input: &Input) -> Result<(), TransportError> {
+        self.write_frame(input.encode_signal_frame()?)
+    }
 
-fn write_frame(writer: &mut impl Write, frame: Vec<u8>) -> Result<(), TransportError> {
-    let length = u32::try_from(frame.len())
-        .map_err(|_| TransportError::FrameTooLarge { found: frame.len() })?;
-    writer.write_all(&length.to_be_bytes())?;
-    writer.write_all(&frame)?;
-    writer.flush()?;
-    Ok(())
-}
+    pub fn read_input(&mut self) -> Result<(InputRoute, Input), TransportError> {
+        Ok(Input::decode_signal_frame(&self.read_frame()?)?)
+    }
 
-fn read_frame(reader: &mut impl Read) -> Result<Vec<u8>, TransportError> {
-    let mut length_bytes = [0_u8; LENGTH_PREFIX_BYTE_COUNT];
-    reader.read_exact(&mut length_bytes)?;
-    let length = u32::from_be_bytes(length_bytes) as usize;
-    let mut frame = vec![0_u8; length];
-    reader.read_exact(&mut frame)?;
-    Ok(frame)
+    pub fn write_output(&mut self, output: &Output) -> Result<(), TransportError> {
+        self.write_frame(output.encode_signal_frame()?)
+    }
+
+    pub fn read_output(&mut self) -> Result<(OutputRoute, Output), TransportError> {
+        Ok(Output::decode_signal_frame(&self.read_frame()?)?)
+    }
+
+    fn write_frame(&mut self, frame: Vec<u8>) -> Result<(), TransportError> {
+        let length = u32::try_from(frame.len())
+            .map_err(|_| TransportError::FrameTooLarge { found: frame.len() })?;
+        self.stream.write_all(&length.to_be_bytes())?;
+        self.stream.write_all(&frame)?;
+        self.stream.flush()?;
+        Ok(())
+    }
+
+    fn read_frame(&mut self) -> Result<Vec<u8>, TransportError> {
+        let mut length_bytes = [0_u8; LENGTH_PREFIX_BYTE_COUNT];
+        self.stream.read_exact(&mut length_bytes)?;
+        let length = u32::from_be_bytes(length_bytes) as usize;
+        let mut frame = vec![0_u8; length];
+        self.stream.read_exact(&mut frame)?;
+        Ok(frame)
+    }
 }

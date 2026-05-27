@@ -98,7 +98,9 @@
             grep -R "SchemaEngine::default" ${src}/build.rs >/dev/null
             grep -R "lower_source_with_context" ${src}/build.rs >/dev/null
             grep -R "macros_applied" ${src}/build.rs >/dev/null
-            grep -R "RustEmitter.emit_file" ${src}/build.rs >/dev/null
+            grep -R "SchemaStructDefinition" ${src}/build.rs >/dev/null
+            grep -R "SchemaEnumDefinition" ${src}/build.rs >/dev/null
+            grep -R "RustEmitter::default().emit_file" ${src}/build.rs >/dev/null
             grep -R "include!(concat!(env!(\"OUT_DIR\")" ${src}/src/lib.rs >/dev/null
             touch $out
           '';
@@ -120,6 +122,7 @@
             grep -R "Output::decode_signal_frame" ${src}/src/transport.rs >/dev/null
             grep -R "input.encode_signal_frame" ${src}/src/transport.rs >/dev/null
             grep -R "output.encode_signal_frame" ${src}/src/transport.rs >/dev/null
+            grep -R "pub struct SignalTransport" ${src}/src/transport.rs >/dev/null
             ! grep -R "pub enum InputRoute" ${src}/src/transport.rs
             ! grep -R "short_header::" ${src}/src/transport.rs
             grep -R "generated_input_surface_owns_route_header_and_rkyv_frame" ${src}/tests/generated_signal_plane.rs >/dev/null
@@ -131,6 +134,21 @@
             grep -R "pub fn apply(&mut self, command: SemaCommand)" ${src}/src/store.rs >/dev/null
             grep -R "executor_lowers_signal_input_to_generated_sema_command" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "sema_store_is_the_single_writer_for_records" ${src}/tests/runtime_triad.rs >/dev/null
+            touch $out
+          '';
+          no-production-free-functions = pkgs.runCommand "spirit-next-no-production-free-functions" { } ''
+            if grep -R -n -E '^(pub(\([^)]*\))? )?fn ' ${src}/build.rs ${src}/src \
+              | grep -v -E ':(fn main\()'; then
+              echo "production Rust must not use module-level free functions except main" >&2
+              exit 1
+            fi
+            touch $out
+          '';
+          no-production-unit-structs = pkgs.runCommand "spirit-next-no-production-unit-structs" { } ''
+            if grep -R -n -E '^struct [A-Za-z][A-Za-z0-9_]*;' ${src}/src; then
+              echo "production Rust must not use unit structs as namespace/method holders" >&2
+              exit 1
+            fi
             touch $out
           '';
           local-schema-source-patches = pkgs.runCommand "spirit-next-local-schema-source-patches" { } ''

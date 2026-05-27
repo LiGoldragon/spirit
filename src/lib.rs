@@ -18,12 +18,11 @@ pub mod generated {
 }
 
 pub use config::{Configuration, ConfigurationError};
-pub use daemon::{DaemonError, run_daemon};
+pub use daemon::{Daemon, DaemonError};
 pub use engine::Engine;
 pub use generated::{
     Description, Entry, ErrorMessage, Input, InputRoute, Kind, Magnitude, Output, OutputRoute,
-    Query, RecordIdentifier, RecordSet, SemaCommand, SemaCommandRoute, SemaResponse,
-    SemaResponseRoute, SignalFrameError, Topic,
+    Query, RecordIdentifier, RecordSet, SemaCommand, SemaResponse, SignalFrameError, Topic,
 };
 pub use store::Store;
-pub use transport::{TransportError, exchange, read_input, read_output, write_input, write_output};
+pub use transport::{SignalTransport, TransportError};

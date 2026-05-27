@@ -23,7 +23,7 @@ impl Configuration {
             });
         }
         let root = document.root_object_at(0).expect("root count checked");
-        let text = text_from_block(root)?;
+        let text = ConfigurationText::new(root).read()?;
         Ok(Self {
             socket_path: PathBuf::from(text),
         })
@@ -53,20 +53,30 @@ impl fmt::Display for ConfigurationError {
 
 impl std::error::Error for ConfigurationError {}
 
-fn text_from_block(block: &Block) -> Result<String, ConfigurationError> {
-    if let Some(text) = block.demote_to_string() {
-        return Ok(text.to_owned());
+struct ConfigurationText<'block> {
+    block: &'block Block,
+}
+
+impl<'block> ConfigurationText<'block> {
+    fn new(block: &'block Block) -> Self {
+        Self { block }
     }
-    match block {
-        Block::Delimited {
-            delimiter: Delimiter::SquareBracket,
-            root_objects,
-            ..
-        } => root_objects
-            .iter()
-            .map(text_from_block)
-            .collect::<Result<Vec<_>, _>>()
-            .map(|parts| parts.join(" ")),
-        _ => Err(ConfigurationError::ExpectedText),
+
+    fn read(&self) -> Result<String, ConfigurationError> {
+        if let Some(text) = self.block.demote_to_string() {
+            return Ok(text.to_owned());
+        }
+        match self.block {
+            Block::Delimited {
+                delimiter: Delimiter::SquareBracket,
+                root_objects,
+                ..
+            } => root_objects
+                .iter()
+                .map(|block| Self::new(block).read())
+                .collect::<Result<Vec<_>, _>>()
+                .map(|parts| parts.join(" ")),
+            _ => Err(ConfigurationError::ExpectedText),
+        }
     }
 }

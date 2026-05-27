@@ -1,23 +1,35 @@
 use std::env;
 
-use spirit_next::{Configuration, run_daemon};
+use spirit_next::{Configuration, Daemon};
 
 fn main() {
-    if let Err(error) = run() {
+    if let Err(error) = SpiritNextDaemonCli::from_environment().run() {
         eprintln!("spirit-next-daemon: {error}");
         std::process::exit(1);
     }
 }
 
-fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let mut arguments = env::args().skip(1);
-    let argument = arguments
-        .next()
-        .ok_or("expected exactly one NOTA configuration argument or path")?;
-    if arguments.next().is_some() {
-        return Err("expected exactly one NOTA configuration argument or path".into());
+struct SpiritNextDaemonCli {
+    arguments: Vec<String>,
+}
+
+impl SpiritNextDaemonCli {
+    fn from_environment() -> Self {
+        Self {
+            arguments: env::args().skip(1).collect(),
+        }
     }
-    let configuration = Configuration::from_single_argument(&argument)?;
-    run_daemon(configuration)?;
-    Ok(())
+
+    fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let configuration = Configuration::from_single_argument(self.single_argument()?)?;
+        Daemon::new(configuration).run()?;
+        Ok(())
+    }
+
+    fn single_argument(&self) -> Result<&str, Box<dyn std::error::Error>> {
+        match self.arguments.as_slice() {
+            [argument] => Ok(argument),
+            _ => Err("expected exactly one NOTA configuration argument or path".into()),
+        }
+    }
 }
