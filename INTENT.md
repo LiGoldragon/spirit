@@ -11,10 +11,12 @@ Load-bearing constraints:
 - CLI input and output are NOTA.
 - Component/process communication is binary rkyv.
 - Rust data types are generated from the crate-local `schema/lib.schema`
-  entrypoint.
+  entrypoint and materialized as checked-in source under `src/schema/`.
 - Schema lowering goes through `schema-next`'s macro registry before Rust
   emission; the build must fail if the registry does not reach nested
   struct-field and enum-variant type bodies.
+- `build.rs` is a freshness witness for the generated source. It regenerates
+  in memory and fails if `src/schema/lib.rs` is missing or stale.
 - The schema declares the runtime triad surfaces:
   `Input`/`Output` for Signal and `SemaCommand`/`SemaResponse` for
   state work.

@@ -14,7 +14,7 @@ schema/lib.schema
   -> schema-next::SchemaEngine
   -> schema-next::MacroRegistry
   -> schema-rust-next::RustEmitter
-  -> generated module at OUT_DIR/schema/lib.rs
+  -> checked-in generated module at src/schema/lib.rs
   -> engine/store/transport shims
 ```
 
@@ -102,10 +102,12 @@ the intended loop while improving the NOTA parser, schema lowering, or Rust
 emitter: edit a substrate repo, run the consumer check here, and prove the
 generated Rust still compiles and crosses the CLI/daemon rkyv boundary.
 
-`build.rs` lowers with `SchemaEngine::lower_source_with_context` and asserts
-that the schema-next macro registry reached nested struct-field and enum-
-variant macros. The build therefore exercises the macro engine directly before
-Rust emission.
+`build.rs` lowers with `SchemaEngine::lower_source_with_context`, asserts that
+the schema-next macro registry reached nested struct-field and enum-variant
+macros, emits Rust into memory, and compares that output against
+`src/schema/lib.rs`. The build fails if the checked-in generated source is
+missing or stale. Runtime code imports `src/schema/lib.rs` directly; it does
+not include generated Rust from `OUT_DIR`.
 
 ## Known limits
 

@@ -1,9 +1,10 @@
 //! `spirit-next` runtime.
 //!
 //! This crate is a running schema-derived Spirit pilot. The public wire
-//! types are generated at build time from `schema/lib.schema` through
+//! types are checked-in generated source from `schema/lib.schema` through
 //! `schema-next` and `schema-rust-next`; the hand-written code here is the
-//! runtime shim around those generated interfaces.
+//! runtime shim around those generated interfaces. `build.rs` verifies the
+//! generated module is fresh.
 
 #![forbid(unsafe_code)]
 
@@ -14,9 +15,8 @@ pub mod store;
 pub mod transport;
 
 pub mod schema {
-    pub mod lib {
-        include!(concat!(env!("OUT_DIR"), "/schema/lib.rs"));
-    }
+    #[rustfmt::skip]
+    pub mod lib;
 }
 
 pub use config::{Configuration, ConfigurationError};

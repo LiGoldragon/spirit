@@ -7,7 +7,7 @@ Runnable schema-derived Spirit pilot.
 ```text
 schema/lib.schema
   -> schema-next Asschema
-  -> schema-rust-next generated Rust at OUT_DIR/schema/lib.rs
+  -> schema-rust-next checked-in generated Rust at src/schema/lib.rs
   -> CLI NOTA input
   -> generated Signal frame (short header + rkyv)
   -> daemon Executor
@@ -18,6 +18,10 @@ schema/lib.schema
 
 This is not production Spirit. It is the public pilot repo for making the
 schema-created interface real at a process boundary.
+
+`build.rs` regenerates the schema output in memory and fails the build if the
+checked-in `src/schema/lib.rs` is stale. The runtime imports the checked-in
+module directly; `OUT_DIR` is not the source of interface truth.
 
 ## Run
 
