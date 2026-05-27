@@ -170,12 +170,16 @@
             grep -R "StateDigest" ${src}/src/store.rs >/dev/null
             grep -R "pub fn apply(&mut self, command: SemaInput)" ${src}/src/store.rs >/dev/null
             grep -R "nexus_mail_lowers_signal_payload_to_generated_sema_command" ${src}/tests/runtime_triad.rs >/dev/null
-            grep -R "sema_store_is_the_single_writer_for_records" ${src}/tests/runtime_triad.rs >/dev/null
+            grep -R "sema_engine_operation_accepts_and_returns_schema_objects" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "nexus_and_sema_have_explicit_input_output_languages" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "import_export_paths_use_single_colon_namespaces" ${src}/tests/runtime_triad.rs >/dev/null
+            grep -R "MailLedgerEvent::Sent" ${src}/tests/runtime_triad.rs >/dev/null
+            grep -R "NexusInput::Signal" ${src}/tests/runtime_triad.rs >/dev/null
+            grep -R "NexusOutput::Sema(SemaInput::Record" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "MailLedgerEvent::Processed" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "sent_message_count" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "processed_message_count" ${src}/tests/runtime_triad.rs >/dev/null
+            ! grep -R "enum TraceEvent" ${src}/tests/runtime_triad.rs
             touch $out
           '';
           no-production-free-functions = pkgs.runCommand "spirit-next-no-production-free-functions" { } ''

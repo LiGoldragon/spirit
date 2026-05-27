@@ -159,6 +159,12 @@ The schema-rust output path is already crate-relative (`src/schema/lib.rs`).
 `build.rs` uses that path directly; it does not reinterpret a generated
 `schema/lib.rs` path relative to `src/`.
 
+Runtime-chain tests assert on schema-emitted objects, not test-local shadow
+languages. Pattern A uses generated `MailLedgerEvent`, `NexusInput`,
+`NexusOutput`, `SemaInput`, and `SemaOutput` as witnesses. The SEMA engine
+test calls `Store::apply(SemaInput) -> SemaOutput`, so the state plane remains
+typed as SEMA schema at both ends of the operation.
+
 ## Known limits
 
 - The schema language does not yet express vectors, so this pilot uses one

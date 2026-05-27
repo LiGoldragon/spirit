@@ -47,6 +47,10 @@ Load-bearing constraints:
   recording, `Store` owns SEMA behavior, and generated schema nouns are the
   method surfaces that move through them. The pilot should not grow free
   routing helpers beside the generated objects.
+- Runtime-triad tests use schema-emitted data types as their witnesses:
+  `MailLedgerEvent` for lifecycle hooks, `NexusInput`/`NexusOutput` for Nexus
+  execution, and `SemaInput`/`SemaOutput` for SEMA operations. Test-only enums
+  are not valid substitutes for the schema objects whose path is being proved.
 - The store is the SEMA writer. Runtime state changes pass through
   `Store::apply(SemaInput)` rather than direct mutation from the Signal
   layer.

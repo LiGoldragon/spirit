@@ -8,30 +8,19 @@ use spirit_next::{
     SemaReceipt, SentMail, ShortHeader, SignalActor, SourcePath, StateDigest, Store, Topic,
 };
 
-#[derive(Default)]
-struct SentHookProbe {
-    events: Vec<MessageSent>,
+struct SentHookProbe<'a> {
+    events: Vec<MailLedgerEvent>,
+    nexus: &'a NexusProbe,
 }
 
 #[derive(Default)]
 struct NexusProbe {
-    accepted_identifiers: RefCell<Vec<MessageIdentifier>>,
-    trace: RefCell<Vec<TraceEvent>>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-enum TraceEvent {
-    SentHook(MessageIdentifier),
-    NexusAccepted(MessageIdentifier),
+    accepted_inputs: RefCell<Vec<NexusInput>>,
 }
 
 impl NexusProbe {
-    fn accepted_identifiers(&self) -> Vec<MessageIdentifier> {
-        self.accepted_identifiers.borrow().clone()
-    }
-
-    fn trace(&self) -> Vec<TraceEvent> {
-        self.trace.borrow().clone()
+    fn accepted_inputs(&self) -> Vec<NexusInput> {
+        self.accepted_inputs.borrow().clone()
     }
 }
 
@@ -40,23 +29,15 @@ impl InputNexus for NexusProbe {
     type Error = Infallible;
 
     fn record(&self, mail: NexusMail<Entry>) -> Result<Self::Reply, Self::Error> {
-        self.trace
-            .borrow_mut()
-            .push(TraceEvent::NexusAccepted(mail.identifier()));
-        self.accepted_identifiers
-            .borrow_mut()
-            .push(mail.identifier());
-        Ok(mail.into_nexus_input().into_nexus_output())
+        let nexus_input = mail.into_nexus_input();
+        self.accepted_inputs.borrow_mut().push(nexus_input.clone());
+        Ok(nexus_input.into_nexus_output())
     }
 
     fn observe(&self, mail: NexusMail<Query>) -> Result<Self::Reply, Self::Error> {
-        self.trace
-            .borrow_mut()
-            .push(TraceEvent::NexusAccepted(mail.identifier()));
-        self.accepted_identifiers
-            .borrow_mut()
-            .push(mail.identifier());
-        Ok(mail.into_nexus_input().into_nexus_output())
+        let nexus_input = mail.into_nexus_input();
+        self.accepted_inputs.borrow_mut().push(nexus_input.clone());
+        Ok(nexus_input.into_nexus_output())
     }
 }
 
@@ -76,28 +57,16 @@ fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
     }
 }
 
-impl SentHookProbe {
-    fn record_into_trace(self, nexus: &NexusProbe) -> SentHookTrace<'_> {
-        SentHookTrace {
-            events: self.events,
-            trace: &nexus.trace,
-        }
-    }
-}
-
-struct SentHookTrace<'a> {
-    events: Vec<MessageSent>,
-    trace: &'a RefCell<Vec<TraceEvent>>,
-}
-
-impl MessageSentHook for SentHookTrace<'_> {
+impl MessageSentHook for SentHookProbe<'_> {
     type Error = Infallible;
 
     fn message_sent(&mut self, event: MessageSent) -> Result<(), Self::Error> {
-        self.trace
-            .borrow_mut()
-            .push(TraceEvent::SentHook(event.identifier));
-        self.events.push(event);
+        assert_eq!(
+            self.nexus.accepted_inputs(),
+            [],
+            "the sent hook must fire before Nexus accepts mail"
+        );
+        self.events.push(event.into_mail_ledger_event());
         Ok(())
     }
 }
@@ -120,39 +89,50 @@ fn nexus_mail_lowers_signal_payload_to_generated_sema_command() {
 #[test]
 fn signal_actor_pushes_accepted_message_through_sent_hook_to_nexus() {
     let signal_actor = SignalActor::default();
-    let accepted = signal_actor.accept(Input::Record(entry("signal pushes to nexus")));
+    let signal_entry = entry("signal pushes to nexus");
+    let signal_input = Input::Record(signal_entry.clone());
+    let accepted = signal_actor.accept(signal_input.clone());
     let nexus = NexusProbe::default();
-    let mut hook = SentHookProbe::default().record_into_trace(&nexus);
+    let mut hook = SentHookProbe {
+        events: Vec::new(),
+        nexus: &nexus,
+    };
+    let expected_sent = MailLedgerEvent::Sent(SentMail {
+        mail_identifier: MailIdentifier(1),
+        short_header: ShortHeader(0),
+    });
 
     assert_eq!(accepted.message_sent().identifier, MessageIdentifier(1));
     assert_eq!(hook.events, []);
-    assert_eq!(nexus.trace(), []);
+    assert_eq!(nexus.accepted_inputs(), []);
 
     let processed = accepted
         .push_to_nexus(&nexus, &mut hook)
         .expect("signal to nexus push");
 
-    assert_eq!(hook.events.len(), 1);
-    assert_eq!(hook.events[0].identifier, MessageIdentifier(1));
-    assert_eq!(nexus.accepted_identifiers(), vec![MessageIdentifier(1)]);
     assert_eq!(
-        nexus.trace(),
-        vec![
-            TraceEvent::SentHook(MessageIdentifier(1)),
-            TraceEvent::NexusAccepted(MessageIdentifier(1)),
-        ]
+        hook.events,
+        vec![expected_sent],
+        "hook witness must be a schema-emitted mail ledger event"
     );
-    assert!(matches!(
+    assert_eq!(
+        nexus.accepted_inputs(),
+        vec![NexusInput::Signal(signal_input)],
+        "Nexus witness must be the generated Nexus input object"
+    );
+    assert_eq!(
         processed.into_reply(),
-        NexusOutput::Sema(SemaInput::Record(_))
-    ));
+        NexusOutput::Sema(SemaInput::Record(signal_entry)),
+        "Nexus output must carry the generated SEMA input object"
+    );
 }
 
 #[test]
-fn sema_store_is_the_single_writer_for_records() {
+fn sema_engine_operation_accepts_and_returns_schema_objects() {
     let mut store = Store::default();
+    let operation = SemaInput::Record(entry("SEMA writes durable facts"));
 
-    let response = store.apply(SemaInput::Record(entry("SEMA writes durable facts")));
+    let response: SemaOutput = store.apply(operation);
 
     assert_eq!(
         response,
