@@ -1,7 +1,15 @@
 use spirit_next::{
-    Description, Entry, Input, InputRoute, Kind, Magnitude, MessageIdentifier, MessageRoot, Output,
-    OutputRoute, RecordIdentifier, SignalFrameError, Topic,
+    CommitSequence, DatabaseMarker, Description, Entry, Input, InputRoute, Kind, Magnitude,
+    MessageIdentifier, MessageRoot, Output, OutputRoute, RecordIdentifier, SemaReceipt,
+    SignalFrameError, StateDigest, Topic,
 };
+
+fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
+    DatabaseMarker {
+        commit_sequence: CommitSequence(commit_sequence),
+        state_digest: StateDigest(state_digest),
+    }
+}
 
 #[test]
 fn generated_input_surface_owns_route_header_and_rkyv_frame() {
@@ -23,7 +31,10 @@ fn generated_input_surface_owns_route_header_and_rkyv_frame() {
 
 #[test]
 fn generated_output_surface_owns_route_header_and_rkyv_frame() {
-    let output = Output::RecordAccepted(RecordIdentifier(7));
+    let output = Output::RecordAccepted(SemaReceipt {
+        record_identifier: RecordIdentifier(7),
+        database_marker: marker(3, 97),
+    });
 
     assert_eq!(output.route(), OutputRoute::RecordAccepted);
 

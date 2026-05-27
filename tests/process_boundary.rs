@@ -42,7 +42,7 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
     );
     assert_eq!(
         String::from_utf8_lossy(&record.stdout).trim(),
-        "(RecordAccepted 1)"
+        "(RecordAccepted (1 (1 39)))"
     );
 
     let observe = Command::new(env!("CARGO_BIN_EXE_spirit-next"))
@@ -57,7 +57,7 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
     );
     assert_eq!(
         String::from_utf8_lossy(&observe.stdout).trim(),
-        "(RecordsObserved ([schema] Constraint [schema creates the interface] Maximum))"
+        "(RecordsObserved (([schema] Constraint [schema creates the interface] Maximum) (1 39)))"
     );
 }
 

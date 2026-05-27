@@ -1,13 +1,24 @@
 {}
 (Input ((Record Entry) (Observe Query)))
-(Output ((RecordAccepted RecordIdentifier) (RecordsObserved RecordSet) (Error ErrorMessage)))
+(Output ((RecordAccepted SemaReceipt) (RecordsObserved ObservedRecords) (Error ErrorReport)))
 {
   SemaCommand ((Record Entry) (Observe Query))
-  SemaResponse ((Recorded RecordIdentifier) (Observed RecordSet) (Missed ErrorMessage))
+  SemaResponse ((Recorded SemaReceipt) (Observed ObservedRecords) (Missed ErrorReport))
   Topic [Text]
   Description [Text]
   ErrorMessage [Text]
   RecordIdentifier [Integer]
+  CommitSequence [Integer]
+  StateDigest [Integer]
+  DatabaseMarker [CommitSequence StateDigest]
+  SemaReceipt [RecordIdentifier DatabaseMarker]
+  ObservedRecords [RecordSet DatabaseMarker]
+  ErrorReport [ErrorMessage DatabaseMarker]
+  MailIdentifier [Integer]
+  ShortHeader [Integer]
+  SentMail [MailIdentifier ShortHeader]
+  ProcessedMail [MailIdentifier DatabaseMarker]
+  MailLedgerEvent ((Sent SentMail) (Processed ProcessedMail))
   Entry [Topic Kind Description Magnitude]
   Query [Topic Kind]
   RecordSet [Entry]

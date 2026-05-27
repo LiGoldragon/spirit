@@ -29,9 +29,14 @@ Load-bearing constraints:
 - Nexus lowers generated Signal payload mail into generated SEMA command, then
   turns generated SEMA response into generated Signal output and records
   `MessageProcessed<Output>`.
+- Nexus mail lifecycle state is represented with generated schema nouns:
+  `MailLedgerEvent`, `SentMail`, and `ProcessedMail`.
 - The store is the SEMA writer. Runtime state changes pass through
   `Store::apply(SemaCommand)` rather than direct mutation from the Signal
   layer.
+- SEMA replies carry generated `DatabaseMarker` values so Signal replies can
+  report the state commit sequence and digest that accepted or observed the
+  request.
 - The old signal macro path is not used.
 - The daemon/CLI implementation is a shim around generated interfaces until
   durable redb storage, schema diff/upgrade, and the final repo-triad split

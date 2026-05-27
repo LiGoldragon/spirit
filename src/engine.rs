@@ -1,16 +1,16 @@
 use std::{convert::Infallible, sync::Mutex};
 
 use crate::{
-    Entry, Input, InputNexus, MessageIdentifier, MessageProcessed, MessageSent, NexusMail, Output,
-    Query, SemaCommand, SemaResponse, store::Store,
+    DatabaseMarker, Entry, Input, InputNexus, Integer, MailIdentifier, MailLedgerEvent,
+    MessageIdentifier, MessageProcessed, MessageSent, NexusMail, Output, ProcessedMail, Query,
+    SemaCommand, SemaResponse, SentMail, ShortHeader, store::Store,
 };
 
 #[derive(Debug, Default)]
 pub struct Engine {
     store: Mutex<Store>,
-    next_message_identifier: Mutex<u128>,
-    sent_messages: Mutex<Vec<MessageSent>>,
-    processed_messages: Mutex<Vec<MessageIdentifier>>,
+    next_message_identifier: Mutex<Integer>,
+    mail_ledger: Mutex<Vec<MailLedgerEvent>>,
 }
 
 impl Engine {
@@ -29,14 +29,25 @@ impl Engine {
     }
 
     pub fn sent_message_count(&self) -> usize {
-        self.sent_messages.lock().expect("sent messages lock").len()
+        self.mail_ledger
+            .lock()
+            .expect("mail ledger lock")
+            .iter()
+            .filter(|event| event.is_sent())
+            .count()
     }
 
     pub fn processed_message_count(&self) -> usize {
-        self.processed_messages
+        self.mail_ledger
             .lock()
-            .expect("processed messages lock")
-            .len()
+            .expect("mail ledger lock")
+            .iter()
+            .filter(|event| event.is_processed())
+            .count()
+    }
+
+    pub fn mail_ledger(&self) -> Vec<MailLedgerEvent> {
+        self.mail_ledger.lock().expect("mail ledger lock").clone()
     }
 
     fn issue_message_identifier(&self) -> MessageIdentifier {
@@ -49,17 +60,17 @@ impl Engine {
     }
 
     fn remember_message_sent(&self, event: MessageSent) {
-        self.sent_messages
+        self.mail_ledger
             .lock()
-            .expect("sent messages lock")
-            .push(event);
+            .expect("mail ledger lock")
+            .push(event.into_mail_ledger_event());
     }
 
     fn remember_message_processed(&self, event: &MessageProcessed<Output>) {
-        self.processed_messages
+        self.mail_ledger
             .lock()
-            .expect("processed messages lock")
-            .push(event.identifier());
+            .expect("mail ledger lock")
+            .push(event.processed_mail_event());
     }
 
     fn apply_sema_command(&self, command: SemaCommand) -> Output {
@@ -99,6 +110,50 @@ impl SemaResponse {
             Self::Recorded(identifier) => Output::RecordAccepted(identifier),
             Self::Observed(records) => Output::RecordsObserved(records),
             Self::Missed(error) => Output::Error(error),
+        }
+    }
+}
+
+impl MessageIdentifier {
+    pub fn as_integer(&self) -> Integer {
+        self.0
+    }
+}
+
+impl MessageSent {
+    pub fn into_mail_ledger_event(self) -> MailLedgerEvent {
+        MailLedgerEvent::Sent(SentMail {
+            mail_identifier: MailIdentifier(self.identifier.as_integer()),
+            short_header: ShortHeader(self.short_header),
+        })
+    }
+}
+
+impl MessageProcessed<Output> {
+    pub fn processed_mail_event(&self) -> MailLedgerEvent {
+        MailLedgerEvent::Processed(ProcessedMail {
+            mail_identifier: MailIdentifier(self.identifier().as_integer()),
+            database_marker: self.reply.database_marker(),
+        })
+    }
+}
+
+impl MailLedgerEvent {
+    pub fn is_sent(&self) -> bool {
+        matches!(self, Self::Sent(_))
+    }
+
+    pub fn is_processed(&self) -> bool {
+        matches!(self, Self::Processed(_))
+    }
+}
+
+impl Output {
+    pub fn database_marker(&self) -> DatabaseMarker {
+        match self {
+            Self::RecordAccepted(receipt) => receipt.database_marker.clone(),
+            Self::RecordsObserved(records) => records.database_marker.clone(),
+            Self::Error(report) => report.database_marker.clone(),
         }
     }
 }

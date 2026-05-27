@@ -133,6 +133,8 @@
             grep -R "MessageRoot" ${src}/src/schema/lib.rs >/dev/null
             grep -R "NexusMail<Payload>" ${src}/src/schema/lib.rs >/dev/null
             grep -R "MessageProcessed<Reply>" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "MailLedgerEvent" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "DatabaseMarker" ${src}/src/schema/lib.rs >/dev/null
             grep -R "pub struct SignalTransport" ${src}/src/transport.rs >/dev/null
             ! grep -R "pub enum InputRoute" ${src}/src/transport.rs
             ! grep -R "short_header::" ${src}/src/transport.rs
@@ -147,12 +149,18 @@
             grep -R "NexusMail<Query>" ${src}/src/engine.rs >/dev/null
             grep -R "MessageProcessed<Output>" ${src}/src/engine.rs >/dev/null
             grep -R "message_sent" ${src}/src/engine.rs >/dev/null
+            grep -R "MailLedgerEvent" ${src}/src/engine.rs >/dev/null
+            grep -R "into_mail_ledger_event" ${src}/src/engine.rs >/dev/null
+            grep -R "database_marker" ${src}/src/engine.rs >/dev/null
             grep -R "sent_message_count" ${src}/src/engine.rs >/dev/null
             grep -R "processed_message_count" ${src}/src/engine.rs >/dev/null
             grep -R "SemaResponse" ${src}/src/engine.rs >/dev/null
+            grep -R "DatabaseMarker" ${src}/src/store.rs >/dev/null
+            grep -R "StateDigest" ${src}/src/store.rs >/dev/null
             grep -R "pub fn apply(&mut self, command: SemaCommand)" ${src}/src/store.rs >/dev/null
             grep -R "nexus_mail_lowers_signal_payload_to_generated_sema_command" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "sema_store_is_the_single_writer_for_records" ${src}/tests/runtime_triad.rs >/dev/null
+            grep -R "MailLedgerEvent::Processed" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "sent_message_count" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "processed_message_count" ${src}/tests/runtime_triad.rs >/dev/null
             touch $out

@@ -121,9 +121,9 @@ pub enum SemaCommand {
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum SemaResponse {
-    Recorded(RecordIdentifier),
-    Observed(RecordSet),
-    Missed(ErrorMessage),
+    Recorded(SemaReceipt),
+    Observed(ObservedRecords),
+    Missed(ErrorReport),
 }
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -137,6 +137,60 @@ pub struct ErrorMessage(pub Text);
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct RecordIdentifier(pub Integer);
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct CommitSequence(pub Integer);
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct StateDigest(pub Integer);
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct DatabaseMarker {
+    pub commit_sequence: CommitSequence,
+    pub state_digest: StateDigest,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct SemaReceipt {
+    pub record_identifier: RecordIdentifier,
+    pub database_marker: DatabaseMarker,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ObservedRecords {
+    pub record_set: RecordSet,
+    pub database_marker: DatabaseMarker,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ErrorReport {
+    pub error_message: ErrorMessage,
+    pub database_marker: DatabaseMarker,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct MailIdentifier(pub Integer);
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ShortHeader(pub Integer);
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct SentMail {
+    pub mail_identifier: MailIdentifier,
+    pub short_header: ShortHeader,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ProcessedMail {
+    pub mail_identifier: MailIdentifier,
+    pub database_marker: DatabaseMarker,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum MailLedgerEvent {
+    Sent(SentMail),
+    Processed(ProcessedMail),
+}
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Entry {
@@ -183,9 +237,9 @@ pub enum Input {
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum Output {
-    RecordAccepted(RecordIdentifier),
-    RecordsObserved(RecordSet),
-    Error(ErrorMessage),
+    RecordAccepted(SemaReceipt),
+    RecordsObserved(ObservedRecords),
+    Error(ErrorReport),
 }
 
 impl SemaCommand {
@@ -218,9 +272,9 @@ impl SemaResponse {
         let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "SemaResponse", 2)?;
         let variant = children[0].demote_to_string().ok_or(NotaDecodeError::ExpectedAtom { type_name: "enum variant" })?;
         match variant {
-            "Recorded" => Ok(Self::Recorded(RecordIdentifier::from_nota_block(&children[1])?)),
-            "Observed" => Ok(Self::Observed(RecordSet::from_nota_block(&children[1])?)),
-            "Missed" => Ok(Self::Missed(ErrorMessage::from_nota_block(&children[1])?)),
+            "Recorded" => Ok(Self::Recorded(SemaReceipt::from_nota_block(&children[1])?)),
+            "Observed" => Ok(Self::Observed(ObservedRecords::from_nota_block(&children[1])?)),
+            "Missed" => Ok(Self::Missed(ErrorReport::from_nota_block(&children[1])?)),
             other => Err(NotaDecodeError::UnknownVariant { enum_name: "SemaResponse", variant: other.to_owned() }),
         }
     }
@@ -271,6 +325,176 @@ impl RecordIdentifier {
 
     pub fn to_nota(&self) -> String {
         self.0.to_string()
+    }
+}
+
+impl CommitSequence {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        Ok(Self(NotaBlock::new(block).parse_integer()?))
+    }
+
+    pub fn to_nota(&self) -> String {
+        self.0.to_string()
+    }
+}
+
+impl StateDigest {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        Ok(Self(NotaBlock::new(block).parse_integer()?))
+    }
+
+    pub fn to_nota(&self) -> String {
+        self.0.to_string()
+    }
+}
+
+impl DatabaseMarker {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "DatabaseMarker", 2)?;
+        Ok(Self {
+            commit_sequence: CommitSequence::from_nota_block(&children[0])?,
+            state_digest: StateDigest::from_nota_block(&children[1])?,
+        })
+    }
+
+    pub fn to_nota(&self) -> String {
+        let fields = [
+            self.commit_sequence.to_nota(),
+            self.state_digest.to_nota(),
+        ];
+        format!("({})", fields.join(" "))
+    }
+}
+
+impl SemaReceipt {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "SemaReceipt", 2)?;
+        Ok(Self {
+            record_identifier: RecordIdentifier::from_nota_block(&children[0])?,
+            database_marker: DatabaseMarker::from_nota_block(&children[1])?,
+        })
+    }
+
+    pub fn to_nota(&self) -> String {
+        let fields = [
+            self.record_identifier.to_nota(),
+            self.database_marker.to_nota(),
+        ];
+        format!("({})", fields.join(" "))
+    }
+}
+
+impl ObservedRecords {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "ObservedRecords", 2)?;
+        Ok(Self {
+            record_set: RecordSet::from_nota_block(&children[0])?,
+            database_marker: DatabaseMarker::from_nota_block(&children[1])?,
+        })
+    }
+
+    pub fn to_nota(&self) -> String {
+        let fields = [
+            self.record_set.to_nota(),
+            self.database_marker.to_nota(),
+        ];
+        format!("({})", fields.join(" "))
+    }
+}
+
+impl ErrorReport {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "ErrorReport", 2)?;
+        Ok(Self {
+            error_message: ErrorMessage::from_nota_block(&children[0])?,
+            database_marker: DatabaseMarker::from_nota_block(&children[1])?,
+        })
+    }
+
+    pub fn to_nota(&self) -> String {
+        let fields = [
+            self.error_message.to_nota(),
+            self.database_marker.to_nota(),
+        ];
+        format!("({})", fields.join(" "))
+    }
+}
+
+impl MailIdentifier {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        Ok(Self(NotaBlock::new(block).parse_integer()?))
+    }
+
+    pub fn to_nota(&self) -> String {
+        self.0.to_string()
+    }
+}
+
+impl ShortHeader {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        Ok(Self(NotaBlock::new(block).parse_integer()?))
+    }
+
+    pub fn to_nota(&self) -> String {
+        self.0.to_string()
+    }
+}
+
+impl SentMail {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "SentMail", 2)?;
+        Ok(Self {
+            mail_identifier: MailIdentifier::from_nota_block(&children[0])?,
+            short_header: ShortHeader::from_nota_block(&children[1])?,
+        })
+    }
+
+    pub fn to_nota(&self) -> String {
+        let fields = [
+            self.mail_identifier.to_nota(),
+            self.short_header.to_nota(),
+        ];
+        format!("({})", fields.join(" "))
+    }
+}
+
+impl ProcessedMail {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "ProcessedMail", 2)?;
+        Ok(Self {
+            mail_identifier: MailIdentifier::from_nota_block(&children[0])?,
+            database_marker: DatabaseMarker::from_nota_block(&children[1])?,
+        })
+    }
+
+    pub fn to_nota(&self) -> String {
+        let fields = [
+            self.mail_identifier.to_nota(),
+            self.database_marker.to_nota(),
+        ];
+        format!("({})", fields.join(" "))
+    }
+}
+
+impl MailLedgerEvent {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        if let Some(variant) = block.demote_to_string() {
+            return Err(NotaDecodeError::UnknownVariant { enum_name: "MailLedgerEvent", variant: variant.to_owned() });
+        }
+        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "MailLedgerEvent", 2)?;
+        let variant = children[0].demote_to_string().ok_or(NotaDecodeError::ExpectedAtom { type_name: "enum variant" })?;
+        match variant {
+            "Sent" => Ok(Self::Sent(SentMail::from_nota_block(&children[1])?)),
+            "Processed" => Ok(Self::Processed(ProcessedMail::from_nota_block(&children[1])?)),
+            other => Err(NotaDecodeError::UnknownVariant { enum_name: "MailLedgerEvent", variant: other.to_owned() }),
+        }
+    }
+
+    pub fn to_nota(&self) -> String {
+        match self {
+            Self::Sent(payload) => format!("(Sent {})", payload.to_nota()),
+            Self::Processed(payload) => format!("(Processed {})", payload.to_nota()),
+        }
     }
 }
 
@@ -425,9 +649,9 @@ impl Output {
         let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "Output", 2)?;
         let variant = children[0].demote_to_string().ok_or(NotaDecodeError::ExpectedAtom { type_name: "enum variant" })?;
         match variant {
-            "RecordAccepted" => Ok(Self::RecordAccepted(RecordIdentifier::from_nota_block(&children[1])?)),
-            "RecordsObserved" => Ok(Self::RecordsObserved(RecordSet::from_nota_block(&children[1])?)),
-            "Error" => Ok(Self::Error(ErrorMessage::from_nota_block(&children[1])?)),
+            "RecordAccepted" => Ok(Self::RecordAccepted(SemaReceipt::from_nota_block(&children[1])?)),
+            "RecordsObserved" => Ok(Self::RecordsObserved(ObservedRecords::from_nota_block(&children[1])?)),
+            "Error" => Ok(Self::Error(ErrorReport::from_nota_block(&children[1])?)),
             other => Err(NotaDecodeError::UnknownVariant { enum_name: "Output", variant: other.to_owned() }),
         }
     }
@@ -606,7 +830,7 @@ impl Output {
 }
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct MessageIdentifier(pub u128);
+pub struct MessageIdentifier(pub Integer);
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MessageRoot {
@@ -618,7 +842,7 @@ pub enum MessageRoot {
 pub struct MessageSent {
     pub identifier: MessageIdentifier,
     pub root: MessageRoot,
-    pub short_header: u64,
+    pub short_header: Integer,
 }
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -735,9 +959,9 @@ pub trait OutputNexus {
     type Reply;
     type Error;
 
-    fn record_accepted(&self, mail: NexusMail<RecordIdentifier>) -> Result<Self::Reply, Self::Error>;
-    fn records_observed(&self, mail: NexusMail<RecordSet>) -> Result<Self::Reply, Self::Error>;
-    fn error(&self, mail: NexusMail<ErrorMessage>) -> Result<Self::Reply, Self::Error>;
+    fn record_accepted(&self, mail: NexusMail<SemaReceipt>) -> Result<Self::Reply, Self::Error>;
+    fn records_observed(&self, mail: NexusMail<ObservedRecords>) -> Result<Self::Reply, Self::Error>;
+    fn error(&self, mail: NexusMail<ErrorReport>) -> Result<Self::Reply, Self::Error>;
 }
 
 impl Output {
