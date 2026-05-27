@@ -143,10 +143,16 @@
             grep -R "pub enum NexusOutput" ${src}/src/schema/lib.rs >/dev/null
             grep -R "pub enum SemaInput" ${src}/src/schema/lib.rs >/dev/null
             grep -R "pub enum SemaOutput" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "pub trait NexusEngine" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "pub trait SemaEngine" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "pub enum ValidationError" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "pub struct SignalRejection" ${src}/src/schema/lib.rs >/dev/null
             grep -R "pub struct SignalTransport" ${src}/src/transport.rs >/dev/null
             ! grep -R "pub enum InputRoute" ${src}/src/transport.rs
             ! grep -R "short_header::" ${src}/src/transport.rs
             grep -R "generated_input_surface_owns_route_header_and_rkyv_frame" ${src}/tests/generated_signal_plane.rs >/dev/null
+            grep -R "generated_rejection_output_is_a_signal_schema_variant" ${src}/tests/generated_signal_plane.rs >/dev/null
+            grep -R "generated_validation_error_round_trips_through_nota" ${src}/tests/generated_signal_plane.rs >/dev/null
             grep -R "generated_signal_surface_emits_mail_sent_event" ${src}/tests/generated_signal_plane.rs >/dev/null
             touch $out
           '';
@@ -166,16 +172,25 @@
             grep -R "sent_message_count" ${src}/src/engine.rs >/dev/null
             grep -R "processed_message_count" ${src}/src/engine.rs >/dev/null
             grep -R "SemaOutput" ${src}/src/engine.rs >/dev/null
+            grep -R "impl NexusEngine for Engine" ${src}/src/engine.rs >/dev/null
+            grep -R "ValidationError" ${src}/src/engine.rs >/dev/null
+            grep -R "SignalRejection" ${src}/src/engine.rs >/dev/null
             grep -R "DatabaseMarker" ${src}/src/store.rs >/dev/null
             grep -R "StateDigest" ${src}/src/store.rs >/dev/null
-            grep -R "pub fn apply(&mut self, command: SemaInput)" ${src}/src/store.rs >/dev/null
+            grep -R "impl SemaEngine for Store" ${src}/src/store.rs >/dev/null
+            grep -R "fn apply(&mut self, command: SemaInput)" ${src}/src/store.rs >/dev/null
             grep -R "nexus_mail_lowers_signal_payload_to_generated_sema_command" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "sema_engine_operation_accepts_and_returns_schema_objects" ${src}/tests/runtime_triad.rs >/dev/null
+            grep -R "schema_emitted_traits_drive_the_full_plane_chain" ${src}/tests/runtime_triad.rs >/dev/null
+            grep -R "signal_actor_rejects_invalid_input_with_schema_emitted_rejection_before_mail_or_sema" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "nexus_and_sema_have_explicit_input_output_languages" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "import_export_paths_use_single_colon_namespaces" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "MailLedgerEvent::Sent" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "NexusInput::Signal" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "NexusOutput::Sema(SemaInput::Record" ${src}/tests/runtime_triad.rs >/dev/null
+            grep -R "SemaEngine::apply" ${src}/tests/runtime_triad.rs >/dev/null
+            grep -R "NexusEngine::execute" ${src}/tests/runtime_triad.rs >/dev/null
+            grep -R "Output::Rejected" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "MailLedgerEvent::Processed" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "sent_message_count" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "processed_message_count" ${src}/tests/runtime_triad.rs >/dev/null

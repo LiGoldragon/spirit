@@ -59,6 +59,21 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
         String::from_utf8_lossy(&observe.stdout).trim(),
         "(RecordsObserved (([schema] Constraint [schema creates the interface] Maximum) (1 39)))"
     );
+
+    let rejected = Command::new(env!("CARGO_BIN_EXE_spirit-next"))
+        .env("SPIRIT_NEXT_SOCKET", &socket_path)
+        .arg("(Record ([] Constraint [schema rejects before SEMA] Maximum))")
+        .output()
+        .expect("run rejected record cli");
+    assert!(
+        rejected.status.success(),
+        "rejected stderr: {}",
+        String::from_utf8_lossy(&rejected.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&rejected.stdout).trim(),
+        "(Rejected (EmptyTopic (1 39)))"
+    );
 }
 
 fn wait_for_socket(path: &std::path::Path) {

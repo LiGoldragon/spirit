@@ -3,9 +3,10 @@ use std::{cell::RefCell, convert::Infallible};
 use spirit_next::{
     CommitSequence, DatabaseMarker, Description, Engine, Entry, ErrorMessage, ErrorReport, Export,
     Import, Input, InputNexus, Kind, LocalPath, Magnitude, MailIdentifier, MailLedgerEvent,
-    MessageIdentifier, MessageSent, MessageSentHook, NexusInput, NexusMail, NexusOutput, Output,
-    ProcessedMail, PublicPath, Query, RecordIdentifier, RecordSet, SemaInput, SemaOutput,
-    SemaReceipt, SentMail, ShortHeader, SignalActor, SourcePath, StateDigest, Store, Topic,
+    MessageIdentifier, MessageSent, MessageSentHook, NexusEngine, NexusInput, NexusMail,
+    NexusOutput, Output, ProcessedMail, PublicPath, Query, RecordIdentifier, RecordSet, SemaEngine,
+    SemaInput, SemaOutput, SemaReceipt, SentMail, ShortHeader, SignalActor, SignalRejection,
+    SourcePath, StateDigest, Store, Topic, ValidationError,
 };
 
 struct SentHookProbe<'a> {
@@ -91,7 +92,9 @@ fn signal_actor_pushes_accepted_message_through_sent_hook_to_nexus() {
     let signal_actor = SignalActor::default();
     let signal_entry = entry("signal pushes to nexus");
     let signal_input = Input::Record(signal_entry.clone());
-    let accepted = signal_actor.accept(signal_input.clone());
+    let accepted = signal_actor
+        .accept(signal_input.clone())
+        .expect("signal input accepts");
     let nexus = NexusProbe::default();
     let mut hook = SentHookProbe {
         events: Vec::new(),
@@ -132,7 +135,7 @@ fn sema_engine_operation_accepts_and_returns_schema_objects() {
     let mut store = Store::default();
     let operation = SemaInput::Record(entry("SEMA writes durable facts"));
 
-    let response: SemaOutput = store.apply(operation);
+    let response: SemaOutput = SemaEngine::apply(&mut store, operation);
 
     assert_eq!(
         response,
@@ -142,6 +145,67 @@ fn sema_engine_operation_accepts_and_returns_schema_objects() {
         })
     );
     assert_eq!(store.len(), 1);
+}
+
+#[test]
+fn schema_emitted_traits_drive_the_full_plane_chain() {
+    let signal_actor = SignalActor::default();
+    let nexus_engine = Engine::default();
+    let mut sema_engine = Store::default();
+    let nexus_probe = NexusProbe::default();
+    let mut hook = SentHookProbe {
+        events: Vec::new(),
+        nexus: &nexus_probe,
+    };
+    let signal_input = Input::Record(entry("schema traits drive every plane"));
+    let accepted = signal_actor
+        .accept(signal_input.clone())
+        .expect("signal input accepts");
+
+    let nexus_step: spirit_next::MessageProcessed<NexusOutput> = accepted
+        .push_to_nexus(&nexus_engine, &mut hook)
+        .expect("input nexus trait dispatches");
+    let nexus_output: NexusOutput = nexus_step.into_reply();
+    let sema_input: SemaInput = nexus_output.into_sema_input();
+    let sema_output: SemaOutput = SemaEngine::apply(&mut sema_engine, sema_input);
+    let signal_output: Output =
+        NexusEngine::execute(&nexus_engine, NexusInput::Sema(sema_output)).into_signal_output();
+
+    assert_eq!(
+        hook.events,
+        vec![MailLedgerEvent::Sent(SentMail {
+            mail_identifier: MailIdentifier(1),
+            short_header: ShortHeader(0),
+        })]
+    );
+    assert_eq!(
+        signal_output,
+        Output::RecordAccepted(SemaReceipt {
+            record_identifier: RecordIdentifier(1),
+            database_marker: marker(1, 39),
+        })
+    );
+}
+
+#[test]
+fn signal_actor_rejects_invalid_input_with_schema_emitted_rejection_before_mail_or_sema() {
+    let engine = Engine::default();
+    let mut bad = entry("missing topic");
+    bad.topic = Topic(String::new());
+
+    let output = engine.handle(Input::Record(bad));
+
+    assert_eq!(
+        output,
+        Output::Rejected(SignalRejection {
+            validation_error: ValidationError::EmptyTopic,
+            database_marker: marker(0, 0),
+        })
+    );
+    assert_eq!(engine.record_count(), 0);
+    assert_eq!(engine.sent_message_count(), 0);
+    assert_eq!(engine.processed_message_count(), 0);
+    assert_eq!(engine.mail_ledger(), []);
 }
 
 #[test]

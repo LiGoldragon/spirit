@@ -1,7 +1,7 @@
 use spirit_next::{
     CommitSequence, DatabaseMarker, Description, Entry, Input, InputRoute, Kind, Magnitude,
     MessageIdentifier, MessageRoot, Output, OutputRoute, RecordIdentifier, SemaReceipt,
-    SignalFrameError, StateDigest, Topic,
+    SignalFrameError, SignalRejection, StateDigest, Topic, ValidationError,
 };
 
 fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
@@ -43,6 +43,39 @@ fn generated_output_surface_owns_route_header_and_rkyv_frame() {
 
     assert_eq!(route, OutputRoute::RecordAccepted);
     assert_eq!(decoded, output);
+}
+
+#[test]
+fn generated_rejection_output_is_a_signal_schema_variant() {
+    let output = Output::Rejected(SignalRejection {
+        validation_error: ValidationError::EmptyTopic,
+        database_marker: marker(0, 0),
+    });
+
+    assert_eq!(output.route(), OutputRoute::Rejected);
+    assert_eq!(output.to_string(), "(Rejected (EmptyTopic (0 0)))");
+
+    let frame = output.encode_signal_frame().expect("encode frame");
+    let (route, decoded) = Output::decode_signal_frame(&frame).expect("decode frame");
+
+    assert_eq!(route, OutputRoute::Rejected);
+    assert_eq!(decoded, output);
+}
+
+#[test]
+fn generated_validation_error_round_trips_through_nota() {
+    let rejection = "(Rejected (EmptyDescription (0 0)))"
+        .parse::<Output>()
+        .expect("parse rejection output");
+
+    assert_eq!(
+        rejection,
+        Output::Rejected(SignalRejection {
+            validation_error: ValidationError::EmptyDescription,
+            database_marker: marker(0, 0),
+        })
+    );
+    assert_eq!(rejection.to_string(), "(Rejected (EmptyDescription (0 0)))");
 }
 
 #[test]

@@ -3,8 +3,8 @@ use std::{convert::Infallible, sync::Mutex};
 use crate::{
     DatabaseMarker, Entry, Input, InputNexus, Integer, MailIdentifier, MailLedgerEvent,
     MessageIdentifier, MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook,
-    NexusInput, NexusMail, NexusOutput, Output, ProcessedMail, Query, SemaInput, SemaOutput,
-    SentMail, ShortHeader, store::Store,
+    NexusEngine, NexusInput, NexusMail, NexusOutput, Output, ProcessedMail, Query, SemaEngine,
+    SemaInput, SemaOutput, SentMail, ShortHeader, SignalRejection, ValidationError, store::Store,
 };
 
 #[derive(Debug, Default)]
@@ -37,7 +37,10 @@ pub struct MailLedgerHook<'a> {
 
 impl Engine {
     pub fn handle(&self, input: Input) -> Output {
-        let signal = self.signal_actor.accept(input);
+        let signal = match self.signal_actor.accept(input) {
+            Ok(signal) => signal,
+            Err(error) => return error.into_signal_output(self.database_marker()),
+        };
         let identifier = signal.identifier();
         let nexus_step = signal
             .push_to_nexus(self, &mut self.mail_ledger.hook())
@@ -69,15 +72,20 @@ impl Engine {
     pub fn mail_ledger(&self) -> Vec<MailLedgerEvent> {
         self.mail_ledger.events()
     }
+
+    pub fn database_marker(&self) -> DatabaseMarker {
+        self.store.lock().expect("store lock").database_marker()
+    }
 }
 
 impl SignalActor {
-    pub fn accept(&self, input: Input) -> SignalAccepted {
+    pub fn accept(&self, input: Input) -> Result<SignalAccepted, ValidationError> {
+        input.validate()?;
         let identifier = self.issue_message_identifier();
-        SignalAccepted {
+        Ok(SignalAccepted {
             sent: input.message_sent(identifier),
             input,
-        }
+        })
     }
 
     fn issue_message_identifier(&self) -> MessageIdentifier {
@@ -173,11 +181,47 @@ impl InputNexus for Engine {
     type Error = Infallible;
 
     fn record(&self, mail: NexusMail<Entry>) -> Result<Self::Reply, Self::Error> {
-        Ok(mail.into_nexus_input().into_nexus_output())
+        Ok(self.execute(mail.into_nexus_input()))
     }
 
     fn observe(&self, mail: NexusMail<Query>) -> Result<Self::Reply, Self::Error> {
-        Ok(mail.into_nexus_input().into_nexus_output())
+        Ok(self.execute(mail.into_nexus_input()))
+    }
+}
+
+impl NexusEngine for Engine {
+    fn execute(&self, input: NexusInput) -> NexusOutput {
+        input.into_nexus_output()
+    }
+}
+
+impl Input {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        match self {
+            Self::Record(entry) => entry.validate(),
+            Self::Observe(query) => query.validate(),
+        }
+    }
+}
+
+impl Entry {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        if self.topic.0.trim().is_empty() {
+            return Err(ValidationError::EmptyTopic);
+        }
+        if self.description.0.trim().is_empty() {
+            return Err(ValidationError::EmptyDescription);
+        }
+        Ok(())
+    }
+}
+
+impl Query {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        if self.topic.0.trim().is_empty() {
+            return Err(ValidationError::EmptyQueryTopic);
+        }
+        Ok(())
     }
 }
 
@@ -269,6 +313,16 @@ impl Output {
             Self::RecordAccepted(receipt) => receipt.database_marker.clone(),
             Self::RecordsObserved(records) => records.database_marker.clone(),
             Self::Error(report) => report.database_marker.clone(),
+            Self::Rejected(rejection) => rejection.database_marker.clone(),
         }
+    }
+}
+
+impl ValidationError {
+    pub fn into_signal_output(self, database_marker: DatabaseMarker) -> Output {
+        Output::Rejected(SignalRejection {
+            validation_error: self,
+            database_marker,
+        })
     }
 }

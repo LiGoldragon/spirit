@@ -1,6 +1,6 @@
 {}
 (Input ((Record Entry) (Observe Query)))
-(Output ((RecordAccepted SemaReceipt) (RecordsObserved ObservedRecords) (Error ErrorReport)))
+(Output ((RecordAccepted SemaReceipt) (RecordsObserved ObservedRecords) (Error ErrorReport) (Rejected SignalRejection)))
 {
   SourcePath [Text]
   LocalPath [Text]
@@ -24,6 +24,8 @@
   SemaReceipt [RecordIdentifier DatabaseMarker]
   ObservedRecords [RecordSet DatabaseMarker]
   ErrorReport [ErrorMessage DatabaseMarker]
+  SignalRejection [ValidationError DatabaseMarker]
+  ValidationError (EmptyTopic EmptyDescription EmptyQueryTopic)
   MailIdentifier [Integer]
   ShortHeader [Integer]
   SentMail [MailIdentifier ShortHeader]

@@ -1,6 +1,7 @@
 use crate::{
     CommitSequence, DatabaseMarker, Entry, ErrorMessage, ErrorReport, Magnitude, ObservedRecords,
-    Query, RecordIdentifier, RecordSet, SemaInput, SemaOutput, SemaReceipt, StateDigest,
+    Query, RecordIdentifier, RecordSet, SemaEngine, SemaInput, SemaOutput, SemaReceipt,
+    StateDigest,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -26,8 +27,8 @@ impl Default for Store {
     }
 }
 
-impl Store {
-    pub fn apply(&mut self, command: SemaInput) -> SemaOutput {
+impl SemaEngine for Store {
+    fn apply(&mut self, command: SemaInput) -> SemaOutput {
         match command {
             SemaInput::Record(entry) => {
                 let identifier = self.record(entry);
@@ -48,7 +49,9 @@ impl Store {
             },
         }
     }
+}
 
+impl Store {
     fn record(&mut self, entry: Entry) -> u64 {
         let identifier = self.next_identifier;
         self.next_identifier += 1;

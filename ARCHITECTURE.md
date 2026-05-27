@@ -82,6 +82,9 @@ The schema emits those nouns. Rust attaches the behavior:
   language.
 - `NexusInput::into_nexus_output` maps Signal-side Nexus input to
   `SemaInput`, and maps `SemaOutput` back to Signal `Output`.
+- `Engine` implements the generated `NexusEngine` trait, so tests can invoke
+  the Nexus plane as `NexusEngine::execute(NexusInput) -> NexusOutput` instead
+  of calling a helper around the generated objects.
 - `Engine::handle` composes Signal admission, Nexus dispatch, and the SEMA
   writer. Generated sent/processed lifecycle events are pushed through
   `MailLedgerHook` instead of being recorded by direct helper calls.
@@ -92,9 +95,10 @@ The schema emits those nouns. Rust attaches the behavior:
 ### SEMA
 
 `Store` is the current SEMA writer. The MVP store is still in memory, but all
-state mutation goes through `Store::apply(SemaInput)`. SEMA replies carry a
-generated `DatabaseMarker` with `CommitSequence` and `StateDigest`, so Signal
-outputs include the state marker that Nexus uses to close processed mail.
+state mutation goes through the generated `SemaEngine` trait:
+`SemaEngine::apply(SemaInput) -> SemaOutput`. SEMA replies carry a generated
+`DatabaseMarker` with `CommitSequence` and `StateDigest`, so Signal outputs
+include the state marker that Nexus uses to close processed mail.
 The next durable slice replaces the storage backend with redb without changing
 the Nexus shape.
 
@@ -117,12 +121,14 @@ Schema-generated types are the implementation nouns. Hand-written runtime code
 attaches behavior to those nouns or to state-owning runtime objects:
 
 - `Input` is accepted by `SignalActor::accept`, producing `SignalAccepted`.
+- invalid `Input` is rejected as generated `Output::Rejected(SignalRejection)`
+  before mail is sent or SEMA is touched.
 - `SignalAccepted` emits `MessageSent` through a hook and dispatches as
   `NexusMail<Payload>`.
 - `NexusMail<Payload>` becomes generated `NexusInput`.
 - `NexusInput` becomes generated `NexusOutput`.
 - `NexusOutput::Sema` carries generated `SemaInput`.
-- `SemaInput` is applied by `Store::apply`.
+- `SemaInput` is applied by `Store` through generated `SemaEngine`.
 - `SemaOutput` becomes `NexusInput::Sema` and then generated `Output` carrying
   a `DatabaseMarker`.
 - `MailLedgerEvent` stores sent and processed mail markers in the runtime
@@ -162,8 +168,11 @@ The schema-rust output path is already crate-relative (`src/schema/lib.rs`).
 Runtime-chain tests assert on schema-emitted objects, not test-local shadow
 languages. Pattern A uses generated `MailLedgerEvent`, `NexusInput`,
 `NexusOutput`, `SemaInput`, and `SemaOutput` as witnesses. The SEMA engine
-test calls `Store::apply(SemaInput) -> SemaOutput`, so the state plane remains
-typed as SEMA schema at both ends of the operation.
+test calls generated `SemaEngine::apply(SemaInput) -> SemaOutput`, and the
+full-chain test calls generated `NexusEngine::execute(NexusInput) ->
+NexusOutput`, so each runtime plane remains typed as its schema at both ends
+of the operation. The process-boundary test also checks generated
+`Output::Rejected(SignalRejection)` over the real CLI/daemon rkyv socket.
 
 ## Known limits
 

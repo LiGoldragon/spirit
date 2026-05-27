@@ -36,10 +36,18 @@ Load-bearing constraints:
   the generated `Input` enough to create `SignalAccepted`, and
   `SignalAccepted::push_to_nexus` fires the generated `MessageSent` hook before
   the object enters Nexus.
+- Signal rejection is also schema-emitted. Invalid Signal input returns
+  `Output::Rejected(SignalRejection { validation_error, database_marker })`
+  where `ValidationError` is generated from `schema/lib.schema`; the runtime
+  does not use a hand-written rejection enum at the wire boundary.
 - Nexus lowers generated Signal payload mail into generated `NexusInput`, then
   emits generated `NexusOutput::Sema(SemaInput)`. When SEMA replies with
   `SemaOutput`, Nexus turns it into generated Signal output and records
   `MessageProcessed<Output>`.
+- `schema-rust-next` emits `NexusEngine` and `SemaEngine` when the schema
+  declares the corresponding input/output pairs. `Engine` implements
+  `NexusEngine`; `Store` implements `SemaEngine`; tests call those trait
+  surfaces with generated schema objects.
 - Nexus mail lifecycle state is represented with generated schema nouns:
   `MailLedgerEvent`, `SentMail`, and `ProcessedMail`.
 - Async mail flow is implemented as object flow. `Engine` owns Nexus behavior,
@@ -52,8 +60,8 @@ Load-bearing constraints:
   execution, and `SemaInput`/`SemaOutput` for SEMA operations. Test-only enums
   are not valid substitutes for the schema objects whose path is being proved.
 - The store is the SEMA writer. Runtime state changes pass through
-  `Store::apply(SemaInput)` rather than direct mutation from the Signal
-  layer.
+  the generated `SemaEngine::apply(SemaInput) -> SemaOutput` surface rather
+  than direct mutation from the Signal layer.
 - SEMA replies carry generated `DatabaseMarker` values so Signal replies can
   report the state commit sequence and digest that accepted or observed the
   request.

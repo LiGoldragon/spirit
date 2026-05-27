@@ -220,6 +220,19 @@ pub struct ErrorReport {
 }
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct SignalRejection {
+    pub validation_error: ValidationError,
+    pub database_marker: DatabaseMarker,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum ValidationError {
+    EmptyTopic,
+    EmptyDescription,
+    EmptyQueryTopic,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct MailIdentifier(pub Integer);
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -291,6 +304,7 @@ pub enum Output {
     RecordAccepted(SemaReceipt),
     RecordsObserved(ObservedRecords),
     Error(ErrorReport),
+    Rejected(SignalRejection),
 }
 
 impl SourcePath {
@@ -635,6 +649,46 @@ impl ErrorReport {
     }
 }
 
+impl SignalRejection {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "SignalRejection", 2)?;
+        Ok(Self {
+            validation_error: ValidationError::from_nota_block(&children[0])?,
+            database_marker: DatabaseMarker::from_nota_block(&children[1])?,
+        })
+    }
+
+    pub fn to_nota(&self) -> String {
+        let fields = [
+            self.validation_error.to_nota(),
+            self.database_marker.to_nota(),
+        ];
+        format!("({})", fields.join(" "))
+    }
+}
+
+impl ValidationError {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        if let Some(variant) = block.demote_to_string() {
+            return match variant {
+                "EmptyTopic" => Ok(Self::EmptyTopic),
+                "EmptyDescription" => Ok(Self::EmptyDescription),
+                "EmptyQueryTopic" => Ok(Self::EmptyQueryTopic),
+                other => Err(NotaDecodeError::UnknownVariant { enum_name: "ValidationError", variant: other.to_owned() }),
+            };
+        }
+        Err(NotaDecodeError::ExpectedAtom { type_name: "ValidationError" })
+    }
+
+    pub fn to_nota(&self) -> String {
+        match self {
+            Self::EmptyTopic => "EmptyTopic".to_owned(),
+            Self::EmptyDescription => "EmptyDescription".to_owned(),
+            Self::EmptyQueryTopic => "EmptyQueryTopic".to_owned(),
+        }
+    }
+}
+
 impl MailIdentifier {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         Ok(Self(NotaBlock::new(block).parse_integer()?))
@@ -867,6 +921,7 @@ impl Output {
             "RecordAccepted" => Ok(Self::RecordAccepted(SemaReceipt::from_nota_block(&children[1])?)),
             "RecordsObserved" => Ok(Self::RecordsObserved(ObservedRecords::from_nota_block(&children[1])?)),
             "Error" => Ok(Self::Error(ErrorReport::from_nota_block(&children[1])?)),
+            "Rejected" => Ok(Self::Rejected(SignalRejection::from_nota_block(&children[1])?)),
             other => Err(NotaDecodeError::UnknownVariant { enum_name: "Output", variant: other.to_owned() }),
         }
     }
@@ -876,6 +931,7 @@ impl Output {
             Self::RecordAccepted(payload) => format!("(RecordAccepted {})", payload.to_nota()),
             Self::RecordsObserved(payload) => format!("(RecordsObserved {})", payload.to_nota()),
             Self::Error(payload) => format!("(Error {})", payload.to_nota()),
+            Self::Rejected(payload) => format!("(Rejected {})", payload.to_nota()),
         }
     }
 }
@@ -901,6 +957,7 @@ pub mod short_header {
     pub const OUTPUT_RECORD_ACCEPTED: u64 = 0x0100000000000000;
     pub const OUTPUT_RECORDS_OBSERVED: u64 = 0x0101000000000000;
     pub const OUTPUT_ERROR: u64 = 0x0102000000000000;
+    pub const OUTPUT_REJECTED: u64 = 0x0103000000000000;
 }
 
 const SIGNAL_SHORT_HEADER_BYTE_COUNT: usize = 8;
@@ -939,6 +996,7 @@ pub enum OutputRoute {
     RecordAccepted,
     RecordsObserved,
     Error,
+    Rejected,
 }
 
 impl Input {
@@ -997,6 +1055,7 @@ impl Output {
             Self::RecordAccepted(_) => OutputRoute::RecordAccepted,
             Self::RecordsObserved(_) => OutputRoute::RecordsObserved,
             Self::Error(_) => OutputRoute::Error,
+            Self::Rejected(_) => OutputRoute::Rejected,
         }
     }
 
@@ -1005,6 +1064,7 @@ impl Output {
             Self::RecordAccepted(_) => short_header::OUTPUT_RECORD_ACCEPTED,
             Self::RecordsObserved(_) => short_header::OUTPUT_RECORDS_OBSERVED,
             Self::Error(_) => short_header::OUTPUT_ERROR,
+            Self::Rejected(_) => short_header::OUTPUT_REJECTED,
         }
     }
 
@@ -1013,6 +1073,7 @@ impl Output {
             short_header::OUTPUT_RECORD_ACCEPTED => Ok(OutputRoute::RecordAccepted),
             short_header::OUTPUT_RECORDS_OBSERVED => Ok(OutputRoute::RecordsObserved),
             short_header::OUTPUT_ERROR => Ok(OutputRoute::Error),
+            short_header::OUTPUT_REJECTED => Ok(OutputRoute::Rejected),
             _ => Err(SignalFrameError::UnknownHeader { root_enum: "Output", header }),
         }
     }
@@ -1177,6 +1238,7 @@ pub trait OutputNexus {
     fn record_accepted(&self, mail: NexusMail<SemaReceipt>) -> Result<Self::Reply, Self::Error>;
     fn records_observed(&self, mail: NexusMail<ObservedRecords>) -> Result<Self::Reply, Self::Error>;
     fn error(&self, mail: NexusMail<ErrorReport>) -> Result<Self::Reply, Self::Error>;
+    fn rejected(&self, mail: NexusMail<SignalRejection>) -> Result<Self::Reply, Self::Error>;
 }
 
 impl Output {
@@ -1188,9 +1250,18 @@ impl Output {
             Self::RecordAccepted(payload) => nexus.record_accepted(NexusMail::new(identifier, payload)),
             Self::RecordsObserved(payload) => nexus.records_observed(NexusMail::new(identifier, payload)),
             Self::Error(payload) => nexus.error(NexusMail::new(identifier, payload)),
+            Self::Rejected(payload) => nexus.rejected(NexusMail::new(identifier, payload)),
         }?;
         Ok(MessageProcessed::new(identifier, reply))
     }
+}
+
+pub trait NexusEngine {
+    fn execute(&self, input: NexusInput) -> NexusOutput;
+}
+
+pub trait SemaEngine {
+    fn apply(&mut self, input: SemaInput) -> SemaOutput;
 }
 
 pub trait UpgradeFrom<Previous>: Sized {

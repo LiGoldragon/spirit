@@ -26,10 +26,11 @@ pub use schema::lib::{
     CommitSequence, DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport, Export, Import,
     Input, InputNexus, InputRoute, Integer, Kind, LocalPath, Magnitude, MailIdentifier,
     MailLedgerEvent, MessageIdentifier, MessageProcessed, MessageProcessedHook, MessageRoot,
-    MessageSent, MessageSentHook, NexusInput, NexusMail, NexusOutput, NexusReuse, ObservedRecords,
-    Output, OutputRoute, ProcessedMail, PublicPath, Query, RecordIdentifier, RecordSet, SemaInput,
-    SemaOutput, SemaReceipt, SemaReuse, SentMail, ShortHeader, SignalFrameError, SignalReuse,
-    SourcePath, StateDigest, Topic,
+    MessageSent, MessageSentHook, NexusEngine, NexusInput, NexusMail, NexusOutput, NexusReuse,
+    ObservedRecords, Output, OutputRoute, ProcessedMail, PublicPath, Query, RecordIdentifier,
+    RecordSet, SemaEngine, SemaInput, SemaOutput, SemaReceipt, SemaReuse, SentMail, ShortHeader,
+    SignalFrameError, SignalRejection, SignalReuse, SourcePath, StateDigest, Topic,
+    ValidationError,
 };
 pub use store::Store;
 pub use transport::{SignalTransport, TransportError};
