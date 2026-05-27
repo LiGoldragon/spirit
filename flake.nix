@@ -129,18 +129,32 @@
             grep -R "Output::decode_signal_frame" ${src}/src/transport.rs >/dev/null
             grep -R "input.encode_signal_frame" ${src}/src/transport.rs >/dev/null
             grep -R "output.encode_signal_frame" ${src}/src/transport.rs >/dev/null
+            grep -R "MessageSent" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "MessageRoot" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "NexusMail<Payload>" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "MessageProcessed<Reply>" ${src}/src/schema/lib.rs >/dev/null
             grep -R "pub struct SignalTransport" ${src}/src/transport.rs >/dev/null
             ! grep -R "pub enum InputRoute" ${src}/src/transport.rs
             ! grep -R "short_header::" ${src}/src/transport.rs
             grep -R "generated_input_surface_owns_route_header_and_rkyv_frame" ${src}/tests/generated_signal_plane.rs >/dev/null
+            grep -R "generated_signal_surface_emits_mail_sent_event" ${src}/tests/generated_signal_plane.rs >/dev/null
             touch $out
           '';
           runtime-triad-visible = pkgs.runCommand "spirit-next-runtime-triad-visible" { } ''
-            grep -R "lower_to_sema" ${src}/src/engine.rs >/dev/null
+            grep -R "impl InputNexus for Engine" ${src}/src/engine.rs >/dev/null
+            grep -R "dispatch_mail_with_nexus" ${src}/src/engine.rs >/dev/null
+            grep -R "NexusMail<Entry>" ${src}/src/engine.rs >/dev/null
+            grep -R "NexusMail<Query>" ${src}/src/engine.rs >/dev/null
+            grep -R "MessageProcessed<Output>" ${src}/src/engine.rs >/dev/null
+            grep -R "message_sent" ${src}/src/engine.rs >/dev/null
+            grep -R "sent_message_count" ${src}/src/engine.rs >/dev/null
+            grep -R "processed_message_count" ${src}/src/engine.rs >/dev/null
             grep -R "SemaResponse" ${src}/src/engine.rs >/dev/null
             grep -R "pub fn apply(&mut self, command: SemaCommand)" ${src}/src/store.rs >/dev/null
-            grep -R "executor_lowers_signal_input_to_generated_sema_command" ${src}/tests/runtime_triad.rs >/dev/null
+            grep -R "nexus_mail_lowers_signal_payload_to_generated_sema_command" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "sema_store_is_the_single_writer_for_records" ${src}/tests/runtime_triad.rs >/dev/null
+            grep -R "sent_message_count" ${src}/tests/runtime_triad.rs >/dev/null
+            grep -R "processed_message_count" ${src}/tests/runtime_triad.rs >/dev/null
             touch $out
           '';
           no-production-free-functions = pkgs.runCommand "spirit-next-no-production-free-functions" { } ''

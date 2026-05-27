@@ -12,6 +12,9 @@ Load-bearing constraints:
 - Component/process communication is binary rkyv.
 - Rust data types are generated from the crate-local `schema/lib.schema`
   entrypoint and materialized as checked-in source under `src/schema/`.
+- The generated file path from schema-rust is crate-relative
+  `src/schema/lib.rs`; build code uses that path directly instead of treating
+  `schema/lib.rs` as relative to `src/`.
 - Schema lowering goes through `schema-next`'s macro registry before Rust
   emission; the build must fail if the registry does not reach nested
   struct-field and enum-variant type bodies.
@@ -20,8 +23,12 @@ Load-bearing constraints:
 - The schema declares the runtime triad surfaces:
   `Input`/`Output` for Signal and `SemaCommand`/`SemaResponse` for
   state work.
-- The executor lowers generated Signal input into generated SEMA command,
-  then turns generated SEMA response into generated Signal output.
+- Nexus is the execution and mail-keeper plane between Signal and SEMA. Signal
+  input becomes `NexusMail<Payload>` with a `MessageIdentifier`; while Nexus
+  owns that object, the mail is being processed.
+- Nexus lowers generated Signal payload mail into generated SEMA command, then
+  turns generated SEMA response into generated Signal output and records
+  `MessageProcessed<Output>`.
 - The store is the SEMA writer. Runtime state changes pass through
   `Store::apply(SemaCommand)` rather than direct mutation from the Signal
   layer.

@@ -23,8 +23,10 @@ pub use config::{Configuration, ConfigurationError};
 pub use daemon::{Daemon, DaemonError};
 pub use engine::Engine;
 pub use schema::lib::{
-    Description, Entry, ErrorMessage, Input, InputRoute, Kind, Magnitude, Output, OutputRoute,
-    Query, RecordIdentifier, RecordSet, SemaCommand, SemaResponse, SignalFrameError, Topic,
+    Description, Entry, ErrorMessage, Input, InputNexus, InputRoute, Kind, Magnitude,
+    MessageIdentifier, MessageProcessed, MessageProcessedHook, MessageRoot, MessageSent,
+    MessageSentHook, NexusMail, Output, OutputRoute, Query, RecordIdentifier, RecordSet,
+    SemaCommand, SemaResponse, SignalFrameError, Topic,
 };
 pub use store::Store;
 pub use transport::{SignalTransport, TransportError};

@@ -605,3 +605,165 @@ impl Output {
     }
 }
 
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MessageIdentifier(pub u128);
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MessageRoot {
+    Input,
+    Output,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct MessageSent {
+    pub identifier: MessageIdentifier,
+    pub root: MessageRoot,
+    pub short_header: u64,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct NexusMail<Payload> {
+    pub identifier: MessageIdentifier,
+    pub payload: Payload,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct MessageProcessed<Reply> {
+    pub identifier: MessageIdentifier,
+    pub reply: Reply,
+}
+
+pub trait MessageSentHook {
+    type Error;
+
+    fn message_sent(&mut self, event: MessageSent) -> Result<(), Self::Error>;
+}
+
+pub trait MessageProcessedHook<Reply> {
+    type Error;
+
+    fn message_processed(&mut self, event: MessageProcessed<Reply>) -> Result<(), Self::Error>;
+}
+
+impl MessageSent {
+    pub fn push_to<Hook>(&self, hook: &mut Hook) -> Result<(), Hook::Error>
+    where
+        Hook: MessageSentHook,
+    {
+        hook.message_sent(self.clone())
+    }
+}
+
+impl<Payload> NexusMail<Payload> {
+    pub fn new(identifier: MessageIdentifier, payload: Payload) -> Self {
+        Self { identifier, payload }
+    }
+
+    pub fn identifier(&self) -> MessageIdentifier {
+        self.identifier
+    }
+
+    pub fn into_payload(self) -> Payload {
+        self.payload
+    }
+}
+
+impl<Reply> MessageProcessed<Reply> {
+    pub fn new(identifier: MessageIdentifier, reply: Reply) -> Self {
+        Self { identifier, reply }
+    }
+
+    pub fn identifier(&self) -> MessageIdentifier {
+        self.identifier
+    }
+
+    pub fn into_reply(self) -> Reply {
+        self.reply
+    }
+
+    pub fn push_to<Hook>(&self, hook: &mut Hook) -> Result<(), Hook::Error>
+    where
+        Hook: MessageProcessedHook<Reply>,
+        Reply: Clone,
+    {
+        hook.message_processed(self.clone())
+    }
+}
+
+impl Input {
+    pub fn message_sent(&self, identifier: MessageIdentifier) -> MessageSent {
+        MessageSent {
+            identifier,
+            root: MessageRoot::Input,
+            short_header: self.short_header(),
+        }
+    }
+}
+
+impl Output {
+    pub fn message_sent(&self, identifier: MessageIdentifier) -> MessageSent {
+        MessageSent {
+            identifier,
+            root: MessageRoot::Output,
+            short_header: self.short_header(),
+        }
+    }
+}
+
+pub trait InputNexus {
+    type Reply;
+    type Error;
+
+    fn record(&self, mail: NexusMail<Entry>) -> Result<Self::Reply, Self::Error>;
+    fn observe(&self, mail: NexusMail<Query>) -> Result<Self::Reply, Self::Error>;
+}
+
+impl Input {
+    pub fn dispatch_mail_with_nexus<Nexus>(self, identifier: MessageIdentifier, nexus: &Nexus) -> Result<MessageProcessed<Nexus::Reply>, Nexus::Error>
+    where
+        Nexus: InputNexus,
+    {
+        let reply = match self {
+            Self::Record(payload) => nexus.record(NexusMail::new(identifier, payload)),
+            Self::Observe(payload) => nexus.observe(NexusMail::new(identifier, payload)),
+        }?;
+        Ok(MessageProcessed::new(identifier, reply))
+    }
+}
+
+pub trait OutputNexus {
+    type Reply;
+    type Error;
+
+    fn record_accepted(&self, mail: NexusMail<RecordIdentifier>) -> Result<Self::Reply, Self::Error>;
+    fn records_observed(&self, mail: NexusMail<RecordSet>) -> Result<Self::Reply, Self::Error>;
+    fn error(&self, mail: NexusMail<ErrorMessage>) -> Result<Self::Reply, Self::Error>;
+}
+
+impl Output {
+    pub fn dispatch_mail_with_nexus<Nexus>(self, identifier: MessageIdentifier, nexus: &Nexus) -> Result<MessageProcessed<Nexus::Reply>, Nexus::Error>
+    where
+        Nexus: OutputNexus,
+    {
+        let reply = match self {
+            Self::RecordAccepted(payload) => nexus.record_accepted(NexusMail::new(identifier, payload)),
+            Self::RecordsObserved(payload) => nexus.records_observed(NexusMail::new(identifier, payload)),
+            Self::Error(payload) => nexus.error(NexusMail::new(identifier, payload)),
+        }?;
+        Ok(MessageProcessed::new(identifier, reply))
+    }
+}
+
+pub trait UpgradeFrom<Previous>: Sized {
+    type Error;
+
+    fn upgrade_from(previous: Previous) -> Result<Self, Self::Error>;
+}
+
+pub trait AcceptPrevious<Previous>: UpgradeFrom<Previous> {
+    fn accept_previous(previous: Previous) -> Result<Self, Self::Error> {
+        Self::upgrade_from(previous)
+    }
+}
+
+impl<Current, Previous> AcceptPrevious<Previous> for Current where Current: UpgradeFrom<Previous> {}

@@ -31,7 +31,7 @@ schema/lib.schema
 
 ## Runtime triad
 
-The daemon is shaped as the Signal / Executor / SEMA runtime triad.
+The daemon is shaped as the Signal / Nexus / SEMA runtime triad.
 
 ### Signal
 
@@ -57,34 +57,40 @@ The daemon:
 The hand-written transport module owns only length-prefix socket I/O. It does
 not own route enums, short-header matching, or rkyv archive encode/decode.
 
-### Executor
+### Nexus
 
-`Engine::handle` is the executor entry point. It performs the runtime decision
-shape explicitly:
+`Engine::handle` is the Nexus entry point. Nexus is the runtime mail keeper:
+when Signal input enters Nexus, `Input::message_sent` records the sent event,
+`Input::dispatch_mail_with_nexus` wraps the payload as `NexusMail<Payload>`,
+and the generated `InputNexus` trait dispatches to one method per Signal
+variant. While Nexus owns that mail object, the message is being processed.
 
 ```text
-Input -> SemaCommand -> SemaResponse -> Output
+Input -> NexusMail<Payload> -> SemaCommand -> SemaResponse -> MessageProcessed<Output> -> Output
 ```
 
 The schema emits those nouns. Rust attaches the behavior:
 
-- `Input::lower_to_sema` maps the external Signal request to state work.
+- `NexusMail<Entry>::into_sema_command` and
+  `NexusMail<Query>::into_sema_command` map Signal payload mail to state work.
 - `SemaResponse::into_output` maps state response back to Signal reply.
-- `Engine::handle` composes the two around the SEMA writer.
+- `Engine::handle` records sent/processed mail lifecycle events and composes
+  Nexus dispatch around the SEMA writer.
 
 ### SEMA
 
 `Store` is the current SEMA writer. The MVP store is still in memory, but all
 state mutation goes through `Store::apply(SemaCommand)`. The next durable slice
-replaces the storage backend with redb without changing the executor shape.
+replaces the storage backend with redb without changing the Nexus shape.
 
 ## Implementation methods
 
 Schema-generated types are the implementation nouns. Hand-written runtime code
 attaches behavior to those nouns or to state-owning runtime objects:
 
-- `Input` is matched by `Engine::handle`.
-- `Input` lowers to generated `SemaCommand`.
+- `Input` is accepted by `Engine::handle`.
+- `Input` emits `MessageSent` and dispatches as `NexusMail<Payload>`.
+- `NexusMail<Payload>` lowers to generated `SemaCommand`.
 - `SemaCommand` is applied by `Store::apply`.
 - `SemaResponse` becomes generated `Output`.
 - `Input` and `Output` frame themselves at the Signal boundary.
@@ -108,6 +114,10 @@ macros, emits Rust into memory, and compares that output against
 `src/schema/lib.rs`. The build fails if the checked-in generated source is
 missing or stale. Runtime code imports `src/schema/lib.rs` directly; it does
 not include generated Rust from `OUT_DIR`.
+
+The schema-rust output path is already crate-relative (`src/schema/lib.rs`).
+`build.rs` uses that path directly; it does not reinterpret a generated
+`schema/lib.rs` path relative to `src/`.
 
 ## Known limits
 

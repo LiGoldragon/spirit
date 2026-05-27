@@ -55,9 +55,9 @@ impl SchemaBuild {
     }
 
     fn assert_generated_schema_path(&self, generated: &GeneratedFile) {
-        if generated.path.as_str() != "schema/lib.rs" {
+        if generated.path.as_str() != "src/schema/lib.rs" {
             panic!(
-                "spirit-next schema must emit schema/lib.rs, found {}",
+                "spirit-next schema must emit src/schema/lib.rs, found {}",
                 generated.path
             );
         }
@@ -95,7 +95,7 @@ impl<'schema> CheckedInSchemaSource<'schema> {
     }
 
     fn path(&self) -> PathBuf {
-        self.crate_root.join("src").join(&self.generated.path)
+        self.crate_root.join(&self.generated.path)
     }
 
     fn expected_source(&self) -> String {

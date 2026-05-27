@@ -1,6 +1,6 @@
 use spirit_next::{
-    Description, Entry, Input, InputRoute, Kind, Magnitude, Output, OutputRoute, RecordIdentifier,
-    SignalFrameError, Topic,
+    Description, Entry, Input, InputRoute, Kind, Magnitude, MessageIdentifier, MessageRoot, Output,
+    OutputRoute, RecordIdentifier, SignalFrameError, Topic,
 };
 
 #[test]
@@ -55,4 +55,20 @@ fn generated_signal_surface_rejects_unknown_header_before_body_decode() {
             header: 0xFFFF_FFFF_FFFF_FFFF
         }
     );
+}
+
+#[test]
+fn generated_signal_surface_emits_mail_sent_event() {
+    let input = Input::Record(Entry {
+        topic: Topic(String::from("schema")),
+        kind: Kind::Constraint,
+        description: Description(String::from("schema emits mail events")),
+        magnitude: Magnitude::Maximum,
+    });
+
+    let event = input.message_sent(MessageIdentifier(9));
+
+    assert_eq!(event.identifier, MessageIdentifier(9));
+    assert_eq!(event.root, MessageRoot::Input);
+    assert_eq!(event.short_header, input.short_header());
 }
