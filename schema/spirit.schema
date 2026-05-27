@@ -2,15 +2,15 @@
 (Input ((Record Entry) (Observe Query)))
 (Output ((RecordAccepted RecordIdentifier) (RecordsObserved RecordSet) (Error ErrorMessage)))
 {
-  (SemaCommand ((Record Entry) (Observe Query)))
-  (SemaResponse ((Recorded RecordIdentifier) (Observed RecordSet) (Missed ErrorMessage)))
-  (Topic [Text])
-  (Description [Text])
-  (ErrorMessage [Text])
-  (RecordIdentifier [Integer])
-  (Entry [Topic Kind Description Magnitude])
-  (Query [Topic Kind])
-  (RecordSet [Entry])
-  (Kind (Decision Principle Correction Clarification Constraint))
-  (Magnitude (Minimum VeryLow Low Medium High VeryHigh Maximum))
+  SemaCommand ((Record Entry) (Observe Query))
+  SemaResponse ((Recorded RecordIdentifier) (Observed RecordSet) (Missed ErrorMessage))
+  Topic [Text]
+  Description [Text]
+  ErrorMessage [Text]
+  RecordIdentifier [Integer]
+  Entry [Topic Kind Description Magnitude]
+  Query [Topic Kind]
+  RecordSet [Entry]
+  Kind (Decision Principle Correction Clarification Constraint)
+  Magnitude (Minimum VeryLow Low Medium High VeryHigh Maximum)
 }
