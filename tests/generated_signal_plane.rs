@@ -1,7 +1,7 @@
 use spirit_next::{
     CommitSequence, DatabaseMarker, Description, Entry, Input, InputRoute, Kind, Magnitude,
-    MessageIdentifier, MessageRoot, Output, OutputRoute, RecordIdentifier, SemaReceipt,
-    SignalFrameError, SignalRejection, StateDigest, Topic, ValidationError,
+    MessageIdentifier, MessageRoot, OriginRoute, Output, OutputRoute, RecordIdentifier,
+    SemaReceipt, SignalFrameError, SignalRejection, StateDigest, Topic, ValidationError,
 };
 
 fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
@@ -113,6 +113,7 @@ fn generated_signal_surface_emits_mail_sent_event() {
     let event = input.message_sent(MessageIdentifier(9));
 
     assert_eq!(event.identifier, MessageIdentifier(9));
+    assert_eq!(event.origin_route(), OriginRoute(9));
     assert_eq!(event.root, MessageRoot::Input);
     assert_eq!(event.short_header, input.short_header());
 }

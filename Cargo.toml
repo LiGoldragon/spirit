@@ -23,6 +23,8 @@ path = "src/bin/spirit-next-daemon.rs"
 [dependencies]
 nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }
 rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
+redb = "2.6.3"
+blake3 = "1"
 
 [build-dependencies]
 schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }

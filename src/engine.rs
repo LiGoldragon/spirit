@@ -1,17 +1,25 @@
 use std::{convert::Infallible, sync::Mutex};
 
 use crate::{
-    DatabaseMarker, Entry, Input, InputNexus, Integer, MailIdentifier, MailLedgerEvent,
-    MessageIdentifier, MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook,
-    NexusEngine, NexusInput, NexusMail, NexusOutput, Output, ProcessedMail, Query, SemaEngine,
-    SemaInput, SemaOutput, SentMail, ShortHeader, SignalRejection, ValidationError, store::Store,
+    DatabaseMarker, Entry, Input, Integer, MailIdentifier, MailLedgerEvent, MessageIdentifier,
+    MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook, NexusInput, NexusMail,
+    NexusOutput, Output, ProcessedMail, Query, SemaInput, SemaOutput, SentMail, ShortHeader,
+    SignalRejection, ValidationError,
+    nexus::{BeingProcessed, FromMail, Mail, Nexus},
+    store::Store,
 };
 
-#[derive(Debug, Default)]
+/// The daemon runtime: a thin composer of the three execution centers.
+///
+/// `Engine` owns the Signal admission actor and the Nexus mail keeper.
+/// Nexus owns the durable SEMA store and the mail ledger. `Engine::handle`
+/// runs the record-970 flow as a composition — it does NOT call the store
+/// directly; the SEMA invocation lives inside Nexus, which holds the mail
+/// in a being-processed state across it.
+#[derive(Debug)]
 pub struct Engine {
     signal_actor: SignalActor,
-    store: Mutex<Store>,
-    mail_ledger: MailLedger,
+    nexus: Mutex<Nexus>,
 }
 
 #[derive(Debug, Default)]
@@ -36,45 +44,60 @@ pub struct MailLedgerHook<'a> {
 }
 
 impl Engine {
+    /// Build the runtime over a durable SEMA store opened at `.sema` path.
+    pub fn new(store: Store) -> Self {
+        Self {
+            signal_actor: SignalActor::default(),
+            nexus: Mutex::new(Nexus::new(store)),
+        }
+    }
+
+    /// Run one request through Signal admission, Nexus mail-keeping, and
+    /// the durable SEMA store.
+    ///
+    /// Signal validates and issues identity; the sent hook fires at the
+    /// Signal→Nexus handoff; Nexus then HOLDS the mail in a
+    /// being-processed state across the SEMA call and emits the processed
+    /// event before the Signal output leaves.
     pub fn handle(&self, input: Input) -> Output {
-        let signal = match self.signal_actor.accept(input) {
-            Ok(signal) => signal,
+        let accepted = match self.signal_actor.accept(input) {
+            Ok(accepted) => accepted,
             Err(error) => return error.into_signal_output(self.database_marker()),
         };
-        let identifier = signal.identifier();
-        let nexus_step = signal
-            .push_to_nexus(self, &mut self.mail_ledger.hook())
-            .expect("spirit-next nexus is infallible");
-        let sema_input = nexus_step.into_reply().into_sema_input();
-        let sema_output = self.store.lock().expect("store lock").apply(sema_input);
-        let output = NexusInput::Sema(sema_output)
-            .into_nexus_output()
-            .into_signal_output();
-        let processed = MessageProcessed::new(identifier, output);
-        processed
-            .push_to(&mut self.mail_ledger.hook())
-            .expect("spirit-next mail ledger is infallible");
-        processed.into_reply()
+        let mut nexus = self.nexus.lock().expect("nexus lock");
+        accepted.process_with(&mut nexus)
     }
 
     pub fn record_count(&self) -> usize {
-        self.store.lock().expect("store lock").len()
+        self.nexus.lock().expect("nexus lock").store().len()
     }
 
     pub fn sent_message_count(&self) -> usize {
-        self.mail_ledger.sent_message_count()
+        self.nexus
+            .lock()
+            .expect("nexus lock")
+            .mail_ledger()
+            .sent_message_count()
     }
 
     pub fn processed_message_count(&self) -> usize {
-        self.mail_ledger.processed_message_count()
+        self.nexus
+            .lock()
+            .expect("nexus lock")
+            .mail_ledger()
+            .processed_message_count()
     }
 
     pub fn mail_ledger(&self) -> Vec<MailLedgerEvent> {
-        self.mail_ledger.events()
+        self.nexus
+            .lock()
+            .expect("nexus lock")
+            .mail_ledger()
+            .events()
     }
 
     pub fn database_marker(&self) -> DatabaseMarker {
-        self.store.lock().expect("store lock").database_marker()
+        self.nexus.lock().expect("nexus lock").database_marker()
     }
 }
 
@@ -107,18 +130,40 @@ impl SignalAccepted {
         &self.sent
     }
 
-    pub fn push_to_nexus<Nexus, Hook, Error>(
-        self,
-        nexus: &Nexus,
-        hook: &mut Hook,
-    ) -> Result<MessageProcessed<Nexus::Reply>, Error>
+    /// Hand the validated mail to Nexus: fire the sent hook at the
+    /// handoff, then let Nexus hold the mail across the SEMA call.
+    ///
+    /// The sent hook (the Signal→Nexus on_sent event) fires BEFORE the
+    /// mail enters Nexus, so an observer sees the handoff before any SEMA
+    /// state changes. The mail is then owned by Nexus in a being-processed
+    /// type-state until the SEMA reply turns it into the Signal output.
+    pub fn process_with(self, nexus: &mut Nexus) -> Output {
+        self.sent
+            .push_to(&mut nexus.mail_ledger().hook())
+            .expect("spirit-next mail ledger is infallible");
+        let identifier = self.identifier();
+        match self.input {
+            Input::Record(entry) => nexus.process(NexusMail::new(identifier, entry)),
+            Input::Observe(query) => nexus.process(NexusMail::new(identifier, query)),
+        }
+    }
+
+    /// Lower the accepted mail to its in-flight Nexus phase without
+    /// running SEMA — the witness that Nexus owns the mail in a
+    /// being-processed type-state. Used by tests to observe the held mail.
+    pub fn into_being_processed(self) -> Mail<BeingProcessed>
     where
-        Nexus: InputNexus<Error = Error>,
-        Hook: MessageSentHook<Error = Error>,
+        Mail<BeingProcessed>: FromMail<Entry> + FromMail<Query>,
     {
         let identifier = self.identifier();
-        self.sent.push_to(hook)?;
-        self.input.dispatch_mail_with_nexus(identifier, nexus)
+        match self.input {
+            Input::Record(entry) => {
+                Mail::<BeingProcessed>::from_mail(NexusMail::new(identifier, entry))
+            }
+            Input::Observe(query) => {
+                Mail::<BeingProcessed>::from_mail(NexusMail::new(identifier, query))
+            }
+        }
     }
 }
 
@@ -173,25 +218,6 @@ impl MessageProcessedHook<Output> for MailLedgerHook<'_> {
             .expect("mail ledger lock")
             .push(event.processed_mail_event());
         Ok(())
-    }
-}
-
-impl InputNexus for Engine {
-    type Reply = NexusOutput;
-    type Error = Infallible;
-
-    fn record(&self, mail: NexusMail<Entry>) -> Result<Self::Reply, Self::Error> {
-        Ok(self.execute(mail.into_nexus_input()))
-    }
-
-    fn observe(&self, mail: NexusMail<Query>) -> Result<Self::Reply, Self::Error> {
-        Ok(self.execute(mail.into_nexus_input()))
-    }
-}
-
-impl NexusEngine for Engine {
-    fn execute(&self, input: NexusInput) -> NexusOutput {
-        input.into_nexus_output()
     }
 }
 
@@ -283,6 +309,7 @@ impl MessageSent {
     pub fn into_mail_ledger_event(self) -> MailLedgerEvent {
         MailLedgerEvent::Sent(SentMail {
             mail_identifier: MailIdentifier(self.identifier.as_integer()),
+            origin_route: self.origin_route(),
             short_header: ShortHeader(self.short_header),
         })
     }
@@ -292,6 +319,7 @@ impl MessageProcessed<Output> {
     pub fn processed_mail_event(&self) -> MailLedgerEvent {
         MailLedgerEvent::Processed(ProcessedMail {
             mail_identifier: MailIdentifier(self.identifier().as_integer()),
+            origin_route: self.origin_route(),
             database_marker: self.reply.database_marker(),
         })
     }

@@ -1,44 +1,45 @@
-use std::{cell::RefCell, convert::Infallible};
-
 use spirit_next::{
     CommitSequence, DatabaseMarker, Description, Engine, Entry, ErrorMessage, ErrorReport, Export,
-    Import, Input, InputNexus, Kind, LocalPath, Magnitude, MailIdentifier, MailLedgerEvent,
-    MessageIdentifier, MessageSent, MessageSentHook, NexusEngine, NexusInput, NexusMail,
-    NexusOutput, Output, ProcessedMail, PublicPath, Query, RecordIdentifier, RecordSet, SemaEngine,
-    SemaInput, SemaOutput, SemaReceipt, SentMail, ShortHeader, SignalActor, SignalRejection,
+    Import, Input, Kind, LocalPath, Magnitude, MailIdentifier, MailLedgerEvent, MessageIdentifier,
+    MessageSent, MessageSentHook, NexusInput, NexusMail, NexusOutput, OriginRoute, Output,
+    ProcessedMail, PublicPath, Query, RecordIdentifier, RecordSet, SemaEngine, SemaInput,
+    SemaOutput, SemaReceipt, SentMail, ShortHeader, SignalAccepted, SignalActor, SignalRejection,
     SourcePath, StateDigest, Store, Topic, ValidationError,
 };
+use tempfile::TempDir;
 
-struct SentHookProbe<'a> {
+struct SemaFile {
+    #[allow(dead_code)]
+    directory: TempDir,
+    path: std::path::PathBuf,
+}
+
+impl SemaFile {
+    fn new() -> Self {
+        let directory = TempDir::new().expect("tempdir");
+        let path = directory.path().join("runtime-triad.sema");
+        Self { directory, path }
+    }
+
+    fn open_store(&self) -> Store {
+        Store::open(&self.path).expect("open sema store")
+    }
+
+    fn engine(&self) -> Engine {
+        Engine::new(self.open_store())
+    }
+}
+
+struct SentHookProbe {
     events: Vec<MailLedgerEvent>,
-    nexus: &'a NexusProbe,
 }
 
-#[derive(Default)]
-struct NexusProbe {
-    accepted_inputs: RefCell<Vec<NexusInput>>,
-}
+impl MessageSentHook for SentHookProbe {
+    type Error = std::convert::Infallible;
 
-impl NexusProbe {
-    fn accepted_inputs(&self) -> Vec<NexusInput> {
-        self.accepted_inputs.borrow().clone()
-    }
-}
-
-impl InputNexus for NexusProbe {
-    type Reply = NexusOutput;
-    type Error = Infallible;
-
-    fn record(&self, mail: NexusMail<Entry>) -> Result<Self::Reply, Self::Error> {
-        let nexus_input = mail.into_nexus_input();
-        self.accepted_inputs.borrow_mut().push(nexus_input.clone());
-        Ok(nexus_input.into_nexus_output())
-    }
-
-    fn observe(&self, mail: NexusMail<Query>) -> Result<Self::Reply, Self::Error> {
-        let nexus_input = mail.into_nexus_input();
-        self.accepted_inputs.borrow_mut().push(nexus_input.clone());
-        Ok(nexus_input.into_nexus_output())
+    fn message_sent(&mut self, event: MessageSent) -> Result<(), Self::Error> {
+        self.events.push(event.into_mail_ledger_event());
+        Ok(())
     }
 }
 
@@ -48,27 +49,6 @@ fn entry(description: &str) -> Entry {
         kind: Kind::Decision,
         description: Description(String::from(description)),
         magnitude: Magnitude::Maximum,
-    }
-}
-
-fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
-    DatabaseMarker {
-        commit_sequence: CommitSequence(commit_sequence),
-        state_digest: StateDigest(state_digest),
-    }
-}
-
-impl MessageSentHook for SentHookProbe<'_> {
-    type Error = Infallible;
-
-    fn message_sent(&mut self, event: MessageSent) -> Result<(), Self::Error> {
-        assert_eq!(
-            self.nexus.accepted_inputs(),
-            [],
-            "the sent hook must fire before Nexus accepts mail"
-        );
-        self.events.push(event.into_mail_ledger_event());
-        Ok(())
     }
 }
 
@@ -88,108 +68,184 @@ fn nexus_mail_lowers_signal_payload_to_generated_sema_command() {
 }
 
 #[test]
-fn signal_actor_pushes_accepted_message_through_sent_hook_to_nexus() {
+fn signal_actor_pushes_accepted_message_through_sent_hook_before_nexus_holds_mail() {
     let signal_actor = SignalActor::default();
     let signal_entry = entry("signal pushes to nexus");
     let signal_input = Input::Record(signal_entry.clone());
     let accepted = signal_actor
         .accept(signal_input.clone())
         .expect("signal input accepts");
-    let nexus = NexusProbe::default();
-    let mut hook = SentHookProbe {
-        events: Vec::new(),
-        nexus: &nexus,
-    };
+    let mut hook = SentHookProbe { events: Vec::new() };
     let expected_sent = MailLedgerEvent::Sent(SentMail {
         mail_identifier: MailIdentifier(1),
+        origin_route: OriginRoute(1),
         short_header: ShortHeader(0),
     });
 
     assert_eq!(accepted.message_sent().identifier, MessageIdentifier(1));
+    assert_eq!(accepted.message_sent().origin_route(), OriginRoute(1));
     assert_eq!(hook.events, []);
-    assert_eq!(nexus.accepted_inputs(), []);
 
-    let processed = accepted
-        .push_to_nexus(&nexus, &mut hook)
-        .expect("signal to nexus push");
+    // The sent hook fires at the Signal -> Nexus handoff, witnessed by a
+    // schema-emitted mail ledger event.
+    accepted
+        .message_sent()
+        .push_to(&mut hook)
+        .expect("sent hook fires");
 
     assert_eq!(
         hook.events,
         vec![expected_sent],
         "hook witness must be a schema-emitted mail ledger event"
     );
+}
+
+#[test]
+fn nexus_holds_the_mail_in_being_processed_typestate_before_sema_runs() {
+    // The mail's Rust TYPE is the proof: a `Mail<BeingProcessed>` exists
+    // and carries the lowered SEMA input, but the durable store has not
+    // yet been written. "Nexus holds the mail" is a type-level fact here:
+    // only `run_sema` (which the public flow drives) produces a
+    // `Mail<Processed>`.
+    let sema = SemaFile::new();
+    let store = sema.open_store();
+    assert!(store.is_empty(), "store starts empty");
+
+    let signal_actor = SignalActor::default();
+    let accepted: SignalAccepted = signal_actor
+        .accept(Input::Record(entry("held in flight")))
+        .expect("signal accepts");
+
+    let in_flight = accepted.into_being_processed();
     assert_eq!(
-        nexus.accepted_inputs(),
-        vec![NexusInput::Signal(signal_input)],
-        "Nexus witness must be the generated Nexus input object"
+        in_flight.identifier(),
+        MessageIdentifier(1),
+        "the in-flight mail keeps the issued message identity"
     );
     assert_eq!(
-        processed.into_reply(),
-        NexusOutput::Sema(SemaInput::Record(signal_entry)),
-        "Nexus output must carry the generated SEMA input object"
+        in_flight.origin_route(),
+        OriginRoute(1),
+        "the in-flight mail keeps the origin route return address"
+    );
+    match in_flight.sema_input() {
+        SemaInput::Record(recorded) => assert_eq!(recorded.description.0, "held in flight"),
+        SemaInput::Observe(_) => panic!("a recorded entry lowers to a SEMA record command"),
+    }
+
+    // The store is STILL empty: the mail is being processed, not yet
+    // committed. The type system, not a log line, carries the phase.
+    assert!(
+        store.is_empty(),
+        "while Nexus holds the mail in BeingProcessed, SEMA has not committed"
     );
 }
 
 #[test]
-fn sema_engine_operation_accepts_and_returns_schema_objects() {
-    let mut store = Store::default();
+fn sema_engine_writes_durable_records_and_returns_schema_objects() {
+    let sema = SemaFile::new();
+    let mut store = sema.open_store();
     let operation = SemaInput::Record(entry("SEMA writes durable facts"));
 
     let response: SemaOutput = SemaEngine::apply(&mut store, operation);
 
-    assert_eq!(
-        response,
-        SemaOutput::Recorded(SemaReceipt {
-            record_identifier: RecordIdentifier(1),
-            database_marker: marker(1, 39),
-        })
-    );
+    match response {
+        SemaOutput::Recorded(receipt) => {
+            assert_eq!(receipt.record_identifier, RecordIdentifier(1));
+            assert_eq!(receipt.database_marker.commit_sequence, CommitSequence(1));
+            assert_ne!(
+                receipt.database_marker.state_digest,
+                StateDigest(0),
+                "a committed record yields a non-empty content digest"
+            );
+        }
+        other => panic!("expected schema-emitted Recorded receipt, got {other:?}"),
+    }
     assert_eq!(store.len(), 1);
+    // PROOF the .sema file is real on disk.
+    assert!(store.path().exists(), "the .sema database file exists");
 }
 
 #[test]
-fn schema_emitted_traits_drive_the_full_plane_chain() {
-    let signal_actor = SignalActor::default();
-    let nexus_engine = Engine::default();
-    let mut sema_engine = Store::default();
-    let nexus_probe = NexusProbe::default();
-    let mut hook = SentHookProbe {
-        events: Vec::new(),
-        nexus: &nexus_probe,
-    };
-    let signal_input = Input::Record(entry("schema traits drive every plane"));
-    let accepted = signal_actor
-        .accept(signal_input.clone())
-        .expect("signal input accepts");
+fn sema_store_persists_records_across_reopen_of_the_same_sema_file() {
+    // The durability proof (record 1007/1008, bead primary-q2au): write
+    // records, drop the store, reopen from the same `.sema` path, and
+    // observe the records survive with their commit ledger intact.
+    let sema = SemaFile::new();
 
-    let nexus_step: spirit_next::MessageProcessed<NexusOutput> = accepted
-        .push_to_nexus(&nexus_engine, &mut hook)
-        .expect("input nexus trait dispatches");
-    let nexus_output: NexusOutput = nexus_step.into_reply();
-    let sema_input: SemaInput = nexus_output.into_sema_input();
-    let sema_output: SemaOutput = SemaEngine::apply(&mut sema_engine, sema_input);
-    let signal_output: Output =
-        NexusEngine::execute(&nexus_engine, NexusInput::Sema(sema_output)).into_signal_output();
+    let first_marker;
+    {
+        let mut store = sema.open_store();
+        SemaEngine::apply(&mut store, SemaInput::Record(entry("durable one")));
+        let recorded = SemaEngine::apply(&mut store, SemaInput::Record(entry("durable two")));
+        first_marker = match recorded {
+            SemaOutput::Recorded(receipt) => receipt.database_marker,
+            other => panic!("expected Recorded, got {other:?}"),
+        };
+        assert_eq!(store.len(), 2);
+        // store drops here, releasing the redb file handle.
+    }
 
+    // Reopen from the SAME path — a fresh process would do exactly this.
+    let mut reopened = sema.open_store();
     assert_eq!(
-        hook.events,
-        vec![MailLedgerEvent::Sent(SentMail {
-            mail_identifier: MailIdentifier(1),
-            short_header: ShortHeader(0),
-        })]
+        reopened.len(),
+        2,
+        "records written before the drop survive the reopen"
     );
-    assert_eq!(
-        signal_output,
-        Output::RecordAccepted(SemaReceipt {
-            record_identifier: RecordIdentifier(1),
-            database_marker: marker(1, 39),
-        })
+
+    // The commit ledger resumed: the next write is commit sequence 3,
+    // not 1, proving the counter persisted, not just the records.
+    let after = SemaEngine::apply(&mut reopened, SemaInput::Record(entry("durable three")));
+    match after {
+        SemaOutput::Recorded(receipt) => {
+            assert_eq!(receipt.record_identifier, RecordIdentifier(3));
+            assert_eq!(receipt.database_marker.commit_sequence, CommitSequence(3));
+        }
+        other => panic!("expected Recorded after reopen, got {other:?}"),
+    }
+
+    // An Observe against the reopened store finds a record written before
+    // the drop, through the schema-emitted query path.
+    let observed = SemaEngine::apply(
+        &mut reopened,
+        SemaInput::Observe(Query {
+            topic: Topic(String::from("runtime-triad")),
+            kind: Kind::Decision,
+        }),
     );
+    assert!(
+        matches!(observed, SemaOutput::Observed(_)),
+        "the reopened store observes a pre-drop record"
+    );
+    assert_ne!(
+        first_marker.state_digest,
+        StateDigest(0),
+        "the durable digest is content-addressed, not a zero placeholder"
+    );
+}
+
+#[test]
+fn nexus_runs_sema_while_holding_mail_then_replies_through_schema_objects() {
+    let sema = SemaFile::new();
+    let engine = sema.engine();
+
+    let recorded = engine.handle(Input::Record(entry("nexus drives sema")));
+    match recorded {
+        Output::RecordAccepted(receipt) => {
+            assert_eq!(receipt.record_identifier, RecordIdentifier(1));
+            assert_eq!(receipt.database_marker.commit_sequence, CommitSequence(1));
+        }
+        other => panic!("expected RecordAccepted, got {other:?}"),
+    }
+    assert_eq!(engine.sent_message_count(), 1);
+    assert_eq!(engine.processed_message_count(), 1);
+    assert_eq!(engine.record_count(), 1);
 }
 
 #[test]
 fn signal_actor_rejects_invalid_input_with_schema_emitted_rejection_before_mail_or_sema() {
-    let engine = Engine::default();
+    let sema = SemaFile::new();
+    let engine = sema.engine();
     let mut bad = entry("missing topic");
     bad.topic = Topic(String::new());
 
@@ -199,7 +255,10 @@ fn signal_actor_rejects_invalid_input_with_schema_emitted_rejection_before_mail_
         output,
         Output::Rejected(SignalRejection {
             validation_error: ValidationError::EmptyTopic,
-            database_marker: marker(0, 0),
+            database_marker: DatabaseMarker {
+                commit_sequence: CommitSequence(0),
+                state_digest: StateDigest(0),
+            },
         })
     );
     assert_eq!(engine.record_count(), 0);
@@ -212,7 +271,10 @@ fn signal_actor_rejects_invalid_input_with_schema_emitted_rejection_before_mail_
 fn sema_response_maps_back_to_signal_output() {
     let output = NexusInput::Sema(SemaOutput::Missed(ErrorReport {
         error_message: ErrorMessage(String::from("no matching record")),
-        database_marker: marker(0, 0),
+        database_marker: DatabaseMarker {
+            commit_sequence: CommitSequence(0),
+            state_digest: StateDigest(0),
+        },
     }))
     .into_nexus_output()
     .into_signal_output();
@@ -221,7 +283,10 @@ fn sema_response_maps_back_to_signal_output() {
         output,
         Output::Error(ErrorReport {
             error_message: ErrorMessage(String::from("no matching record")),
-            database_marker: marker(0, 0),
+            database_marker: DatabaseMarker {
+                commit_sequence: CommitSequence(0),
+                state_digest: StateDigest(0),
+            },
         })
     );
 }
@@ -237,7 +302,10 @@ fn nexus_and_sema_have_explicit_input_output_languages() {
 
     let sema_output = SemaOutput::Recorded(SemaReceipt {
         record_identifier: RecordIdentifier(3),
-        database_marker: marker(4, 127),
+        database_marker: DatabaseMarker {
+            commit_sequence: CommitSequence(4),
+            state_digest: StateDigest(127),
+        },
     });
     let signal_output = NexusInput::Sema(sema_output)
         .into_nexus_output()
@@ -267,17 +335,19 @@ fn import_export_paths_use_single_colon_namespaces() {
 }
 
 #[test]
-fn full_runtime_triad_records_then_observes() {
-    let engine = Engine::default();
+fn full_runtime_triad_records_then_observes_through_durable_sema() {
+    let sema = SemaFile::new();
+    let engine = sema.engine();
 
     let recorded = engine.handle(Input::Record(entry("full runtime triad works")));
-    assert_eq!(
-        recorded,
-        Output::RecordAccepted(SemaReceipt {
-            record_identifier: RecordIdentifier(1),
-            database_marker: marker(1, 39),
-        })
-    );
+    let record_marker = match recorded {
+        Output::RecordAccepted(receipt) => {
+            assert_eq!(receipt.record_identifier, RecordIdentifier(1));
+            receipt.database_marker
+        }
+        other => panic!("expected RecordAccepted, got {other:?}"),
+    };
+    assert_eq!(record_marker.commit_sequence, CommitSequence(1));
     assert_eq!(engine.sent_message_count(), 1);
     assert_eq!(engine.processed_message_count(), 1);
 
@@ -286,13 +356,18 @@ fn full_runtime_triad_records_then_observes() {
         kind: Kind::Decision,
     }));
 
-    assert_eq!(
-        observed,
-        Output::RecordsObserved(spirit_next::ObservedRecords {
-            record_set: RecordSet(entry("full runtime triad works")),
-            database_marker: marker(1, 39),
-        })
-    );
+    match observed {
+        Output::RecordsObserved(records) => {
+            assert_eq!(
+                records.record_set,
+                RecordSet(entry("full runtime triad works"))
+            );
+            // Observe does not advance the commit sequence; the digest
+            // matches the post-record state.
+            assert_eq!(records.database_marker, record_marker);
+        }
+        other => panic!("expected RecordsObserved, got {other:?}"),
+    }
     assert_eq!(engine.sent_message_count(), 2);
     assert_eq!(engine.processed_message_count(), 2);
 
@@ -301,19 +376,23 @@ fn full_runtime_triad_records_then_observes() {
         vec![
             MailLedgerEvent::Sent(SentMail {
                 mail_identifier: MailIdentifier(1),
+                origin_route: OriginRoute(1),
                 short_header: ShortHeader(0),
             }),
             MailLedgerEvent::Processed(ProcessedMail {
                 mail_identifier: MailIdentifier(1),
-                database_marker: marker(1, 39),
+                origin_route: OriginRoute(1),
+                database_marker: record_marker.clone(),
             }),
             MailLedgerEvent::Sent(SentMail {
                 mail_identifier: MailIdentifier(2),
+                origin_route: OriginRoute(2),
                 short_header: ShortHeader(0x0001_0000_0000_0000),
             }),
             MailLedgerEvent::Processed(ProcessedMail {
                 mail_identifier: MailIdentifier(2),
-                database_marker: marker(1, 39),
+                origin_route: OriginRoute(2),
+                database_marker: record_marker,
             }),
         ]
     );

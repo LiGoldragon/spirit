@@ -2,9 +2,19 @@ use std::{fmt, fs, path::PathBuf};
 
 use nota_next::{Block, Delimiter, Document};
 
+/// Daemon configuration, parsed from one positional NOTA record.
+///
+/// The single NOTA argument is a two-field positional record
+/// `(<socket-path> <database-path>)`: the Unix socket the daemon serves,
+/// and the durable SEMA `.sema` database file. The database path FILLS an
+/// existing configuration position — there is no flag (the single-argument
+/// rule holds). A bare text argument is still accepted as the socket path,
+/// with the database defaulting beside it, so existing single-path
+/// invocations keep working.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Configuration {
     pub socket_path: PathBuf,
+    pub database_path: PathBuf,
 }
 
 impl Configuration {
@@ -23,9 +33,29 @@ impl Configuration {
             });
         }
         let root = document.root_object_at(0).expect("root count checked");
-        let text = ConfigurationText::new(root).read()?;
+        Self::from_root_block(root)
+    }
+
+    fn from_root_block(root: &Block) -> Result<Self, ConfigurationError> {
+        if let Block::Delimited {
+            delimiter: Delimiter::Parenthesis,
+            root_objects,
+            ..
+        } = root
+        {
+            return match root_objects.as_slice() {
+                [socket, database] => Ok(Self {
+                    socket_path: PathBuf::from(ConfigurationText::new(socket).read()?),
+                    database_path: PathBuf::from(ConfigurationText::new(database).read()?),
+                }),
+                other => Err(ConfigurationError::ExpectedFieldCount { found: other.len() }),
+            };
+        }
+        let socket_path = PathBuf::from(ConfigurationText::new(root).read()?);
+        let database_path = socket_path.with_extension("sema");
         Ok(Self {
-            socket_path: PathBuf::from(text),
+            socket_path,
+            database_path,
         })
     }
 }
@@ -35,6 +65,7 @@ pub enum ConfigurationError {
     Read(std::io::Error),
     Nota(String),
     ExpectedSingleRoot { found: usize },
+    ExpectedFieldCount { found: usize },
     ExpectedText,
 }
 
@@ -46,6 +77,10 @@ impl fmt::Display for ConfigurationError {
             Self::ExpectedSingleRoot { found } => {
                 write!(formatter, "expected one configuration root, found {found}")
             }
+            Self::ExpectedFieldCount { found } => write!(
+                formatter,
+                "expected a (socket database) configuration record, found {found} fields"
+            ),
             Self::ExpectedText => formatter.write_str("expected text configuration value"),
         }
     }

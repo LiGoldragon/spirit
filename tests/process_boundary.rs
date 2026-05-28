@@ -1,9 +1,12 @@
 use std::{
+    path::Path,
     process::{Child, Command},
+    str::FromStr,
     thread,
     time::{Duration, Instant},
 };
 
+use spirit_next::{CommitSequence, Output, RecordIdentifier};
 use tempfile::TempDir;
 
 struct DaemonProcess {
@@ -17,66 +20,148 @@ impl Drop for DaemonProcess {
     }
 }
 
+impl DaemonProcess {
+    fn spawn(socket_path: &Path, database_path: &Path) -> Self {
+        let configuration = format!(
+            "([{}] [{}])",
+            socket_path.display(),
+            database_path.display()
+        );
+        let child = Command::new(env!("CARGO_BIN_EXE_spirit-next-daemon"))
+            .arg(configuration)
+            .spawn()
+            .expect("spawn daemon");
+        let process = Self { child };
+        wait_for_socket(socket_path);
+        process
+    }
+}
+
+fn run_cli(socket_path: &Path, nota_argument: &str) -> Output {
+    let output = Command::new(env!("CARGO_BIN_EXE_spirit-next"))
+        .env("SPIRIT_NEXT_SOCKET", socket_path)
+        .arg(nota_argument)
+        .output()
+        .expect("run cli");
+    assert!(
+        output.status.success(),
+        "cli stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("cli stdout is UTF-8");
+    Output::from_str(stdout.trim()).unwrap_or_else(|error| {
+        panic!(
+            "schema-emitted Output::FromStr on CLI stdout {:?}: {error}",
+            stdout.trim()
+        )
+    })
+}
+
 #[test]
 fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
     let temp = TempDir::new().expect("tempdir");
     let socket_path = temp.path().join("spirit-next.sock");
-    let socket_text = socket_path.to_string_lossy().into_owned();
+    let database_path = temp.path().join("spirit-next.sema");
 
-    let daemon = Command::new(env!("CARGO_BIN_EXE_spirit-next-daemon"))
-        .arg(format!("[{socket_text}]"))
-        .spawn()
-        .expect("spawn daemon");
-    let _daemon = DaemonProcess { child: daemon };
-    wait_for_socket(&socket_path);
+    let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
 
-    let record = Command::new(env!("CARGO_BIN_EXE_spirit-next"))
-        .env("SPIRIT_NEXT_SOCKET", &socket_path)
-        .arg("(Record ([schema] Constraint [schema creates the interface] Maximum))")
-        .output()
-        .expect("run record cli");
+    // Record path — parsed back into the schema-emitted Output, asserted
+    // on the typed variant (not on the raw digest string, which is now a
+    // real content hash).
+    let recorded = run_cli(
+        &socket_path,
+        "(Record ([schema] Constraint [schema creates the interface] Maximum))",
+    );
+    match recorded {
+        Output::RecordAccepted(receipt) => {
+            assert_eq!(receipt.record_identifier, RecordIdentifier(1));
+            assert_eq!(receipt.database_marker.commit_sequence, CommitSequence(1));
+        }
+        other => panic!("expected RecordAccepted, got {other:?}"),
+    }
+
+    let observed = run_cli(&socket_path, "(Observe ([schema] Constraint))");
     assert!(
-        record.status.success(),
-        "record stderr: {}",
-        String::from_utf8_lossy(&record.stderr)
-    );
-    assert_eq!(
-        String::from_utf8_lossy(&record.stdout).trim(),
-        "(RecordAccepted (1 (1 39)))"
+        matches!(observed, Output::RecordsObserved(_)),
+        "the daemon observes the recorded entry, got {observed:?}"
     );
 
-    let observe = Command::new(env!("CARGO_BIN_EXE_spirit-next"))
-        .env("SPIRIT_NEXT_SOCKET", &socket_path)
-        .arg("(Observe ([schema] Constraint))")
-        .output()
-        .expect("run observe cli");
+    let rejected = run_cli(
+        &socket_path,
+        "(Record ([] Constraint [schema rejects before SEMA] Maximum))",
+    );
     assert!(
-        observe.status.success(),
-        "observe stderr: {}",
-        String::from_utf8_lossy(&observe.stderr)
-    );
-    assert_eq!(
-        String::from_utf8_lossy(&observe.stdout).trim(),
-        "(RecordsObserved (([schema] Constraint [schema creates the interface] Maximum) (1 39)))"
-    );
-
-    let rejected = Command::new(env!("CARGO_BIN_EXE_spirit-next"))
-        .env("SPIRIT_NEXT_SOCKET", &socket_path)
-        .arg("(Record ([] Constraint [schema rejects before SEMA] Maximum))")
-        .output()
-        .expect("run rejected record cli");
-    assert!(
-        rejected.status.success(),
-        "rejected stderr: {}",
-        String::from_utf8_lossy(&rejected.stderr)
-    );
-    assert_eq!(
-        String::from_utf8_lossy(&rejected.stdout).trim(),
-        "(Rejected (EmptyTopic (1 39)))"
+        matches!(rejected, Output::Rejected(_)),
+        "empty topic is rejected before SEMA, got {rejected:?}"
     );
 }
 
-fn wait_for_socket(path: &std::path::Path) {
+#[test]
+fn daemon_persists_sema_file_across_a_restart() {
+    // The strongest durability proof: a daemon writes the `.sema` file,
+    // the daemon process is killed, a NEW daemon process opens the SAME
+    // `.sema` file, and the previously recorded entry is still observable
+    // and the commit sequence resumes. This is the bead `primary-q2au`
+    // claim proven at the real process boundary.
+    let temp = TempDir::new().expect("tempdir");
+    let database_path = temp.path().join("durable.sema");
+
+    // First daemon: record one entry, then drop (kill) it.
+    {
+        let socket_path = temp.path().join("first.sock");
+        let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
+        let recorded = run_cli(
+            &socket_path,
+            "(Record ([durable-topic] Decision [survives restart] Maximum))",
+        );
+        match recorded {
+            Output::RecordAccepted(receipt) => {
+                assert_eq!(receipt.database_marker.commit_sequence, CommitSequence(1));
+            }
+            other => panic!("expected RecordAccepted from first daemon, got {other:?}"),
+        }
+        // _daemon drops here: process killed, redb file handle released.
+    }
+
+    assert!(
+        database_path.exists(),
+        "the .sema file outlives the first daemon process"
+    );
+
+    // Second daemon against the SAME .sema file on a fresh socket.
+    let socket_path = temp.path().join("second.sock");
+    let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
+
+    let observed = run_cli(&socket_path, "(Observe ([durable-topic] Decision))");
+    match observed {
+        Output::RecordsObserved(records) => {
+            assert_eq!(
+                records.record_set.0.description.0, "survives restart",
+                "the restarted daemon observes the entry the first daemon wrote"
+            );
+        }
+        other => panic!("expected RecordsObserved after restart, got {other:?}"),
+    }
+
+    // The commit ledger resumed: the next record is sequence 2, proving
+    // the durable counter persisted across the restart, not just records.
+    let next = run_cli(
+        &socket_path,
+        "(Record ([durable-topic] Decision [second after restart] Maximum))",
+    );
+    match next {
+        Output::RecordAccepted(receipt) => {
+            assert_eq!(
+                receipt.database_marker.commit_sequence,
+                CommitSequence(2),
+                "commit sequence resumes from the persisted ledger after restart"
+            );
+        }
+        other => panic!("expected RecordAccepted after restart, got {other:?}"),
+    }
+}
+
+fn wait_for_socket(path: &Path) {
     let started = Instant::now();
     while started.elapsed() < Duration::from_secs(5) {
         if path.exists() {

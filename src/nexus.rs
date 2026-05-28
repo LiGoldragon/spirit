@@ -1,0 +1,204 @@
+use crate::{
+    DatabaseMarker, Entry, MailLedger, MessageIdentifier, MessageProcessed, MessageProcessedHook,
+    NexusEngine, NexusInput, NexusMail, NexusOutput, OriginRoute, Output, Query, SemaEngine,
+    SemaInput, store::Store,
+};
+
+/// Nexus — the runtime mail keeper (records 966/970).
+///
+/// Nexus owns the SEMA store handle and the mail ledger, and holds each
+/// mail in a type-level BEING-PROCESSED state across the SEMA call. The
+/// mail's Rust type reflects its lifecycle: [`Mail<BeingProcessed>`] is in
+/// flight, and only running SEMA turns it into [`Mail<Processed>`]. "Nexus
+/// holds the mail ⇒ it is being processed" is therefore a compile-time
+/// fact, not a logging convention — there is no method that yields a
+/// `Mail<Processed>` without consuming a `Mail<BeingProcessed>` through the
+/// store.
+///
+/// Nexus is one of the daemon's three execution centers (Signal accepts /
+/// validates, Nexus holds + translates + invokes SEMA + emits events, SEMA
+/// is the durable store). It owns BOTH translations: Signal payload mail
+/// into the SEMA language, and the SEMA reply back into the Signal output.
+#[derive(Debug)]
+pub struct Nexus {
+    store: Store,
+    mail_ledger: MailLedger,
+}
+
+/// A mail Nexus is holding, parameterised by its lifecycle phase.
+///
+/// The `phase` field carries the phase-specific data, so the two phases
+/// are structurally different values, not one struct wearing a marker:
+/// [`BeingProcessed`] carries the SEMA input the mail will run;
+/// [`Processed`] carries the Signal output the SEMA reply produced. The
+/// only transition is the private `run_sema` (it consumes a
+/// `Mail<BeingProcessed>` and threads it through the store), so a
+/// `Mail<Processed>` cannot exist until SEMA has run.
+#[derive(Debug)]
+pub struct Mail<Phase> {
+    identifier: MessageIdentifier,
+    origin_route: OriginRoute,
+    phase: Phase,
+}
+
+/// In-flight phase: Nexus owns the mail, the SEMA call has not yet run.
+#[derive(Debug)]
+pub struct BeingProcessed {
+    sema_input: SemaInput,
+}
+
+/// Reached phase: the SEMA reply, translated back into the Signal output.
+#[derive(Debug)]
+pub struct Processed {
+    output: Output,
+}
+
+impl Nexus {
+    /// Build a Nexus over a durable SEMA store and a fresh mail ledger.
+    pub fn new(store: Store) -> Self {
+        Self {
+            store,
+            mail_ledger: MailLedger::default(),
+        }
+    }
+
+    /// Hold the accepted mail across the SEMA call and reply.
+    ///
+    /// The mail enters [`BeingProcessed`] the moment Nexus owns it; the
+    /// SEMA write/read runs WHILE Nexus holds it; the reply turns it into
+    /// [`Processed`]; the processed lifecycle event is emitted; and the
+    /// Signal output leaves. This is the literal record-970 flow.
+    pub fn process<Payload>(&mut self, mail: NexusMail<Payload>) -> Output
+    where
+        Mail<BeingProcessed>: FromMail<Payload>,
+    {
+        let in_flight = Mail::<BeingProcessed>::from_mail(mail);
+        let processed = in_flight.run_sema(&mut self.store);
+        processed
+            .emit_processed(&mut self.mail_ledger.hook())
+            .expect("spirit-next mail ledger is infallible");
+        processed.into_output()
+    }
+
+    pub fn mail_ledger(&self) -> &MailLedger {
+        &self.mail_ledger
+    }
+
+    pub fn store(&self) -> &Store {
+        &self.store
+    }
+
+    pub fn database_marker(&self) -> DatabaseMarker {
+        self.store.database_marker()
+    }
+}
+
+/// Take ownership of accepted mail of a given payload, lowering it into
+/// the SEMA language so the in-flight mail already speaks SEMA. Attached
+/// to the in-flight [`Mail`] phase, one impl per Signal payload type, so
+/// the inbound translation lives on a noun rather than a free helper.
+pub trait FromMail<Payload> {
+    fn from_mail(mail: NexusMail<Payload>) -> Self;
+}
+
+impl FromMail<Entry> for Mail<BeingProcessed> {
+    fn from_mail(mail: NexusMail<Entry>) -> Self {
+        let identifier = mail.identifier();
+        let origin_route = mail.origin_route();
+        Self {
+            identifier,
+            origin_route,
+            phase: BeingProcessed {
+                sema_input: mail
+                    .into_nexus_input()
+                    .into_nexus_output()
+                    .into_sema_input(),
+            },
+        }
+    }
+}
+
+impl FromMail<Query> for Mail<BeingProcessed> {
+    fn from_mail(mail: NexusMail<Query>) -> Self {
+        let identifier = mail.identifier();
+        let origin_route = mail.origin_route();
+        Self {
+            identifier,
+            origin_route,
+            phase: BeingProcessed {
+                sema_input: mail
+                    .into_nexus_input()
+                    .into_nexus_output()
+                    .into_sema_input(),
+            },
+        }
+    }
+}
+
+impl Mail<BeingProcessed> {
+    pub fn identifier(&self) -> MessageIdentifier {
+        self.identifier
+    }
+
+    pub fn origin_route(&self) -> OriginRoute {
+        self.origin_route
+    }
+
+    /// The SEMA-language form the in-flight mail will hand to the store.
+    pub fn sema_input(&self) -> &SemaInput {
+        &self.phase.sema_input
+    }
+
+    /// Run the SEMA call while Nexus holds the mail, then transition the
+    /// mail type to [`Processed`]. This is the ONLY constructor of a
+    /// `Mail<Processed>`; the SEMA reply is translated back into the
+    /// Signal output here, the outbound half of the Nexus translation.
+    fn run_sema(self, store: &mut Store) -> Mail<Processed> {
+        let sema_output = store.apply(self.phase.sema_input);
+        let output = NexusInput::Sema(sema_output)
+            .into_nexus_output()
+            .into_signal_output();
+        Mail {
+            identifier: self.identifier,
+            origin_route: self.origin_route,
+            phase: Processed { output },
+        }
+    }
+}
+
+impl Mail<Processed> {
+    pub fn identifier(&self) -> MessageIdentifier {
+        self.identifier
+    }
+
+    pub fn origin_route(&self) -> OriginRoute {
+        self.origin_route
+    }
+
+    pub fn output(&self) -> &Output {
+        &self.phase.output
+    }
+
+    pub fn database_marker(&self) -> DatabaseMarker {
+        self.phase.output.database_marker()
+    }
+
+    /// Push the [`MessageProcessed`] lifecycle event built from the
+    /// reached mail through the ledger hook.
+    fn emit_processed<Hook>(&self, hook: &mut Hook) -> Result<(), Hook::Error>
+    where
+        Hook: MessageProcessedHook<Output>,
+    {
+        MessageProcessed::new(self.identifier, self.phase.output.clone()).push_to(hook)
+    }
+
+    fn into_output(self) -> Output {
+        self.phase.output
+    }
+}
+
+impl NexusEngine for Nexus {
+    fn execute(&self, input: NexusInput) -> NexusOutput {
+        input.into_nexus_output()
+    }
+}

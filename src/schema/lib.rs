@@ -241,12 +241,14 @@ pub struct ShortHeader(pub Integer);
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct SentMail {
     pub mail_identifier: MailIdentifier,
+    pub origin_route: OriginRoute,
     pub short_header: ShortHeader,
 }
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ProcessedMail {
     pub mail_identifier: MailIdentifier,
+    pub origin_route: OriginRoute,
     pub database_marker: DatabaseMarker,
 }
 
@@ -711,16 +713,18 @@ impl ShortHeader {
 
 impl SentMail {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "SentMail", 2)?;
+        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "SentMail", 3)?;
         Ok(Self {
             mail_identifier: MailIdentifier::from_nota_block(&children[0])?,
-            short_header: ShortHeader::from_nota_block(&children[1])?,
+            origin_route: OriginRoute::from_nota_block(&children[1])?,
+            short_header: ShortHeader::from_nota_block(&children[2])?,
         })
     }
 
     pub fn to_nota(&self) -> String {
         let fields = [
             self.mail_identifier.to_nota(),
+            self.origin_route.to_nota(),
             self.short_header.to_nota(),
         ];
         format!("({})", fields.join(" "))
@@ -729,16 +733,18 @@ impl SentMail {
 
 impl ProcessedMail {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "ProcessedMail", 2)?;
+        let children = NotaBlock::new(block).expect_children(nota_next::Delimiter::Parenthesis, "parenthesis", "ProcessedMail", 3)?;
         Ok(Self {
             mail_identifier: MailIdentifier::from_nota_block(&children[0])?,
-            database_marker: DatabaseMarker::from_nota_block(&children[1])?,
+            origin_route: OriginRoute::from_nota_block(&children[1])?,
+            database_marker: DatabaseMarker::from_nota_block(&children[2])?,
         })
     }
 
     pub fn to_nota(&self) -> String {
         let fields = [
             self.mail_identifier.to_nota(),
+            self.origin_route.to_nota(),
             self.database_marker.to_nota(),
         ];
         format!("({})", fields.join(" "))
@@ -1109,6 +1115,9 @@ impl Output {
 pub struct MessageIdentifier(pub Integer);
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct OriginRoute(pub Integer);
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MessageRoot {
     Input,
     Output,
@@ -1117,6 +1126,7 @@ pub enum MessageRoot {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct MessageSent {
     pub identifier: MessageIdentifier,
+    pub origin_route: OriginRoute,
     pub root: MessageRoot,
     pub short_header: Integer,
 }
@@ -1124,12 +1134,14 @@ pub struct MessageSent {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct NexusMail<Payload> {
     pub identifier: MessageIdentifier,
+    pub origin_route: OriginRoute,
     pub payload: Payload,
 }
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct MessageProcessed<Reply> {
     pub identifier: MessageIdentifier,
+    pub origin_route: OriginRoute,
     pub reply: Reply,
 }
 
@@ -1146,6 +1158,10 @@ pub trait MessageProcessedHook<Reply> {
 }
 
 impl MessageSent {
+    pub fn origin_route(&self) -> OriginRoute {
+        self.origin_route
+    }
+
     pub fn push_to<Hook>(&self, hook: &mut Hook) -> Result<(), Hook::Error>
     where
         Hook: MessageSentHook,
@@ -1156,11 +1172,15 @@ impl MessageSent {
 
 impl<Payload> NexusMail<Payload> {
     pub fn new(identifier: MessageIdentifier, payload: Payload) -> Self {
-        Self { identifier, payload }
+        Self { identifier, origin_route: identifier.origin_route(), payload }
     }
 
     pub fn identifier(&self) -> MessageIdentifier {
         self.identifier
+    }
+
+    pub fn origin_route(&self) -> OriginRoute {
+        self.origin_route
     }
 
     pub fn into_payload(self) -> Payload {
@@ -1170,11 +1190,15 @@ impl<Payload> NexusMail<Payload> {
 
 impl<Reply> MessageProcessed<Reply> {
     pub fn new(identifier: MessageIdentifier, reply: Reply) -> Self {
-        Self { identifier, reply }
+        Self { identifier, origin_route: identifier.origin_route(), reply }
     }
 
     pub fn identifier(&self) -> MessageIdentifier {
         self.identifier
+    }
+
+    pub fn origin_route(&self) -> OriginRoute {
+        self.origin_route
     }
 
     pub fn into_reply(self) -> Reply {
@@ -1194,6 +1218,7 @@ impl Input {
     pub fn message_sent(&self, identifier: MessageIdentifier) -> MessageSent {
         MessageSent {
             identifier,
+            origin_route: identifier.origin_route(),
             root: MessageRoot::Input,
             short_header: self.short_header(),
         }
@@ -1204,9 +1229,26 @@ impl Output {
     pub fn message_sent(&self, identifier: MessageIdentifier) -> MessageSent {
         MessageSent {
             identifier,
+            origin_route: identifier.origin_route(),
             root: MessageRoot::Output,
             short_header: self.short_header(),
         }
+    }
+}
+
+impl OriginRoute {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        Ok(Self(NotaBlock::new(block).parse_integer()?))
+    }
+
+    pub fn to_nota(self) -> String {
+        self.0.to_string()
+    }
+}
+
+impl MessageIdentifier {
+    pub fn origin_route(self) -> OriginRoute {
+        OriginRoute(self.0)
     }
 }
 

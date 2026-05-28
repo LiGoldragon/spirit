@@ -3,4 +3,5 @@
 result
 result-*
 *.redb
+*.sema
 *.sock

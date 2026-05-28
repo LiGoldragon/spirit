@@ -6,7 +6,8 @@ use std::{
 };
 
 use crate::{
-    Configuration, Engine,
+    Configuration, Engine, StoreError,
+    store::Store,
     transport::{SignalTransport, TransportError},
 };
 
@@ -14,6 +15,7 @@ use crate::{
 pub enum DaemonError {
     Io(std::io::Error),
     Transport(TransportError),
+    Store(StoreError),
 }
 
 impl std::fmt::Display for DaemonError {
@@ -21,6 +23,7 @@ impl std::fmt::Display for DaemonError {
         match self {
             Self::Io(error) => write!(formatter, "daemon IO error: {error}"),
             Self::Transport(error) => write!(formatter, "daemon transport error: {error}"),
+            Self::Store(error) => write!(formatter, "daemon sema store error: {error}"),
         }
     }
 }
@@ -39,6 +42,12 @@ impl From<TransportError> for DaemonError {
     }
 }
 
+impl From<StoreError> for DaemonError {
+    fn from(value: StoreError) -> Self {
+        Self::Store(value)
+    }
+}
+
 pub struct Daemon {
     configuration: Configuration,
 }
@@ -54,7 +63,8 @@ impl Daemon {
         }
         self.remove_stale_socket()?;
         let listener = UnixListener::bind(&self.configuration.socket_path)?;
-        let engine = Arc::new(Engine::default());
+        let store = Store::open(&self.configuration.database_path)?;
+        let engine = Arc::new(Engine::new(store));
         for stream in listener.incoming() {
             match stream {
                 Ok(stream) => {

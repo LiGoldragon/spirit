@@ -28,8 +28,8 @@
   ValidationError (EmptyTopic EmptyDescription EmptyQueryTopic)
   MailIdentifier [Integer]
   ShortHeader [Integer]
-  SentMail [MailIdentifier ShortHeader]
-  ProcessedMail [MailIdentifier DatabaseMarker]
+  SentMail [MailIdentifier OriginRoute ShortHeader]
+  ProcessedMail [MailIdentifier OriginRoute DatabaseMarker]
   MailLedgerEvent ((Sent SentMail) (Processed ProcessedMail))
   Entry [Topic Kind Description Magnitude]
   Query [Topic Kind]
