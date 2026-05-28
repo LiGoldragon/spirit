@@ -71,7 +71,11 @@ fn nexus_mail_lowers_signal_payload_to_generated_sema_command() {
     .into_nexus_output()
     .into_sema_input();
 
-    assert_eq!(command.kind(), schema_meta::Kind::Sema);
+    let plane = schema_meta::Plane::<Input, NexusInput, SemaInput>::Sema(command.clone());
+    assert_eq!(plane.origin_route(), route(1));
+    let schema_meta::Plane::Sema(command) = plane else {
+        panic!("expected SEMA plane");
+    };
     assert_eq!(command.origin_route(), route(1));
     match command.root() {
         SemaInput::Record(recorded) => {
@@ -145,7 +149,13 @@ fn nexus_holds_the_mail_in_being_processed_typestate_before_sema_runs() {
         route(1),
         "the in-flight mail keeps the origin route return address"
     );
-    assert_eq!(in_flight.sema_input().kind(), schema_meta::Kind::Sema);
+    let plane =
+        schema_meta::Plane::<Input, NexusInput, SemaInput>::Sema(in_flight.sema_input().clone());
+    assert_eq!(plane.origin_route(), route(1));
+    let schema_meta::Plane::Sema(sema_input) = plane else {
+        panic!("expected SEMA plane");
+    };
+    assert_eq!(sema_input.root(), in_flight.sema_input().root());
     match in_flight.sema_input().root() {
         SemaInput::Record(recorded) => assert_eq!(recorded.description.0, "held in flight"),
         SemaInput::Observe(_) => panic!("a recorded entry lowers to a SEMA record command"),
@@ -167,7 +177,11 @@ fn sema_engine_writes_durable_records_and_returns_schema_objects() {
 
     let response = SemaEngine::apply(&mut store, operation);
 
-    assert_eq!(response.kind(), schema_meta::Kind::Sema);
+    let plane = schema_meta::Plane::<Output, NexusOutput, SemaOutput>::Sema(response.clone());
+    assert_eq!(plane.origin_route(), route(1));
+    let schema_meta::Plane::Sema(response) = plane else {
+        panic!("expected SEMA plane");
+    };
     assert_eq!(response.origin_route(), route(1));
     match response.root() {
         SemaOutput::Recorded(receipt) => {
@@ -263,7 +277,11 @@ fn nexus_runs_sema_while_holding_mail_then_replies_through_schema_objects() {
     let engine = sema.engine();
 
     let recorded = engine.handle(Input::Record(entry("nexus drives sema")));
-    assert_eq!(recorded.kind(), schema_meta::Kind::Signal);
+    let plane = schema_meta::Plane::<Output, NexusOutput, SemaOutput>::Signal(recorded.clone());
+    assert_eq!(plane.origin_route(), route(1));
+    let schema_meta::Plane::Signal(recorded) = plane else {
+        panic!("expected Signal plane");
+    };
     assert_eq!(recorded.origin_route(), route(1));
     match recorded.root() {
         Output::RecordAccepted(receipt) => {
@@ -334,7 +352,11 @@ fn plane_envelopes_keep_payload_names_scoped() {
     let nexus_input =
         NexusInput::Signal(Input::Record(entry("language input"))).with_origin_route(route(11));
     let nexus_output = nexus_input.into_nexus_output();
-    assert_eq!(nexus_output.kind(), schema_meta::Kind::Nexus);
+    let plane = schema_meta::Plane::<Output, NexusOutput, SemaInput>::Nexus(nexus_output.clone());
+    assert_eq!(plane.origin_route(), route(11));
+    let schema_meta::Plane::Nexus(nexus_output) = plane else {
+        panic!("expected Nexus plane");
+    };
     assert_eq!(nexus_output.origin_route(), route(11));
     assert!(matches!(
         nexus_output.root(),
@@ -353,7 +375,12 @@ fn plane_envelopes_keep_payload_names_scoped() {
         .into_nexus_input()
         .into_nexus_output()
         .into_signal_output();
-    assert_eq!(signal_output.kind(), schema_meta::Kind::Signal);
+    let plane =
+        schema_meta::Plane::<Output, NexusOutput, SemaOutput>::Signal(signal_output.clone());
+    assert_eq!(plane.origin_route(), route(12));
+    let schema_meta::Plane::Signal(signal_output) = plane else {
+        panic!("expected Signal plane");
+    };
     assert_eq!(signal_output.origin_route(), route(12));
     assert!(matches!(signal_output.root(), Output::RecordAccepted(_)));
 }

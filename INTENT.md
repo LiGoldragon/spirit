@@ -28,6 +28,9 @@ Load-bearing constraints:
   `sema::Output`. The flat names are bootstrap backing names; runtime trait
   signatures and tests use the plane namespaces so the plane carries the
   ancestry instead of every payload name.
+- Cross-plane branching uses generated `schema::Plane::{Signal,Nexus,Sema}`.
+  Each variant carries the actual plane envelope; there is no parallel
+  `Kind` tag that must be paired with a separate message body.
 - Each language plane has input/output and reusable import/export vocabulary.
   Import/export paths mirror Rust module namespaces with a single colon rather
   than double colon, for example `signal:sema:Magnitude`.

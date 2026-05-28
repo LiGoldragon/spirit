@@ -169,6 +169,10 @@ Public execution signatures use the namespace-local names, for example
 `sema::Sema<sema::Input>`, so the envelope carries the plane and payload names
 stay short.
 
+When code needs to branch across planes, it matches generated
+`schema::Plane::{Signal,Nexus,Sema}`. Those variants carry the actual plane
+envelopes, so the match surface and the message body stay one object.
+
 ## Implementation methods
 
 Schema-generated types are the implementation nouns. Hand-written runtime code

@@ -194,7 +194,8 @@
             grep -R "NexusMail<Payload>" ${src}/src/schema/lib.rs >/dev/null
             grep -R "MessageProcessed<Reply>" ${src}/src/schema/lib.rs >/dev/null
             grep -R "pub mod schema" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "pub enum Kind" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "pub enum Plane" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "Sema(super::Sema<SemaRoot>)" ${src}/src/schema/lib.rs >/dev/null
             grep -R "pub mod signal" ${src}/src/schema/lib.rs >/dev/null
             grep -R "pub mod nexus" ${src}/src/schema/lib.rs >/dev/null
             grep -R "pub mod sema" ${src}/src/schema/lib.rs >/dev/null
@@ -270,7 +271,7 @@
             grep -R "signal_actor_rejects_invalid_input_with_schema_emitted_rejection_before_mail_or_sema" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "nexus_and_sema_have_explicit_input_output_languages" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "plane_envelopes_keep_payload_names_scoped" ${src}/tests/runtime_triad.rs >/dev/null
-            grep -R "schema_meta::Kind::Sema" ${src}/tests/runtime_triad.rs >/dev/null
+            grep -R "schema_meta::Plane::Sema" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "compile_fail" ${src}/src/lib.rs >/dev/null
             grep -R "nexus_plane::Nexus<nexus_plane::Input>" ${src}/src/lib.rs >/dev/null
             grep -R "import_export_paths_use_single_colon_namespaces" ${src}/tests/runtime_triad.rs >/dev/null

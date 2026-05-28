@@ -133,11 +133,11 @@
     "schema-rust-next-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1779956324,
-        "narHash": "sha256-c59O6JaUjN7iBgmtcShCs1CJzqSQvVgEJEdyO9VzFkk=",
+        "lastModified": 1779959599,
+        "narHash": "sha256-jlUx21nynyv9I3dQoxv+L4gBeHDHopDsebCZdC9aNlA=",
         "owner": "LiGoldragon",
         "repo": "schema-rust-next",
-        "rev": "0a6a8cb09d05162776242e90b8d5107563b31fc6",
+        "rev": "2bfaeba78ff749e6ccbc6bd864cdc0883b27f6ca",
         "type": "github"
       },
       "original": {
