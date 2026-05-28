@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Run the Nix-driven integration tests against the workspace-local
+# schema-stack checkouts (record 1006 forcing function).
+#
+# This script:
+#   1. Builds the spirit-next default package via Nix using
+#      `path:` overrides for the schema-stack inputs, the same way
+#      `scripts/check-local-schema-stack` does.
+#   2. Exports `SPIRIT_NEXT_NIX_BUILD_RESULT` so the cargo tests in
+#      `tests/nix_integration.rs` reuse the Nix-built binaries
+#      instead of invoking `nix build` themselves.
+#   3. Runs `cargo test --test nix_integration -- --ignored`.
+#
+# Why a script instead of letting tests call `nix build` directly:
+# the cycle's `tests/nix_integration.rs` accepts either path, but the
+# script-driven flow caches the Nix build across the test suite,
+# which matters for the multi-test wall-clock cost. The flake app
+# `nix run .#nix-integration-tests` uses this same shape.
+set -euo pipefail
+
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+
+nota_next_path="${NOTA_NEXT_PATH:-/git/github.com/LiGoldragon/nota-next}"
+schema_next_path="${SCHEMA_NEXT_PATH:-/git/github.com/LiGoldragon/schema-next}"
+schema_rust_next_path="${SCHEMA_RUST_NEXT_PATH:-/git/github.com/LiGoldragon/schema-rust-next}"
+
+for path in "$nota_next_path" "$schema_next_path" "$schema_rust_next_path"; do
+  if [[ ! -d "$path" ]]; then
+    printf 'missing local dependency checkout: %s\n' "$path" >&2
+    exit 2
+  fi
+done
+
+build_result="$(nix build \
+  --override-input nota-next-source "path:$nota_next_path" \
+  --override-input schema-next-source "path:$schema_next_path" \
+  --override-input schema-rust-next-source "path:$schema_rust_next_path" \
+  --print-out-paths \
+  --no-link \
+  "$repo_root#default")"
+
+if [[ -z "$build_result" ]]; then
+  printf 'nix build produced no out path\n' >&2
+  exit 3
+fi
+
+printf 'using Nix-built binaries at %s\n' "$build_result"
+export SPIRIT_NEXT_NIX_BUILD_RESULT="$build_result"
+export NOTA_NEXT_PATH="$nota_next_path"
+export SCHEMA_NEXT_PATH="$schema_next_path"
+export SCHEMA_RUST_NEXT_PATH="$schema_rust_next_path"
+
+cd "$repo_root"
+exec cargo test --test nix_integration -- --ignored "$@"

@@ -41,8 +41,17 @@
         craneLib = (crane.mkLib pkgs).overrideToolchain toolchain;
         schemaFilter = path: type:
           type == "regular" && pkgs.lib.hasSuffix ".schema" path;
+        # The scripts/ directory carries the workspace's harness for the
+        # nix-driven integration tests (record 1006). Pull each script in
+        # via a name match so the structural witness check + the script
+        # itself are visible to Nix-built derivations.
+        scriptFilter = path: type:
+          (type == "regular" || type == "directory")
+            && (builtins.match ".*/scripts(/.*)?" path != null);
         sourceFilter = path: type:
-          (craneLib.filterCargoSources path type) || (schemaFilter path type);
+          (craneLib.filterCargoSources path type)
+            || (schemaFilter path type)
+            || (scriptFilter path type);
         cleanSource = pkgs.lib.cleanSourceWith {
           src = ./.;
           filter = sourceFilter;
@@ -81,9 +90,22 @@
           strictDeps = true;
         };
         cargoArtifacts = craneLib.buildDepsOnly commonArguments;
+        nixIntegrationRunner = pkgs.writeShellApplication {
+          name = "spirit-next-nix-integration-tests";
+          runtimeInputs = [ pkgs.nix toolchain ];
+          text = ''
+            repo_root="''${SPIRIT_NEXT_REPO_ROOT:-$PWD}"
+            exec "$repo_root/scripts/run-nix-integration-tests" "$@"
+          '';
+        };
       in
       {
         packages.default = craneLib.buildPackage (commonArguments // { inherit cargoArtifacts; });
+        apps.nix-integration-tests = {
+          type = "app";
+          program = "${nixIntegrationRunner}/bin/spirit-next-nix-integration-tests";
+          meta.description = "Run Nix-built spirit-next integration tests";
+        };
         checks = {
           build = craneLib.cargoBuild (commonArguments // { inherit cargoArtifacts; });
           test = craneLib.cargoTest (commonArguments // { inherit cargoArtifacts; });
@@ -117,6 +139,39 @@
             ! grep -R "rkyv::to_bytes" ${src}/src/transport.rs
             ! grep -R "rkyv::from_bytes" ${src}/src/transport.rs
             grep -R "Command::new(env!(\"CARGO_BIN_EXE_spirit-next\"))" ${src}/tests/process_boundary.rs >/dev/null
+            touch $out
+          '';
+          # Per record 1006 (Maximum, 2026-05-27): tests must PROVE not
+          # pretend. The nix-integration test surface launches the
+          # SAME schema-built binaries Nix produces, exchanging real
+          # rkyv signal frames over a real Unix socket. This check
+          # verifies the integration test file's anchors are intact
+          # so future drift doesn't silently regress proof-shape.
+          nix-integration-witness = pkgs.runCommand "spirit-next-nix-integration-witness" { } ''
+            test -f ${src}/tests/nix_integration.rs
+            test -x ${src}/scripts/run-nix-integration-tests
+            grep -R "SPIRIT_NEXT_NIX_BUILD_RESULT" ${src}/tests/nix_integration.rs >/dev/null
+            grep -R "SPIRIT_NEXT_NIX_BUILD_RESULT" ${src}/scripts/run-nix-integration-tests >/dev/null
+            # Each test parses CLI stdout back through the schema-emitted
+            # Output::FromStr, never asserting on raw strings.
+            grep -R "Output::from_str" ${src}/tests/nix_integration.rs >/dev/null
+            # The variant tour proves every schema-emitted Output variant
+            # round-trips through CLI stdout intact.
+            grep -R "nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant" ${src}/tests/nix_integration.rs >/dev/null
+            # The Rejected and Error variants are both exercised through
+            # the binary boundary, not in-process.
+            grep -R "Output::Rejected" ${src}/tests/nix_integration.rs >/dev/null
+            grep -R "Output::Error" ${src}/tests/nix_integration.rs >/dev/null
+            grep -R "Output::RecordAccepted" ${src}/tests/nix_integration.rs >/dev/null
+            grep -R "Output::RecordsObserved" ${src}/tests/nix_integration.rs >/dev/null
+            # The test uses the schema-emitted ValidationError variant.
+            grep -R "ValidationError::EmptyTopic" ${src}/tests/nix_integration.rs >/dev/null
+            # The test spawns the daemon and CLI binaries through the
+            # Nix-built directory, not via CARGO_BIN_EXE (which would be
+            # a cargo-built artifact, not Nix-built).
+            grep -R "spirit_daemon" ${src}/tests/nix_integration.rs >/dev/null
+            grep -R "spirit_cli" ${src}/tests/nix_integration.rs >/dev/null
+            ! grep -R "CARGO_BIN_EXE" ${src}/tests/nix_integration.rs
             touch $out
           '';
           generated-signal-plane-used = pkgs.runCommand "spirit-next-generated-signal-plane-used" { } ''
