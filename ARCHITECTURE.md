@@ -66,10 +66,10 @@ not own route enums, short-header matching, or rkyv archive encode/decode.
 
 `SignalActor::accept` is the Signal validation/admission point. Once a decoded
 Signal root is accepted, it becomes `SignalAccepted`: the original generated
-`Input` plus a generated `MessageSent` lifecycle event. `SignalAccepted`
-hands that object to the Nexus mail keeper by firing the sent hook at the
-Signal→Nexus handoff and then passing the payload as `NexusMail<Payload>` into
-`Nexus::process`.
+`signal::Signal<signal::Input>` plus a generated `MessageSent` lifecycle
+event. `SignalAccepted` hands that object to the Nexus mail keeper by firing
+the sent hook at the Signal→Nexus handoff and then passing the payload as
+`NexusMail<Payload>` into `Nexus::process`.
 
 `Nexus` is a real runtime object (a hand-written behaviour noun over the
 schema-emitted types — Pattern C). It OWNS the durable SEMA `Store` handle and
@@ -84,16 +84,17 @@ Input -> Mail<BeingProcessed> { sema_input }   <- Nexus HOLDS the mail
 ```
 
 `Mail<Phase>` is the typestate: both phases carry the generated message
-identifier and default `OriginRoute`; `Mail<BeingProcessed>` carries the lowered
-`SemaInput` the mail will run; `Mail<Processed>` carries the Signal `Output`
-the SEMA reply produced. The two phases hold DIFFERENT data, so they are
-structurally distinct values, not one struct wearing a marker. The only
-constructor of `Mail<Processed>` is the private `Mail::<BeingProcessed>::run_sema`,
-which consumes the in-flight mail by value and threads it through the store —
-so "Nexus holds the mail ⇒ it is being processed" is a compile-time fact, not a
-log entry (record 970). The origin route is the return address: generated
-`MessageSent`, `NexusMail<Payload>`, `Mail<BeingProcessed>`, `Mail<Processed>`,
-and `MessageProcessed<Output>` all carry the same route through the trip.
+identifier and minted `OriginRoute`; `Mail<BeingProcessed>` carries the lowered
+`sema::Sema<sema::Input>` the mail will run; `Mail<Processed>` carries the
+`signal::Signal<signal::Output>` the SEMA reply produced. The two phases hold
+DIFFERENT data, so they are structurally distinct values, not one struct
+wearing a marker. The only constructor of `Mail<Processed>` is the private
+`Mail::<BeingProcessed>::run_sema`, which consumes the in-flight mail by value
+and threads it through the store — so "Nexus holds the mail ⇒ it is being
+processed" is a compile-time fact, not a log entry (record 970). The origin
+route is the return address: generated `MessageSent`, `NexusMail<Payload>`,
+`Mail<BeingProcessed>`, `Mail<Processed>`, and `MessageProcessed<Output>` all
+carry the same route through the trip.
 
 The schema emits the wire nouns. Rust attaches the behavior:
 
@@ -101,12 +102,12 @@ The schema emits the wire nouns. Rust attaches the behavior:
   `NexusMail<Query>::into_nexus_input` map Signal payload mail into the Nexus
   language; `Mail<BeingProcessed>: FromMail<Payload>` lowers each accepted mail
   into the SEMA language up front (the inbound half of the Nexus translation).
-- `NexusInput::into_nexus_output` maps Signal-side Nexus input to
-  `SemaInput`, and maps `SemaOutput` back to Signal `Output`; `run_sema` uses
-  it for the outbound half.
+- `nexus::Nexus<nexus::Input>::into_nexus_output` maps Signal-side Nexus input
+  to `sema::Input`, and maps `sema::Output` back to Signal `Output`;
+  `run_sema` uses it for the outbound half.
 - `Nexus` implements the generated `NexusEngine` trait, so tests can invoke
-  the Nexus translation plane as `NexusEngine::execute(NexusInput) ->
-  NexusOutput` directly.
+  the Nexus translation plane as `NexusEngine::execute(nexus::Nexus<nexus::Input>)
+  -> nexus::Nexus<nexus::Output>` directly.
 - `Engine` is a thin composer of the three centers (Signal admission + the
   Nexus mail keeper). It does NOT call the store directly — the SEMA invocation
   lives inside `Nexus::process`. Generated sent/processed lifecycle events are
@@ -125,7 +126,8 @@ a real **redb** database written to a `*.sema` file:
 
 - `Store::open(path)` creates or opens the `.sema` file and ensures the
   `records` and `ledger` tables.
-- `SemaEngine::apply(SemaInput) -> SemaOutput` is the only mutation surface. A
+- `SemaEngine::apply(sema::Sema<sema::Input>) -> sema::Sema<sema::Output>` is
+  the only mutation surface. A
   `Record` is a redb write transaction that persists the rkyv-archived `Entry`
   in the `records` table (identifier -> archive) and advances the persisted
   `next-identifier` and `commit-sequence` counters in the `ledger` table. An
@@ -161,6 +163,12 @@ Signal (`Input`/`Output`), Nexus (`NexusInput`/`NexusOutput`), and SEMA
 available to it; the implementation difference is which actor object owns the
 method after the generated type exists.
 
+The generated Rust exposes plane namespaces over those bootstrap backing names:
+`signal::Input`, `nexus::Input`, and `sema::Input` (plus matching `Output`).
+Public execution signatures use the namespace-local names, for example
+`sema::Sema<sema::Input>`, so the envelope carries the plane and payload names
+stay short.
+
 ## Implementation methods
 
 Schema-generated types are the implementation nouns. Hand-written runtime code
@@ -173,15 +181,15 @@ attaches behavior to those nouns or to state-owning runtime objects:
   handoff and hands the payload to `Nexus::process` as `NexusMail<Payload>`.
 - `Nexus` takes the mail into `Mail<BeingProcessed>`, holding it and its
   `OriginRoute` across SEMA.
-- `NexusMail<Payload>` becomes generated `NexusInput` (the lowering attached via
-  `FromMail<Payload>` for `Mail<BeingProcessed>`).
-- `NexusInput` becomes generated `NexusOutput`.
-- `NexusOutput::Sema` carries generated `SemaInput`.
-- `SemaInput` is applied by `Store` through generated `SemaEngine`, writing the
-  durable `.sema` redb database.
-- `SemaOutput` becomes `NexusInput::Sema` and then generated `Output` carrying
-  a `DatabaseMarker`; this transition is `Mail::<BeingProcessed>::run_sema`,
-  which produces the `Mail<Processed>`.
+- `NexusMail<Payload>` becomes generated `nexus::Nexus<nexus::Input>` (the
+  lowering attached via `FromMail<Payload>` for `Mail<BeingProcessed>`).
+- `nexus::Nexus<nexus::Input>` becomes generated `nexus::Nexus<nexus::Output>`.
+- `nexus::Output::Sema` carries generated `sema::Input`.
+- `sema::Sema<sema::Input>` is applied by `Store` through generated
+  `SemaEngine`, writing the durable `.sema` redb database.
+- `sema::Sema<sema::Output>` becomes `nexus::Input::Sema` and then generated
+  `signal::Signal<signal::Output>` carrying a `DatabaseMarker`; this transition
+  is `Mail::<BeingProcessed>::run_sema`, which produces the `Mail<Processed>`.
 - `MailLedgerEvent` stores sent and processed mail markers, including their
   `OriginRoute`, in the ledger Nexus owns.
 - `Input` and `Output` frame themselves at the Signal boundary.
@@ -220,8 +228,9 @@ The schema-rust output path is already crate-relative (`src/schema/lib.rs`).
 Runtime-chain tests assert on schema-emitted objects, not test-local shadow
 languages. Pattern A uses generated `MailLedgerEvent`, `NexusInput`,
 `NexusOutput`, `SemaInput`, and `SemaOutput` as witnesses. The SEMA engine
-test calls generated `SemaEngine::apply(SemaInput) -> SemaOutput`, and the
-full-chain test calls the durable `SemaEngine::apply(SemaInput) -> SemaOutput`
+test calls generated `SemaEngine::apply(sema::Sema<sema::Input>) ->
+sema::Sema<sema::Output>`, and the full-chain test calls the durable
+`SemaEngine::apply(sema::Sema<sema::Input>) -> sema::Sema<sema::Output>`
 against a real `.sema` file, so each runtime plane remains typed as its schema
 at both ends of the operation. The process-boundary tests parse the CLI's
 stdout back through schema-emitted `Output::FromStr` (no raw-string digest

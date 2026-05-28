@@ -193,6 +193,11 @@
             grep -R "MessageRoot" ${src}/src/schema/lib.rs >/dev/null
             grep -R "NexusMail<Payload>" ${src}/src/schema/lib.rs >/dev/null
             grep -R "MessageProcessed<Reply>" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "pub mod schema" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "pub enum Kind" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "pub mod signal" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "pub mod nexus" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "pub mod sema" ${src}/src/schema/lib.rs >/dev/null
             grep -R "MailLedgerEvent" ${src}/src/schema/lib.rs >/dev/null
             grep -R "DatabaseMarker" ${src}/src/schema/lib.rs >/dev/null
             grep -R "pub enum NexusInput" ${src}/src/schema/lib.rs >/dev/null
@@ -245,7 +250,8 @@
             grep -R "DatabaseMarker" ${src}/src/store.rs >/dev/null
             grep -R "StateDigest" ${src}/src/store.rs >/dev/null
             grep -R "impl SemaEngine for Store" ${src}/src/store.rs >/dev/null
-            grep -R "fn apply(&mut self, command: SemaInput)" ${src}/src/store.rs >/dev/null
+            grep -R "fn apply(" ${src}/src/store.rs >/dev/null
+            grep -R "sema_plane::Sema<sema_plane::Input>" ${src}/src/store.rs >/dev/null
             grep -R "redb::" ${src}/src/store.rs >/dev/null
             grep -R "Database::create" ${src}/src/store.rs >/dev/null
             grep -R "Database::open" ${src}/src/store.rs >/dev/null
@@ -263,11 +269,15 @@
             grep -R "nexus_runs_sema_while_holding_mail_then_replies_through_schema_objects" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "signal_actor_rejects_invalid_input_with_schema_emitted_rejection_before_mail_or_sema" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "nexus_and_sema_have_explicit_input_output_languages" ${src}/tests/runtime_triad.rs >/dev/null
+            grep -R "plane_envelopes_keep_payload_names_scoped" ${src}/tests/runtime_triad.rs >/dev/null
+            grep -R "schema_meta::Kind::Sema" ${src}/tests/runtime_triad.rs >/dev/null
+            grep -R "compile_fail" ${src}/src/lib.rs >/dev/null
+            grep -R "nexus_plane::Nexus<nexus_plane::Input>" ${src}/src/lib.rs >/dev/null
             grep -R "import_export_paths_use_single_colon_namespaces" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "daemon_persists_sema_file_across_a_restart" ${src}/tests/process_boundary.rs >/dev/null
             grep -R "MailLedgerEvent::Sent" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "MailLedgerEvent::Processed" ${src}/tests/runtime_triad.rs >/dev/null
-            grep -R "origin_route: OriginRoute" ${src}/tests/runtime_triad.rs >/dev/null
+            grep -R "origin_route: route" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "in_flight.origin_route()" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "SemaEngine::apply" ${src}/tests/runtime_triad.rs >/dev/null
             grep -R "sent_message_count" ${src}/tests/runtime_triad.rs >/dev/null

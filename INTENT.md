@@ -23,6 +23,11 @@ Load-bearing constraints:
 - The schema declares the runtime triad surfaces:
   `Input`/`Output` for Signal, `NexusInput`/`NexusOutput` for execution mail,
   and `SemaInput`/`SemaOutput` for database work.
+- Generated plane namespaces expose the same shapes as `signal::Input` /
+  `signal::Output`, `nexus::Input` / `nexus::Output`, and `sema::Input` /
+  `sema::Output`. The flat names are bootstrap backing names; runtime trait
+  signatures and tests use the plane namespaces so the plane carries the
+  ancestry instead of every payload name.
 - Each language plane has input/output and reusable import/export vocabulary.
   Import/export paths mirror Rust module namespaces with a single colon rather
   than double colon, for example `signal:sema:Magnitude`.
@@ -30,8 +35,9 @@ Load-bearing constraints:
   input, output, and namespace. Their generated Rust differs by trait support
   and runtime ownership, not by a separate notation.
 - Nexus is the execution and mail-keeper plane between Signal and SEMA. Signal
-  input becomes `NexusMail<Payload>` with a `MessageIdentifier` and default
-  `OriginRoute`; while Nexus owns that object, the mail is being processed.
+  input becomes `NexusMail<Payload>` with a `MessageIdentifier` and an
+  auto-created `OriginRoute`; while Nexus owns that object, the mail is being
+  processed.
 - Nexus is a real runtime object (`Nexus`), not a set of methods on the
   orchestrator. It OWNS the durable SEMA store handle and the mail ledger, and
   holds the mail in a TYPE-LEVEL being-processed state across the SEMA call:
@@ -60,9 +66,10 @@ Load-bearing constraints:
   surfaces with generated schema objects.
 - Nexus mail lifecycle state is represented with generated schema nouns:
   `MailLedgerEvent`, `SentMail`, `ProcessedMail`, and `OriginRoute`. The route
-  is default metadata derived from the message identifier and carried in the
-  sent event, the in-flight Nexus mail, and the processed event so the reply has
-  the same return address as the accepted signal input.
+  is minted separately from the message identifier and carried in the Signal,
+  Nexus, and SEMA root envelopes, the sent event, the in-flight Nexus mail, and
+  the processed event so the reply has the same return address as the accepted
+  signal input.
 - Async mail flow is implemented as object flow. `Engine` owns Nexus behavior,
   `SignalActor` owns Signal admission, `MailLedger` owns lifecycle hook
   recording, `Store` owns SEMA behavior, and generated schema nouns are the
@@ -74,8 +81,9 @@ Load-bearing constraints:
   are not valid substitutes for the schema objects whose path is being proved.
 - The store is the SEMA writer. SEMA means database work: real SEMA writes
   durable state to the component database file. Runtime state changes pass
-  through the generated `SemaEngine::apply(SemaInput) -> SemaOutput` surface
-  rather than direct mutation from the Signal layer.
+  through the generated `SemaEngine::apply(sema::Sema<sema::Input>) ->
+  sema::Sema<sema::Output>` surface rather than direct mutation from the Signal
+  layer.
 - SEMA is durable (records 1007/1008, bead `primary-q2au`). `Store` is a real
   redb database written to a `*.sema` file: each `Record` is a redb write
   transaction persisting the rkyv-archived `Entry`, each `Observe` is a redb

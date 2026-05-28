@@ -5,7 +5,7 @@ use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
 use crate::{
     CommitSequence, DatabaseMarker, Entry, ErrorMessage, ErrorReport, Magnitude, ObservedRecords,
     Query, RecordIdentifier, RecordSet, SemaEngine, SemaInput, SemaOutput, SemaReceipt,
-    StateDigest,
+    StateDigest, schema::lib::sema as sema_plane,
 };
 
 /// redb table of durable records: identifier -> rkyv-archived `Entry`.
@@ -32,8 +32,12 @@ pub struct Store {
 }
 
 impl SemaEngine for Store {
-    fn apply(&mut self, command: SemaInput) -> SemaOutput {
-        match command {
+    fn apply(
+        &mut self,
+        command: sema_plane::Sema<sema_plane::Input>,
+    ) -> sema_plane::Sema<sema_plane::Output> {
+        let origin_route = command.origin_route();
+        let output = match command.into_root() {
             SemaInput::Record(entry) => match self.record(entry) {
                 Ok(identifier) => SemaOutput::Recorded(SemaReceipt {
                     record_identifier: RecordIdentifier(identifier),
@@ -58,7 +62,8 @@ impl SemaEngine for Store {
                     database_marker: self.database_marker(),
                 }),
             },
-        }
+        };
+        output.with_origin_route(origin_route)
     }
 }
 

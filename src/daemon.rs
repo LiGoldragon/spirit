@@ -83,7 +83,7 @@ impl Daemon {
         let mut transport = SignalTransport::new(stream);
         let (_route, input) = transport.read_input()?;
         let output = engine.handle(input);
-        transport.write_output(&output)?;
+        transport.write_output(output.root())?;
         Ok(())
     }
 

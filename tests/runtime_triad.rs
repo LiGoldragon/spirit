@@ -4,7 +4,7 @@ use spirit_next::{
     MessageSent, MessageSentHook, NexusInput, NexusMail, NexusOutput, OriginRoute, Output,
     ProcessedMail, PublicPath, Query, RecordIdentifier, RecordSet, SemaEngine, SemaInput,
     SemaOutput, SemaReceipt, SentMail, ShortHeader, SignalAccepted, SignalActor, SignalRejection,
-    SourcePath, StateDigest, Store, Topic, ValidationError,
+    SourcePath, StateDigest, Store, Topic, ValidationError, schema_meta, sema,
 };
 use tempfile::TempDir;
 
@@ -52,14 +52,28 @@ fn entry(description: &str) -> Entry {
     }
 }
 
+fn route(offset: u64) -> OriginRoute {
+    OriginRoute(1_000_000 + offset)
+}
+
+fn sema_message(input: SemaInput, offset: u64) -> sema::Sema<sema::Input> {
+    input.with_origin_route(route(offset))
+}
+
 #[test]
 fn nexus_mail_lowers_signal_payload_to_generated_sema_command() {
-    let command = NexusMail::new(MessageIdentifier(1), entry("nexus mail lowers to SEMA"))
-        .into_nexus_input()
-        .into_nexus_output()
-        .into_sema_input();
+    let command = NexusMail::new(
+        MessageIdentifier(1),
+        route(1),
+        entry("nexus mail lowers to SEMA"),
+    )
+    .into_nexus_input()
+    .into_nexus_output()
+    .into_sema_input();
 
-    match command {
+    assert_eq!(command.kind(), schema_meta::Kind::Sema);
+    assert_eq!(command.origin_route(), route(1));
+    match command.root() {
         SemaInput::Record(recorded) => {
             assert_eq!(recorded.description.0, "nexus mail lowers to SEMA");
         }
@@ -78,12 +92,16 @@ fn signal_actor_pushes_accepted_message_through_sent_hook_before_nexus_holds_mai
     let mut hook = SentHookProbe { events: Vec::new() };
     let expected_sent = MailLedgerEvent::Sent(SentMail {
         mail_identifier: MailIdentifier(1),
-        origin_route: OriginRoute(1),
+        origin_route: route(1),
         short_header: ShortHeader(0),
     });
 
     assert_eq!(accepted.message_sent().identifier, MessageIdentifier(1));
-    assert_eq!(accepted.message_sent().origin_route(), OriginRoute(1));
+    assert_eq!(accepted.message_sent().origin_route(), route(1));
+    assert_ne!(
+        accepted.message_sent().origin_route(),
+        OriginRoute(accepted.message_sent().identifier.0)
+    );
     assert_eq!(hook.events, []);
 
     // The sent hook fires at the Signal -> Nexus handoff, witnessed by a
@@ -124,10 +142,11 @@ fn nexus_holds_the_mail_in_being_processed_typestate_before_sema_runs() {
     );
     assert_eq!(
         in_flight.origin_route(),
-        OriginRoute(1),
+        route(1),
         "the in-flight mail keeps the origin route return address"
     );
-    match in_flight.sema_input() {
+    assert_eq!(in_flight.sema_input().kind(), schema_meta::Kind::Sema);
+    match in_flight.sema_input().root() {
         SemaInput::Record(recorded) => assert_eq!(recorded.description.0, "held in flight"),
         SemaInput::Observe(_) => panic!("a recorded entry lowers to a SEMA record command"),
     }
@@ -144,11 +163,13 @@ fn nexus_holds_the_mail_in_being_processed_typestate_before_sema_runs() {
 fn sema_engine_writes_durable_records_and_returns_schema_objects() {
     let sema = SemaFile::new();
     let mut store = sema.open_store();
-    let operation = SemaInput::Record(entry("SEMA writes durable facts"));
+    let operation = sema_message(SemaInput::Record(entry("SEMA writes durable facts")), 1);
 
-    let response: SemaOutput = SemaEngine::apply(&mut store, operation);
+    let response = SemaEngine::apply(&mut store, operation);
 
-    match response {
+    assert_eq!(response.kind(), schema_meta::Kind::Sema);
+    assert_eq!(response.origin_route(), route(1));
+    match response.root() {
         SemaOutput::Recorded(receipt) => {
             assert_eq!(receipt.record_identifier, RecordIdentifier(1));
             assert_eq!(receipt.database_marker.commit_sequence, CommitSequence(1));
@@ -175,9 +196,15 @@ fn sema_store_persists_records_across_reopen_of_the_same_sema_file() {
     let first_marker;
     {
         let mut store = sema.open_store();
-        SemaEngine::apply(&mut store, SemaInput::Record(entry("durable one")));
-        let recorded = SemaEngine::apply(&mut store, SemaInput::Record(entry("durable two")));
-        first_marker = match recorded {
+        SemaEngine::apply(
+            &mut store,
+            sema_message(SemaInput::Record(entry("durable one")), 1),
+        );
+        let recorded = SemaEngine::apply(
+            &mut store,
+            sema_message(SemaInput::Record(entry("durable two")), 2),
+        );
+        first_marker = match recorded.into_root() {
             SemaOutput::Recorded(receipt) => receipt.database_marker,
             other => panic!("expected Recorded, got {other:?}"),
         };
@@ -195,8 +222,11 @@ fn sema_store_persists_records_across_reopen_of_the_same_sema_file() {
 
     // The commit ledger resumed: the next write is commit sequence 3,
     // not 1, proving the counter persisted, not just the records.
-    let after = SemaEngine::apply(&mut reopened, SemaInput::Record(entry("durable three")));
-    match after {
+    let after = SemaEngine::apply(
+        &mut reopened,
+        sema_message(SemaInput::Record(entry("durable three")), 3),
+    );
+    match after.root() {
         SemaOutput::Recorded(receipt) => {
             assert_eq!(receipt.record_identifier, RecordIdentifier(3));
             assert_eq!(receipt.database_marker.commit_sequence, CommitSequence(3));
@@ -208,13 +238,16 @@ fn sema_store_persists_records_across_reopen_of_the_same_sema_file() {
     // the drop, through the schema-emitted query path.
     let observed = SemaEngine::apply(
         &mut reopened,
-        SemaInput::Observe(Query {
-            topic: Topic(String::from("runtime-triad")),
-            kind: Kind::Decision,
-        }),
+        sema_message(
+            SemaInput::Observe(Query {
+                topic: Topic(String::from("runtime-triad")),
+                kind: Kind::Decision,
+            }),
+            4,
+        ),
     );
     assert!(
-        matches!(observed, SemaOutput::Observed(_)),
+        matches!(observed.root(), SemaOutput::Observed(_)),
         "the reopened store observes a pre-drop record"
     );
     assert_ne!(
@@ -230,7 +263,9 @@ fn nexus_runs_sema_while_holding_mail_then_replies_through_schema_objects() {
     let engine = sema.engine();
 
     let recorded = engine.handle(Input::Record(entry("nexus drives sema")));
-    match recorded {
+    assert_eq!(recorded.kind(), schema_meta::Kind::Signal);
+    assert_eq!(recorded.origin_route(), route(1));
+    match recorded.root() {
         Output::RecordAccepted(receipt) => {
             assert_eq!(receipt.record_identifier, RecordIdentifier(1));
             assert_eq!(receipt.database_marker.commit_sequence, CommitSequence(1));
@@ -252,8 +287,8 @@ fn signal_actor_rejects_invalid_input_with_schema_emitted_rejection_before_mail_
     let output = engine.handle(Input::Record(bad));
 
     assert_eq!(
-        output,
-        Output::Rejected(SignalRejection {
+        output.root(),
+        &Output::Rejected(SignalRejection {
             validation_error: ValidationError::EmptyTopic,
             database_marker: DatabaseMarker {
                 commit_sequence: CommitSequence(0),
@@ -261,6 +296,7 @@ fn signal_actor_rejects_invalid_input_with_schema_emitted_rejection_before_mail_
             },
         })
     );
+    assert_eq!(output.origin_route(), route(1));
     assert_eq!(engine.record_count(), 0);
     assert_eq!(engine.sent_message_count(), 0);
     assert_eq!(engine.processed_message_count(), 0);
@@ -276,12 +312,13 @@ fn sema_response_maps_back_to_signal_output() {
             state_digest: StateDigest(0),
         },
     }))
+    .with_origin_route(route(7))
     .into_nexus_output()
     .into_signal_output();
 
     assert_eq!(
-        output,
-        Output::Error(ErrorReport {
+        output.root(),
+        &Output::Error(ErrorReport {
             error_message: ErrorMessage(String::from("no matching record")),
             database_marker: DatabaseMarker {
                 commit_sequence: CommitSequence(0),
@@ -289,14 +326,45 @@ fn sema_response_maps_back_to_signal_output() {
             },
         })
     );
+    assert_eq!(output.origin_route(), route(7));
+}
+
+#[test]
+fn plane_envelopes_keep_payload_names_scoped() {
+    let nexus_input =
+        NexusInput::Signal(Input::Record(entry("language input"))).with_origin_route(route(11));
+    let nexus_output = nexus_input.into_nexus_output();
+    assert_eq!(nexus_output.kind(), schema_meta::Kind::Nexus);
+    assert_eq!(nexus_output.origin_route(), route(11));
+    assert!(matches!(
+        nexus_output.root(),
+        NexusOutput::Sema(SemaInput::Record(_))
+    ));
+
+    let sema_output = SemaOutput::Recorded(SemaReceipt {
+        record_identifier: RecordIdentifier(3),
+        database_marker: DatabaseMarker {
+            commit_sequence: CommitSequence(4),
+            state_digest: StateDigest(127),
+        },
+    })
+    .with_origin_route(route(12));
+    let signal_output = sema_output
+        .into_nexus_input()
+        .into_nexus_output()
+        .into_signal_output();
+    assert_eq!(signal_output.kind(), schema_meta::Kind::Signal);
+    assert_eq!(signal_output.origin_route(), route(12));
+    assert!(matches!(signal_output.root(), Output::RecordAccepted(_)));
 }
 
 #[test]
 fn nexus_and_sema_have_explicit_input_output_languages() {
-    let nexus_input = NexusInput::Signal(Input::Record(entry("language input")));
+    let nexus_input =
+        NexusInput::Signal(Input::Record(entry("language input"))).with_origin_route(route(13));
     let nexus_output = nexus_input.into_nexus_output();
     assert!(matches!(
-        nexus_output,
+        nexus_output.root(),
         NexusOutput::Sema(SemaInput::Record(_))
     ));
 
@@ -308,9 +376,10 @@ fn nexus_and_sema_have_explicit_input_output_languages() {
         },
     });
     let signal_output = NexusInput::Sema(sema_output)
+        .with_origin_route(route(14))
         .into_nexus_output()
         .into_signal_output();
-    assert!(matches!(signal_output, Output::RecordAccepted(_)));
+    assert!(matches!(signal_output.root(), Output::RecordAccepted(_)));
 }
 
 #[test]
@@ -340,10 +409,11 @@ fn full_runtime_triad_records_then_observes_through_durable_sema() {
     let engine = sema.engine();
 
     let recorded = engine.handle(Input::Record(entry("full runtime triad works")));
-    let record_marker = match recorded {
+    assert_eq!(recorded.origin_route(), route(1));
+    let record_marker = match recorded.root() {
         Output::RecordAccepted(receipt) => {
             assert_eq!(receipt.record_identifier, RecordIdentifier(1));
-            receipt.database_marker
+            receipt.database_marker.clone()
         }
         other => panic!("expected RecordAccepted, got {other:?}"),
     };
@@ -356,7 +426,8 @@ fn full_runtime_triad_records_then_observes_through_durable_sema() {
         kind: Kind::Decision,
     }));
 
-    match observed {
+    assert_eq!(observed.origin_route(), route(2));
+    match observed.root() {
         Output::RecordsObserved(records) => {
             assert_eq!(
                 records.record_set,
@@ -376,22 +447,22 @@ fn full_runtime_triad_records_then_observes_through_durable_sema() {
         vec![
             MailLedgerEvent::Sent(SentMail {
                 mail_identifier: MailIdentifier(1),
-                origin_route: OriginRoute(1),
+                origin_route: route(1),
                 short_header: ShortHeader(0),
             }),
             MailLedgerEvent::Processed(ProcessedMail {
                 mail_identifier: MailIdentifier(1),
-                origin_route: OriginRoute(1),
+                origin_route: route(1),
                 database_marker: record_marker.clone(),
             }),
             MailLedgerEvent::Sent(SentMail {
                 mail_identifier: MailIdentifier(2),
-                origin_route: OriginRoute(2),
+                origin_route: route(2),
                 short_header: ShortHeader(0x0001_0000_0000_0000),
             }),
             MailLedgerEvent::Processed(ProcessedMail {
                 mail_identifier: MailIdentifier(2),
-                origin_route: OriginRoute(2),
+                origin_route: route(2),
                 database_marker: record_marker,
             }),
         ]

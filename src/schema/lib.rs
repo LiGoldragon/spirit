@@ -1123,6 +1123,111 @@ pub enum MessageRoot {
     Output,
 }
 
+pub mod schema {
+    #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum Kind {
+        Signal,
+        Nexus,
+        Sema,
+    }
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Signal<Root> {
+    pub origin_route: OriginRoute,
+    pub root: Root,
+}
+
+impl<Root> Signal<Root> {
+    pub fn new(origin_route: OriginRoute, root: Root) -> Self {
+        Self { origin_route, root }
+    }
+
+    pub fn origin_route(&self) -> OriginRoute {
+        self.origin_route
+    }
+
+    pub fn kind(&self) -> schema::Kind {
+        schema::Kind::Signal
+    }
+
+    pub fn root(&self) -> &Root {
+        &self.root
+    }
+
+    pub fn into_root(self) -> Root {
+        self.root
+    }
+
+    pub fn map_root<NextRoot>(self, map: impl FnOnce(Root) -> NextRoot) -> Signal<NextRoot> {
+        Signal::new(self.origin_route, map(self.root))
+    }
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Nexus<Root> {
+    pub origin_route: OriginRoute,
+    pub root: Root,
+}
+
+impl<Root> Nexus<Root> {
+    pub fn new(origin_route: OriginRoute, root: Root) -> Self {
+        Self { origin_route, root }
+    }
+
+    pub fn origin_route(&self) -> OriginRoute {
+        self.origin_route
+    }
+
+    pub fn kind(&self) -> schema::Kind {
+        schema::Kind::Nexus
+    }
+
+    pub fn root(&self) -> &Root {
+        &self.root
+    }
+
+    pub fn into_root(self) -> Root {
+        self.root
+    }
+
+    pub fn map_root<NextRoot>(self, map: impl FnOnce(Root) -> NextRoot) -> Nexus<NextRoot> {
+        Nexus::new(self.origin_route, map(self.root))
+    }
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Sema<Root> {
+    pub origin_route: OriginRoute,
+    pub root: Root,
+}
+
+impl<Root> Sema<Root> {
+    pub fn new(origin_route: OriginRoute, root: Root) -> Self {
+        Self { origin_route, root }
+    }
+
+    pub fn origin_route(&self) -> OriginRoute {
+        self.origin_route
+    }
+
+    pub fn kind(&self) -> schema::Kind {
+        schema::Kind::Sema
+    }
+
+    pub fn root(&self) -> &Root {
+        &self.root
+    }
+
+    pub fn into_root(self) -> Root {
+        self.root
+    }
+
+    pub fn map_root<NextRoot>(self, map: impl FnOnce(Root) -> NextRoot) -> Sema<NextRoot> {
+        Sema::new(self.origin_route, map(self.root))
+    }
+}
+
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct MessageSent {
     pub identifier: MessageIdentifier,
@@ -1171,8 +1276,8 @@ impl MessageSent {
 }
 
 impl<Payload> NexusMail<Payload> {
-    pub fn new(identifier: MessageIdentifier, payload: Payload) -> Self {
-        Self { identifier, origin_route: identifier.origin_route(), payload }
+    pub fn new(identifier: MessageIdentifier, origin_route: OriginRoute, payload: Payload) -> Self {
+        Self { identifier, origin_route, payload }
     }
 
     pub fn identifier(&self) -> MessageIdentifier {
@@ -1189,8 +1294,8 @@ impl<Payload> NexusMail<Payload> {
 }
 
 impl<Reply> MessageProcessed<Reply> {
-    pub fn new(identifier: MessageIdentifier, reply: Reply) -> Self {
-        Self { identifier, origin_route: identifier.origin_route(), reply }
+    pub fn new(identifier: MessageIdentifier, origin_route: OriginRoute, reply: Reply) -> Self {
+        Self { identifier, origin_route, reply }
     }
 
     pub fn identifier(&self) -> MessageIdentifier {
@@ -1215,24 +1320,80 @@ impl<Reply> MessageProcessed<Reply> {
 }
 
 impl Input {
+    pub fn with_origin_route(self, origin_route: OriginRoute) -> Signal<Self> {
+        Signal::new(origin_route, self)
+    }
+
+}
+
+impl signal::Signal<Input> {
     pub fn message_sent(&self, identifier: MessageIdentifier) -> MessageSent {
         MessageSent {
             identifier,
-            origin_route: identifier.origin_route(),
+            origin_route: self.origin_route(),
             root: MessageRoot::Input,
-            short_header: self.short_header(),
+            short_header: self.root().short_header(),
         }
     }
 }
 
 impl Output {
+    pub fn with_origin_route(self, origin_route: OriginRoute) -> Signal<Self> {
+        Signal::new(origin_route, self)
+    }
+
+}
+
+impl signal::Signal<Output> {
     pub fn message_sent(&self, identifier: MessageIdentifier) -> MessageSent {
         MessageSent {
             identifier,
-            origin_route: identifier.origin_route(),
+            origin_route: self.origin_route(),
             root: MessageRoot::Output,
-            short_header: self.short_header(),
+            short_header: self.root().short_header(),
         }
+    }
+}
+
+pub mod signal {
+    pub type Input = super::Input;
+    pub type Output = super::Output;
+    pub type Signal<Root> = super::Signal<Root>;
+}
+
+pub mod nexus {
+    pub type Input = super::NexusInput;
+    pub type Output = super::NexusOutput;
+    pub type Nexus<Root> = super::Nexus<Root>;
+}
+
+pub mod sema {
+    pub type Input = super::SemaInput;
+    pub type Output = super::SemaOutput;
+    pub type Sema<Root> = super::Sema<Root>;
+}
+
+impl NexusInput {
+    pub fn with_origin_route(self, origin_route: OriginRoute) -> nexus::Nexus<Self> {
+        nexus::Nexus::new(origin_route, self)
+    }
+}
+
+impl NexusOutput {
+    pub fn with_origin_route(self, origin_route: OriginRoute) -> nexus::Nexus<Self> {
+        nexus::Nexus::new(origin_route, self)
+    }
+}
+
+impl SemaInput {
+    pub fn with_origin_route(self, origin_route: OriginRoute) -> sema::Sema<Self> {
+        sema::Sema::new(origin_route, self)
+    }
+}
+
+impl SemaOutput {
+    pub fn with_origin_route(self, origin_route: OriginRoute) -> sema::Sema<Self> {
+        sema::Sema::new(origin_route, self)
     }
 }
 
@@ -1246,12 +1407,6 @@ impl OriginRoute {
     }
 }
 
-impl MessageIdentifier {
-    pub fn origin_route(self) -> OriginRoute {
-        OriginRoute(self.0)
-    }
-}
-
 pub trait InputNexus {
     type Reply;
     type Error;
@@ -1261,15 +1416,15 @@ pub trait InputNexus {
 }
 
 impl Input {
-    pub fn dispatch_mail_with_nexus<Nexus>(self, identifier: MessageIdentifier, nexus: &Nexus) -> Result<MessageProcessed<Nexus::Reply>, Nexus::Error>
+    pub fn dispatch_mail_with_nexus<NexusActor>(self, identifier: MessageIdentifier, origin_route: OriginRoute, nexus: &NexusActor) -> Result<MessageProcessed<NexusActor::Reply>, NexusActor::Error>
     where
-        Nexus: InputNexus,
+        NexusActor: InputNexus,
     {
         let reply = match self {
-            Self::Record(payload) => nexus.record(NexusMail::new(identifier, payload)),
-            Self::Observe(payload) => nexus.observe(NexusMail::new(identifier, payload)),
+            Self::Record(payload) => nexus.record(NexusMail::new(identifier, origin_route, payload)),
+            Self::Observe(payload) => nexus.observe(NexusMail::new(identifier, origin_route, payload)),
         }?;
-        Ok(MessageProcessed::new(identifier, reply))
+        Ok(MessageProcessed::new(identifier, origin_route, reply))
     }
 }
 
@@ -1284,26 +1439,26 @@ pub trait OutputNexus {
 }
 
 impl Output {
-    pub fn dispatch_mail_with_nexus<Nexus>(self, identifier: MessageIdentifier, nexus: &Nexus) -> Result<MessageProcessed<Nexus::Reply>, Nexus::Error>
+    pub fn dispatch_mail_with_nexus<NexusActor>(self, identifier: MessageIdentifier, origin_route: OriginRoute, nexus: &NexusActor) -> Result<MessageProcessed<NexusActor::Reply>, NexusActor::Error>
     where
-        Nexus: OutputNexus,
+        NexusActor: OutputNexus,
     {
         let reply = match self {
-            Self::RecordAccepted(payload) => nexus.record_accepted(NexusMail::new(identifier, payload)),
-            Self::RecordsObserved(payload) => nexus.records_observed(NexusMail::new(identifier, payload)),
-            Self::Error(payload) => nexus.error(NexusMail::new(identifier, payload)),
-            Self::Rejected(payload) => nexus.rejected(NexusMail::new(identifier, payload)),
+            Self::RecordAccepted(payload) => nexus.record_accepted(NexusMail::new(identifier, origin_route, payload)),
+            Self::RecordsObserved(payload) => nexus.records_observed(NexusMail::new(identifier, origin_route, payload)),
+            Self::Error(payload) => nexus.error(NexusMail::new(identifier, origin_route, payload)),
+            Self::Rejected(payload) => nexus.rejected(NexusMail::new(identifier, origin_route, payload)),
         }?;
-        Ok(MessageProcessed::new(identifier, reply))
+        Ok(MessageProcessed::new(identifier, origin_route, reply))
     }
 }
 
 pub trait NexusEngine {
-    fn execute(&self, input: NexusInput) -> NexusOutput;
+    fn execute(&self, input: nexus::Nexus<nexus::Input>) -> nexus::Nexus<nexus::Output>;
 }
 
 pub trait SemaEngine {
-    fn apply(&mut self, input: SemaInput) -> SemaOutput;
+    fn apply(&mut self, input: sema::Sema<sema::Input>) -> sema::Sema<sema::Output>;
 }
 
 pub trait UpgradeFrom<Previous>: Sized {

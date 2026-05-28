@@ -110,10 +110,12 @@ fn generated_signal_surface_emits_mail_sent_event() {
         magnitude: Magnitude::Maximum,
     });
 
-    let event = input.message_sent(MessageIdentifier(9));
+    let message = input.with_origin_route(OriginRoute(91));
+    let event = message.message_sent(MessageIdentifier(9));
 
     assert_eq!(event.identifier, MessageIdentifier(9));
-    assert_eq!(event.origin_route(), OriginRoute(9));
+    assert_eq!(event.origin_route(), OriginRoute(91));
+    assert_ne!(event.origin_route(), OriginRoute(event.identifier.0));
     assert_eq!(event.root, MessageRoot::Input);
-    assert_eq!(event.short_header, input.short_header());
+    assert_eq!(event.short_header, message.root().short_header());
 }

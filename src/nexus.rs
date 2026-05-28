@@ -1,7 +1,8 @@
 use crate::{
     DatabaseMarker, Entry, MailLedger, MessageIdentifier, MessageProcessed, MessageProcessedHook,
-    NexusEngine, NexusInput, NexusMail, NexusOutput, OriginRoute, Output, Query, SemaEngine,
-    SemaInput, store::Store,
+    NexusEngine, NexusMail, OriginRoute, Output, Query, SemaEngine,
+    schema::lib::{nexus as nexus_plane, sema as sema_plane, signal as signal_plane},
+    store::Store,
 };
 
 /// Nexus — the runtime mail keeper (records 966/970).
@@ -44,13 +45,13 @@ pub struct Mail<Phase> {
 /// In-flight phase: Nexus owns the mail, the SEMA call has not yet run.
 #[derive(Debug)]
 pub struct BeingProcessed {
-    sema_input: SemaInput,
+    sema_input: sema_plane::Sema<sema_plane::Input>,
 }
 
 /// Reached phase: the SEMA reply, translated back into the Signal output.
 #[derive(Debug)]
 pub struct Processed {
-    output: Output,
+    output: signal_plane::Signal<Output>,
 }
 
 impl Nexus {
@@ -68,7 +69,7 @@ impl Nexus {
     /// SEMA write/read runs WHILE Nexus holds it; the reply turns it into
     /// [`Processed`]; the processed lifecycle event is emitted; and the
     /// Signal output leaves. This is the literal record-970 flow.
-    pub fn process<Payload>(&mut self, mail: NexusMail<Payload>) -> Output
+    pub fn process<Payload>(&mut self, mail: NexusMail<Payload>) -> signal_plane::Signal<Output>
     where
         Mail<BeingProcessed>: FromMail<Payload>,
     {
@@ -145,7 +146,7 @@ impl Mail<BeingProcessed> {
     }
 
     /// The SEMA-language form the in-flight mail will hand to the store.
-    pub fn sema_input(&self) -> &SemaInput {
+    pub fn sema_input(&self) -> &sema_plane::Sema<sema_plane::Input> {
         &self.phase.sema_input
     }
 
@@ -155,7 +156,8 @@ impl Mail<BeingProcessed> {
     /// Signal output here, the outbound half of the Nexus translation.
     fn run_sema(self, store: &mut Store) -> Mail<Processed> {
         let sema_output = store.apply(self.phase.sema_input);
-        let output = NexusInput::Sema(sema_output)
+        let output = sema_output
+            .into_nexus_input()
             .into_nexus_output()
             .into_signal_output();
         Mail {
@@ -175,12 +177,12 @@ impl Mail<Processed> {
         self.origin_route
     }
 
-    pub fn output(&self) -> &Output {
+    pub fn output(&self) -> &signal_plane::Signal<Output> {
         &self.phase.output
     }
 
     pub fn database_marker(&self) -> DatabaseMarker {
-        self.phase.output.database_marker()
+        self.phase.output.root().database_marker()
     }
 
     /// Push the [`MessageProcessed`] lifecycle event built from the
@@ -189,16 +191,24 @@ impl Mail<Processed> {
     where
         Hook: MessageProcessedHook<Output>,
     {
-        MessageProcessed::new(self.identifier, self.phase.output.clone()).push_to(hook)
+        MessageProcessed::new(
+            self.identifier,
+            self.origin_route,
+            self.phase.output.root().clone(),
+        )
+        .push_to(hook)
     }
 
-    fn into_output(self) -> Output {
+    fn into_output(self) -> signal_plane::Signal<Output> {
         self.phase.output
     }
 }
 
 impl NexusEngine for Nexus {
-    fn execute(&self, input: NexusInput) -> NexusOutput {
+    fn execute(
+        &self,
+        input: nexus_plane::Nexus<nexus_plane::Input>,
+    ) -> nexus_plane::Nexus<nexus_plane::Output> {
         input.into_nexus_output()
     }
 }
