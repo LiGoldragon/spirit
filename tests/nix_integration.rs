@@ -100,7 +100,7 @@ use std::{
 
 use spirit_next::{
     CommitSequence, DatabaseMarker, Description, Entry, ErrorReport, Kind, Magnitude, Output,
-    OutputRoute, RecordIdentifier, SemaReceipt, SignalRejection, StateDigest, Topic,
+    OutputRoute, RecordIdentifier, SemaReceipt, SignalRejection, StateDigest, Topic, Topics,
     ValidationError,
 };
 use tempfile::TempDir;
@@ -316,7 +316,7 @@ fn run_cli_for_output(binaries: &NixBuiltBinaries, socket: &Path, nota_argument:
 
 fn entry(description: &str) -> Entry {
     Entry {
-        topic: Topic(String::from("nix-integration")),
+        topics: Topics(vec![Topic(String::from("nix-integration"))]),
         kind: Kind::Decision,
         description: Description(String::from(description)),
         magnitude: Magnitude::Maximum,
@@ -374,7 +374,7 @@ fn nix_built_spirit_cli_records_through_real_socket_to_nix_built_daemon() {
     let daemon = DaemonProcess::spawn(&binaries);
 
     let nota_input =
-        "(Record ([nix-integration] Decision [end to end through nix built binaries] Maximum))";
+        "(Record ([[nix-integration]] Decision [end to end through nix built binaries] Maximum))";
     let output = run_cli_for_output(&binaries, daemon.socket(), nota_input);
 
     // SCHEMA-TYPED ASSERTION: not on the string, on the parsed schema-emitted variant.
@@ -431,7 +431,7 @@ fn nix_built_daemon_persists_state_across_two_cli_invocations() {
     let first = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Record ([nix-integration] Decision [first commit] Maximum))",
+        "(Record ([[nix-integration]] Decision [first commit] Maximum))",
     );
     let first_marker = match first {
         Output::RecordAccepted(receipt) => receipt.database_marker,
@@ -441,7 +441,7 @@ fn nix_built_daemon_persists_state_across_two_cli_invocations() {
     let second = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Record ([nix-integration] Decision [second commit] Maximum))",
+        "(Record ([[nix-integration]] Decision [second commit] Maximum))",
     );
     let second_marker = match second {
         Output::RecordAccepted(receipt) => receipt.database_marker,
@@ -475,13 +475,13 @@ fn nix_built_daemon_observes_recorded_entries_back_through_query() {
     let _recorded = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Record ([nix-integration] Decision [observe round trip] Maximum))",
+        "(Record ([[nix-integration]] Decision [observe round trip] Maximum))",
     );
 
     let observed = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ([nix-integration] Decision))",
+        "(Observe ((Full [[nix-integration]]) (Some Decision)))",
     );
 
     match observed {
@@ -490,7 +490,7 @@ fn nix_built_daemon_observes_recorded_entries_back_through_query() {
             // assert against schema-typed fixture (record 995).
             assert_eq!(
                 records.record_set.0,
-                entry("observe round trip"),
+                vec![entry("observe round trip")],
                 "RecordsObserved must echo the schema-emitted Entry we recorded"
             );
             assert_eq!(
@@ -517,7 +517,7 @@ fn nix_built_daemon_returns_missed_when_no_matching_record_exists() {
     let output = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ([no-such-topic] Decision))",
+        "(Observe ((Full [[no-such-topic]]) (Some Decision)))",
     );
 
     match output {
@@ -548,7 +548,7 @@ fn nix_built_daemon_handles_back_to_back_inputs_through_one_socket() {
     let mut markers = Vec::new();
 
     for description in descriptions {
-        let nota_input = format!("(Record ([nix-integration] Decision [{description}] Maximum))");
+        let nota_input = format!("(Record ([[nix-integration]] Decision [{description}] Maximum))");
         let output = run_cli_for_output(&binaries, daemon.socket(), &nota_input);
         match output {
             Output::RecordAccepted(receipt) => markers.push(receipt.database_marker),
@@ -582,9 +582,9 @@ fn nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant()
     // a regression here would mean a CLI user sees output the CLI
     // itself cannot parse, which would silently break tooling.
     //
-    // Variants exercised: RecordAccepted (happy Record), Rejected
-    // (Signal validation), Error (SEMA missed), RecordsObserved
-    // (after Record + Observe). Four CLI invocations, four typed
+    // Variants exercised: RecordAccepted (happy Record), RecordRemoved
+    // (SEMA remove), Rejected (Signal validation), Error (SEMA missed),
+    // RecordsObserved (after Record + Observe). Five CLI invocations, five typed
     // assertions, all parsed through `Output::from_str`.
     let binaries = NixBuiltBinaries::ensure();
     let daemon = DaemonProcess::spawn(&binaries);
@@ -593,7 +593,7 @@ fn nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant()
     let recorded = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Record ([nix-integration] Decision [variant tour] Maximum))",
+        "(Record ([[nix-integration]] Decision [variant tour] Maximum))",
     );
     assert!(matches!(recorded, Output::RecordAccepted(_)));
     assert_eq!(
@@ -602,7 +602,19 @@ fn nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant()
         "schema-emitted OutputRoute round-trips through CLI stdout"
     );
 
-    // Variant 2: Rejected (Signal validation).
+    // Variant 2: RecordRemoved.
+    let removed = run_cli_for_output(&binaries, daemon.socket(), "(Remove 1)");
+    assert!(matches!(removed, Output::RecordRemoved(_)));
+    assert_eq!(removed.route(), OutputRoute::RecordRemoved);
+
+    let rerecorded = run_cli_for_output(
+        &binaries,
+        daemon.socket(),
+        "(Record ([[nix-integration]] Decision [variant tour] Maximum))",
+    );
+    assert!(matches!(rerecorded, Output::RecordAccepted(_)));
+
+    // Variant 3: Rejected (Signal validation).
     let rejected = run_cli_for_output(
         &binaries,
         daemon.socket(),
@@ -611,20 +623,20 @@ fn nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant()
     assert!(matches!(rejected, Output::Rejected(_)));
     assert_eq!(rejected.route(), OutputRoute::Rejected);
 
-    // Variant 3: Error (SEMA missed).
+    // Variant 4: Error (SEMA missed).
     let errored = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ([no-such-topic] Decision))",
+        "(Observe ((Full [[no-such-topic]]) (Some Decision)))",
     );
     assert!(matches!(errored, Output::Error(_)));
     assert_eq!(errored.route(), OutputRoute::Error);
 
-    // Variant 4: RecordsObserved.
+    // Variant 5: RecordsObserved.
     let observed = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ([nix-integration] Decision))",
+        "(Observe ((Full [[nix-integration]]) (Some Decision)))",
     );
     assert!(matches!(observed, Output::RecordsObserved(_)));
     assert_eq!(observed.route(), OutputRoute::RecordsObserved);
@@ -650,7 +662,7 @@ fn nix_built_daemon_alias_state_across_separate_cli_processes() {
 
     // Independent processes — exec a fresh CLI binary each time.
     let mut child_a = Command::new(&binaries.spirit_cli)
-        .arg("(Record ([nix-integration] Decision [process a record] Maximum))")
+        .arg("(Record ([[nix-integration]] Decision [process a record] Maximum))")
         .env("SPIRIT_NEXT_SOCKET", daemon.socket())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -669,7 +681,7 @@ fn nix_built_daemon_alias_state_across_separate_cli_processes() {
     let observed = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ([nix-integration] Decision))",
+        "(Observe ((Full [[nix-integration]]) (Some Decision)))",
     );
     assert!(
         matches!(observed, Output::RecordsObserved(_)),

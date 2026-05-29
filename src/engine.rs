@@ -3,8 +3,8 @@ use std::{convert::Infallible, sync::Mutex};
 use crate::{
     DatabaseMarker, Entry, Input, Integer, MailIdentifier, MailLedgerEvent, MessageIdentifier,
     MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook, NexusInput, NexusMail,
-    NexusOutput, OriginRoute, Output, ProcessedMail, Query, SemaInput, SemaOutput, SentMail,
-    ShortHeader, SignalRejection, ValidationError,
+    NexusOutput, OriginRoute, Output, ProcessedMail, Query, RecordIdentifier, SemaInput,
+    SemaOutput, SentMail, ShortHeader, SignalRejection, TopicMatch, Topics, ValidationError,
     nexus::{BeingProcessed, FromMail, Mail, Nexus},
     schema::lib::{nexus as nexus_plane, sema as sema_plane, signal as signal_plane},
     store::Store,
@@ -169,6 +169,9 @@ impl SignalAccepted {
         match self.input.into_root() {
             Input::Record(entry) => nexus.process(NexusMail::new(identifier, origin_route, entry)),
             Input::Observe(query) => nexus.process(NexusMail::new(identifier, origin_route, query)),
+            Input::Remove(record_identifier) => {
+                nexus.process(NexusMail::new(identifier, origin_route, record_identifier))
+            }
         }
     }
 
@@ -177,7 +180,7 @@ impl SignalAccepted {
     /// being-processed type-state. Used by tests to observe the held mail.
     pub fn into_being_processed(self) -> Mail<BeingProcessed>
     where
-        Mail<BeingProcessed>: FromMail<Entry> + FromMail<Query>,
+        Mail<BeingProcessed>: FromMail<Entry> + FromMail<Query> + FromMail<RecordIdentifier>,
     {
         let identifier = self.identifier();
         let origin_route = self.input.origin_route();
@@ -188,6 +191,11 @@ impl SignalAccepted {
             Input::Observe(query) => {
                 Mail::<BeingProcessed>::from_mail(NexusMail::new(identifier, origin_route, query))
             }
+            Input::Remove(record_identifier) => Mail::<BeingProcessed>::from_mail(NexusMail::new(
+                identifier,
+                origin_route,
+                record_identifier,
+            )),
         }
     }
 }
@@ -251,15 +259,14 @@ impl Input {
         match self {
             Self::Record(entry) => entry.validate(),
             Self::Observe(query) => query.validate(),
+            Self::Remove(_) => Ok(()),
         }
     }
 }
 
 impl Entry {
     pub fn validate(&self) -> Result<(), ValidationError> {
-        if self.topic.0.trim().is_empty() {
-            return Err(ValidationError::EmptyTopic);
-        }
+        self.topics.validate()?;
         if self.description.0.trim().is_empty() {
             return Err(ValidationError::EmptyDescription);
         }
@@ -267,12 +274,52 @@ impl Entry {
     }
 }
 
-impl Query {
+impl Topics {
     pub fn validate(&self) -> Result<(), ValidationError> {
-        if self.topic.0.trim().is_empty() {
-            return Err(ValidationError::EmptyQueryTopic);
+        if self.0.is_empty() {
+            return Err(ValidationError::EmptyTopic);
+        }
+        if self.0.iter().any(|topic| topic.0.trim().is_empty()) {
+            return Err(ValidationError::EmptyTopic);
         }
         Ok(())
+    }
+}
+
+impl Query {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        self.topic_match.validate()
+    }
+}
+
+impl TopicMatch {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        self.topics()
+            .validate()
+            .map_err(|_| ValidationError::EmptyQueryTopic)
+    }
+
+    pub fn topics(&self) -> &Topics {
+        match self {
+            Self::Partial(topics) | Self::Full(topics) => topics,
+        }
+    }
+
+    pub fn matches(&self, entry_topics: &Topics) -> bool {
+        match self {
+            Self::Partial(topics) => topics.0.iter().any(|topic| {
+                entry_topics
+                    .0
+                    .iter()
+                    .any(|entry_topic| entry_topic == topic)
+            }),
+            Self::Full(topics) => topics.0.iter().all(|topic| {
+                entry_topics
+                    .0
+                    .iter()
+                    .any(|entry_topic| entry_topic == topic)
+            }),
+        }
     }
 }
 
@@ -290,6 +337,13 @@ impl NexusMail<Query> {
     }
 }
 
+impl NexusMail<RecordIdentifier> {
+    pub fn into_nexus_input(self) -> nexus_plane::Nexus<nexus_plane::Input> {
+        let origin_route = self.origin_route();
+        NexusInput::Signal(Input::Remove(self.into_payload())).with_origin_route(origin_route)
+    }
+}
+
 impl nexus_plane::Nexus<nexus_plane::Input> {
     pub fn into_nexus_output(self) -> nexus_plane::Nexus<nexus_plane::Output> {
         let origin_route = self.origin_route();
@@ -297,6 +351,9 @@ impl nexus_plane::Nexus<nexus_plane::Input> {
             NexusInput::Signal(Input::Record(entry)) => NexusOutput::Sema(SemaInput::Record(entry)),
             NexusInput::Signal(Input::Observe(query)) => {
                 NexusOutput::Sema(SemaInput::Observe(query))
+            }
+            NexusInput::Signal(Input::Remove(record_identifier)) => {
+                NexusOutput::Sema(SemaInput::Remove(record_identifier))
             }
             NexusInput::Sema(output) => NexusOutput::Signal(output.into_signal_output()),
         }
@@ -334,6 +391,7 @@ impl SemaOutput {
         match self {
             Self::Recorded(identifier) => Output::RecordAccepted(identifier),
             Self::Observed(records) => Output::RecordsObserved(records),
+            Self::Removed(receipt) => Output::RecordRemoved(receipt),
             Self::Missed(error) => Output::Error(error),
         }
     }
@@ -380,6 +438,7 @@ impl Output {
         match self {
             Self::RecordAccepted(receipt) => receipt.database_marker.clone(),
             Self::RecordsObserved(records) => records.database_marker.clone(),
+            Self::RecordRemoved(receipt) => receipt.database_marker.clone(),
             Self::Error(report) => report.database_marker.clone(),
             Self::Rejected(rejection) => rejection.database_marker.clone(),
         }

@@ -70,7 +70,7 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
     // real content hash).
     let recorded = run_cli(
         &socket_path,
-        "(Record ([schema] Constraint [schema creates the interface] Maximum))",
+        "(Record ([[schema]] Constraint [schema creates the interface] Maximum))",
     );
     match recorded {
         Output::RecordAccepted(receipt) => {
@@ -80,10 +80,28 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
         other => panic!("expected RecordAccepted, got {other:?}"),
     }
 
-    let observed = run_cli(&socket_path, "(Observe ([schema] Constraint))");
+    let observed = run_cli(
+        &socket_path,
+        "(Observe ((Full [[schema]]) (Some Constraint)))",
+    );
     assert!(
         matches!(observed, Output::RecordsObserved(_)),
         "the daemon observes the recorded entry, got {observed:?}"
+    );
+
+    let removed = run_cli(&socket_path, "(Remove 1)");
+    assert!(
+        matches!(removed, Output::RecordRemoved(_)),
+        "the daemon removes the recorded entry, got {removed:?}"
+    );
+
+    let missing_after_remove = run_cli(
+        &socket_path,
+        "(Observe ((Full [[schema]]) (Some Constraint)))",
+    );
+    assert!(
+        matches!(missing_after_remove, Output::Error(_)),
+        "the removed entry is no longer observable, got {missing_after_remove:?}"
     );
 
     let rejected = run_cli(
@@ -112,7 +130,7 @@ fn daemon_persists_sema_file_across_a_restart() {
         let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
         let recorded = run_cli(
             &socket_path,
-            "(Record ([durable-topic] Decision [survives restart] Maximum))",
+            "(Record ([[durable-topic]] Decision [survives restart] Maximum))",
         );
         match recorded {
             Output::RecordAccepted(receipt) => {
@@ -132,11 +150,14 @@ fn daemon_persists_sema_file_across_a_restart() {
     let socket_path = temp.path().join("second.sock");
     let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
 
-    let observed = run_cli(&socket_path, "(Observe ([durable-topic] Decision))");
+    let observed = run_cli(
+        &socket_path,
+        "(Observe ((Full [[durable-topic]]) (Some Decision)))",
+    );
     match observed {
         Output::RecordsObserved(records) => {
             assert_eq!(
-                records.record_set.0.description.0, "survives restart",
+                records.record_set.0[0].description.0, "survives restart",
                 "the restarted daemon observes the entry the first daemon wrote"
             );
         }
@@ -147,7 +168,7 @@ fn daemon_persists_sema_file_across_a_restart() {
     // the durable counter persisted across the restart, not just records.
     let next = run_cli(
         &socket_path,
-        "(Record ([durable-topic] Decision [second after restart] Maximum))",
+        "(Record ([[durable-topic]] Decision [second after restart] Maximum))",
     );
     match next {
         Output::RecordAccepted(receipt) => {

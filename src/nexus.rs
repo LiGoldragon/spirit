@@ -1,6 +1,6 @@
 use crate::{
     DatabaseMarker, Entry, MailLedger, MessageIdentifier, MessageProcessed, MessageProcessedHook,
-    NexusEngine, NexusMail, OriginRoute, Output, Query, SemaEngine,
+    NexusEngine, NexusMail, OriginRoute, Output, Query, RecordIdentifier, SemaEngine,
     schema::lib::{nexus as nexus_plane, sema as sema_plane, signal as signal_plane},
     store::Store,
 };
@@ -121,6 +121,23 @@ impl FromMail<Entry> for Mail<BeingProcessed> {
 
 impl FromMail<Query> for Mail<BeingProcessed> {
     fn from_mail(mail: NexusMail<Query>) -> Self {
+        let identifier = mail.identifier();
+        let origin_route = mail.origin_route();
+        Self {
+            identifier,
+            origin_route,
+            phase: BeingProcessed {
+                sema_input: mail
+                    .into_nexus_input()
+                    .into_nexus_output()
+                    .into_sema_input(),
+            },
+        }
+    }
+}
+
+impl FromMail<RecordIdentifier> for Mail<BeingProcessed> {
+    fn from_mail(mail: NexusMail<RecordIdentifier>) -> Self {
         let identifier = mail.identifier();
         let origin_route = mail.origin_route();
         Self {

@@ -40,11 +40,22 @@ Call it from the CLI:
 
 ```sh
 SPIRIT_NEXT_SOCKET=/tmp/spirit-next.sock \
-  spirit-next "(Record ([schema] Constraint [schema creates the interface] Maximum))"
+  spirit-next "(Record ([[schema]] Constraint [schema creates the interface] Maximum))"
+
+SPIRIT_NEXT_SOCKET=/tmp/spirit-next.sock \
+  spirit-next "(Observe ((Full [[schema]]) (Some Constraint)))"
+
+SPIRIT_NEXT_SOCKET=/tmp/spirit-next.sock \
+  spirit-next "(Remove 1)"
 ```
 
 The CLI accepts NOTA. The daemon socket carries length-prefixed rkyv bytes
 with an 8-byte short header.
+
+Entries carry a vector of topics. Queries use generated `TopicMatch` values:
+`(Partial [[schema] [runtime]])` matches any requested topic, while
+`(Full [[schema] [runtime]])` requires every requested topic. The query kind is
+optional: `(Some Decision)` filters by kind and `None` searches only by topic.
 
 ## Runtime triad
 

@@ -98,10 +98,12 @@ carry the same route through the trip.
 
 The schema emits the wire nouns. Rust attaches the behavior:
 
-- `NexusMail<Entry>::into_nexus_input` and
-  `NexusMail<Query>::into_nexus_input` map Signal payload mail into the Nexus
-  language; `Mail<BeingProcessed>: FromMail<Payload>` lowers each accepted mail
-  into the SEMA language up front (the inbound half of the Nexus translation).
+- `NexusMail<Entry>::into_nexus_input`,
+  `NexusMail<Query>::into_nexus_input`, and
+  `NexusMail<RecordIdentifier>::into_nexus_input` map Signal payload mail into
+  the Nexus language; `Mail<BeingProcessed>: FromMail<Payload>` lowers each
+  accepted mail into the SEMA language up front (the inbound half of the Nexus
+  translation).
 - `nexus::Nexus<nexus::Input>::into_nexus_output` maps Signal-side Nexus input
   to `sema::Input`, and maps `sema::Output` back to Signal `Output`;
   `run_sema` uses it for the outbound half.
@@ -130,8 +132,15 @@ a real **redb** database written to a `*.sema` file:
   the only mutation surface. A
   `Record` is a redb write transaction that persists the rkyv-archived `Entry`
   in the `records` table (identifier -> archive) and advances the persisted
-  `next-identifier` and `commit-sequence` counters in the `ledger` table. An
-  `Observe` is a redb read transaction scanning the `records` table.
+  `next-identifier` and `commit-sequence` counters in the `ledger` table. A
+  `Remove` is a redb write transaction that deletes the record and advances
+  the persisted `commit-sequence` when a record was present. An `Observe` is a
+  redb read transaction scanning the `records` table and returning every
+  matching entry.
+- Entries carry `Topics`, a generated vector newtype. Queries carry
+  `TopicMatch::{Partial,Full}` and an optional `Kind`: `Partial` accepts any
+  requested topic, `Full` requires every requested topic, and `None` in the
+  kind position searches only by topic.
 - redb's transaction model gives crash-consistency: a store reopened from the
   same `.sema` path resumes its committed records AND its commit ledger, so the
   next write after a restart continues the sequence rather than restarting at 1.
@@ -219,12 +228,11 @@ the intended loop while improving the NOTA parser, schema lowering, or Rust
 emitter: edit a substrate repo, run the consumer check here, and prove the
 generated Rust still compiles and crosses the CLI/daemon rkyv boundary.
 
-`build.rs` lowers with `SchemaEngine::lower_source_with_context`, asserts that
-the schema-next macro registry reached nested struct-field and enum-variant
-macros, emits Rust into memory, and compares that output against
-`src/schema/lib.rs`. The build fails if the checked-in generated source is
-missing or stale. Runtime code imports `src/schema/lib.rs` directly; it does
-not include generated Rust from `OUT_DIR`.
+`build.rs` lowers with `SchemaEngine::lower_source`, emits Rust into memory,
+and compares that output against `src/schema/lib.rs`. The build fails if the
+checked-in generated source is missing or stale. Runtime code imports
+`src/schema/lib.rs` directly; it does not include generated Rust from
+`OUT_DIR`.
 
 The schema-rust output path is already crate-relative (`src/schema/lib.rs`).
 `build.rs` uses that path directly; it does not reinterpret a generated
@@ -248,10 +256,6 @@ at the library level.
 
 ## Known limits
 
-- Schema expresses vector and optional references in the substrate, but this
-  pilot's current Spirit schema still models `RecordSet` as one `Entry`. The
-  SEMA `Observe` scans the records table and returns the first match; it does
-  not yet return a set of records.
 - The mail ledger is still in-memory (it is observability, not durable state):
   the `MailLedgerEvent` history resets on daemon restart. Only the SEMA records
   and commit ledger are durable.

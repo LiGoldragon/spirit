@@ -4,8 +4,8 @@ use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
 
 use crate::{
     CommitSequence, DatabaseMarker, Entry, ErrorMessage, ErrorReport, Magnitude, ObservedRecords,
-    Query, RecordIdentifier, RecordSet, SemaEngine, SemaInput, SemaOutput, SemaReceipt,
-    StateDigest, schema::lib::sema as sema_plane,
+    Query, RecordIdentifier, RecordSet, RemoveReceipt, SemaEngine, SemaInput, SemaOutput,
+    SemaReceipt, StateDigest, schema::lib::sema as sema_plane,
 };
 
 /// redb table of durable records: identifier -> rkyv-archived `Entry`.
@@ -49,12 +49,26 @@ impl SemaEngine for Store {
                 }),
             },
             SemaInput::Observe(query) => match self.observe(&query) {
-                Ok(Some(entry)) => SemaOutput::Observed(ObservedRecords {
-                    record_set: RecordSet(entry),
+                Ok(entries) if !entries.is_empty() => SemaOutput::Observed(ObservedRecords {
+                    record_set: RecordSet(entries),
                     database_marker: self.database_marker(),
                 }),
-                Ok(None) => SemaOutput::Missed(ErrorReport {
+                Ok(_) => SemaOutput::Missed(ErrorReport {
                     error_message: ErrorMessage(String::from("no matching record")),
+                    database_marker: self.database_marker(),
+                }),
+                Err(error) => SemaOutput::Missed(ErrorReport {
+                    error_message: ErrorMessage(error.to_string()),
+                    database_marker: self.database_marker(),
+                }),
+            },
+            SemaInput::Remove(record_identifier) => match self.remove(record_identifier.0) {
+                Ok(true) => SemaOutput::Removed(RemoveReceipt {
+                    record_identifier,
+                    database_marker: self.database_marker(),
+                }),
+                Ok(false) => SemaOutput::Missed(ErrorReport {
+                    error_message: ErrorMessage(String::from("record not found")),
                     database_marker: self.database_marker(),
                 }),
                 Err(error) => SemaOutput::Missed(ErrorReport {
@@ -131,18 +145,38 @@ impl Store {
         Ok(identifier)
     }
 
-    fn observe(&self, query: &Query) -> Result<Option<Entry>, StoreError> {
+    fn observe(&self, query: &Query) -> Result<Vec<Entry>, StoreError> {
         let transaction = self.database.begin_read()?;
         let records = transaction.open_table(RECORDS)?;
+        let mut matches = Vec::new();
         for row in records.iter()? {
             let (_, archive) = row?;
             let entry = rkyv::from_bytes::<Entry, rkyv::rancor::Error>(archive.value())
                 .map_err(|_| StoreError::ArchiveDecode)?;
             if entry.matches(query) {
-                return Ok(Some(entry));
+                matches.push(entry);
             }
         }
-        Ok(None)
+        Ok(matches)
+    }
+
+    fn remove(&self, identifier: u64) -> Result<bool, StoreError> {
+        let transaction = self.database.begin_write()?;
+        let removed;
+        {
+            let mut records = transaction.open_table(RECORDS)?;
+            removed = records.remove(identifier)?.is_some();
+            if removed {
+                let mut ledger = transaction.open_table(LEDGER)?;
+                let commit_sequence = ledger
+                    .get(COMMIT_SEQUENCE_KEY)?
+                    .map(|value| value.value())
+                    .unwrap_or(0);
+                ledger.insert(COMMIT_SEQUENCE_KEY, commit_sequence + 1)?;
+            }
+        }
+        transaction.commit()?;
+        Ok(removed)
     }
 
     pub fn len(&self) -> usize {
@@ -269,11 +303,18 @@ impl From<redb::CommitError> for StoreError {
 
 impl Entry {
     pub fn matches(&self, query: &Query) -> bool {
-        self.topic == query.topic && self.kind == query.kind
+        query.matches(self)
     }
 
     pub fn magnitude_weight(&self) -> u64 {
         self.magnitude.weight()
+    }
+}
+
+impl Query {
+    pub fn matches(&self, entry: &Entry) -> bool {
+        self.topic_match.matches(&entry.topics)
+            && self.kind.as_ref().is_none_or(|kind| &entry.kind == kind)
     }
 }
 

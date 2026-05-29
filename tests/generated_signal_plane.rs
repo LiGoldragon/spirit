@@ -1,7 +1,7 @@
 use spirit_next::{
     CommitSequence, DatabaseMarker, Description, Entry, Input, InputRoute, Kind, Magnitude,
     MessageIdentifier, MessageRoot, OriginRoute, Output, OutputRoute, RecordIdentifier,
-    SemaReceipt, SignalFrameError, SignalRejection, StateDigest, Topic, ValidationError,
+    SemaReceipt, SignalFrameError, SignalRejection, StateDigest, Topic, Topics, ValidationError,
 };
 
 fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
@@ -14,7 +14,7 @@ fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
 #[test]
 fn generated_input_surface_owns_route_header_and_rkyv_frame() {
     let input = Input::Record(Entry {
-        topic: Topic(String::from("schema")),
+        topics: Topics(vec![Topic(String::from("schema"))]),
         kind: Kind::Constraint,
         description: Description(String::from("schema creates the signal plane")),
         magnitude: Magnitude::Maximum,
@@ -81,7 +81,7 @@ fn generated_validation_error_round_trips_through_nota() {
 #[test]
 fn generated_signal_surface_rejects_unknown_header_before_body_decode() {
     let mut frame = Input::Record(Entry {
-        topic: Topic(String::from("schema")),
+        topics: Topics(vec![Topic(String::from("schema"))]),
         kind: Kind::Constraint,
         description: Description(String::from("schema rejects unknown routes")),
         magnitude: Magnitude::Maximum,
@@ -104,7 +104,7 @@ fn generated_signal_surface_rejects_unknown_header_before_body_decode() {
 #[test]
 fn generated_signal_surface_emits_mail_sent_event() {
     let input = Input::Record(Entry {
-        topic: Topic(String::from("schema")),
+        topics: Topics(vec![Topic(String::from("schema"))]),
         kind: Kind::Constraint,
         description: Description(String::from("schema emits mail events")),
         magnitude: Magnitude::Maximum,

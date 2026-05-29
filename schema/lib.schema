@@ -1,6 +1,6 @@
 {}
-((Record Entry) (Observe Query))
-((RecordAccepted SemaReceipt) (RecordsObserved ObservedRecords) (Error ErrorReport) (Rejected SignalRejection))
+((Record Entry) (Observe Query) (Remove RecordIdentifier))
+((RecordAccepted SemaReceipt) (RecordsObserved ObservedRecords) (RecordRemoved RemoveReceipt) (Error ErrorReport) (Rejected SignalRejection))
 {
   SourcePath {| SourcePath string String |}
   LocalPath {| LocalPath string String |}
@@ -12,9 +12,10 @@
   SemaReuse {| SemaReuse import Import export Export |}
   NexusInput (| NexusInput (Signal Input) (Sema SemaOutput) |)
   NexusOutput (| NexusOutput (Sema SemaInput) (Signal Output) |)
-  SemaInput (| SemaInput (Record Entry) (Observe Query) |)
-  SemaOutput (| SemaOutput (Recorded SemaReceipt) (Observed ObservedRecords) (Missed ErrorReport) |)
+  SemaInput (| SemaInput (Record Entry) (Observe Query) (Remove RecordIdentifier) |)
+  SemaOutput (| SemaOutput (Recorded SemaReceipt) (Observed ObservedRecords) (Removed RemoveReceipt) (Missed ErrorReport) |)
   Topic {| Topic string String |}
+  Topics {| Topics values (Vec Topic) |}
   Description {| Description string String |}
   ErrorMessage {| ErrorMessage string String |}
   RecordIdentifier {| RecordIdentifier integer Integer |}
@@ -22,6 +23,7 @@
   StateDigest {| StateDigest integer Integer |}
   DatabaseMarker {| DatabaseMarker commitSequence CommitSequence stateDigest StateDigest |}
   SemaReceipt {| SemaReceipt recordIdentifier RecordIdentifier databaseMarker DatabaseMarker |}
+  RemoveReceipt {| RemoveReceipt recordIdentifier RecordIdentifier databaseMarker DatabaseMarker |}
   ObservedRecords {| ObservedRecords recordSet RecordSet databaseMarker DatabaseMarker |}
   ErrorReport {| ErrorReport errorMessage ErrorMessage databaseMarker DatabaseMarker |}
   SignalRejection {| SignalRejection validationError ValidationError databaseMarker DatabaseMarker |}
@@ -31,9 +33,10 @@
   SentMail {| SentMail mailIdentifier MailIdentifier originRoute OriginRoute shortHeader ShortHeader |}
   ProcessedMail {| ProcessedMail mailIdentifier MailIdentifier originRoute OriginRoute databaseMarker DatabaseMarker |}
   MailLedgerEvent (| MailLedgerEvent (Sent SentMail) (Processed ProcessedMail) |)
-  Entry {| Entry topic Topic kind Kind description Description magnitude Magnitude |}
-  Query {| Query topic Topic kind Kind |}
-  RecordSet {| RecordSet entry Entry |}
+  TopicMatch (| TopicMatch (Partial Topics) (Full Topics) |)
+  Entry {| Entry topics Topics kind Kind description Description magnitude Magnitude |}
+  Query {| Query topicMatch TopicMatch kind (Optional Kind) |}
+  RecordSet {| RecordSet entries (Vec Entry) |}
   Kind (| Kind Decision Principle Correction Clarification Constraint |)
   Magnitude (| Magnitude Minimum VeryLow Low Medium High VeryHigh Maximum |)
 }

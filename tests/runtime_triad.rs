@@ -4,7 +4,7 @@ use spirit_next::{
     MessageSent, MessageSentHook, NexusInput, NexusMail, NexusOutput, OriginRoute, Output,
     ProcessedMail, PublicPath, Query, RecordIdentifier, RecordSet, SemaEngine, SemaInput,
     SemaOutput, SemaReceipt, SentMail, ShortHeader, SignalAccepted, SignalActor, SignalRejection,
-    SourcePath, StateDigest, Store, Topic, ValidationError, schema_meta, sema,
+    SourcePath, StateDigest, Store, Topic, TopicMatch, Topics, ValidationError, schema_meta, sema,
 };
 use tempfile::TempDir;
 
@@ -44,11 +44,48 @@ impl MessageSentHook for SentHookProbe {
 }
 
 fn entry(description: &str) -> Entry {
+    entry_with_topics(&["runtime-triad"], description)
+}
+
+fn entry_with_topics(topics: &[&str], description: &str) -> Entry {
     Entry {
-        topic: Topic(String::from("runtime-triad")),
+        topics: Topics(
+            topics
+                .iter()
+                .map(|topic| Topic(String::from(*topic)))
+                .collect(),
+        ),
         kind: Kind::Decision,
         description: Description(String::from(description)),
         magnitude: Magnitude::Maximum,
+    }
+}
+
+fn query() -> Query {
+    full_query(&["runtime-triad"], Some(Kind::Decision))
+}
+
+fn full_query(topics: &[&str], kind: Option<Kind>) -> Query {
+    Query {
+        topic_match: TopicMatch::Full(Topics(
+            topics
+                .iter()
+                .map(|topic| Topic(String::from(*topic)))
+                .collect(),
+        )),
+        kind,
+    }
+}
+
+fn partial_query(topics: &[&str], kind: Option<Kind>) -> Query {
+    Query {
+        topic_match: TopicMatch::Partial(Topics(
+            topics
+                .iter()
+                .map(|topic| Topic(String::from(*topic)))
+                .collect(),
+        )),
+        kind,
     }
 }
 
@@ -82,6 +119,7 @@ fn nexus_mail_lowers_signal_payload_to_generated_sema_command() {
             assert_eq!(recorded.description.0, "nexus mail lowers to SEMA");
         }
         SemaInput::Observe(_) => panic!("record input should lower to record command"),
+        SemaInput::Remove(_) => panic!("record input should lower to record command"),
     }
 }
 
@@ -159,6 +197,7 @@ fn nexus_holds_the_mail_in_being_processed_typestate_before_sema_runs() {
     match in_flight.sema_input().root() {
         SemaInput::Record(recorded) => assert_eq!(recorded.description.0, "held in flight"),
         SemaInput::Observe(_) => panic!("a recorded entry lowers to a SEMA record command"),
+        SemaInput::Remove(_) => panic!("a recorded entry lowers to a SEMA record command"),
     }
 
     // The store is STILL empty: the mail is being processed, not yet
@@ -250,16 +289,7 @@ fn sema_store_persists_records_across_reopen_of_the_same_sema_file() {
 
     // An Observe against the reopened store finds a record written before
     // the drop, through the schema-emitted query path.
-    let observed = SemaEngine::apply(
-        &mut reopened,
-        sema_message(
-            SemaInput::Observe(Query {
-                topic: Topic(String::from("runtime-triad")),
-                kind: Kind::Decision,
-            }),
-            4,
-        ),
-    );
+    let observed = SemaEngine::apply(&mut reopened, sema_message(SemaInput::Observe(query()), 4));
     assert!(
         matches!(observed.root(), SemaOutput::Observed(_)),
         "the reopened store observes a pre-drop record"
@@ -269,6 +299,90 @@ fn sema_store_persists_records_across_reopen_of_the_same_sema_file() {
         StateDigest(0),
         "the durable digest is content-addressed, not a zero placeholder"
     );
+}
+
+#[test]
+fn sema_engine_queries_partial_and_full_topic_sets() {
+    let sema = SemaFile::new();
+    let mut store = sema.open_store();
+    SemaEngine::apply(
+        &mut store,
+        sema_message(
+            SemaInput::Record(entry_with_topics(&["runtime-triad", "schema"], "both")),
+            1,
+        ),
+    );
+    SemaEngine::apply(
+        &mut store,
+        sema_message(
+            SemaInput::Record(entry_with_topics(&["runtime-triad"], "runtime only")),
+            2,
+        ),
+    );
+
+    let partial = SemaEngine::apply(
+        &mut store,
+        sema_message(
+            SemaInput::Observe(partial_query(&["schema", "other"], None)),
+            3,
+        ),
+    );
+    match partial.root() {
+        SemaOutput::Observed(records) => {
+            assert_eq!(records.record_set.0.len(), 1);
+            assert_eq!(records.record_set.0[0].description.0, "both");
+        }
+        other => panic!("expected partial query to observe one record, got {other:?}"),
+    }
+
+    let full = SemaEngine::apply(
+        &mut store,
+        sema_message(
+            SemaInput::Observe(full_query(
+                &["runtime-triad", "schema"],
+                Some(Kind::Decision),
+            )),
+            4,
+        ),
+    );
+    match full.root() {
+        SemaOutput::Observed(records) => {
+            assert_eq!(records.record_set.0.len(), 1);
+            assert_eq!(records.record_set.0[0].description.0, "both");
+        }
+        other => panic!("expected full query to require every topic, got {other:?}"),
+    }
+}
+
+#[test]
+fn sema_engine_removes_records_and_advances_database_work_marker() {
+    let sema = SemaFile::new();
+    let mut store = sema.open_store();
+    SemaEngine::apply(
+        &mut store,
+        sema_message(SemaInput::Record(entry("remove target")), 1),
+    );
+
+    let removed = SemaEngine::apply(
+        &mut store,
+        sema_message(SemaInput::Remove(RecordIdentifier(1)), 2),
+    );
+    let removed_marker = match removed.root() {
+        SemaOutput::Removed(receipt) => {
+            assert_eq!(receipt.record_identifier, RecordIdentifier(1));
+            assert_eq!(receipt.database_marker.commit_sequence, CommitSequence(2));
+            receipt.database_marker.clone()
+        }
+        other => panic!("expected Removed receipt, got {other:?}"),
+    };
+
+    let observed = SemaEngine::apply(&mut store, sema_message(SemaInput::Observe(query()), 3));
+    assert!(
+        matches!(observed.root(), SemaOutput::Missed(_)),
+        "removed record should not be observed again"
+    );
+    assert_eq!(store.len(), 0);
+    assert_eq!(removed_marker.state_digest, StateDigest(0));
 }
 
 #[test]
@@ -300,7 +414,7 @@ fn signal_actor_rejects_invalid_input_with_schema_emitted_rejection_before_mail_
     let sema = SemaFile::new();
     let engine = sema.engine();
     let mut bad = entry("missing topic");
-    bad.topic = Topic(String::new());
+    bad.topics = Topics(vec![Topic(String::new())]);
 
     let output = engine.handle(Input::Record(bad));
 
@@ -449,8 +563,8 @@ fn full_runtime_triad_records_then_observes_through_durable_sema() {
     assert_eq!(engine.processed_message_count(), 1);
 
     let observed = engine.handle(Input::Observe(Query {
-        topic: Topic(String::from("runtime-triad")),
-        kind: Kind::Decision,
+        topic_match: TopicMatch::Full(Topics(vec![Topic(String::from("runtime-triad"))])),
+        kind: Some(Kind::Decision),
     }));
 
     assert_eq!(observed.origin_route(), route(2));
@@ -458,7 +572,7 @@ fn full_runtime_triad_records_then_observes_through_durable_sema() {
         Output::RecordsObserved(records) => {
             assert_eq!(
                 records.record_set,
-                RecordSet(entry("full runtime triad works"))
+                RecordSet(vec![entry("full runtime triad works")])
             );
             // Observe does not advance the commit sequence; the digest
             // matches the post-record state.

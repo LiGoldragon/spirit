@@ -15,9 +15,9 @@ Load-bearing constraints:
 - The generated file path from schema-rust is crate-relative
   `src/schema/lib.rs`; build code uses that path directly instead of treating
   `schema/lib.rs` as relative to `src/`.
-- Schema lowering goes through `schema-next`'s macro registry before Rust
-  emission; the build must fail if the registry does not reach nested
-  struct-field and enum-variant type bodies.
+- Schema lowering goes through `schema-next` before Rust emission; build and
+  runtime tests prove the generated `Asschema` data and emitted Rust, not a
+  macro trace side channel.
 - `build.rs` is a freshness witness for the generated source. It regenerates
   in memory and fails if `src/schema/lib.rs` is missing or stale.
 - The schema declares the runtime triad surfaces:
@@ -35,8 +35,8 @@ Load-bearing constraints:
   Import/export paths mirror Rust module namespaces with a single colon rather
   than double colon, for example `signal:sema:Magnitude`.
 - Signal, Nexus, and SEMA use the same authored schema shape: imports/exports,
-  input, output, and namespace. Their generated Rust differs by trait support
-  and runtime ownership, not by a separate notation.
+  roots, and namespace. Their generated Rust differs by trait support and
+  runtime ownership, not by a separate notation.
 - Nexus is the execution and mail-keeper plane between Signal and SEMA. Signal
   input becomes `NexusMail<Payload>` with a `MessageIdentifier` and an
   auto-created `OriginRoute`; while Nexus owns that object, the mail is being
@@ -87,13 +87,20 @@ Load-bearing constraints:
   through the generated `SemaEngine::apply(sema::Sema<sema::Input>) ->
   sema::Sema<sema::Output>` surface rather than direct mutation from the Signal
   layer.
+- Spirit-next tracks production Spirit 0.3 behavior where the schema surface
+  reaches it: entries carry multiple topics, observe supports generated
+  `TopicMatch::{Partial,Full}` plus an optional kind filter, observations
+  return a multi-entry `RecordSet`, and `Remove(RecordIdentifier)` is a
+  database-work operation that returns generated `Output::RecordRemoved`.
 - SEMA is durable (records 1007/1008, bead `primary-q2au`). `Store` is a real
   redb database written to a `*.sema` file: each `Record` is a redb write
-  transaction persisting the rkyv-archived `Entry`, each `Observe` is a redb
-  read transaction, and the commit sequence + next-identifier counter persist
-  in the database so a store reopened from the same `.sema` path resumes where
-  it left off. The file extension is `.sema` (not `.redb`) so the name states
-  the runtime plane, not the implementation library.
+  transaction persisting the rkyv-archived `Entry`, each `Remove` is a redb
+  write transaction deleting an entry and advancing the commit sequence, each
+  `Observe` is a redb read transaction returning every matching entry, and the
+  commit sequence + next-identifier counter persist in the database so a store
+  reopened from the same `.sema` path resumes where it left off. The file
+  extension is `.sema` (not `.redb`) so the name states the runtime plane, not
+  the implementation library.
 - SEMA replies carry generated `DatabaseMarker` values so Signal replies can
   report the state commit sequence and digest that accepted or observed the
   request. `StateDigest` is a real content-addressed hash (blake3 over the

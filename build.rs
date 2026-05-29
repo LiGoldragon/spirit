@@ -1,6 +1,6 @@
 use std::{env, fs, path::PathBuf};
 
-use schema_next::{MacroContext, SchemaEngine, SchemaPackage};
+use schema_next::{SchemaEngine, SchemaPackage};
 use schema_rust_next::{GeneratedFile, RustEmitter};
 
 fn main() {
@@ -28,30 +28,12 @@ impl SchemaBuild {
     }
 
     fn generated_schema_file(&self) -> GeneratedFile {
-        let mut context = MacroContext::default();
         let package = SchemaPackage::new(&self.crate_root, "spirit-next", "0.1.0");
         let source = package.load_lib().expect("read schema/lib.schema");
         let asschema = SchemaEngine::default()
-            .lower_source_with_context(source.source(), source.identity().clone(), &mut context)
+            .lower_source(source.source(), source.identity().clone())
             .expect("lower spirit-next schema");
-        self.assert_schema_macros_were_used(&context);
         RustEmitter::default().emit_file(&asschema)
-    }
-
-    fn assert_schema_macros_were_used(&self, context: &MacroContext) {
-        if !context
-            .macros_applied()
-            .windows(2)
-            .any(|pair| pair == ["SchemaStructDefinition", "SchemaStructFields"])
-            || !context
-                .macros_applied()
-                .windows(2)
-                .any(|pair| pair == ["SchemaEnumDefinition", "SchemaEnumVariants"])
-        {
-            panic!(
-                "spirit-next schema generation must use schema-next registry macros for type bodies"
-            );
-        }
     }
 
     fn assert_generated_schema_path(&self, generated: &GeneratedFile) {
