@@ -10,8 +10,10 @@ schema/lib.schema
   -> schema-rust-next checked-in generated Rust at src/schema/lib.rs
   -> CLI NOTA input
   -> generated Signal frame (short header + rkyv)
-  -> daemon Executor
-  -> generated SEMA command/response
+  -> daemon SignalActor
+  -> Nexus mail keeper / translator
+  -> generated SEMA input/output against Store
+  -> Nexus reply translation
   -> generated Signal frame (short header + rkyv)
   -> CLI NOTA output
 ```
@@ -25,10 +27,13 @@ module directly; `OUT_DIR` is not the source of interface truth.
 
 ## Run
 
-Start a daemon with a single NOTA argument containing the socket path:
+Start a daemon with a single NOTA argument containing the socket path. A two
+field positional record can provide both socket and database paths:
 
 ```sh
 spirit-next-daemon "[/tmp/spirit-next.sock]"
+# or
+spirit-next-daemon "([/tmp/spirit-next.sock] [/tmp/spirit-next.sema])"
 ```
 
 Call it from the CLI:
@@ -47,10 +52,11 @@ with an 8-byte short header.
 
 - Signal is generated `Input`/`Output` plus the generated route/header/rkyv
   frame methods.
-- Executor is `Engine::handle`, which lowers `Input` to `SemaCommand` and
-  maps `SemaResponse` back to `Output`.
-- SEMA is `Store::apply(SemaCommand)`, currently in-memory and deliberately
-  isolated as the single write path.
+- Nexus is the mail keeper and translator. It accepts schema-emitted Signal
+  mail, lowers it into generated SEMA input, holds the origin route while SEMA
+  runs, and maps the generated SEMA output back to generated Signal output.
+- SEMA is `Store::apply(sema::Sema<sema::Input>)`, a durable redb writer over
+  the `.sema` database file and the single state mutation path.
 
 ## Local schema stack check
 

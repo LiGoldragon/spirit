@@ -153,7 +153,8 @@ self-contained.
 ### Reuse
 
 The schema declares reusable import/export nouns for language planes:
-`Import [SourcePath LocalPath]` and `Export [LocalPath PublicPath]`.
+`Import {| Import sourcePath SourcePath localPath LocalPath |}` and
+`Export {| Export localPath LocalPath publicPath PublicPath |}`.
 The paths are single-colon namespaces, mirroring Rust crate/module paths with
 `:` instead of `::`, for example `signal:sema:Magnitude`.
 
@@ -247,9 +248,10 @@ at the library level.
 
 ## Known limits
 
-- The schema language does not yet express vectors, so this pilot uses one
-  topic per record. The SEMA `Observe` scans the records table and returns the
-  first match; it does not yet return a set of records.
+- Schema expresses vector and optional references in the substrate, but this
+  pilot's current Spirit schema still models `RecordSet` as one `Entry`. The
+  SEMA `Observe` scans the records table and returns the first match; it does
+  not yet return a set of records.
 - The mail ledger is still in-memory (it is observability, not durable state):
   the `MailLedgerEvent` history resets on daemon restart. Only the SEMA records
   and commit ledger are durable.

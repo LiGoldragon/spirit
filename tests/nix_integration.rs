@@ -422,9 +422,9 @@ fn nix_built_daemon_persists_state_across_two_cli_invocations() {
     // PATTERN: two CLI binary invocations against the SAME daemon
     // process show the schema-emitted DatabaseMarker.commit_sequence
     // advancing monotonically. The SEMA store is single-writer per
-    // record 949; this test proves the in-memory store survives
-    // between connections (the persistence-across-restart story
-    // belongs to the redb bead `primary-q2au`, not here).
+    // record 949; this test proves the daemon's durable `.sema` store
+    // is shared between connections. Restart persistence is covered by
+    // `daemon_persists_sema_file_across_a_restart`.
     let binaries = NixBuiltBinaries::ensure();
     let daemon = DaemonProcess::spawn(&binaries);
 
@@ -635,7 +635,7 @@ fn nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant()
 // listener accepts many streams. We don't push to true parallelism here
 // (one-shot per stream is the current contract), but we DO verify that
 // sequential connections from different invocations alias to the same
-// in-memory store.
+// durable `.sema` store handle.
 // ---------------------------------------------------------------------------
 
 #[test]

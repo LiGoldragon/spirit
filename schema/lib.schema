@@ -1,39 +1,39 @@
 {}
-(Input ((Record Entry) (Observe Query)))
-(Output ((RecordAccepted SemaReceipt) (RecordsObserved ObservedRecords) (Error ErrorReport) (Rejected SignalRejection)))
+((Record Entry) (Observe Query))
+((RecordAccepted SemaReceipt) (RecordsObserved ObservedRecords) (Error ErrorReport) (Rejected SignalRejection))
 {
-  SourcePath [Text]
-  LocalPath [Text]
-  PublicPath [Text]
-  Import [SourcePath LocalPath]
-  Export [LocalPath PublicPath]
-  SignalReuse [Import Export]
-  NexusReuse [Import Export]
-  SemaReuse [Import Export]
-  NexusInput ((Signal Input) (Sema SemaOutput))
-  NexusOutput ((Sema SemaInput) (Signal Output))
-  SemaInput ((Record Entry) (Observe Query))
-  SemaOutput ((Recorded SemaReceipt) (Observed ObservedRecords) (Missed ErrorReport))
-  Topic [Text]
-  Description [Text]
-  ErrorMessage [Text]
-  RecordIdentifier [Integer]
-  CommitSequence [Integer]
-  StateDigest [Integer]
-  DatabaseMarker [CommitSequence StateDigest]
-  SemaReceipt [RecordIdentifier DatabaseMarker]
-  ObservedRecords [RecordSet DatabaseMarker]
-  ErrorReport [ErrorMessage DatabaseMarker]
-  SignalRejection [ValidationError DatabaseMarker]
-  ValidationError (EmptyTopic EmptyDescription EmptyQueryTopic)
-  MailIdentifier [Integer]
-  ShortHeader [Integer]
-  SentMail [MailIdentifier OriginRoute ShortHeader]
-  ProcessedMail [MailIdentifier OriginRoute DatabaseMarker]
-  MailLedgerEvent ((Sent SentMail) (Processed ProcessedMail))
-  Entry [Topic Kind Description Magnitude]
-  Query [Topic Kind]
-  RecordSet [Entry]
-  Kind (Decision Principle Correction Clarification Constraint)
-  Magnitude (Minimum VeryLow Low Medium High VeryHigh Maximum)
+  SourcePath {| SourcePath string String |}
+  LocalPath {| LocalPath string String |}
+  PublicPath {| PublicPath string String |}
+  Import {| Import sourcePath SourcePath localPath LocalPath |}
+  Export {| Export localPath LocalPath publicPath PublicPath |}
+  SignalReuse {| SignalReuse import Import export Export |}
+  NexusReuse {| NexusReuse import Import export Export |}
+  SemaReuse {| SemaReuse import Import export Export |}
+  NexusInput (| NexusInput (Signal Input) (Sema SemaOutput) |)
+  NexusOutput (| NexusOutput (Sema SemaInput) (Signal Output) |)
+  SemaInput (| SemaInput (Record Entry) (Observe Query) |)
+  SemaOutput (| SemaOutput (Recorded SemaReceipt) (Observed ObservedRecords) (Missed ErrorReport) |)
+  Topic {| Topic string String |}
+  Description {| Description string String |}
+  ErrorMessage {| ErrorMessage string String |}
+  RecordIdentifier {| RecordIdentifier integer Integer |}
+  CommitSequence {| CommitSequence integer Integer |}
+  StateDigest {| StateDigest integer Integer |}
+  DatabaseMarker {| DatabaseMarker commitSequence CommitSequence stateDigest StateDigest |}
+  SemaReceipt {| SemaReceipt recordIdentifier RecordIdentifier databaseMarker DatabaseMarker |}
+  ObservedRecords {| ObservedRecords recordSet RecordSet databaseMarker DatabaseMarker |}
+  ErrorReport {| ErrorReport errorMessage ErrorMessage databaseMarker DatabaseMarker |}
+  SignalRejection {| SignalRejection validationError ValidationError databaseMarker DatabaseMarker |}
+  ValidationError (| ValidationError EmptyTopic EmptyDescription EmptyQueryTopic |)
+  MailIdentifier {| MailIdentifier integer Integer |}
+  ShortHeader {| ShortHeader integer Integer |}
+  SentMail {| SentMail mailIdentifier MailIdentifier originRoute OriginRoute shortHeader ShortHeader |}
+  ProcessedMail {| ProcessedMail mailIdentifier MailIdentifier originRoute OriginRoute databaseMarker DatabaseMarker |}
+  MailLedgerEvent (| MailLedgerEvent (Sent SentMail) (Processed ProcessedMail) |)
+  Entry {| Entry topic Topic kind Kind description Description magnitude Magnitude |}
+  Query {| Query topic Topic kind Kind |}
+  RecordSet {| RecordSet entry Entry |}
+  Kind (| Kind Decision Principle Correction Clarification Constraint |)
+  Magnitude (| Magnitude Minimum VeryLow Low Medium High VeryHigh Maximum |)
 }
