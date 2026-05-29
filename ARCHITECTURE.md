@@ -174,8 +174,9 @@ available to it; the implementation difference is which actor object owns the
 method after the generated type exists.
 
 The current `schema/lib.schema` spelling is the name-first `@` declaration
-syntax: `Name@{...}` for struct-like declarations, `Name@(...)` for enum-like
+syntax: `Name@{...}` for struct-like declarations, `Name@[...]` for enum-like
 declarations, and `name@Type` / `name@(Composite Type)` for member bindings.
+Parentheses remain the composite/reference and macro-call argument shape.
 That authored syntax lowers to the same `Asschema` roots and namespace before
 `src/schema/lib.rs` is regenerated.
 

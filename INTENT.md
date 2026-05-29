@@ -13,7 +13,7 @@ Load-bearing constraints:
 - Rust data types are generated from the crate-local `schema/lib.schema`
   entrypoint and materialized as checked-in source under `src/schema/`.
 - `schema/lib.schema` uses the name-first `@` declaration form accepted by
-  schema-next: `Name@{...}` for struct-like declarations, `Name@(...)` for
+  schema-next: `Name@{...}` for struct-like declarations, `Name@[...]` for
   enum-like declarations, and `name@Type` / `name@(Composite Type)` for member
   bindings. The generated `Asschema` and emitted Rust stay equivalent to the
   previous pipe-family source.
