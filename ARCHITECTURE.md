@@ -173,6 +173,12 @@ Signal (`Input`/`Output`), Nexus (`NexusInput`/`NexusOutput`), and SEMA
 available to it; the implementation difference is which actor object owns the
 method after the generated type exists.
 
+The current `schema/lib.schema` spelling is still the transitional pipe-family
+syntax. The target declaration spelling is `Name@{...}` for struct-like
+declarations, `Name@(...)` for enum-like declarations, and `name@Type` for
+member bindings. That authored-syntax migration should lower to the same
+`Asschema` roots and namespace before `src/schema/lib.rs` is regenerated.
+
 The generated Rust exposes plane namespaces over those bootstrap backing names:
 `signal::Input`, `nexus::Input`, and `sema::Input` (plus matching `Output`).
 Public execution signatures use the namespace-local names, for example
