@@ -12,12 +12,11 @@ Load-bearing constraints:
 - Component/process communication is binary rkyv.
 - Rust data types are generated from the crate-local `schema/lib.schema`
   entrypoint and materialized as checked-in source under `src/schema/`.
-- `schema/lib.schema` currently uses the transitional pipe-family declaration
-  syntax accepted by schema-next. The target authored syntax is now the
-  name-first `@` form (`Name@{...}`, `Name@(...)`, `name@Type`), while the
-  generated `Asschema` and emitted Rust should stay equivalent. Future
-  syntax-migration work edits the schema source first and then regenerates
-  `src/schema/lib.rs`.
+- `schema/lib.schema` uses the name-first `@` declaration form accepted by
+  schema-next: `Name@{...}` for struct-like declarations, `Name@(...)` for
+  enum-like declarations, and `name@Type` / `name@(Composite Type)` for member
+  bindings. The generated `Asschema` and emitted Rust stay equivalent to the
+  previous pipe-family source.
 - The generated file path from schema-rust is crate-relative
   `src/schema/lib.rs`; build code uses that path directly instead of treating
   `schema/lib.rs` as relative to `src/`.

@@ -287,7 +287,7 @@ dependencies = [
 [[package]]
 name = "nota-next"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#a0c39b75742e9203cc81a5119df2fed644fc596f"
+source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#3ba7810d4770efcc41375071ef18891a5f078789"
 dependencies = [
  "nota-next-derive",
 ]
@@ -295,7 +295,7 @@ dependencies = [
 [[package]]
 name = "nota-next-derive"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#a0c39b75742e9203cc81a5119df2fed644fc596f"
+source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#3ba7810d4770efcc41375071ef18891a5f078789"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -447,7 +447,7 @@ checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 [[package]]
 name = "schema-next"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#b98f554880ec930f0d66547a460bc06d92bfdef9"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#720662f6c1beac52d98e19e7a4f9a89760137d6f"
 dependencies = [
  "nota-next",
 ]
