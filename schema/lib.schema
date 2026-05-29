@@ -1,42 +1,42 @@
 {}
-[Record@Entry Observe@Query Remove@RecordIdentifier]
-[RecordAccepted@SemaReceipt RecordsObserved@ObservedRecords RecordRemoved@RemoveReceipt Error@ErrorReport Rejected@SignalRejection]
+Input@[Record@Entry Observe@Query Remove@RecordIdentifier]
+Output@[RecordAccepted@SemaReceipt RecordsObserved@ObservedRecords RecordRemoved@RemoveReceipt Error@ErrorReport Rejected@SignalRejection]
 {
-  SourcePath SourcePath@{ string@String }
-  LocalPath LocalPath@{ string@String }
-  PublicPath PublicPath@{ string@String }
-  Import Import@{ sourcePath@SourcePath localPath@LocalPath }
-  Export Export@{ localPath@LocalPath publicPath@PublicPath }
-  SignalReuse SignalReuse@{ import@Import export@Export }
-  NexusReuse NexusReuse@{ import@Import export@Export }
-  SemaReuse SemaReuse@{ import@Import export@Export }
-  NexusInput NexusInput@[Signal@Input Sema@SemaOutput]
-  NexusOutput NexusOutput@[Sema@SemaInput Signal@Output]
-  SemaInput SemaInput@[Record@Entry Observe@Query Remove@RecordIdentifier]
-  SemaOutput SemaOutput@[Recorded@SemaReceipt Observed@ObservedRecords Removed@RemoveReceipt Missed@ErrorReport]
-  Topic Topic@{ string@String }
-  Topics Topics@{ values@(Vec Topic) }
-  Description Description@{ string@String }
-  ErrorMessage ErrorMessage@{ string@String }
-  RecordIdentifier RecordIdentifier@{ integer@Integer }
-  CommitSequence CommitSequence@{ integer@Integer }
-  StateDigest StateDigest@{ integer@Integer }
-  DatabaseMarker DatabaseMarker@{ commitSequence@CommitSequence stateDigest@StateDigest }
-  SemaReceipt SemaReceipt@{ recordIdentifier@RecordIdentifier databaseMarker@DatabaseMarker }
-  RemoveReceipt RemoveReceipt@{ recordIdentifier@RecordIdentifier databaseMarker@DatabaseMarker }
-  ObservedRecords ObservedRecords@{ recordSet@RecordSet databaseMarker@DatabaseMarker }
-  ErrorReport ErrorReport@{ errorMessage@ErrorMessage databaseMarker@DatabaseMarker }
-  SignalRejection SignalRejection@{ validationError@ValidationError databaseMarker@DatabaseMarker }
-  ValidationError ValidationError@[EmptyTopic EmptyDescription EmptyQueryTopic]
-  MailIdentifier MailIdentifier@{ integer@Integer }
-  ShortHeader ShortHeader@{ integer@Integer }
-  SentMail SentMail@{ mailIdentifier@MailIdentifier originRoute@OriginRoute shortHeader@ShortHeader }
-  ProcessedMail ProcessedMail@{ mailIdentifier@MailIdentifier originRoute@OriginRoute databaseMarker@DatabaseMarker }
-  MailLedgerEvent MailLedgerEvent@[Sent@SentMail Processed@ProcessedMail]
-  TopicMatch TopicMatch@[Partial@Topics Full@Topics]
-  Entry Entry@{ topics@Topics kind@Kind description@Description magnitude@Magnitude }
-  Query Query@{ topicMatch@TopicMatch kind@(Optional Kind) }
-  RecordSet RecordSet@{ entries@(Vec Entry) }
-  Kind Kind@[Decision Principle Correction Clarification Constraint]
-  Magnitude Magnitude@[Minimum VeryLow Low Medium High VeryHigh Maximum]
+  SourcePath@{ string@String }
+  LocalPath@{ string@String }
+  PublicPath@{ string@String }
+  Import@{ sourcePath@SourcePath localPath@LocalPath }
+  Export@{ localPath@LocalPath publicPath@PublicPath }
+  SignalReuse@{ import@Import export@Export }
+  NexusReuse@{ import@Import export@Export }
+  SemaReuse@{ import@Import export@Export }
+  NexusInput@[Signal@Input Sema@SemaOutput]
+  NexusOutput@[Sema@SemaInput Signal@Output]
+  SemaInput@[Record@Entry Observe@Query Remove@RecordIdentifier]
+  SemaOutput@[Recorded@SemaReceipt Observed@ObservedRecords Removed@RemoveReceipt Missed@ErrorReport]
+  Topic@{ string@String }
+  Topics@{ values@(Vec Topic) }
+  Description@{ string@String }
+  ErrorMessage@{ string@String }
+  RecordIdentifier@{ integer@Integer }
+  CommitSequence@{ integer@Integer }
+  StateDigest@{ integer@Integer }
+  DatabaseMarker@{ commitSequence@CommitSequence stateDigest@StateDigest }
+  SemaReceipt@{ recordIdentifier@RecordIdentifier databaseMarker@DatabaseMarker }
+  RemoveReceipt@{ recordIdentifier@RecordIdentifier databaseMarker@DatabaseMarker }
+  ObservedRecords@{ recordSet@RecordSet databaseMarker@DatabaseMarker }
+  ErrorReport@{ errorMessage@ErrorMessage databaseMarker@DatabaseMarker }
+  SignalRejection@{ validationError@ValidationError databaseMarker@DatabaseMarker }
+  ValidationError@[EmptyTopic EmptyDescription EmptyQueryTopic]
+  MailIdentifier@{ integer@Integer }
+  ShortHeader@{ integer@Integer }
+  SentMail@{ mailIdentifier@MailIdentifier originRoute@OriginRoute shortHeader@ShortHeader }
+  ProcessedMail@{ mailIdentifier@MailIdentifier originRoute@OriginRoute databaseMarker@DatabaseMarker }
+  MailLedgerEvent@[Sent@SentMail Processed@ProcessedMail]
+  TopicMatch@[Partial@Topics Full@Topics]
+  Entry@{ topics@Topics kind@Kind description@Description magnitude@Magnitude }
+  Query@{ topicMatch@TopicMatch kind@(Optional Kind) }
+  RecordSet@{ entries@(Vec Entry) }
+  Kind@[Decision Principle Correction Clarification Constraint]
+  Magnitude@[Minimum VeryLow Low Medium High VeryHigh Maximum]
 }
