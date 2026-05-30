@@ -25,6 +25,7 @@ impl SchemaBuild {
 
     fn run(&self) {
         println!("cargo:rerun-if-changed=schema/lib.schema");
+        println!("cargo:rerun-if-changed=schema/lib.asschema");
         println!("cargo:rerun-if-changed=src/schema/lib.rs");
 
         let generated = self.generated_schema_file();
@@ -47,9 +48,12 @@ impl SchemaBuild {
             .write_binary_file(artifact_files.binary_path())
             .expect("write generated asschema rkyv artifact");
 
+        let checked_in_artifact = CheckedInAsschemaArtifact::new(&self.crate_root);
+        checked_in_artifact.assert_matches_generated_artifact(&artifact_files);
+
         RustEmitter::new(RustEmissionOptions::feature_gated_nota("nota-text"))
-            .emit_file_from_nota_path(artifact_files.nota_path())
-            .expect("emit Rust from generated asschema NOTA artifact")
+            .emit_file_from_nota_path(checked_in_artifact.path())
+            .expect("emit Rust from checked-in asschema NOTA artifact")
             .assert_matches_binary_artifact(&artifact_files)
     }
 
@@ -75,6 +79,39 @@ impl SchemaBuild {
             panic!(
                 "checked-in generated schema source is stale at {}; regenerate it from schema/lib.schema",
                 checked_in.path().display()
+            );
+        }
+    }
+}
+
+struct CheckedInAsschemaArtifact {
+    path: PathBuf,
+}
+
+impl CheckedInAsschemaArtifact {
+    fn new(crate_root: &Path) -> Self {
+        Self {
+            path: crate_root.join("schema").join("lib.asschema"),
+        }
+    }
+
+    fn path(&self) -> &Path {
+        &self.path
+    }
+
+    fn assert_matches_generated_artifact(&self, artifact_files: &GeneratedAsschemaArtifactFiles) {
+        let checked_in = fs::read_to_string(self.path()).unwrap_or_else(|error| {
+            panic!(
+                "checked-in assembled schema artifact is missing at {}: {error}",
+                self.path().display()
+            )
+        });
+        let generated = fs::read_to_string(artifact_files.nota_path())
+            .expect("read generated asschema artifact");
+        if checked_in != generated {
+            panic!(
+                "checked-in assembled schema artifact is stale at {}; regenerate it from schema/lib.schema",
+                self.path().display()
             );
         }
     }

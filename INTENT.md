@@ -20,6 +20,10 @@ Load-bearing constraints:
   `nota-next`.
 - Rust data types are generated from the crate-local `schema/lib.schema`
   entrypoint and materialized as checked-in source under `src/schema/`.
+- The macro-free assembled form is materialized as checked-in
+  `schema/lib.asschema` text. Build code compares it against the fresh lowering
+  of `schema/lib.schema`, emits Rust from the checked-in `.asschema` artifact,
+  and keeps `.asschema.rkyv` as a generated binary cache/witness.
 - `schema/lib.schema` uses the name-first `@` declaration form accepted by
   schema-next: `Name@{...}` for struct-like declarations, `Name@[...]` for
   enum-like declarations, `@Type` for derived same-name fields or data
@@ -34,9 +38,10 @@ Load-bearing constraints:
 - Schema lowering goes through `schema-next` before Rust emission; build and
   runtime tests prove the generated `Asschema` data and emitted Rust, not a
   macro trace side channel. The build freshness path materializes
-  `AsschemaArtifact` as legal `.asschema` NOTA and `.asschema.rkyv` files, then
-  emits Rust from those artifact file paths, so the checked-in generated Rust is
-  produced from serialized assembled-schema data rather than a private
+  `AsschemaArtifact` as legal `.asschema` NOTA and `.asschema.rkyv` files,
+  compares the generated NOTA artifact with checked-in `schema/lib.asschema`,
+  then emits Rust from that checked-in artifact path. The checked-in generated
+  Rust is produced from serialized assembled-schema data rather than a private
   lowerer-to-emitter value.
 - `build.rs` is a freshness witness for the generated source. It regenerates
   in memory and fails if `src/schema/lib.rs` is missing or stale.
