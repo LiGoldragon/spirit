@@ -21,7 +21,7 @@ impl SpiritNextDaemonCli {
     }
 
     fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let configuration = Configuration::from_single_argument(self.single_argument()?)?;
+        let configuration = Configuration::from_binary_path(self.single_argument()?)?;
         Daemon::new(configuration).run()?;
         Ok(())
     }

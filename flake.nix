@@ -177,7 +177,7 @@
             grep -R "text_client_surface_has_nota_next_runtime_dependency" ${src}/tests/dependency_surface.rs >/dev/null
             grep -R '#\[cfg(feature = "nota-text")\]' ${src}/src/schema/lib.rs >/dev/null
             grep -R 'cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))' ${src}/src/schema/lib.rs >/dev/null
-            grep -R "from_binary_file" ${src}/src/config.rs >/dev/null
+            grep -R "from_binary_path" ${src}/src/config.rs >/dev/null
             grep -R "write_binary_file" ${src}/src/config.rs >/dev/null
             ! grep -R "nota_next" ${src}/src/config.rs ${src}/src/daemon.rs ${src}/src/bin/spirit-next-daemon.rs
             ! grep -R "NotaSource" ${src}/src/config.rs ${src}/src/daemon.rs ${src}/src/bin/spirit-next-daemon.rs
@@ -319,7 +319,7 @@
             ! grep -R "wrapping_mul" ${src}/src/store.rs
             # Daemon startup config is binary rkyv, not NOTA. The .sema
             # path fills an existing binary configuration field, no flag.
-            grep -R "from_binary_file" ${src}/src/config.rs >/dev/null
+            grep -R "from_binary_path" ${src}/src/config.rs >/dev/null
             grep -R "from_binary_bytes" ${src}/src/config.rs >/dev/null
             grep -R "to_binary_bytes" ${src}/src/config.rs >/dev/null
             grep -R "database_path" ${src}/src/config.rs >/dev/null

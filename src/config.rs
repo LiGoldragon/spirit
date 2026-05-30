@@ -40,11 +40,7 @@ impl Configuration {
         self.database_path.as_path()
     }
 
-    pub fn from_single_argument(argument: &str) -> Result<Self, ConfigurationError> {
-        Self::from_binary_file(Path::new(argument))
-    }
-
-    pub fn from_binary_file(path: impl AsRef<Path>) -> Result<Self, ConfigurationError> {
+    pub fn from_binary_path(path: impl AsRef<Path>) -> Result<Self, ConfigurationError> {
         let bytes = fs::read(path).map_err(ConfigurationError::Read)?;
         Self::from_binary_bytes(&bytes)
     }
