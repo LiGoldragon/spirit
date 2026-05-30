@@ -58,12 +58,12 @@ impl Daemon {
     }
 
     pub fn run(&self) -> Result<(), DaemonError> {
-        if let Some(parent) = self.configuration.socket_path.parent() {
+        if let Some(parent) = self.configuration.socket_path().parent() {
             fs::create_dir_all(parent)?;
         }
         self.remove_stale_socket()?;
-        let listener = UnixListener::bind(&self.configuration.socket_path)?;
-        let store = Store::open(&self.configuration.database_path)?;
+        let listener = UnixListener::bind(self.configuration.socket_path())?;
+        let store = Store::open(self.configuration.database_path())?;
         let engine = Arc::new(Engine::new(store));
         for stream in listener.incoming() {
             match stream {
@@ -88,7 +88,7 @@ impl Daemon {
     }
 
     fn remove_stale_socket(&self) -> Result<(), DaemonError> {
-        let path = SocketPath::new(&self.configuration.socket_path);
+        let path = SocketPath::new(self.configuration.socket_path());
         path.remove_stale()
     }
 }

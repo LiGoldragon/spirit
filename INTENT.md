@@ -8,8 +8,12 @@ operators can iterate without disturbing the deployed intent substrate.
 
 Load-bearing constraints:
 
-- CLI input and output are NOTA.
-- Component/process communication is binary rkyv.
+- CLI input and output are NOTA when the `nota-text` feature is enabled.
+- Component/process communication is always binary rkyv.
+- Generated schema datatypes always carry rkyv support. NOTA encode/decode is
+  an opt-in text-client surface, not a daemon requirement. The daemon build is
+  binary-only and must not depend on `nota-next`; the CLI build opts into
+  `nota-text` because it is the text-facing adapter.
 - Rust data types are generated from the crate-local `schema/lib.schema`
   entrypoint and materialized as checked-in source under `src/schema/`.
 - `schema/lib.schema` uses the name-first `@` declaration form accepted by
@@ -114,10 +118,15 @@ Load-bearing constraints:
   request. `StateDigest` is a real content-addressed hash (blake3 over the
   committed records, reduced to the schema's `Integer` width), not a toy fold;
   an empty store digests to zero.
-- The daemon's single NOTA argument is a positional `(socket database)` record:
-  the `.sema` database path fills an existing configuration position, with no
-  flag (the single-argument rule holds). A bare socket-path argument still
-  works, defaulting the `.sema` file beside the socket.
+- The daemon's single argument is a path to a binary rkyv `Configuration`
+  object, not a NOTA configuration string. The `.sema` database path fills a
+  typed binary configuration field, with no flags. Text-facing launchers or
+  tests may create that file, but the daemon startup path only decodes binary
+  state.
+- Future daemon configuration should arrive as typed binary signal surfaces,
+  not by linking a NOTA decoder into the daemon. A daemon may expose multiple
+  signal protocols/interfaces; configuration is another typed signal surface
+  differentiated inside the root message enumerator.
 - The old signal macro path is not used.
 - The daemon/CLI implementation is a shim around generated interfaces until
   schema diff/upgrade and the final repo-triad split land. Durable SEMA storage

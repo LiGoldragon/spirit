@@ -53,6 +53,7 @@ fn generated_rejection_output_is_a_signal_schema_variant() {
     });
 
     assert_eq!(output.route(), OutputRoute::Rejected);
+    #[cfg(feature = "nota-text")]
     assert_eq!(output.to_string(), "(Rejected (EmptyTopic (0 0)))");
 
     let frame = output.encode_signal_frame().expect("encode frame");
@@ -62,6 +63,7 @@ fn generated_rejection_output_is_a_signal_schema_variant() {
     assert_eq!(decoded, output);
 }
 
+#[cfg(feature = "nota-text")]
 #[test]
 fn generated_validation_error_round_trips_through_nota() {
     let rejection = "(Rejected (EmptyDescription (0 0)))"

@@ -13,10 +13,18 @@ schema/lib.schema
   -> schema-next::SchemaPackage
   -> schema-next::SchemaEngine
   -> schema-next::MacroRegistry
-  -> schema-rust-next::RustEmitter
+  -> schema-rust-next::RustEmitter with opt-in NOTA surface
   -> checked-in generated module at src/schema/lib.rs
   -> engine composer + nexus mail keeper + durable redb store + transport
 ```
+
+The generated module has one binary floor and one optional text surface.
+`rkyv::Archive` / `Serialize` / `Deserialize` are always emitted because every
+component speaks binary frames. `nota_next::NotaDecode` / `NotaEncode`, root
+`FromStr`, root `Display`, and `to_nota` helpers are emitted behind the
+`nota-text` feature. That lets the CLI crate target parse and print NOTA while
+the daemon target compiles without the NOTA decoder linked into its runtime
+surface.
 
 The current `schema/lib.schema` intentionally uses the compact derived-member
 surface: `@Topics` derives the `topics` field, `@RecordIdentifier` derives
@@ -59,12 +67,19 @@ The CLI:
 
 The daemon:
 
-1. reads a length-prefixed binary frame;
-2. asks generated `Input` to triage by short header and decode itself;
-3. decodes generated `Input`;
-4. dispatches through `Engine`;
-5. asks generated `Output` to frame itself as binary rkyv;
-6. writes it back.
+1. starts from a path to a binary rkyv `Configuration` object;
+2. opens the configured socket and `.sema` database path;
+3. reads a length-prefixed binary frame;
+4. asks generated `Input` to triage by short header and decode itself;
+5. dispatches through `Engine`;
+6. asks generated `Output` to frame itself as binary rkyv;
+7. writes it back.
+
+The daemon does not parse NOTA at startup and does not need `nota-next` for
+its binary-only build. A text launcher or test can write the binary
+configuration file; production configuration should later become another
+typed binary signal surface differentiated by the root message enumerator,
+not a NOTA side channel.
 
 The hand-written transport module owns only length-prefix socket I/O. It does
 not own route enums, short-header matching, or rkyv archive encode/decode.
@@ -247,6 +262,14 @@ and compares that output against `src/schema/lib.rs`. The build fails if the
 checked-in generated source is missing or stale. Runtime code imports
 `src/schema/lib.rs` directly; it does not include generated Rust from
 `OUT_DIR`.
+
+`build.rs` calls `RustEmitter::new(RustEmissionOptions::feature_gated_nota(
+"nota-text"))`. The same schema-emitted data types can therefore be compiled
+as binary-only daemon nouns or as dual NOTA+rkyv CLI nouns without hand-written
+parallel mirrors. Cargo feature unification means a single Cargo invocation
+cannot prove "CLI has NOTA, daemon lacks NOTA"; Nix builds the daemon and CLI
+as separate package derivations and joins their binaries for integration
+tests.
 
 The schema-rust output path is already crate-relative (`src/schema/lib.rs`).
 `build.rs` uses that path directly; it does not reinterpret a generated

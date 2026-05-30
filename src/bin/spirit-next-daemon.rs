@@ -29,7 +29,7 @@ impl SpiritNextDaemonCli {
     fn single_argument(&self) -> Result<&str, Box<dyn std::error::Error>> {
         match self.arguments.as_slice() {
             [argument] => Ok(argument),
-            _ => Err("expected exactly one NOTA configuration argument or path".into()),
+            _ => Err("expected exactly one binary configuration path".into()),
         }
     }
 }

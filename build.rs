@@ -1,7 +1,7 @@
 use std::{env, fs, path::PathBuf};
 
 use schema_next::{SchemaEngine, SchemaPackage};
-use schema_rust_next::{GeneratedFile, RustEmitter};
+use schema_rust_next::{GeneratedFile, RustEmissionOptions, RustEmitter};
 
 fn main() {
     SchemaBuild::from_environment().run();
@@ -33,7 +33,7 @@ impl SchemaBuild {
         let asschema = SchemaEngine::default()
             .lower_source(source.source(), source.identity().clone())
             .expect("lower spirit-next schema");
-        RustEmitter::default().emit_file(&asschema)
+        RustEmitter::new(RustEmissionOptions::feature_gated_nota("nota-text")).emit_file(&asschema)
     }
 
     fn assert_generated_schema_path(&self, generated: &GeneratedFile) {

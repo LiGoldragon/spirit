@@ -51,4 +51,4 @@ export SCHEMA_NEXT_PATH="$schema_next_path"
 export SCHEMA_RUST_NEXT_PATH="$schema_rust_next_path"
 
 cd "$repo_root"
-exec cargo test --test nix_integration -- --ignored "$@"
+exec cargo test --features nota-text --test nix_integration -- --ignored "$@"

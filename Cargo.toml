@@ -15,13 +15,28 @@ path = "src/lib.rs"
 [[bin]]
 name = "spirit-next"
 path = "src/bin/spirit-next.rs"
+required-features = ["nota-text"]
 
 [[bin]]
 name = "spirit-next-daemon"
 path = "src/bin/spirit-next-daemon.rs"
 
+[[test]]
+name = "nix_integration"
+path = "tests/nix_integration.rs"
+required-features = ["nota-text"]
+
+[[test]]
+name = "process_boundary"
+path = "tests/process_boundary.rs"
+required-features = ["nota-text"]
+
+[features]
+default = []
+nota-text = ["dep:nota-next"]
+
 [dependencies]
-nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }
+nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }
 rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
 redb = "2.6.3"
 blake3 = "1"

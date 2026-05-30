@@ -99,9 +99,9 @@ use std::{
 };
 
 use spirit_next::{
-    CommitSequence, DatabaseMarker, Description, Entry, ErrorReport, Kind, Magnitude, Output,
-    OutputRoute, RecordIdentifier, SemaReceipt, SignalRejection, StateDigest, Topic, Topics,
-    ValidationError,
+    CommitSequence, Configuration, DatabaseMarker, Description, Entry, ErrorReport, Kind,
+    Magnitude, Output, OutputRoute, RecordIdentifier, SemaReceipt, SignalRejection, StateDigest,
+    Topic, Topics, ValidationError,
 };
 use tempfile::TempDir;
 
@@ -243,10 +243,14 @@ impl DaemonProcess {
     fn spawn(binaries: &NixBuiltBinaries) -> Self {
         let temp_directory = TempDir::new().expect("create tempdir");
         let socket_path = temp_directory.path().join("spirit-next.sock");
-        let socket_argument = format!("[{}]", socket_path.display());
+        let database_path = temp_directory.path().join("spirit-next.sema");
+        let configuration_path = temp_directory.path().join("spirit-next.config.rkyv");
+        Configuration::new(&socket_path, &database_path)
+            .write_binary_file(&configuration_path)
+            .expect("write binary daemon configuration");
 
         let child = Command::new(&binaries.spirit_daemon)
-            .arg(socket_argument)
+            .arg(configuration_path)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()

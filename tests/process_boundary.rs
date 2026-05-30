@@ -6,7 +6,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use spirit_next::{CommitSequence, Output, RecordIdentifier};
+use spirit_next::{CommitSequence, Configuration, Output, RecordIdentifier};
 use tempfile::TempDir;
 
 struct DaemonProcess {
@@ -22,13 +22,12 @@ impl Drop for DaemonProcess {
 
 impl DaemonProcess {
     fn spawn(socket_path: &Path, database_path: &Path) -> Self {
-        let configuration = format!(
-            "([{}] [{}])",
-            socket_path.display(),
-            database_path.display()
-        );
+        let configuration_path = socket_path.with_extension("config.rkyv");
+        Configuration::new(socket_path, database_path)
+            .write_binary_file(&configuration_path)
+            .expect("write binary daemon configuration");
         let child = Command::new(env!("CARGO_BIN_EXE_spirit-next-daemon"))
-            .arg(configuration)
+            .arg(configuration_path)
             .spawn()
             .expect("spawn daemon");
         let process = Self { child };

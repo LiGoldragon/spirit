@@ -1,11 +1,13 @@
 use spirit_next::{
-    CommitSequence, DatabaseMarker, Description, Engine, Entry, ErrorMessage, ErrorReport, Export,
-    Import, Input, Kind, LocalPath, Magnitude, MailIdentifier, MailLedgerEvent, MessageIdentifier,
-    MessageSent, MessageSentHook, NexusInput, NexusMail, NexusOutput, OriginRoute, Output,
-    ProcessedMail, PublicPath, Query, RecordIdentifier, RecordSet, SemaEngine, SemaInput,
-    SemaOutput, SemaReceipt, SentMail, ShortHeader, SignalAccepted, SignalActor, SignalRejection,
-    SourcePath, StateDigest, Store, Topic, TopicMatch, Topics, ValidationError, schema_meta, sema,
+    CommitSequence, DatabaseMarker, Description, Engine, Entry, ErrorMessage, ErrorReport, Input,
+    Kind, Magnitude, MailIdentifier, MailLedgerEvent, MessageIdentifier, MessageSent,
+    MessageSentHook, NexusInput, NexusMail, NexusOutput, OriginRoute, Output, ProcessedMail, Query,
+    RecordIdentifier, RecordSet, SemaEngine, SemaInput, SemaOutput, SemaReceipt, SentMail,
+    ShortHeader, SignalAccepted, SignalActor, SignalRejection, StateDigest, Store, Topic,
+    TopicMatch, Topics, ValidationError, schema_meta, sema,
 };
+#[cfg(feature = "nota-text")]
+use spirit_next::{Export, Import, LocalPath, PublicPath, SourcePath};
 use tempfile::TempDir;
 
 struct SemaFile {
@@ -523,6 +525,7 @@ fn nexus_and_sema_have_explicit_input_output_languages() {
     assert!(matches!(signal_output.root(), Output::RecordAccepted(_)));
 }
 
+#[cfg(feature = "nota-text")]
 #[test]
 fn import_export_paths_use_single_colon_namespaces() {
     let import = Import {

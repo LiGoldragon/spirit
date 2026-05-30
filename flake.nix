@@ -89,7 +89,25 @@
           inherit src cargoVendorDirectory;
           strictDeps = true;
         };
-        cargoArtifacts = craneLib.buildDepsOnly commonArguments;
+        binaryCargoArtifacts = craneLib.buildDepsOnly (commonArguments // {
+          cargoExtraArgs = "--no-default-features";
+        });
+        notaTextCargoArtifacts = craneLib.buildDepsOnly (commonArguments // {
+          cargoExtraArgs = "--features nota-text";
+        });
+        daemonPackage = craneLib.buildPackage (commonArguments // {
+          cargoArtifacts = binaryCargoArtifacts;
+          cargoExtraArgs = "--no-default-features --bin spirit-next-daemon";
+        });
+        cliPackage = craneLib.buildPackage (commonArguments // {
+          cargoArtifacts = notaTextCargoArtifacts;
+          cargoExtraArgs = "--features nota-text --bin spirit-next";
+        });
+        combinedPackage = pkgs.runCommand "spirit-next" { } ''
+          mkdir -p "$out/bin"
+          ln -s "${cliPackage}/bin/spirit-next" "$out/bin/spirit-next"
+          ln -s "${daemonPackage}/bin/spirit-next-daemon" "$out/bin/spirit-next-daemon"
+        '';
         nixIntegrationRunner = pkgs.writeShellApplication {
           name = "spirit-next-nix-integration-tests";
           runtimeInputs = [ pkgs.nix toolchain ];
@@ -100,15 +118,31 @@
         };
       in
       {
-        packages.default = craneLib.buildPackage (commonArguments // { inherit cargoArtifacts; });
+        packages.default = combinedPackage;
+        packages.cli = cliPackage;
+        packages.daemon = daemonPackage;
         apps.nix-integration-tests = {
           type = "app";
           program = "${nixIntegrationRunner}/bin/spirit-next-nix-integration-tests";
           meta.description = "Run Nix-built spirit-next integration tests";
         };
         checks = {
-          build = craneLib.cargoBuild (commonArguments // { inherit cargoArtifacts; });
-          test = craneLib.cargoTest (commonArguments // { inherit cargoArtifacts; });
+          build = craneLib.cargoBuild (commonArguments // {
+            cargoArtifacts = binaryCargoArtifacts;
+            cargoExtraArgs = "--no-default-features";
+          });
+          build-nota-text = craneLib.cargoBuild (commonArguments // {
+            cargoArtifacts = notaTextCargoArtifacts;
+            cargoExtraArgs = "--features nota-text";
+          });
+          test = craneLib.cargoTest (commonArguments // {
+            cargoArtifacts = binaryCargoArtifacts;
+            cargoExtraArgs = "--no-default-features";
+          });
+          test-nota-text = craneLib.cargoTest (commonArguments // {
+            cargoArtifacts = notaTextCargoArtifacts;
+            cargoExtraArgs = "--features nota-text";
+          });
           no-old-signal-macro = pkgs.runCommand "spirit-next-no-old-signal-macro" { } ''
             if grep -R "signal_channel!" ${src}/build.rs ${src}/schema ${src}/src ${src}/tests; then
               echo "spirit-next must not use the old signal_channel macro" >&2
@@ -127,12 +161,24 @@
             ! grep -R "MacroContext" ${src}/build.rs
             ! grep -R "SchemaStructDefinition" ${src}/build.rs
             ! grep -R "SchemaEnumDefinition" ${src}/build.rs
-            grep -R "RustEmitter::default().emit_file" ${src}/build.rs >/dev/null
+            grep -R "RustEmissionOptions::feature_gated_nota(\"nota-text\")" ${src}/build.rs >/dev/null
+            grep -R "RustEmitter::new" ${src}/build.rs >/dev/null
             grep -R "schema/lib.schema" ${src}/build.rs >/dev/null
             grep -R "assert_checked_in_schema_is_fresh" ${src}/build.rs >/dev/null
             ! grep -R "fs::write" ${src}/build.rs
             ! grep -R "include!(concat!(env!(\"OUT_DIR\")" ${src}/src ${src}/build.rs
             grep -R "pub mod lib;" ${src}/src/lib.rs >/dev/null
+            touch $out
+          '';
+          nota-surface-is-opt-in = pkgs.runCommand "spirit-next-nota-surface-is-opt-in" { } ''
+            grep -R 'required-features = \["nota-text"\]' ${src}/Cargo.toml >/dev/null
+            grep -R 'optional = true' ${src}/Cargo.toml | grep 'nota-next' >/dev/null
+            grep -R '#\[cfg(feature = "nota-text")\]' ${src}/src/schema/lib.rs >/dev/null
+            grep -R 'cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))' ${src}/src/schema/lib.rs >/dev/null
+            grep -R "from_binary_file" ${src}/src/config.rs >/dev/null
+            grep -R "write_binary_file" ${src}/src/config.rs >/dev/null
+            ! grep -R "nota_next" ${src}/src/config.rs ${src}/src/daemon.rs ${src}/src/bin/spirit-next-daemon.rs
+            ! grep -R "NotaSource" ${src}/src/config.rs ${src}/src/daemon.rs ${src}/src/bin/spirit-next-daemon.rs
             touch $out
           '';
           binary-boundary-test = pkgs.runCommand "spirit-next-binary-boundary-test" { } ''
@@ -267,7 +313,11 @@
             grep -R "Self::Full" ${src}/src/engine.rs >/dev/null
             ! grep -R "Vec<StoredRecord>" ${src}/src/store.rs
             ! grep -R "wrapping_mul" ${src}/src/store.rs
-            # The .sema path fills an existing config position, no flag.
+            # Daemon startup config is binary rkyv, not NOTA. The .sema
+            # path fills an existing binary configuration field, no flag.
+            grep -R "from_binary_file" ${src}/src/config.rs >/dev/null
+            grep -R "from_binary_bytes" ${src}/src/config.rs >/dev/null
+            grep -R "to_binary_bytes" ${src}/src/config.rs >/dev/null
             grep -R "database_path" ${src}/src/config.rs >/dev/null
             # Tests prove the new topology + durability with schema objects.
             grep -R "nexus_holds_the_mail_in_being_processed_typestate_before_sema_runs" ${src}/tests/runtime_triad.rs >/dev/null
@@ -321,11 +371,15 @@
           '';
           fmt = craneLib.cargoFmt { inherit src; };
           clippy = craneLib.cargoClippy (commonArguments // {
-            inherit cargoArtifacts;
+            cargoArtifacts = binaryCargoArtifacts;
             cargoClippyExtraArgs = "--all-targets -- -D warnings";
           });
+          clippy-nota-text = craneLib.cargoClippy (commonArguments // {
+            cargoArtifacts = notaTextCargoArtifacts;
+            cargoClippyExtraArgs = "--features nota-text --all-targets -- -D warnings";
+          });
           doc = craneLib.cargoDoc (commonArguments // {
-            inherit cargoArtifacts;
+            cargoArtifacts = binaryCargoArtifacts;
             RUSTDOCFLAGS = "-D warnings";
           });
         };
