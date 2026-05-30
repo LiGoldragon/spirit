@@ -1,6 +1,6 @@
 use std::{env, fs, path::PathBuf};
 
-use schema_next::{SchemaEngine, SchemaPackage};
+use schema_next::{Asschema, SchemaEngine, SchemaPackage};
 use schema_rust_next::{GeneratedFile, RustEmissionOptions, RustEmitter};
 
 fn main() {
@@ -33,6 +33,7 @@ impl SchemaBuild {
         let asschema = SchemaEngine::default()
             .lower_source(source.source(), source.identity().clone())
             .expect("lower spirit-next schema");
+        let asschema = AsschemaArtifact::new(asschema).read_back();
         RustEmitter::new(RustEmissionOptions::feature_gated_nota("nota-text")).emit_file(&asschema)
     }
 
@@ -60,6 +61,25 @@ impl SchemaBuild {
                 checked_in.path().display()
             );
         }
+    }
+}
+
+struct AsschemaArtifact {
+    asschema: Asschema,
+}
+
+impl AsschemaArtifact {
+    fn new(asschema: Asschema) -> Self {
+        Self { asschema }
+    }
+
+    fn read_back(&self) -> Asschema {
+        let nota = self.asschema.to_nota();
+        let from_nota = Asschema::from_nota_source(&nota).expect("read generated asschema NOTA");
+        let bytes = from_nota
+            .to_binary_bytes()
+            .expect("write generated asschema rkyv");
+        Asschema::from_binary_bytes(&bytes).expect("read generated asschema rkyv")
     }
 }
 
