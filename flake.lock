@@ -117,11 +117,11 @@
     "schema-next-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1780144290,
-        "narHash": "sha256-VxjuKWvijtCX2HQZ2ckShEEL3EMVTP4WmWRAMRu4nE0=",
+        "lastModified": 1780144724,
+        "narHash": "sha256-Tlrb+siONuHR4EJYcvvPtQFQr1DpRTDbAIMPfnFMSrM=",
         "owner": "LiGoldragon",
         "repo": "schema-next",
-        "rev": "f2efb2a20c496b8430ca266851d92686f0076d4e",
+        "rev": "a4fe09003bbbf07301ddffdd74f641f1f7e0e7f4",
         "type": "github"
       },
       "original": {
@@ -133,11 +133,11 @@
     "schema-rust-next-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1780144443,
-        "narHash": "sha256-VwmzxvO6k9zoWRiSTuhF0pPwAcGR2V0L5rtOjSSF1uw=",
+        "lastModified": 1780144781,
+        "narHash": "sha256-GSEXyE6/FpGVsqmSb5KO/IOkHarQrjnCSn610P/6lp8=",
         "owner": "LiGoldragon",
         "repo": "schema-rust-next",
-        "rev": "f7ae71f131725e3d86c655723befebf9ab207c1b",
+        "rev": "a1ad293e0064323b55a21d01d2d64d550f88fcf5",
         "type": "github"
       },
       "original": {
