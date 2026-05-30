@@ -184,8 +184,8 @@
             grep -R "NexusOutput" ${src}/schema/lib.schema >/dev/null
             grep -R "SemaInput" ${src}/schema/lib.schema >/dev/null
             grep -R "SemaOutput" ${src}/schema/lib.schema >/dev/null
-            grep -R "Import@{ sourcePath@SourcePath localPath@LocalPath }" ${src}/schema/lib.schema >/dev/null
-            grep -R "Export@{ localPath@LocalPath publicPath@PublicPath }" ${src}/schema/lib.schema >/dev/null
+            grep -R "Import@{ @SourcePath @LocalPath }" ${src}/schema/lib.schema >/dev/null
+            grep -R "Export@{ @LocalPath @PublicPath }" ${src}/schema/lib.schema >/dev/null
             grep -R "Input::decode_signal_frame" ${src}/src/transport.rs >/dev/null
             grep -R "Output::decode_signal_frame" ${src}/src/transport.rs >/dev/null
             grep -R "input.encode_signal_frame" ${src}/src/transport.rs >/dev/null
