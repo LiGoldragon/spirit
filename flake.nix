@@ -161,6 +161,11 @@
             ! grep -R "MacroContext" ${src}/build.rs
             ! grep -R "SchemaStructDefinition" ${src}/build.rs
             ! grep -R "SchemaEnumDefinition" ${src}/build.rs
+            grep -R "AsschemaArtifact::new" ${src}/build.rs >/dev/null
+            grep -R "write_nota_file" ${src}/build.rs >/dev/null
+            grep -R "write_binary_file" ${src}/build.rs >/dev/null
+            grep -R "emit_file_from_nota_path" ${src}/build.rs >/dev/null
+            grep -R "emit_file_from_binary_path" ${src}/build.rs >/dev/null
             grep -R "RustEmissionOptions::feature_gated_nota(\"nota-text\")" ${src}/build.rs >/dev/null
             grep -R "RustEmitter::new" ${src}/build.rs >/dev/null
             grep -R "schema/lib.schema" ${src}/build.rs >/dev/null

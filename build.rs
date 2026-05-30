@@ -1,6 +1,9 @@
-use std::{env, fs, path::PathBuf};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+};
 
-use schema_next::{Asschema, SchemaEngine, SchemaPackage};
+use schema_next::{AsschemaArtifact, SchemaEngine, SchemaPackage};
 use schema_rust_next::{GeneratedFile, RustEmissionOptions, RustEmitter};
 
 fn main() {
@@ -9,12 +12,14 @@ fn main() {
 
 struct SchemaBuild {
     crate_root: PathBuf,
+    output_directory: PathBuf,
 }
 
 impl SchemaBuild {
     fn from_environment() -> Self {
         Self {
             crate_root: PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("manifest dir set")),
+            output_directory: PathBuf::from(env::var_os("OUT_DIR").expect("out dir set")),
         }
     }
 
@@ -33,8 +38,19 @@ impl SchemaBuild {
         let asschema = SchemaEngine::default()
             .lower_source(source.source(), source.identity().clone())
             .expect("lower spirit-next schema");
-        let asschema = AsschemaArtifact::new(asschema).read_back();
-        RustEmitter::new(RustEmissionOptions::feature_gated_nota("nota-text")).emit_file(&asschema)
+        let artifact = AsschemaArtifact::new(asschema);
+        let artifact_files = GeneratedAsschemaArtifactFiles::new(&self.output_directory);
+        artifact
+            .write_nota_file(artifact_files.nota_path())
+            .expect("write generated asschema NOTA artifact");
+        artifact
+            .write_binary_file(artifact_files.binary_path())
+            .expect("write generated asschema rkyv artifact");
+
+        RustEmitter::new(RustEmissionOptions::feature_gated_nota("nota-text"))
+            .emit_file_from_nota_path(artifact_files.nota_path())
+            .expect("emit Rust from generated asschema NOTA artifact")
+            .assert_matches_binary_artifact(&artifact_files)
     }
 
     fn assert_generated_schema_path(&self, generated: &GeneratedFile) {
@@ -64,22 +80,51 @@ impl SchemaBuild {
     }
 }
 
-struct AsschemaArtifact {
-    asschema: Asschema,
+struct GeneratedAsschemaArtifactFiles {
+    nota_path: PathBuf,
+    binary_path: PathBuf,
 }
 
-impl AsschemaArtifact {
-    fn new(asschema: Asschema) -> Self {
-        Self { asschema }
+impl GeneratedAsschemaArtifactFiles {
+    fn new(output_directory: &Path) -> Self {
+        Self {
+            nota_path: output_directory.join("lib.asschema"),
+            binary_path: output_directory.join("lib.asschema.rkyv"),
+        }
     }
 
-    fn read_back(&self) -> Asschema {
-        let nota = self.asschema.to_nota();
-        let from_nota = Asschema::from_nota_source(&nota).expect("read generated asschema NOTA");
-        let bytes = from_nota
-            .to_binary_bytes()
-            .expect("write generated asschema rkyv");
-        Asschema::from_binary_bytes(&bytes).expect("read generated asschema rkyv")
+    fn nota_path(&self) -> &Path {
+        &self.nota_path
+    }
+
+    fn binary_path(&self) -> &Path {
+        &self.binary_path
+    }
+}
+
+trait GeneratedFileArtifactWitness {
+    fn assert_matches_binary_artifact(
+        self,
+        artifact_files: &GeneratedAsschemaArtifactFiles,
+    ) -> Self;
+}
+
+impl GeneratedFileArtifactWitness for GeneratedFile {
+    fn assert_matches_binary_artifact(
+        self,
+        artifact_files: &GeneratedAsschemaArtifactFiles,
+    ) -> Self {
+        let from_binary = RustEmitter::new(RustEmissionOptions::feature_gated_nota("nota-text"))
+            .emit_file_from_binary_path(artifact_files.binary_path())
+            .expect("emit Rust from generated asschema rkyv artifact");
+        if self != from_binary {
+            panic!(
+                "generated Rust differs between asschema NOTA artifact {} and rkyv artifact {}",
+                artifact_files.nota_path().display(),
+                artifact_files.binary_path().display()
+            );
+        }
+        self
     }
 }
 

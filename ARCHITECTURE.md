@@ -14,8 +14,9 @@ schema/lib.schema
   -> schema-next::SchemaEngine
   -> schema-next::MacroRegistry
   -> schema-next::Asschema
-  -> asschema NOTA round-trip
-  -> asschema rkyv round-trip
+  -> schema-next::AsschemaArtifact
+  -> OUT_DIR/lib.asschema
+  -> OUT_DIR/lib.asschema.rkyv
   -> schema-rust-next::RustEmitter with opt-in NOTA surface
   -> checked-in generated module at src/schema/lib.rs
   -> engine composer + nexus mail keeper + durable redb store + transport
@@ -268,11 +269,12 @@ the intended loop while improving the NOTA parser, schema lowering, or Rust
 emitter: edit a substrate repo, run the consumer check here, and prove the
 generated Rust still compiles and crosses the CLI/daemon rkyv boundary.
 
-`build.rs` lowers with `SchemaEngine::lower_source`, emits Rust into memory,
-round-trips the produced `Asschema` through its legal NOTA form and rkyv bytes,
-then emits Rust from the read-back assembled schema. It compares that output
-against `src/schema/lib.rs`. The build fails if the checked-in generated
-source is missing or stale, or if the assembled schema cannot be read as data.
+`build.rs` lowers with `SchemaEngine::lower_source`, wraps the produced
+`Asschema` in `AsschemaArtifact`, writes `lib.asschema` and
+`lib.asschema.rkyv` into Cargo's `OUT_DIR`, then asks `schema-rust-next` to
+emit Rust from those artifact file paths. It compares that output against
+`src/schema/lib.rs`. The build fails if the checked-in generated source is
+missing or stale, or if the assembled schema cannot be read as serialized data.
 Runtime code imports `src/schema/lib.rs` directly; it does not include
 generated Rust from `OUT_DIR`.
 

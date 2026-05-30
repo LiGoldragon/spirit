@@ -33,9 +33,11 @@ Load-bearing constraints:
   `schema/lib.rs` as relative to `src/`.
 - Schema lowering goes through `schema-next` before Rust emission; build and
   runtime tests prove the generated `Asschema` data and emitted Rust, not a
-  macro trace side channel. The build freshness path round-trips `Asschema`
-  through legal NOTA and rkyv bytes before Rust emission, so the checked-in
-  generated Rust is produced from the live assembled-schema artifact.
+  macro trace side channel. The build freshness path materializes
+  `AsschemaArtifact` as legal `.asschema` NOTA and `.asschema.rkyv` files, then
+  emits Rust from those artifact file paths, so the checked-in generated Rust is
+  produced from serialized assembled-schema data rather than a private
+  lowerer-to-emitter value.
 - `build.rs` is a freshness witness for the generated source. It regenerates
   in memory and fails if `src/schema/lib.rs` is missing or stale.
 - The schema declares the runtime triad surfaces:
