@@ -18,6 +18,13 @@ schema/lib.schema
   -> engine composer + nexus mail keeper + durable redb store + transport
 ```
 
+The current `schema/lib.schema` intentionally uses the compact derived-member
+surface: `@Topics` derives the `topics` field, `@RecordIdentifier` derives
+`record_identifier`, and explicit bindings such as `kind@(Optional Kind)` stay
+only where the field name differs from the referenced type. Single-reference
+declarations (`Topic@String`, `RecordSet@{ (Vec Entry) }`) are newtypes in
+asschema and emitted Rust.
+
 The three runtime centers are concrete objects: `SignalActor` (admission),
 `Nexus` (mail keeper + translator, owns the store + ledger), and `Store` (the
 durable `.sema` redb database). `Engine` composes them and owns no SEMA state

@@ -14,9 +14,12 @@ Load-bearing constraints:
   entrypoint and materialized as checked-in source under `src/schema/`.
 - `schema/lib.schema` uses the name-first `@` declaration form accepted by
   schema-next: `Name@{...}` for struct-like declarations, `Name@[...]` for
-  enum-like declarations, and `name@Type` / `name@(Composite Type)` for member
-  bindings. The generated `Asschema` and emitted Rust stay equivalent to the
-  previous pipe-family source.
+  enum-like declarations, `@Type` for derived same-name fields or data
+  variants, and `name@Type` / `name@(Composite Type)` for explicit member
+  bindings. Single-reference newtypes such as `Topic@String` and
+  `Topics@{ (Vec Topic) }` lower to real tuple newtypes, not one-field maps.
+  The generated `Asschema` and emitted Rust stay equivalent to the previous
+  pipe-family source.
 - The generated file path from schema-rust is crate-relative
   `src/schema/lib.rs`; build code uses that path directly instead of treating
   `schema/lib.rs` as relative to `src/`.
