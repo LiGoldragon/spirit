@@ -173,6 +173,8 @@
           nota-surface-is-opt-in = pkgs.runCommand "spirit-next-nota-surface-is-opt-in" { } ''
             grep -R 'required-features = \["nota-text"\]' ${src}/Cargo.toml >/dev/null
             grep -R 'optional = true' ${src}/Cargo.toml | grep 'nota-next' >/dev/null
+            grep -R "binary_only_surface_has_no_nota_next_runtime_dependency" ${src}/tests/dependency_surface.rs >/dev/null
+            grep -R "text_client_surface_has_nota_next_runtime_dependency" ${src}/tests/dependency_surface.rs >/dev/null
             grep -R '#\[cfg(feature = "nota-text")\]' ${src}/src/schema/lib.rs >/dev/null
             grep -R 'cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))' ${src}/src/schema/lib.rs >/dev/null
             grep -R "from_binary_file" ${src}/src/config.rs >/dev/null
@@ -187,6 +189,8 @@
             ! grep -R "rkyv::to_bytes" ${src}/src/transport.rs
             ! grep -R "rkyv::from_bytes" ${src}/src/transport.rs
             grep -R "Command::new(env!(\"CARGO_BIN_EXE_spirit-next\"))" ${src}/tests/process_boundary.rs >/dev/null
+            grep -R "transport_rejects_length_prefixed_raw_nota_text" ${src}/tests/socket_negative.rs >/dev/null
+            grep -R "generated_input_decoder_rejects_raw_nota_text_directly" ${src}/tests/socket_negative.rs >/dev/null
             touch $out
           '';
           # Per record 1006 (Maximum, 2026-05-27): tests must PROVE not

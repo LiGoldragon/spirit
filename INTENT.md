@@ -14,6 +14,10 @@ Load-bearing constraints:
   an opt-in text-client surface, not a daemon requirement. The daemon build is
   binary-only and must not depend on `nota-next`; the CLI build opts into
   `nota-text` because it is the text-facing adapter.
+- The binary-only dependency boundary is an executable contract, not just a
+  source comment. Tests run `cargo tree --edges normal --no-default-features`
+  and assert `nota-next` is absent, while the `nota-text` surface must contain
+  `nota-next`.
 - Rust data types are generated from the crate-local `schema/lib.schema`
   entrypoint and materialized as checked-in source under `src/schema/`.
 - `schema/lib.schema` uses the name-first `@` declaration form accepted by
@@ -127,6 +131,9 @@ Load-bearing constraints:
   not by linking a NOTA decoder into the daemon. A daemon may expose multiple
   signal protocols/interfaces; configuration is another typed signal surface
   differentiated inside the root message enumerator.
+- Raw NOTA text sent to the daemon's binary socket is invalid data. Tests send
+  length-prefixed NOTA bytes and arbitrary bytes through the same transport
+  reader the daemon uses; the generated binary frame decoder must reject them.
 - The old signal macro path is not used.
 - The daemon/CLI implementation is a shim around generated interfaces until
   schema diff/upgrade and the final repo-triad split land. Durable SEMA storage

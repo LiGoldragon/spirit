@@ -24,7 +24,9 @@ component speaks binary frames. `nota_next::NotaDecode` / `NotaEncode`, root
 `FromStr`, root `Display`, and `to_nota` helpers are emitted behind the
 `nota-text` feature. That lets the CLI crate target parse and print NOTA while
 the daemon target compiles without the NOTA decoder linked into its runtime
-surface.
+surface. `tests/dependency_surface.rs` is the executable guard: the normal
+dependency tree with `--no-default-features` must contain no `nota-next`, while
+the `nota-text` tree must contain it.
 
 The current `schema/lib.schema` intentionally uses the compact derived-member
 surface: `@Topics` derives the `topics` field, `@RecordIdentifier` derives
@@ -80,6 +82,12 @@ its binary-only build. A text launcher or test can write the binary
 configuration file; production configuration should later become another
 typed binary signal surface differentiated by the root message enumerator,
 not a NOTA side channel.
+
+The binary socket also rejects text structurally. `tests/socket_negative.rs`
+feeds length-prefixed NOTA bytes and arbitrary bytes through `SignalTransport`
+and directly through the generated `Input::decode_signal_frame` method. Those
+tests prove that NOTA is accepted only by the CLI text surface, never as daemon
+wire input.
 
 The hand-written transport module owns only length-prefix socket I/O. It does
 not own route enums, short-header matching, or rkyv archive encode/decode.
@@ -290,6 +298,14 @@ file, the process is killed, a fresh daemon opens the same `.sema` file, and
 the recorded entry is still observable with the commit sequence resumed.
 A dedicated store-reopen test in `runtime_triad.rs` proves the same durability
 at the library level.
+
+The next larger migration candidate is the workspace split proven in the
+designer worktree: separate working-signal, owner-signal, engine, daemon, and
+CLI crates, with owner-signal carrying configuration operations and a
+runtime-level numerator enum over accepted signal interfaces. Main currently
+keeps the single crate so the Nix proof harness remains intact; the integrated
+pieces from that prototype are the zero-NOTA dependency guard and raw-NOTA
+socket rejection tests.
 
 ## Known limits
 
