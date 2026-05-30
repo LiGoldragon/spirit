@@ -32,12 +32,15 @@ surface. `tests/dependency_surface.rs` is the executable guard: the normal
 dependency tree with `--no-default-features` must contain no `nota-next`, while
 the `nota-text` tree must contain it.
 
-The current `schema/lib.schema` intentionally uses the compact derived-member
-surface: `@Topics` derives the `topics` field, `@RecordIdentifier` derives
-`record_identifier`, and explicit bindings such as `kind@(Optional Kind)` stay
-only where the field name differs from the referenced type. Single-reference
-declarations (`Topic@String`, `RecordSet@{ (Vec Entry) }`) are newtypes in
-asschema and emitted Rust.
+The current `schema/lib.schema` intentionally keeps braces strict as NOTA
+key-value maps. The namespace contains pairs such as `Topic String`,
+`RecordSet (Vec Entry)`, and `Entry { Topics * Kind * Description * }`; it
+does not contain self-named single objects such as `Entry@{...}`. Inside a
+struct map, `Topics *` derives the `topics` field from the existing `Topics`
+type, and explicit bindings such as `kind (Optional Kind)` stay only where the
+field name differs from the referenced type. Single-reference declarations
+(`Topic String`, `RecordSet (Vec Entry)`) are newtypes in asschema and emitted
+Rust.
 
 The three runtime centers are concrete objects: `SignalActor` (admission),
 `Nexus` (mail keeper + translator, owns the store + ledger), and `Store` (the
@@ -196,8 +199,8 @@ self-contained.
 ### Reuse
 
 The schema declares reusable import/export nouns for language planes:
-`Import {| Import sourcePath SourcePath localPath LocalPath |}` and
-`Export {| Export localPath LocalPath publicPath PublicPath |}`.
+`Import { SourcePath * LocalPath * }` and
+`Export { LocalPath * PublicPath * }`.
 The paths are single-colon namespaces, mirroring Rust crate/module paths with
 `:` instead of `::`, for example `signal:sema:Magnitude`.
 
@@ -207,12 +210,14 @@ Signal (`Input`/`Output`), Nexus (`NexusInput`/`NexusOutput`), and SEMA
 available to it; the implementation difference is which actor object owns the
 method after the generated type exists.
 
-The current `schema/lib.schema` spelling is the name-first `@` declaration
-syntax: `Name@{...}` for struct-like declarations, `Name@[...]` for enum-like
-declarations, and `name@Type` / `name@(Composite Type)` for member bindings.
-Parentheses remain the composite/reference and macro-call argument shape.
-That authored syntax lowers to the same `Asschema` roots and namespace before
-`src/schema/lib.rs` is regenerated.
+The current `schema/lib.schema` spelling is the strict brace key-value syntax.
+The known root positions provide the Signal input and output enum names, so the
+root enum bodies are bare square-bracket values. Namespace declarations are
+key-value pairs: a brace value declares a struct map, a square-bracket value
+declares an enum variant list, and an atom or parenthesized reference declares
+a newtype. Parentheses remain the composite/reference and macro-call argument
+shape. That authored syntax lowers to the same `Asschema` roots and namespace
+before `src/schema/lib.rs` is regenerated.
 
 The generated Rust exposes plane namespaces over those bootstrap backing names:
 `signal::Input`, `nexus::Input`, and `sema::Input` (plus matching `Output`).

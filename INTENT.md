@@ -24,14 +24,18 @@ Load-bearing constraints:
   `schema/lib.asschema` text. Build code compares it against the fresh lowering
   of `schema/lib.schema`, emits Rust from the checked-in `.asschema` artifact,
   and keeps `.asschema.rkyv` as a generated binary cache/witness.
-- `schema/lib.schema` uses the name-first `@` declaration form accepted by
-  schema-next: `Name@{...}` for struct-like declarations, `Name@[...]` for
-  enum-like declarations, `@Type` for derived same-name fields or data
-  variants, and `name@Type` / `name@(Composite Type)` for explicit member
-  bindings. Single-reference newtypes such as `Topic@String` and
-  `Topics@{ (Vec Topic) }` lower to real tuple newtypes, not one-field maps.
-  The generated `Asschema` and emitted Rust stay equivalent to the previous
-  pipe-family source.
+- `schema/lib.schema` preserves NOTA brace semantics: braces are key-value
+  maps, not collections of self-named single objects. A namespace entry is a
+  pair such as `Topic String`, `Entry { Topics * Kind * }`, or `Kind [...]`.
+  Struct fields are also key-value pairs; `Topics *` means the key names the
+  field and `*` reuses the same type, while `kind (Optional Kind)` binds a
+  field to a different composite reference. Enum bodies are square-bracket
+  variant lists; data-carrying variants use the key-side sigil form such as
+  `Record@ Entry`, where the keyed variant carries the paired payload type.
+  Single-reference declarations such as `Topic String` and
+  `Topics (Vec Topic)` lower to real tuple newtypes, not one-field maps. The
+  generated `Asschema` and emitted Rust stay equivalent to the previous
+  pipe-family and self-named `@` sources.
 - The generated file path from schema-rust is crate-relative
   `src/schema/lib.rs`; build code uses that path directly instead of treating
   `schema/lib.rs` as relative to `src/`.
