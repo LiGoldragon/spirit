@@ -458,7 +458,7 @@ dependencies = [
 [[package]]
 name = "schema-rust-next"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#33d7a6781b78c5ab928391d63e052c3865fdc6c9"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#8779ddcd082fa0cb3844573c263cf01a139986e1"
 dependencies = [
  "schema-next",
 ]

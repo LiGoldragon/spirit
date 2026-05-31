@@ -2,11 +2,11 @@ use std::{convert::Infallible, sync::Mutex};
 
 use crate::{
     DatabaseMarker, Entry, Input, Integer, MailIdentifier, MailLedgerEvent, MessageIdentifier,
-    MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook, NexusInput, NexusMail,
-    NexusOutput, OriginRoute, Output, ProcessedMail, Query, RecordIdentifier, SemaInput,
-    SemaOutput, SentMail, ShortHeader, SignalRejection, TopicMatch, Topics, ValidationError,
+    MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook, NexusMail, OriginRoute,
+    Output, ProcessedMail, Query, RecordIdentifier, SentMail, ShortHeader, SignalRejection,
+    TopicMatch, Topics, ValidationError,
     nexus::{BeingProcessed, FromMail, Mail, Nexus},
-    schema::lib::{nexus as nexus_plane, sema as sema_plane, signal as signal_plane},
+    schema::lib::signal as signal_plane,
     store::Store,
 };
 
@@ -319,80 +319,6 @@ impl TopicMatch {
                     .iter()
                     .any(|entry_topic| entry_topic == topic)
             }),
-        }
-    }
-}
-
-impl NexusMail<Entry> {
-    pub fn into_nexus_input(self) -> nexus_plane::Nexus<nexus_plane::Input> {
-        let origin_route = self.origin_route();
-        NexusInput::Signal(Input::Record(self.into_payload())).with_origin_route(origin_route)
-    }
-}
-
-impl NexusMail<Query> {
-    pub fn into_nexus_input(self) -> nexus_plane::Nexus<nexus_plane::Input> {
-        let origin_route = self.origin_route();
-        NexusInput::Signal(Input::Observe(self.into_payload())).with_origin_route(origin_route)
-    }
-}
-
-impl NexusMail<RecordIdentifier> {
-    pub fn into_nexus_input(self) -> nexus_plane::Nexus<nexus_plane::Input> {
-        let origin_route = self.origin_route();
-        NexusInput::Signal(Input::Remove(self.into_payload())).with_origin_route(origin_route)
-    }
-}
-
-impl nexus_plane::Nexus<nexus_plane::Input> {
-    pub fn into_nexus_output(self) -> nexus_plane::Nexus<nexus_plane::Output> {
-        let origin_route = self.origin_route();
-        match self.into_root() {
-            NexusInput::Signal(Input::Record(entry)) => NexusOutput::Sema(SemaInput::Record(entry)),
-            NexusInput::Signal(Input::Observe(query)) => {
-                NexusOutput::Sema(SemaInput::Observe(query))
-            }
-            NexusInput::Signal(Input::Remove(record_identifier)) => {
-                NexusOutput::Sema(SemaInput::Remove(record_identifier))
-            }
-            NexusInput::Sema(output) => NexusOutput::Signal(output.into_signal_output()),
-        }
-        .with_origin_route(origin_route)
-    }
-}
-
-impl nexus_plane::Nexus<nexus_plane::Output> {
-    pub fn into_sema_input(self) -> sema_plane::Sema<sema_plane::Input> {
-        let origin_route = self.origin_route();
-        match self.into_root() {
-            NexusOutput::Sema(input) => input.with_origin_route(origin_route),
-            NexusOutput::Signal(_) => panic!("nexus output is a signal reply, not a SEMA input"),
-        }
-    }
-
-    pub fn into_signal_output(self) -> signal_plane::Signal<Output> {
-        let origin_route = self.origin_route();
-        match self.into_root() {
-            NexusOutput::Signal(output) => output.with_origin_route(origin_route),
-            NexusOutput::Sema(_) => panic!("nexus output is a SEMA input, not a signal reply"),
-        }
-    }
-}
-
-impl sema_plane::Sema<sema_plane::Output> {
-    pub fn into_nexus_input(self) -> nexus_plane::Nexus<nexus_plane::Input> {
-        let origin_route = self.origin_route();
-        NexusInput::Sema(self.into_root()).with_origin_route(origin_route)
-    }
-}
-
-impl SemaOutput {
-    pub fn into_signal_output(self) -> Output {
-        match self {
-            Self::Recorded(identifier) => Output::RecordAccepted(identifier),
-            Self::Observed(records) => Output::RecordsObserved(records),
-            Self::Removed(receipt) => Output::RecordRemoved(receipt),
-            Self::Missed(error) => Output::Error(error),
         }
     }
 }

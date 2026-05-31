@@ -1,6 +1,6 @@
 use crate::{
-    DatabaseMarker, Entry, MailLedger, MessageIdentifier, MessageProcessed, MessageProcessedHook,
-    NexusEngine, NexusMail, OriginRoute, Output, Query, RecordIdentifier, SemaEngine,
+    DatabaseMarker, Input, MailLedger, MessageIdentifier, MessageProcessed, MessageProcessedHook,
+    NexusEngine, NexusInput, NexusMail, OriginRoute, Output, SemaEngine,
     schema::lib::{nexus as nexus_plane, sema as sema_plane, signal as signal_plane},
     store::Store,
 };
@@ -94,50 +94,19 @@ impl Nexus {
     }
 }
 
-/// Take ownership of accepted mail of a given payload, lowering it into
-/// the SEMA language so the in-flight mail already speaks SEMA. Attached
-/// to the in-flight [`Mail`] phase, one impl per Signal payload type, so
-/// the inbound translation lives on a noun rather than a free helper.
+/// Take ownership of accepted Signal payload mail, lowering it through the
+/// generated Nexus projection into the SEMA language so the in-flight mail
+/// already speaks SEMA.
 pub trait FromMail<Payload> {
     fn from_mail(mail: NexusMail<Payload>) -> Self;
 }
 
-impl FromMail<Entry> for Mail<BeingProcessed> {
-    fn from_mail(mail: NexusMail<Entry>) -> Self {
-        let identifier = mail.identifier();
-        let origin_route = mail.origin_route();
-        Self {
-            identifier,
-            origin_route,
-            phase: BeingProcessed {
-                sema_input: mail
-                    .into_nexus_input()
-                    .into_nexus_output()
-                    .into_sema_input(),
-            },
-        }
-    }
-}
-
-impl FromMail<Query> for Mail<BeingProcessed> {
-    fn from_mail(mail: NexusMail<Query>) -> Self {
-        let identifier = mail.identifier();
-        let origin_route = mail.origin_route();
-        Self {
-            identifier,
-            origin_route,
-            phase: BeingProcessed {
-                sema_input: mail
-                    .into_nexus_input()
-                    .into_nexus_output()
-                    .into_sema_input(),
-            },
-        }
-    }
-}
-
-impl FromMail<RecordIdentifier> for Mail<BeingProcessed> {
-    fn from_mail(mail: NexusMail<RecordIdentifier>) -> Self {
+impl<Payload> FromMail<Payload> for Mail<BeingProcessed>
+where
+    Input: From<Payload>,
+    NexusInput: From<Input>,
+{
+    fn from_mail(mail: NexusMail<Payload>) -> Self {
         let identifier = mail.identifier();
         let origin_route = mail.origin_route();
         Self {

@@ -264,6 +264,132 @@ pub enum Output {
     Rejected(SignalRejection),
 }
 
+impl From<Input> for NexusInput {
+    fn from(payload: Input) -> Self {
+        Self::Signal(payload)
+    }
+}
+
+impl From<SemaOutput> for NexusInput {
+    fn from(payload: SemaOutput) -> Self {
+        Self::Sema(payload)
+    }
+}
+
+impl From<SemaInput> for NexusOutput {
+    fn from(payload: SemaInput) -> Self {
+        Self::Sema(payload)
+    }
+}
+
+impl From<Output> for NexusOutput {
+    fn from(payload: Output) -> Self {
+        Self::Signal(payload)
+    }
+}
+
+impl From<Entry> for SemaInput {
+    fn from(payload: Entry) -> Self {
+        Self::Record(payload)
+    }
+}
+
+impl From<Query> for SemaInput {
+    fn from(payload: Query) -> Self {
+        Self::Observe(payload)
+    }
+}
+
+impl From<RecordIdentifier> for SemaInput {
+    fn from(payload: RecordIdentifier) -> Self {
+        Self::Remove(payload)
+    }
+}
+
+impl From<SemaReceipt> for SemaOutput {
+    fn from(payload: SemaReceipt) -> Self {
+        Self::Recorded(payload)
+    }
+}
+
+impl From<ObservedRecords> for SemaOutput {
+    fn from(payload: ObservedRecords) -> Self {
+        Self::Observed(payload)
+    }
+}
+
+impl From<RemoveReceipt> for SemaOutput {
+    fn from(payload: RemoveReceipt) -> Self {
+        Self::Removed(payload)
+    }
+}
+
+impl From<ErrorReport> for SemaOutput {
+    fn from(payload: ErrorReport) -> Self {
+        Self::Missed(payload)
+    }
+}
+
+impl From<SentMail> for MailLedgerEvent {
+    fn from(payload: SentMail) -> Self {
+        Self::Sent(payload)
+    }
+}
+
+impl From<ProcessedMail> for MailLedgerEvent {
+    fn from(payload: ProcessedMail) -> Self {
+        Self::Processed(payload)
+    }
+}
+
+impl From<Entry> for Input {
+    fn from(payload: Entry) -> Self {
+        Self::Record(payload)
+    }
+}
+
+impl From<Query> for Input {
+    fn from(payload: Query) -> Self {
+        Self::Observe(payload)
+    }
+}
+
+impl From<RecordIdentifier> for Input {
+    fn from(payload: RecordIdentifier) -> Self {
+        Self::Remove(payload)
+    }
+}
+
+impl From<SemaReceipt> for Output {
+    fn from(payload: SemaReceipt) -> Self {
+        Self::RecordAccepted(payload)
+    }
+}
+
+impl From<ObservedRecords> for Output {
+    fn from(payload: ObservedRecords) -> Self {
+        Self::RecordsObserved(payload)
+    }
+}
+
+impl From<RemoveReceipt> for Output {
+    fn from(payload: RemoveReceipt) -> Self {
+        Self::RecordRemoved(payload)
+    }
+}
+
+impl From<ErrorReport> for Output {
+    fn from(payload: ErrorReport) -> Self {
+        Self::Error(payload)
+    }
+}
+
+impl From<SignalRejection> for Output {
+    fn from(payload: SignalRejection) -> Self {
+        Self::Rejected(payload)
+    }
+}
+
 #[cfg(feature = "nota-text")]
 impl SourcePath {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
@@ -1193,6 +1319,62 @@ impl SemaInput {
 impl SemaOutput {
     pub fn with_origin_route(self, origin_route: OriginRoute) -> sema::Sema<Self> {
         sema::Sema::new(origin_route, self)
+    }
+}
+
+impl<Payload> NexusMail<Payload>
+where
+    Input: From<Payload>,
+    NexusInput: From<Input>,
+{
+    pub fn into_nexus_input(self) -> nexus::Nexus<nexus::Input> {
+        let origin_route = self.origin_route();
+        NexusInput::from(Input::from(self.into_payload())).with_origin_route(origin_route)
+    }
+}
+
+impl nexus::Nexus<nexus::Input> {
+    pub fn into_nexus_output(self) -> nexus::Nexus<nexus::Output> {
+        let origin_route = self.origin_route();
+        match self.into_root() {
+            NexusInput::Signal(input) => match input {
+                Input::Record(payload) => NexusOutput::from(SemaInput::from(payload)),
+                Input::Observe(payload) => NexusOutput::from(SemaInput::from(payload)),
+                Input::Remove(payload) => NexusOutput::from(SemaInput::from(payload)),
+            },
+            NexusInput::Sema(output) => match output {
+                SemaOutput::Recorded(payload) => NexusOutput::from(Output::from(payload)),
+                SemaOutput::Observed(payload) => NexusOutput::from(Output::from(payload)),
+                SemaOutput::Removed(payload) => NexusOutput::from(Output::from(payload)),
+                SemaOutput::Missed(payload) => NexusOutput::from(Output::from(payload)),
+            },
+        }
+        .with_origin_route(origin_route)
+    }
+}
+
+impl nexus::Nexus<nexus::Output> {
+    pub fn into_sema_input(self) -> sema::Sema<sema::Input> {
+        let origin_route = self.origin_route();
+        match self.into_root() {
+            NexusOutput::Sema(input) => input.with_origin_route(origin_route),
+            _ => panic!("nexus output is a signal reply, not a SEMA input"),
+        }
+    }
+
+    pub fn into_signal_output(self) -> signal::Signal<signal::Output> {
+        let origin_route = self.origin_route();
+        match self.into_root() {
+            NexusOutput::Signal(output) => output.with_origin_route(origin_route),
+            _ => panic!("nexus output is a SEMA input, not a signal reply"),
+        }
+    }
+}
+
+impl sema::Sema<sema::Output> {
+    pub fn into_nexus_input(self) -> nexus::Nexus<nexus::Input> {
+        let origin_route = self.origin_route();
+        NexusInput::from(self.into_root()).with_origin_route(origin_route)
     }
 }
 

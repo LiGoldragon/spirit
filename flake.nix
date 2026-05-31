@@ -293,9 +293,17 @@
             grep -R "into_being_processed" ${src}/src/engine.rs >/dev/null
             ! grep -R "self.store" ${src}/src/engine.rs
             ! grep -R "store.lock" ${src}/src/engine.rs
-            grep -R "NexusMail<Entry>" ${src}/src/engine.rs >/dev/null
-            grep -R "NexusMail<Query>" ${src}/src/engine.rs >/dev/null
-            grep -R "NexusMail<RecordIdentifier>" ${src}/src/engine.rs >/dev/null
+            grep -R "impl<Payload> FromMail<Payload> for Mail<BeingProcessed>" ${src}/src/nexus.rs >/dev/null
+            grep -R "impl<Payload> NexusMail<Payload>" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "Input: From<Payload>" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "NexusInput: From<Input>" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "impl From<Entry> for Input" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "impl From<Query> for Input" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "impl From<RecordIdentifier> for Input" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "impl From<SemaReceipt> for Output" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "impl nexus::Nexus<nexus::Input>" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "impl nexus::Nexus<nexus::Output>" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "impl sema::Sema<sema::Output>" ${src}/src/schema/lib.rs >/dev/null
             grep -R "MessageProcessed<Output>" ${src}/src/engine.rs >/dev/null
             grep -R "into_mail_ledger_event" ${src}/src/engine.rs >/dev/null
             grep -R "MailLedgerEvent" ${src}/src/engine.rs >/dev/null
