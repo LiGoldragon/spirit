@@ -25,7 +25,7 @@ Load-bearing constraints:
   of `schema/lib.schema`, emits Rust from the checked-in `.asschema` artifact,
   and keeps `.asschema.rkyv` as a generated binary cache/witness.
 - `schema/lib.schema` preserves NOTA brace semantics: braces are key-value
-  maps, not collections of self-named single objects. A namespace entry is a
+  maps, not collections of one-object declarations. A namespace entry is a
   pair such as `Topic String`, `Entry { Topics * Kind * }`, or `Kind [...]`.
   Struct fields are also key-value pairs; `Topics *` means the key names the
   field and `*` reuses the same type, while `kind (Optional Kind)` binds a
@@ -35,8 +35,8 @@ Load-bearing constraints:
   data-carrying variants.
   Single-reference declarations such as `Topic String` and
   `Topics (Vec Topic)` lower to real tuple newtypes, not one-field maps. The
-  generated `Asschema` and emitted Rust stay equivalent to the previous
-  pipe-family and self-named `@` sources.
+  generated `Asschema` and emitted Rust consume only the strict authored
+  surface.
 - The generated file path from schema-rust is crate-relative
   `src/schema/lib.rs`; build code uses that path directly instead of treating
   `schema/lib.rs` as relative to `src/`.

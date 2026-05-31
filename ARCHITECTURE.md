@@ -35,12 +35,12 @@ the `nota-text` tree must contain it.
 The current `schema/lib.schema` intentionally keeps braces strict as NOTA
 key-value maps. The namespace contains pairs such as `Topic String`,
 `RecordSet (Vec Entry)`, and `Entry { Topics * Kind * Description * }`; it
-does not contain self-named single objects such as `Entry@{...}`. Inside a
-struct map, `Topics *` derives the `topics` field from the existing `Topics`
-type, and explicit bindings such as `kind (Optional Kind)` stay only where the
-field name differs from the referenced type. Single-reference declarations
-(`Topic String`, `RecordSet (Vec Entry)`) are newtypes in asschema and emitted
-Rust.
+does not contain declarations that repeat their own name inside the value.
+Inside a struct map, `Topics *` derives the `topics` field from the existing
+`Topics` type, and explicit bindings such as `kind (Optional Kind)` stay only
+where the field name differs from the referenced type. Single-reference
+declarations (`Topic String`, `RecordSet (Vec Entry)`) are newtypes in
+asschema and emitted Rust.
 
 Enum bodies keep vector homogeneity. A unit variant is a bare symbol, and a
 data-carrying variant is a parenthesized signature such as `(Record Entry)`.

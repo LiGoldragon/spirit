@@ -448,7 +448,7 @@ checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 [[package]]
 name = "schema-next"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#0732a129fc6b66ad3f8b41c581b1f33b6f8f7d7e"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#d8006b6fe904abf464da9ca57cd5af921cc185c4"
 dependencies = [
  "nota-next",
  "redb",
@@ -458,7 +458,7 @@ dependencies = [
 [[package]]
 name = "schema-rust-next"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#e7953a44d4e68069be2c7bce1e6a10fb1a205ce7"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#abadd82f563884ee26eee2c2ed16c089c166f995"
 dependencies = [
  "schema-next",
 ]
