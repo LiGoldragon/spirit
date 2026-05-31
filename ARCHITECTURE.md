@@ -44,7 +44,7 @@ Rust.
 
 Enum bodies keep vector homogeneity. A unit variant is a bare symbol, and a
 data-carrying variant is a parenthesized signature such as `(Record Entry)`.
-The vector does not contain `Record@ Entry` pseudo-pairs.
+The vector does not contain pseudo key-value pairs.
 
 The three runtime centers are concrete objects: `SignalActor` (admission),
 `Nexus` (mail keeper + translator, owns the store + ledger), and `Store` (the
