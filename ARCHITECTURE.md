@@ -42,6 +42,10 @@ field name differs from the referenced type. Single-reference declarations
 (`Topic String`, `RecordSet (Vec Entry)`) are newtypes in asschema and emitted
 Rust.
 
+Enum bodies keep vector homogeneity. A unit variant is a bare symbol, and a
+data-carrying variant is a parenthesized signature such as `(Record Entry)`.
+The vector does not contain `Record@ Entry` pseudo-pairs.
+
 The three runtime centers are concrete objects: `SignalActor` (admission),
 `Nexus` (mail keeper + translator, owns the store + ledger), and `Store` (the
 durable `.sema` redb database). `Engine` composes them and owns no SEMA state
@@ -215,9 +219,11 @@ The known root positions provide the Signal input and output enum names, so the
 root enum bodies are bare square-bracket values. Namespace declarations are
 key-value pairs: a brace value declares a struct map, a square-bracket value
 declares an enum variant list, and an atom or parenthesized reference declares
-a newtype. Parentheses remain the composite/reference and macro-call argument
-shape. That authored syntax lowers to the same `Asschema` roots and namespace
-before `src/schema/lib.rs` is regenerated.
+a newtype. Data-carrying enum variants are parenthesized signatures such as
+`(Record Entry)`; parentheses also remain the composite/reference and
+macro-call argument shape at reference positions. That authored syntax lowers
+to the same `Asschema` roots and namespace before `src/schema/lib.rs` is
+regenerated.
 
 The generated Rust exposes plane namespaces over those bootstrap backing names:
 `signal::Input`, `nexus::Input`, and `sema::Input` (plus matching `Output`).

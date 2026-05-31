@@ -1,6 +1,6 @@
 {}
-[Record@ Entry Observe@ Query Remove@ RecordIdentifier]
-[RecordAccepted@ SemaReceipt RecordsObserved@ ObservedRecords RecordRemoved@ RemoveReceipt Error@ ErrorReport Rejected@ SignalRejection]
+[(Record Entry) (Observe Query) (Remove RecordIdentifier)]
+[(RecordAccepted SemaReceipt) (RecordsObserved ObservedRecords) (RecordRemoved RemoveReceipt) (Error ErrorReport) (Rejected SignalRejection)]
 {
   SourcePath String
   LocalPath String
@@ -10,10 +10,10 @@
   SignalReuse { Import * Export * }
   NexusReuse { Import * Export * }
   SemaReuse { Import * Export * }
-  NexusInput [Signal@ Input Sema@ SemaOutput]
-  NexusOutput [Sema@ SemaInput Signal@ Output]
-  SemaInput [Record@ Entry Observe@ Query Remove@ RecordIdentifier]
-  SemaOutput [Recorded@ SemaReceipt Observed@ ObservedRecords Removed@ RemoveReceipt Missed@ ErrorReport]
+  NexusInput [(Signal Input) (Sema SemaOutput)]
+  NexusOutput [(Sema SemaInput) (Signal Output)]
+  SemaInput [(Record Entry) (Observe Query) (Remove RecordIdentifier)]
+  SemaOutput [(Recorded SemaReceipt) (Observed ObservedRecords) (Removed RemoveReceipt) (Missed ErrorReport)]
   Topic String
   Topics (Vec Topic)
   Description String
@@ -32,8 +32,8 @@
   ShortHeader Integer
   SentMail { MailIdentifier * OriginRoute * ShortHeader * }
   ProcessedMail { MailIdentifier * OriginRoute * DatabaseMarker * }
-  MailLedgerEvent [Sent@ SentMail Processed@ ProcessedMail]
-  TopicMatch [Partial@ Topics Full@ Topics]
+  MailLedgerEvent [(Sent SentMail) (Processed ProcessedMail)]
+  TopicMatch [(Partial Topics) (Full Topics)]
   Entry { Topics * Kind * Description * Magnitude * }
   Query { TopicMatch * kind (Optional Kind) }
   RecordSet (Vec Entry)

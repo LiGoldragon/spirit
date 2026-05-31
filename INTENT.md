@@ -30,8 +30,9 @@ Load-bearing constraints:
   Struct fields are also key-value pairs; `Topics *` means the key names the
   field and `*` reuses the same type, while `kind (Optional Kind)` binds a
   field to a different composite reference. Enum bodies are square-bracket
-  variant lists; data-carrying variants use the key-side sigil form such as
-  `Record@ Entry`, where the keyed variant carries the paired payload type.
+  variant lists whose elements are one type: bare PascalCase symbols for unit
+  variants and parenthesized records such as `(Record Entry)` for
+  data-carrying variants.
   Single-reference declarations such as `Topic String` and
   `Topics (Vec Topic)` lower to real tuple newtypes, not one-field maps. The
   generated `Asschema` and emitted Rust stay equivalent to the previous
