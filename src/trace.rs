@@ -12,32 +12,32 @@ pub struct TraceLog {
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum TraceEvent {
-    SignalAdmission {
+    SignalAdmitted {
         origin_route: OriginRoute,
         input: Input,
     },
-    SignalRejection {
+    SignalRejected {
         origin_route: OriginRoute,
         validation_error: ValidationError,
     },
-    SignalReply {
+    SignalReplied {
         origin_route: OriginRoute,
         output: Output,
     },
-    NexusExecute {
+    NexusEntered {
         origin_route: OriginRoute,
         input: NexusInput,
     },
-    NexusDecision {
+    NexusDecided {
         origin_route: OriginRoute,
         output: NexusOutput,
     },
-    SemaApply {
+    SemaWriteApplied {
         origin_route: OriginRoute,
         input: SemaWriteInput,
         output: SemaWriteOutput,
     },
-    SemaObserve {
+    SemaReadObserved {
         origin_route: OriginRoute,
         input: SemaReadInput,
         output: SemaReadOutput,

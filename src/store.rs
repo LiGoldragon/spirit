@@ -71,7 +71,7 @@ impl SemaEngine for Store {
             },
         };
         #[cfg(feature = "testing-trace")]
-        self.trace_log.record(TraceEvent::SemaApply {
+        self.trace_log.record(TraceEvent::SemaWriteApplied {
             origin_route,
             input: trace_input,
             output: output.clone(),
@@ -103,7 +103,7 @@ impl SemaEngine for Store {
             },
         };
         #[cfg(feature = "testing-trace")]
-        self.trace_log.record(TraceEvent::SemaObserve {
+        self.trace_log.record(TraceEvent::SemaReadObserved {
             origin_route,
             input: trace_input,
             output: output.clone(),

@@ -60,13 +60,13 @@ impl NexusEngine for Nexus {
         input: nexus_plane::Nexus<nexus_plane::Input>,
     ) -> nexus_plane::Nexus<nexus_plane::Output> {
         #[cfg(feature = "testing-trace")]
-        self.trace_log.record(TraceEvent::NexusExecute {
+        self.trace_log.record(TraceEvent::NexusEntered {
             origin_route: input.origin_route(),
             input: input.root().clone(),
         });
         let output = input.into_nexus_output();
         #[cfg(feature = "testing-trace")]
-        self.trace_log.record(TraceEvent::NexusDecision {
+        self.trace_log.record(TraceEvent::NexusDecided {
             origin_route: output.origin_route(),
             output: output.root().clone(),
         });

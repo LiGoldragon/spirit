@@ -146,7 +146,7 @@ impl SignalActor {
         let identifier = self.issue_message_identifier();
         if let Err(validation_error) = signal_input.root().validate() {
             #[cfg(feature = "testing-trace")]
-            self.trace_log.record(TraceEvent::SignalRejection {
+            self.trace_log.record(TraceEvent::SignalRejected {
                 origin_route,
                 validation_error: validation_error.clone(),
             });
@@ -158,7 +158,7 @@ impl SignalActor {
             });
         }
         #[cfg(feature = "testing-trace")]
-        self.trace_log.record(TraceEvent::SignalAdmission {
+        self.trace_log.record(TraceEvent::SignalAdmitted {
             origin_route,
             input: signal_input.root().clone(),
         });
@@ -193,7 +193,7 @@ impl SignalEngine for SignalActor {
     fn reply(&self, output: nexus_plane::Nexus<NexusOutput>) -> signal_plane::Signal<Output> {
         let signal_output = output.into_signal_output();
         #[cfg(feature = "testing-trace")]
-        self.trace_log.record(TraceEvent::SignalReply {
+        self.trace_log.record(TraceEvent::SignalReplied {
             origin_route: signal_output.origin_route(),
             output: signal_output.root().clone(),
         });
@@ -434,7 +434,7 @@ impl SignalRejected {
             .into_signal_output(database_marker)
             .with_origin_route(self.origin_route);
         #[cfg(feature = "testing-trace")]
-        self.trace_log.record(TraceEvent::SignalReply {
+        self.trace_log.record(TraceEvent::SignalReplied {
             origin_route: signal_output.origin_route(),
             output: signal_output.root().clone(),
         });

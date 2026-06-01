@@ -61,7 +61,7 @@ fn testing_trace_records_real_signal_nexus_and_sema_trait_calls() {
     );
 
     match &events[0] {
-        TraceEvent::SignalAdmission {
+        TraceEvent::SignalAdmitted {
             origin_route,
             input,
         } => {
@@ -71,7 +71,7 @@ fn testing_trace_records_real_signal_nexus_and_sema_trait_calls() {
         other => panic!("expected signal admission event, got {other:?}"),
     }
     match &events[1] {
-        TraceEvent::NexusExecute {
+        TraceEvent::NexusEntered {
             origin_route,
             input,
         } => {
@@ -81,7 +81,7 @@ fn testing_trace_records_real_signal_nexus_and_sema_trait_calls() {
         other => panic!("expected nexus entry event, got {other:?}"),
     }
     match &events[2] {
-        TraceEvent::NexusDecision {
+        TraceEvent::NexusDecided {
             origin_route,
             output,
         } => {
@@ -91,7 +91,7 @@ fn testing_trace_records_real_signal_nexus_and_sema_trait_calls() {
         other => panic!("expected nexus decision event, got {other:?}"),
     }
     match &events[3] {
-        TraceEvent::SemaApply {
+        TraceEvent::SemaWriteApplied {
             origin_route,
             input,
             output,
@@ -109,7 +109,7 @@ fn testing_trace_records_real_signal_nexus_and_sema_trait_calls() {
         other => panic!("expected SEMA write event, got {other:?}"),
     }
     match &events[4] {
-        TraceEvent::SignalReply {
+        TraceEvent::SignalReplied {
             origin_route,
             output,
         } => {
@@ -120,7 +120,7 @@ fn testing_trace_records_real_signal_nexus_and_sema_trait_calls() {
     }
 
     match &events[5] {
-        TraceEvent::SignalAdmission {
+        TraceEvent::SignalAdmitted {
             origin_route,
             input,
         } => {
@@ -130,26 +130,26 @@ fn testing_trace_records_real_signal_nexus_and_sema_trait_calls() {
         other => panic!("expected observe signal admission event, got {other:?}"),
     }
     match &events[6] {
-        TraceEvent::NexusExecute { input, .. } => {
+        TraceEvent::NexusEntered { input, .. } => {
             assert!(matches!(input, spirit_next::NexusInput::Signal(_)));
         }
         other => panic!("expected observe nexus entry event, got {other:?}"),
     }
     match &events[7] {
-        TraceEvent::NexusDecision { output, .. } => {
+        TraceEvent::NexusDecided { output, .. } => {
             assert!(matches!(output, spirit_next::NexusOutput::SemaRead(_)));
         }
         other => panic!("expected observe nexus decision event, got {other:?}"),
     }
     match &events[8] {
-        TraceEvent::SemaObserve { input, output, .. } => {
+        TraceEvent::SemaReadObserved { input, output, .. } => {
             assert!(matches!(input, SemaReadInput::Observe(_)));
             assert!(matches!(output, SemaReadOutput::Observed(_)));
         }
         other => panic!("expected SEMA read event, got {other:?}"),
     }
     match &events[9] {
-        TraceEvent::SignalReply { output, .. } => {
+        TraceEvent::SignalReplied { output, .. } => {
             assert!(matches!(output, Output::RecordsObserved(_)));
         }
         other => panic!("expected observe signal reply event, got {other:?}"),
@@ -192,11 +192,11 @@ fn testing_trace_records_signal_rejection_without_nexus_or_sema_events() {
     assert_eq!(
         trace_log.events(),
         vec![
-            TraceEvent::SignalRejection {
+            TraceEvent::SignalRejected {
                 origin_route: output.origin_route(),
                 validation_error: ValidationError::EmptyTopic,
             },
-            TraceEvent::SignalReply {
+            TraceEvent::SignalReplied {
                 origin_route: output.origin_route(),
                 output: output.root().clone(),
             },
