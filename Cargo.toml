@@ -34,6 +34,12 @@ required-features = ["nota-text"]
 [features]
 default = []
 nota-text = ["dep:nota-next"]
+testing-trace = []
+
+[[test]]
+name = "instrumentation_logging"
+path = "tests/instrumentation_logging.rs"
+required-features = ["testing-trace"]
 
 [dependencies]
 nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }

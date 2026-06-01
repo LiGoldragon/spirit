@@ -3,6 +3,9 @@ use crate::{
     schema::lib::nexus as nexus_plane, store::Store,
 };
 
+#[cfg(feature = "testing-trace")]
+use crate::{TraceEvent, TraceLog};
+
 /// Nexus is the runtime decision center between Signal and SEMA.
 ///
 /// Signal admits and triages wire input. Nexus owns the durable SEMA
@@ -14,6 +17,8 @@ use crate::{
 pub struct Nexus {
     store: Store,
     mail_ledger: MailLedger,
+    #[cfg(feature = "testing-trace")]
+    trace_log: TraceLog,
 }
 
 impl Nexus {
@@ -22,6 +27,17 @@ impl Nexus {
         Self {
             store,
             mail_ledger: MailLedger::default(),
+            #[cfg(feature = "testing-trace")]
+            trace_log: TraceLog::disabled(),
+        }
+    }
+
+    #[cfg(feature = "testing-trace")]
+    pub fn new_with_trace(store: Store, trace_log: TraceLog) -> Self {
+        Self {
+            store: store.with_trace(trace_log.clone()),
+            mail_ledger: MailLedger::default(),
+            trace_log,
         }
     }
 
@@ -43,7 +59,17 @@ impl NexusEngine for Nexus {
         &mut self,
         input: nexus_plane::Nexus<nexus_plane::Input>,
     ) -> nexus_plane::Nexus<nexus_plane::Output> {
+        #[cfg(feature = "testing-trace")]
+        self.trace_log.record(TraceEvent::NexusExecute {
+            origin_route: input.origin_route(),
+            input: input.root().clone(),
+        });
         let output = input.into_nexus_output();
+        #[cfg(feature = "testing-trace")]
+        self.trace_log.record(TraceEvent::NexusDecision {
+            origin_route: output.origin_route(),
+            output: output.root().clone(),
+        });
         let origin_route = output.origin_route();
         match output.into_root() {
             NexusOutput::SemaWrite(input) => {

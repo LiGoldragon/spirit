@@ -145,6 +145,10 @@
             cargoArtifacts = notaTextCargoArtifacts;
             cargoExtraArgs = "--features nota-text";
           });
+          test-testing-trace = craneLib.cargoTest (commonArguments // {
+            cargoArtifacts = binaryCargoArtifacts;
+            cargoExtraArgs = "--features testing-trace --test instrumentation_logging";
+          });
           no-old-signal-macro = pkgs.runCommand "spirit-next-no-old-signal-macro" { } ''
             if grep -R "signal_channel!" ${src}/build.rs ${src}/schema ${src}/src ${src}/tests; then
               echo "spirit-next must not use the old signal_channel macro" >&2
@@ -184,59 +188,21 @@
             touch $out
           '';
           nota-surface-is-opt-in = pkgs.runCommand "spirit-next-nota-surface-is-opt-in" { } ''
-            grep -R 'required-features = \["nota-text"\]' ${src}/Cargo.toml >/dev/null
-            grep -R 'optional = true' ${src}/Cargo.toml | grep 'nota-next' >/dev/null
-            grep -R "binary_only_surface_has_no_nota_next_runtime_dependency" ${src}/tests/dependency_surface.rs >/dev/null
-            grep -R "text_client_surface_has_nota_next_runtime_dependency" ${src}/tests/dependency_surface.rs >/dev/null
-            grep -R '#\[cfg(feature = "nota-text")\]' ${src}/src/schema/lib.rs >/dev/null
-            grep -R 'cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))' ${src}/src/schema/lib.rs >/dev/null
-            grep -R "from_binary_path" ${src}/src/config.rs >/dev/null
-            grep -R "write_binary_file" ${src}/src/config.rs >/dev/null
+            # Positive proof lives in tests/dependency_surface.rs, which
+            # runs cargo tree for the binary-only and nota-text surfaces.
+            # This check is only the negative guard for daemon-side text
+            # decoder leakage.
             ! grep -R "nota_next" ${src}/src/config.rs ${src}/src/daemon.rs ${src}/src/bin/spirit-next-daemon.rs
             ! grep -R "NotaSource" ${src}/src/config.rs ${src}/src/daemon.rs ${src}/src/bin/spirit-next-daemon.rs
             touch $out
           '';
           binary-boundary-test = pkgs.runCommand "spirit-next-binary-boundary-test" { } ''
-            grep -R "encode_signal_frame" ${src}/src/transport.rs >/dev/null
-            grep -R "decode_signal_frame" ${src}/src/transport.rs >/dev/null
+            # Positive proof lives in socket_negative.rs and
+            # process_boundary.rs, which cross the real frame decoder and
+            # Unix socket. This check only keeps transport from growing a
+            # hand-written rkyv codec beside the generated frame methods.
             ! grep -R "rkyv::to_bytes" ${src}/src/transport.rs
             ! grep -R "rkyv::from_bytes" ${src}/src/transport.rs
-            grep -R "Command::new(env!(\"CARGO_BIN_EXE_spirit-next\"))" ${src}/tests/process_boundary.rs >/dev/null
-            grep -R "transport_rejects_length_prefixed_raw_nota_text" ${src}/tests/socket_negative.rs >/dev/null
-            grep -R "generated_input_decoder_rejects_raw_nota_text_directly" ${src}/tests/socket_negative.rs >/dev/null
-            touch $out
-          '';
-          # Per record 1006 (Maximum, 2026-05-27): tests must PROVE not
-          # pretend. The nix-integration test surface launches the
-          # SAME schema-built binaries Nix produces, exchanging real
-          # rkyv signal frames over a real Unix socket. This check
-          # verifies the integration test file's anchors are intact
-          # so future drift doesn't silently regress proof-shape.
-          nix-integration-witness = pkgs.runCommand "spirit-next-nix-integration-witness" { } ''
-            test -f ${src}/tests/nix_integration.rs
-            test -x ${src}/scripts/run-nix-integration-tests
-            grep -R "SPIRIT_NEXT_NIX_BUILD_RESULT" ${src}/tests/nix_integration.rs >/dev/null
-            grep -R "SPIRIT_NEXT_NIX_BUILD_RESULT" ${src}/scripts/run-nix-integration-tests >/dev/null
-            # Each test parses CLI stdout back through the schema-emitted
-            # Output::FromStr, never asserting on raw strings.
-            grep -R "Output::from_str" ${src}/tests/nix_integration.rs >/dev/null
-            # The variant tour proves every schema-emitted Output variant
-            # round-trips through CLI stdout intact.
-            grep -R "nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant" ${src}/tests/nix_integration.rs >/dev/null
-            # The Rejected and Error variants are both exercised through
-            # the binary boundary, not in-process.
-            grep -R "Output::Rejected" ${src}/tests/nix_integration.rs >/dev/null
-            grep -R "Output::Error" ${src}/tests/nix_integration.rs >/dev/null
-            grep -R "Output::RecordAccepted" ${src}/tests/nix_integration.rs >/dev/null
-            grep -R "Output::RecordsObserved" ${src}/tests/nix_integration.rs >/dev/null
-            # The test uses the schema-emitted ValidationError variant.
-            grep -R "ValidationError::EmptyTopic" ${src}/tests/nix_integration.rs >/dev/null
-            # The test spawns the daemon and CLI binaries through the
-            # Nix-built directory, not via CARGO_BIN_EXE (which would be
-            # a cargo-built artifact, not Nix-built).
-            grep -R "spirit_daemon" ${src}/tests/nix_integration.rs >/dev/null
-            grep -R "spirit_cli" ${src}/tests/nix_integration.rs >/dev/null
-            ! grep -R "CARGO_BIN_EXE" ${src}/tests/nix_integration.rs
             touch $out
           '';
           retired-triad-surfaces-absent = pkgs.runCommand "spirit-next-retired-triad-surfaces-absent" { } ''
@@ -305,13 +271,6 @@
             grep -F "(Observe (Some (Plain Query)))" ${src}/schema/lib.asschema >/dev/null
             grep -F "(EmptyTopic None)" ${src}/schema/lib.asschema >/dev/null
             grep -F "(Decision None)" ${src}/schema/lib.asschema >/dev/null
-            # Named witness functions in the test file.
-            grep -R "lib_schema_input_uses_honest_parenthesized_data_variants" ${src}/tests/operator_271_closed_claims.rs >/dev/null
-            grep -R "lib_schema_output_uses_honest_parenthesized_data_variants" ${src}/tests/operator_271_closed_claims.rs >/dev/null
-            grep -R "lib_schema_unit_variant_enum_uses_bare_pascal_case_atoms" ${src}/tests/operator_271_closed_claims.rs >/dev/null
-            grep -R "lib_schema_carries_no_at_sigil_anywhere" ${src}/tests/operator_271_closed_claims.rs >/dev/null
-            grep -R "lib_asschema_lifts_honest_data_variants_into_typed_records" ${src}/tests/operator_271_closed_claims.rs >/dev/null
-            grep -R "schema_emitted_rust_module_mirrors_honest_enum_variants" ${src}/tests/operator_271_closed_claims.rs >/dev/null
             touch $out
           '';
           local-schema-source-patches = pkgs.runCommand "spirit-next-local-schema-source-patches" { } ''

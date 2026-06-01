@@ -8,6 +8,9 @@ use crate::{
     SemaReceipt, SemaWriteInput, SemaWriteOutput, StateDigest, schema::lib::sema as sema_plane,
 };
 
+#[cfg(feature = "testing-trace")]
+use crate::{TraceEvent, TraceLog};
+
 /// redb table of durable records: identifier -> rkyv-archived `Entry`.
 const RECORDS: TableDefinition<u64, &[u8]> = TableDefinition::new("records");
 /// redb table of the SEMA commit ledger: a single-key counter pair.
@@ -29,6 +32,8 @@ const COMMIT_SEQUENCE_KEY: &str = "commit-sequence";
 pub struct Store {
     database: Database,
     path: PathBuf,
+    #[cfg(feature = "testing-trace")]
+    trace_log: TraceLog,
 }
 
 impl SemaEngine for Store {
@@ -37,6 +42,8 @@ impl SemaEngine for Store {
         command: sema_plane::Sema<sema_plane::WriteInput>,
     ) -> sema_plane::Sema<sema_plane::WriteOutput> {
         let origin_route = command.origin_route();
+        #[cfg(feature = "testing-trace")]
+        let trace_input = command.root().clone();
         let output = match command.into_root() {
             SemaWriteInput::Record(entry) => match self.record(entry) {
                 Ok(identifier) => SemaWriteOutput::Recorded(SemaReceipt {
@@ -63,6 +70,12 @@ impl SemaEngine for Store {
                 }),
             },
         };
+        #[cfg(feature = "testing-trace")]
+        self.trace_log.record(TraceEvent::SemaApply {
+            origin_route,
+            input: trace_input,
+            output: output.clone(),
+        });
         output.with_origin_route(origin_route)
     }
 
@@ -71,6 +84,8 @@ impl SemaEngine for Store {
         query: sema_plane::Sema<sema_plane::ReadInput>,
     ) -> sema_plane::Sema<sema_plane::ReadOutput> {
         let origin_route = query.origin_route();
+        #[cfg(feature = "testing-trace")]
+        let trace_input = query.root().clone();
         let output = match query.into_root() {
             SemaReadInput::Observe(query) => match self.observe(&query) {
                 Ok(entries) if !entries.is_empty() => SemaReadOutput::Observed(ObservedRecords {
@@ -87,6 +102,12 @@ impl SemaEngine for Store {
                 }),
             },
         };
+        #[cfg(feature = "testing-trace")]
+        self.trace_log.record(TraceEvent::SemaObserve {
+            origin_route,
+            input: trace_input,
+            output: output.clone(),
+        });
         output.with_origin_route(origin_route)
     }
 }
@@ -106,9 +127,28 @@ impl Store {
         } else {
             Database::create(&path)?
         };
-        let store = Self { database, path };
+        let store = Self {
+            database,
+            path,
+            #[cfg(feature = "testing-trace")]
+            trace_log: TraceLog::disabled(),
+        };
         store.ensure_tables()?;
         Ok(store)
+    }
+
+    #[cfg(feature = "testing-trace")]
+    pub fn open_with_trace(
+        path: impl Into<PathBuf>,
+        trace_log: TraceLog,
+    ) -> Result<Self, StoreError> {
+        Self::open(path).map(|store| store.with_trace(trace_log))
+    }
+
+    #[cfg(feature = "testing-trace")]
+    pub fn with_trace(mut self, trace_log: TraceLog) -> Self {
+        self.trace_log = trace_log;
+        self
     }
 
     pub fn path(&self) -> &std::path::Path {

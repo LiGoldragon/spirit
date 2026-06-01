@@ -26,6 +26,8 @@ pub mod daemon;
 pub mod engine;
 pub mod nexus;
 pub mod store;
+#[cfg(feature = "testing-trace")]
+pub mod trace;
 pub mod transport;
 
 pub mod schema {
@@ -49,4 +51,6 @@ pub use schema::lib::{
     ValidationError, nexus as nexus_plane, schema as schema_meta, sema, signal,
 };
 pub use store::{Store, StoreError};
+#[cfg(feature = "testing-trace")]
+pub use trace::{TraceEvent, TraceLog};
 pub use transport::{SignalTransport, TransportError};

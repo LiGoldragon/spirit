@@ -314,6 +314,14 @@ daemon opens the same `.sema` file, and the recorded entry is still observable
 with the commit sequence resumed. A dedicated store-reopen test in
 `runtime_triad.rs` proves the same durability at the library level.
 
+The optional `testing-trace` feature adds an in-process structured trace sink
+for instrumentation tests. It is compiled out of default and `nota-text`
+production builds. When enabled, `TraceEvent` values are emitted from the live
+Signal admission/reply, Nexus execution/decision, and SEMA apply/observe call
+sites. `tests/instrumentation_logging.rs` installs a `TraceLog`, drives the
+normal runtime through `Engine::handle`, and asserts the typed event sequence
+instead of grepping for trait names.
+
 The next larger migration candidate is the workspace split proven in the
 designer worktree: separate working-signal, owner-signal, engine, daemon, and
 CLI crates, with owner-signal carrying configuration operations and a

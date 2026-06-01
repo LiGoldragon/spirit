@@ -115,6 +115,11 @@ Load-bearing constraints:
   execution, and split SEMA write/read roots for SEMA operations. Test-only
   enums are not valid substitutes for the schema objects whose path is being
   proved.
+- Optional testing instrumentation emits structured trace events from live
+  runtime calls, not source-text scans. The `testing-trace` surface observes
+  Signal admission/reply, Nexus execution/decision, SEMA write application,
+  and SEMA read observation while preserving default production binary
+  behavior.
 - The store is the SEMA writer. SEMA means database work: real SEMA writes
   durable state to the component database file. Runtime state changes pass
   through the generated `SemaEngine::apply(sema::Sema<sema::WriteInput>) ->

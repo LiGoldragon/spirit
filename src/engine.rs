@@ -10,6 +10,9 @@ use crate::{
     store::Store,
 };
 
+#[cfg(feature = "testing-trace")]
+use crate::{TraceEvent, TraceLog};
+
 const ORIGIN_ROUTE_BASE: Integer = 1_000_000;
 
 /// The daemon runtime: a thin composer of the three execution centers.
@@ -29,6 +32,8 @@ pub struct Engine {
 pub struct SignalActor {
     next_message_identifier: Mutex<Integer>,
     next_origin_route: Mutex<Integer>,
+    #[cfg(feature = "testing-trace")]
+    trace_log: TraceLog,
 }
 
 #[derive(Debug)]
@@ -41,6 +46,8 @@ pub struct SignalAccepted {
 pub struct SignalRejected {
     origin_route: OriginRoute,
     validation_error: ValidationError,
+    #[cfg(feature = "testing-trace")]
+    trace_log: TraceLog,
 }
 
 #[derive(Debug, Default)]
@@ -62,6 +69,14 @@ impl Engine {
         }
     }
 
+    #[cfg(feature = "testing-trace")]
+    pub fn new_with_trace(store: Store, trace_log: TraceLog) -> Self {
+        Self {
+            signal_actor: SignalActor::with_trace(trace_log.clone()),
+            nexus: Mutex::new(Nexus::new_with_trace(store, trace_log)),
+        }
+    }
+
     /// Run one request through Signal admission, the NexusEngine
     /// composition, and the durable SEMA store.
     ///
@@ -72,7 +87,10 @@ impl Engine {
     pub fn handle(&self, input: Input) -> signal_plane::Signal<Output> {
         let accepted = match self.signal_actor.admit(input) {
             Ok(accepted) => accepted,
-            Err(rejected) => return rejected.into_signal_output(self.database_marker()),
+            Err(rejected) => {
+                let output = rejected.into_signal_output(self.database_marker());
+                return output;
+            }
         };
         let mut nexus = self.nexus.lock().expect("nexus lock");
         accepted.process_with(&self.signal_actor, &mut nexus)
@@ -112,19 +130,38 @@ impl Engine {
 }
 
 impl SignalActor {
+    #[cfg(feature = "testing-trace")]
+    pub fn with_trace(trace_log: TraceLog) -> Self {
+        Self {
+            trace_log,
+            ..Self::default()
+        }
+    }
+
     /// Admit a wire Input: mint the origin route, issue a message
     /// identifier, and validate against the schema-emitted rules.
     pub fn admit(&self, input: Input) -> Result<SignalAccepted, SignalRejected> {
         let origin_route = self.issue_origin_route();
         let signal_input = input.with_origin_route(origin_route);
         let identifier = self.issue_message_identifier();
-        signal_input
-            .root()
-            .validate()
-            .map_err(|validation_error| SignalRejected {
+        if let Err(validation_error) = signal_input.root().validate() {
+            #[cfg(feature = "testing-trace")]
+            self.trace_log.record(TraceEvent::SignalRejection {
+                origin_route,
+                validation_error: validation_error.clone(),
+            });
+            return Err(SignalRejected {
                 origin_route,
                 validation_error,
-            })?;
+                #[cfg(feature = "testing-trace")]
+                trace_log: self.trace_log.clone(),
+            });
+        }
+        #[cfg(feature = "testing-trace")]
+        self.trace_log.record(TraceEvent::SignalAdmission {
+            origin_route,
+            input: signal_input.root().clone(),
+        });
         Ok(SignalAccepted {
             sent: signal_input.message_sent(identifier),
             input: signal_input,
@@ -154,7 +191,13 @@ impl SignalEngine for SignalActor {
     }
 
     fn reply(&self, output: nexus_plane::Nexus<NexusOutput>) -> signal_plane::Signal<Output> {
-        output.into_signal_output()
+        let signal_output = output.into_signal_output();
+        #[cfg(feature = "testing-trace")]
+        self.trace_log.record(TraceEvent::SignalReply {
+            origin_route: signal_output.origin_route(),
+            output: signal_output.root().clone(),
+        });
+        signal_output
     }
 }
 
@@ -386,8 +429,15 @@ impl SignalRejected {
         self,
         database_marker: DatabaseMarker,
     ) -> signal_plane::Signal<Output> {
-        self.validation_error
+        let signal_output = self
+            .validation_error
             .into_signal_output(database_marker)
-            .with_origin_route(self.origin_route)
+            .with_origin_route(self.origin_route);
+        #[cfg(feature = "testing-trace")]
+        self.trace_log.record(TraceEvent::SignalReply {
+            origin_route: signal_output.origin_route(),
+            output: signal_output.root().clone(),
+        });
+        signal_output
     }
 }
