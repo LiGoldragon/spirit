@@ -61,30 +61,43 @@ pub struct SemaReuse {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum NexusInput {
     Signal(Input),
-    Sema(SemaOutput),
+    SemaWrite(SemaWriteOutput),
+    SemaRead(SemaReadOutput),
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum NexusOutput {
-    Sema(SemaInput),
+    SemaWrite(SemaWriteInput),
+    SemaRead(SemaReadInput),
     Signal(Output),
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub enum SemaInput {
+pub enum SemaWriteInput {
     Record(Entry),
-    Observe(Query),
     Remove(RecordIdentifier),
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub enum SemaOutput {
+pub enum SemaReadInput {
+    Observe(Query),
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum SemaWriteOutput {
     Recorded(SemaReceipt),
-    Observed(ObservedRecords),
     Removed(RemoveReceipt),
+    Missed(ErrorReport),
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum SemaReadOutput {
+    Observed(ObservedRecords),
     Missed(ErrorReport),
 }
 
@@ -270,15 +283,27 @@ impl From<Input> for NexusInput {
     }
 }
 
-impl From<SemaOutput> for NexusInput {
-    fn from(payload: SemaOutput) -> Self {
-        Self::Sema(payload)
+impl From<SemaWriteOutput> for NexusInput {
+    fn from(payload: SemaWriteOutput) -> Self {
+        Self::SemaWrite(payload)
     }
 }
 
-impl From<SemaInput> for NexusOutput {
-    fn from(payload: SemaInput) -> Self {
-        Self::Sema(payload)
+impl From<SemaReadOutput> for NexusInput {
+    fn from(payload: SemaReadOutput) -> Self {
+        Self::SemaRead(payload)
+    }
+}
+
+impl From<SemaWriteInput> for NexusOutput {
+    fn from(payload: SemaWriteInput) -> Self {
+        Self::SemaWrite(payload)
+    }
+}
+
+impl From<SemaReadInput> for NexusOutput {
+    fn from(payload: SemaReadInput) -> Self {
+        Self::SemaRead(payload)
     }
 }
 
@@ -288,43 +313,49 @@ impl From<Output> for NexusOutput {
     }
 }
 
-impl From<Entry> for SemaInput {
+impl From<Entry> for SemaWriteInput {
     fn from(payload: Entry) -> Self {
         Self::Record(payload)
     }
 }
 
-impl From<Query> for SemaInput {
-    fn from(payload: Query) -> Self {
-        Self::Observe(payload)
-    }
-}
-
-impl From<RecordIdentifier> for SemaInput {
+impl From<RecordIdentifier> for SemaWriteInput {
     fn from(payload: RecordIdentifier) -> Self {
         Self::Remove(payload)
     }
 }
 
-impl From<SemaReceipt> for SemaOutput {
+impl From<Query> for SemaReadInput {
+    fn from(payload: Query) -> Self {
+        Self::Observe(payload)
+    }
+}
+
+impl From<SemaReceipt> for SemaWriteOutput {
     fn from(payload: SemaReceipt) -> Self {
         Self::Recorded(payload)
     }
 }
 
-impl From<ObservedRecords> for SemaOutput {
-    fn from(payload: ObservedRecords) -> Self {
-        Self::Observed(payload)
-    }
-}
-
-impl From<RemoveReceipt> for SemaOutput {
+impl From<RemoveReceipt> for SemaWriteOutput {
     fn from(payload: RemoveReceipt) -> Self {
         Self::Removed(payload)
     }
 }
 
-impl From<ErrorReport> for SemaOutput {
+impl From<ErrorReport> for SemaWriteOutput {
+    fn from(payload: ErrorReport) -> Self {
+        Self::Missed(payload)
+    }
+}
+
+impl From<ObservedRecords> for SemaReadOutput {
+    fn from(payload: ObservedRecords) -> Self {
+        Self::Observed(payload)
+    }
+}
+
+impl From<ErrorReport> for SemaReadOutput {
     fn from(payload: ErrorReport) -> Self {
         Self::Missed(payload)
     }
@@ -501,7 +532,7 @@ impl NexusOutput {
 }
 
 #[cfg(feature = "nota-text")]
-impl SemaInput {
+impl SemaWriteInput {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -512,7 +543,29 @@ impl SemaInput {
 }
 
 #[cfg(feature = "nota-text")]
-impl SemaOutput {
+impl SemaReadInput {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl SemaWriteOutput {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl SemaReadOutput {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -1162,13 +1215,6 @@ pub struct MessageSent {
 }
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct NexusMail<Payload> {
-    pub identifier: MessageIdentifier,
-    pub origin_route: OriginRoute,
-    pub payload: Payload,
-}
-
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct MessageProcessed<Reply> {
     pub identifier: MessageIdentifier,
     pub origin_route: OriginRoute,
@@ -1197,24 +1243,6 @@ impl MessageSent {
         Hook: MessageSentHook,
     {
         hook.message_sent(self.clone())
-    }
-}
-
-impl<Payload> NexusMail<Payload> {
-    pub fn new(identifier: MessageIdentifier, origin_route: OriginRoute, payload: Payload) -> Self {
-        Self { identifier, origin_route, payload }
-    }
-
-    pub fn identifier(&self) -> MessageIdentifier {
-        self.identifier
-    }
-
-    pub fn origin_route(&self) -> OriginRoute {
-        self.origin_route
-    }
-
-    pub fn into_payload(self) -> Payload {
-        self.payload
     }
 }
 
@@ -1293,8 +1321,10 @@ pub mod nexus {
 }
 
 pub mod sema {
-    pub type Input = super::SemaInput;
-    pub type Output = super::SemaOutput;
+    pub type WriteInput = super::SemaWriteInput;
+    pub type WriteOutput = super::SemaWriteOutput;
+    pub type ReadInput = super::SemaReadInput;
+    pub type ReadOutput = super::SemaReadOutput;
     pub type Sema<Root> = super::Sema<Root>;
 }
 
@@ -1310,26 +1340,27 @@ impl NexusOutput {
     }
 }
 
-impl SemaInput {
+impl SemaWriteInput {
     pub fn with_origin_route(self, origin_route: OriginRoute) -> sema::Sema<Self> {
         sema::Sema::new(origin_route, self)
     }
 }
 
-impl SemaOutput {
+impl SemaWriteOutput {
     pub fn with_origin_route(self, origin_route: OriginRoute) -> sema::Sema<Self> {
         sema::Sema::new(origin_route, self)
     }
 }
 
-impl<Payload> NexusMail<Payload>
-where
-    Input: From<Payload>,
-    NexusInput: From<Input>,
-{
-    pub fn into_nexus_input(self) -> nexus::Nexus<nexus::Input> {
-        let origin_route = self.origin_route();
-        NexusInput::from(Input::from(self.into_payload())).with_origin_route(origin_route)
+impl SemaReadInput {
+    pub fn with_origin_route(self, origin_route: OriginRoute) -> sema::Sema<Self> {
+        sema::Sema::new(origin_route, self)
+    }
+}
+
+impl SemaReadOutput {
+    pub fn with_origin_route(self, origin_route: OriginRoute) -> sema::Sema<Self> {
+        sema::Sema::new(origin_route, self)
     }
 }
 
@@ -1338,15 +1369,18 @@ impl nexus::Nexus<nexus::Input> {
         let origin_route = self.origin_route();
         match self.into_root() {
             NexusInput::Signal(input) => match input {
-                Input::Record(payload) => NexusOutput::from(SemaInput::from(payload)),
-                Input::Observe(payload) => NexusOutput::from(SemaInput::from(payload)),
-                Input::Remove(payload) => NexusOutput::from(SemaInput::from(payload)),
+                Input::Record(payload) => NexusOutput::from(SemaWriteInput::from(payload)),
+                Input::Observe(payload) => NexusOutput::from(SemaReadInput::from(payload)),
+                Input::Remove(payload) => NexusOutput::from(SemaWriteInput::from(payload)),
             },
-            NexusInput::Sema(output) => match output {
-                SemaOutput::Recorded(payload) => NexusOutput::from(Output::from(payload)),
-                SemaOutput::Observed(payload) => NexusOutput::from(Output::from(payload)),
-                SemaOutput::Removed(payload) => NexusOutput::from(Output::from(payload)),
-                SemaOutput::Missed(payload) => NexusOutput::from(Output::from(payload)),
+            NexusInput::SemaWrite(output) => match output {
+                SemaWriteOutput::Recorded(payload) => NexusOutput::from(Output::from(payload)),
+                SemaWriteOutput::Removed(payload) => NexusOutput::from(Output::from(payload)),
+                SemaWriteOutput::Missed(payload) => NexusOutput::from(Output::from(payload)),
+            },
+            NexusInput::SemaRead(output) => match output {
+                SemaReadOutput::Observed(payload) => NexusOutput::from(Output::from(payload)),
+                SemaReadOutput::Missed(payload) => NexusOutput::from(Output::from(payload)),
             },
         }
         .with_origin_route(origin_route)
@@ -1354,11 +1388,19 @@ impl nexus::Nexus<nexus::Input> {
 }
 
 impl nexus::Nexus<nexus::Output> {
-    pub fn into_sema_input(self) -> sema::Sema<sema::Input> {
+    pub fn into_sema_write_input(self) -> sema::Sema<sema::WriteInput> {
         let origin_route = self.origin_route();
         match self.into_root() {
-            NexusOutput::Sema(input) => input.with_origin_route(origin_route),
-            _ => panic!("nexus output is a signal reply, not a SEMA input"),
+            NexusOutput::SemaWrite(input) => input.with_origin_route(origin_route),
+            _ => panic!("nexus output is not a SEMA write input"),
+        }
+    }
+
+    pub fn into_sema_read_input(self) -> sema::Sema<sema::ReadInput> {
+        let origin_route = self.origin_route();
+        match self.into_root() {
+            NexusOutput::SemaRead(input) => input.with_origin_route(origin_route),
+            _ => panic!("nexus output is not a SEMA read input"),
         }
     }
 
@@ -1371,60 +1413,17 @@ impl nexus::Nexus<nexus::Output> {
     }
 }
 
-impl sema::Sema<sema::Output> {
+impl sema::Sema<sema::WriteOutput> {
     pub fn into_nexus_input(self) -> nexus::Nexus<nexus::Input> {
         let origin_route = self.origin_route();
         NexusInput::from(self.into_root()).with_origin_route(origin_route)
     }
 }
 
-pub trait InputNexus {
-    type Reply;
-    type Error;
-
-    fn record(&self, mail: NexusMail<Entry>) -> Result<Self::Reply, Self::Error>;
-    fn observe(&self, mail: NexusMail<Query>) -> Result<Self::Reply, Self::Error>;
-    fn remove(&self, mail: NexusMail<RecordIdentifier>) -> Result<Self::Reply, Self::Error>;
-}
-
-impl Input {
-    pub fn dispatch_mail_with_nexus<NexusActor>(self, identifier: MessageIdentifier, origin_route: OriginRoute, nexus: &NexusActor) -> Result<MessageProcessed<NexusActor::Reply>, NexusActor::Error>
-    where
-        NexusActor: InputNexus,
-    {
-        let reply = match self {
-            Self::Record(payload) => nexus.record(NexusMail::new(identifier, origin_route, payload)),
-            Self::Observe(payload) => nexus.observe(NexusMail::new(identifier, origin_route, payload)),
-            Self::Remove(payload) => nexus.remove(NexusMail::new(identifier, origin_route, payload)),
-        }?;
-        Ok(MessageProcessed::new(identifier, origin_route, reply))
-    }
-}
-
-pub trait OutputNexus {
-    type Reply;
-    type Error;
-
-    fn record_accepted(&self, mail: NexusMail<SemaReceipt>) -> Result<Self::Reply, Self::Error>;
-    fn records_observed(&self, mail: NexusMail<ObservedRecords>) -> Result<Self::Reply, Self::Error>;
-    fn record_removed(&self, mail: NexusMail<RemoveReceipt>) -> Result<Self::Reply, Self::Error>;
-    fn error(&self, mail: NexusMail<ErrorReport>) -> Result<Self::Reply, Self::Error>;
-    fn rejected(&self, mail: NexusMail<SignalRejection>) -> Result<Self::Reply, Self::Error>;
-}
-
-impl Output {
-    pub fn dispatch_mail_with_nexus<NexusActor>(self, identifier: MessageIdentifier, origin_route: OriginRoute, nexus: &NexusActor) -> Result<MessageProcessed<NexusActor::Reply>, NexusActor::Error>
-    where
-        NexusActor: OutputNexus,
-    {
-        let reply = match self {
-            Self::RecordAccepted(payload) => nexus.record_accepted(NexusMail::new(identifier, origin_route, payload)),
-            Self::RecordsObserved(payload) => nexus.records_observed(NexusMail::new(identifier, origin_route, payload)),
-            Self::RecordRemoved(payload) => nexus.record_removed(NexusMail::new(identifier, origin_route, payload)),
-            Self::Error(payload) => nexus.error(NexusMail::new(identifier, origin_route, payload)),
-            Self::Rejected(payload) => nexus.rejected(NexusMail::new(identifier, origin_route, payload)),
-        }?;
-        Ok(MessageProcessed::new(identifier, origin_route, reply))
+impl sema::Sema<sema::ReadOutput> {
+    pub fn into_nexus_input(self) -> nexus::Nexus<nexus::Input> {
+        let origin_route = self.origin_route();
+        NexusInput::from(self.into_root()).with_origin_route(origin_route)
     }
 }
 
@@ -1438,7 +1437,8 @@ pub trait NexusEngine {
 }
 
 pub trait SemaEngine {
-    fn apply(&mut self, input: sema::Sema<sema::Input>) -> sema::Sema<sema::Output>;
+    fn apply(&mut self, input: sema::Sema<sema::WriteInput>) -> sema::Sema<sema::WriteOutput>;
+    fn observe(&self, input: sema::Sema<sema::ReadInput>) -> sema::Sema<sema::ReadOutput>;
 }
 
 pub trait UpgradeFrom<Previous>: Sized {

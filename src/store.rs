@@ -4,8 +4,8 @@ use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
 
 use crate::{
     CommitSequence, DatabaseMarker, Entry, ErrorMessage, ErrorReport, Magnitude, ObservedRecords,
-    Query, RecordIdentifier, RecordSet, RemoveReceipt, SemaEngine, SemaInput, SemaOutput,
-    SemaReceipt, StateDigest, schema::lib::sema as sema_plane,
+    Query, RecordIdentifier, RecordSet, RemoveReceipt, SemaEngine, SemaReadInput, SemaReadOutput,
+    SemaReceipt, SemaWriteInput, SemaWriteOutput, StateDigest, schema::lib::sema as sema_plane,
 };
 
 /// redb table of durable records: identifier -> rkyv-archived `Entry`.
@@ -34,44 +34,54 @@ pub struct Store {
 impl SemaEngine for Store {
     fn apply(
         &mut self,
-        command: sema_plane::Sema<sema_plane::Input>,
-    ) -> sema_plane::Sema<sema_plane::Output> {
+        command: sema_plane::Sema<sema_plane::WriteInput>,
+    ) -> sema_plane::Sema<sema_plane::WriteOutput> {
         let origin_route = command.origin_route();
         let output = match command.into_root() {
-            SemaInput::Record(entry) => match self.record(entry) {
-                Ok(identifier) => SemaOutput::Recorded(SemaReceipt {
+            SemaWriteInput::Record(entry) => match self.record(entry) {
+                Ok(identifier) => SemaWriteOutput::Recorded(SemaReceipt {
                     record_identifier: RecordIdentifier(identifier),
                     database_marker: self.database_marker(),
                 }),
-                Err(error) => SemaOutput::Missed(ErrorReport {
+                Err(error) => SemaWriteOutput::Missed(ErrorReport {
                     error_message: ErrorMessage(error.to_string()),
                     database_marker: self.database_marker(),
                 }),
             },
-            SemaInput::Observe(query) => match self.observe(&query) {
-                Ok(entries) if !entries.is_empty() => SemaOutput::Observed(ObservedRecords {
-                    record_set: RecordSet(entries),
-                    database_marker: self.database_marker(),
-                }),
-                Ok(_) => SemaOutput::Missed(ErrorReport {
-                    error_message: ErrorMessage(String::from("no matching record")),
-                    database_marker: self.database_marker(),
-                }),
-                Err(error) => SemaOutput::Missed(ErrorReport {
-                    error_message: ErrorMessage(error.to_string()),
-                    database_marker: self.database_marker(),
-                }),
-            },
-            SemaInput::Remove(record_identifier) => match self.remove(record_identifier.0) {
-                Ok(true) => SemaOutput::Removed(RemoveReceipt {
+            SemaWriteInput::Remove(record_identifier) => match self.remove(record_identifier.0) {
+                Ok(true) => SemaWriteOutput::Removed(RemoveReceipt {
                     record_identifier,
                     database_marker: self.database_marker(),
                 }),
-                Ok(false) => SemaOutput::Missed(ErrorReport {
+                Ok(false) => SemaWriteOutput::Missed(ErrorReport {
                     error_message: ErrorMessage(String::from("record not found")),
                     database_marker: self.database_marker(),
                 }),
-                Err(error) => SemaOutput::Missed(ErrorReport {
+                Err(error) => SemaWriteOutput::Missed(ErrorReport {
+                    error_message: ErrorMessage(error.to_string()),
+                    database_marker: self.database_marker(),
+                }),
+            },
+        };
+        output.with_origin_route(origin_route)
+    }
+
+    fn observe(
+        &self,
+        query: sema_plane::Sema<sema_plane::ReadInput>,
+    ) -> sema_plane::Sema<sema_plane::ReadOutput> {
+        let origin_route = query.origin_route();
+        let output = match query.into_root() {
+            SemaReadInput::Observe(query) => match self.observe(&query) {
+                Ok(entries) if !entries.is_empty() => SemaReadOutput::Observed(ObservedRecords {
+                    record_set: RecordSet(entries),
+                    database_marker: self.database_marker(),
+                }),
+                Ok(_) => SemaReadOutput::Missed(ErrorReport {
+                    error_message: ErrorMessage(String::from("no matching record")),
+                    database_marker: self.database_marker(),
+                }),
+                Err(error) => SemaReadOutput::Missed(ErrorReport {
                     error_message: ErrorMessage(error.to_string()),
                     database_marker: self.database_marker(),
                 }),

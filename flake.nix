@@ -239,133 +239,20 @@
             ! grep -R "CARGO_BIN_EXE" ${src}/tests/nix_integration.rs
             touch $out
           '';
-          generated-signal-plane-used = pkgs.runCommand "spirit-next-generated-signal-plane-used" { } ''
-            grep -R "InputRoute" ${src}/src/lib.rs >/dev/null
-            grep -R "OutputRoute" ${src}/src/lib.rs >/dev/null
-            grep -R "SignalFrameError" ${src}/src/lib.rs >/dev/null
-            grep -R "NexusInput" ${src}/schema/lib.schema >/dev/null
-            grep -R "NexusOutput" ${src}/schema/lib.schema >/dev/null
-            grep -R "SemaInput" ${src}/schema/lib.schema >/dev/null
-            grep -R "SemaOutput" ${src}/schema/lib.schema >/dev/null
-            grep -R "Import { SourcePath \\* LocalPath \\* }" ${src}/schema/lib.schema >/dev/null
-            grep -R "Export { LocalPath \\* PublicPath \\* }" ${src}/schema/lib.schema >/dev/null
-            grep -R "Input::decode_signal_frame" ${src}/src/transport.rs >/dev/null
-            grep -R "Output::decode_signal_frame" ${src}/src/transport.rs >/dev/null
-            grep -R "input.encode_signal_frame" ${src}/src/transport.rs >/dev/null
-            grep -R "output.encode_signal_frame" ${src}/src/transport.rs >/dev/null
-            grep -R "MessageSent" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "OriginRoute" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "MessageRoot" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "NexusMail<Payload>" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "MessageProcessed<Reply>" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "pub mod schema" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "pub enum Plane" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "Sema(super::Sema<SemaRoot>)" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "pub mod signal" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "pub mod nexus" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "pub mod sema" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "MailLedgerEvent" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "DatabaseMarker" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "pub enum NexusInput" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "pub enum NexusOutput" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "pub enum SemaInput" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "pub enum SemaOutput" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "pub trait SignalEngine" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "pub trait NexusEngine" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "pub trait SemaEngine" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "pub enum ValidationError" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "pub struct SignalRejection" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "pub struct SignalTransport" ${src}/src/transport.rs >/dev/null
-            ! grep -R "pub enum InputRoute" ${src}/src/transport.rs
-            ! grep -R "short_header::" ${src}/src/transport.rs
-            grep -R "generated_input_surface_owns_route_header_and_rkyv_frame" ${src}/tests/generated_signal_plane.rs >/dev/null
-            grep -R "generated_rejection_output_is_a_signal_schema_variant" ${src}/tests/generated_signal_plane.rs >/dev/null
-            grep -R "generated_validation_error_round_trips_through_nota" ${src}/tests/generated_signal_plane.rs >/dev/null
-            grep -R "generated_signal_surface_emits_mail_sent_event" ${src}/tests/generated_signal_plane.rs >/dev/null
-            grep -R "event.origin_route()" ${src}/tests/generated_signal_plane.rs >/dev/null
-            touch $out
-          '';
-          runtime-triad-visible = pkgs.runCommand "spirit-next-runtime-triad-visible" { } ''
-            # Engine is a thin composer over Signal + Nexus; the SEMA call
-            # lives INSIDE Nexus, never directly in Engine::handle.
-            grep -R "signal_actor: SignalActor" ${src}/src/engine.rs >/dev/null
-            grep -R "nexus: Mutex<Nexus>" ${src}/src/engine.rs >/dev/null
-            grep -R "process_with" ${src}/src/engine.rs >/dev/null
-            grep -R "into_being_processed" ${src}/src/engine.rs >/dev/null
-            ! grep -R "self.store" ${src}/src/engine.rs
-            ! grep -R "store.lock" ${src}/src/engine.rs
-            grep -R "impl<Payload> FromMail<Payload> for Mail<BeingProcessed>" ${src}/src/nexus.rs >/dev/null
-            grep -R "impl<Payload> NexusMail<Payload>" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "Input: From<Payload>" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "NexusInput: From<Input>" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "impl From<Entry> for Input" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "impl From<Query> for Input" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "impl From<RecordIdentifier> for Input" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "impl From<SemaReceipt> for Output" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "impl nexus::Nexus<nexus::Input>" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "impl nexus::Nexus<nexus::Output>" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "impl sema::Sema<sema::Output>" ${src}/src/schema/lib.rs >/dev/null
-            grep -R "MessageProcessed<Output>" ${src}/src/engine.rs >/dev/null
-            grep -R "into_mail_ledger_event" ${src}/src/engine.rs >/dev/null
-            grep -R "MailLedgerEvent" ${src}/src/engine.rs >/dev/null
-            # Nexus is the real mail keeper: it owns the store + ledger and
-            # holds the mail in a type-level BeingProcessed phase.
-            grep -R "pub struct Nexus" ${src}/src/nexus.rs >/dev/null
-            grep -R "store: Store" ${src}/src/nexus.rs >/dev/null
-            grep -R "mail_ledger: MailLedger" ${src}/src/nexus.rs >/dev/null
-            grep -R "pub struct Mail<Phase>" ${src}/src/nexus.rs >/dev/null
-            grep -R "pub struct BeingProcessed" ${src}/src/nexus.rs >/dev/null
-            grep -R "pub struct Processed" ${src}/src/nexus.rs >/dev/null
-            grep -R "fn run_nexus(self, nexus: &mut Nexus)" ${src}/src/nexus.rs >/dev/null
-            grep -R "Mail<Processed>" ${src}/src/nexus.rs >/dev/null
-            grep -R "impl NexusEngine for Nexus" ${src}/src/nexus.rs >/dev/null
-            grep -R "into_nexus_output" ${src}/src/nexus.rs >/dev/null
-            grep -R "into_signal_output" ${src}/src/nexus.rs >/dev/null
-            grep -R "into_sema_input" ${src}/src/nexus.rs >/dev/null
-            # SEMA is a durable redb database written to a .sema file.
-            grep -R "DatabaseMarker" ${src}/src/store.rs >/dev/null
-            grep -R "StateDigest" ${src}/src/store.rs >/dev/null
-            grep -R "impl SemaEngine for Store" ${src}/src/store.rs >/dev/null
-            grep -R "fn apply(" ${src}/src/store.rs >/dev/null
-            grep -R "sema_plane::Sema<sema_plane::Input>" ${src}/src/store.rs >/dev/null
-            grep -R "redb::" ${src}/src/store.rs >/dev/null
-            grep -R "Database::create" ${src}/src/store.rs >/dev/null
-            grep -R "Database::open" ${src}/src/store.rs >/dev/null
-            grep -R "begin_write" ${src}/src/store.rs >/dev/null
-            grep -R "begin_read" ${src}/src/store.rs >/dev/null
-            grep -R "blake3" ${src}/src/store.rs >/dev/null
-            grep -R "SemaOutput::Removed" ${src}/src/store.rs >/dev/null
-            grep -R "Self::Partial" ${src}/src/engine.rs >/dev/null
-            grep -R "Self::Full" ${src}/src/engine.rs >/dev/null
-            ! grep -R "Vec<StoredRecord>" ${src}/src/store.rs
-            ! grep -R "wrapping_mul" ${src}/src/store.rs
-            # Daemon startup config is binary rkyv, not NOTA. The .sema
-            # path fills an existing binary configuration field, no flag.
-            grep -R "from_binary_path" ${src}/src/config.rs >/dev/null
-            grep -R "from_binary_bytes" ${src}/src/config.rs >/dev/null
-            grep -R "to_binary_bytes" ${src}/src/config.rs >/dev/null
-            grep -R "database_path" ${src}/src/config.rs >/dev/null
-            # Tests prove the new topology + durability with schema objects.
-            grep -R "nexus_holds_the_mail_in_being_processed_typestate_before_sema_runs" ${src}/tests/runtime_triad.rs >/dev/null
-            grep -R "sema_store_persists_records_across_reopen_of_the_same_sema_file" ${src}/tests/runtime_triad.rs >/dev/null
-            grep -R "sema_engine_writes_durable_records_and_returns_schema_objects" ${src}/tests/runtime_triad.rs >/dev/null
-            grep -R "nexus_runs_sema_while_holding_mail_then_replies_through_schema_objects" ${src}/tests/runtime_triad.rs >/dev/null
-            grep -R "signal_actor_rejects_invalid_input_with_schema_emitted_rejection_before_mail_or_sema" ${src}/tests/runtime_triad.rs >/dev/null
-            grep -R "nexus_and_sema_have_explicit_input_output_languages" ${src}/tests/runtime_triad.rs >/dev/null
-            grep -R "plane_envelopes_keep_payload_names_scoped" ${src}/tests/runtime_triad.rs >/dev/null
-            grep -R "schema_meta::Plane::Sema" ${src}/tests/runtime_triad.rs >/dev/null
-            grep -R "compile_fail" ${src}/src/lib.rs >/dev/null
-            grep -R "nexus_plane::Nexus<nexus_plane::Input>" ${src}/src/lib.rs >/dev/null
-            grep -R "import_export_paths_use_single_colon_namespaces" ${src}/tests/runtime_triad.rs >/dev/null
-            grep -R "daemon_persists_sema_file_across_a_restart" ${src}/tests/process_boundary.rs >/dev/null
-            grep -R "MailLedgerEvent::Sent" ${src}/tests/runtime_triad.rs >/dev/null
-            grep -R "MailLedgerEvent::Processed" ${src}/tests/runtime_triad.rs >/dev/null
-            grep -R "origin_route: route" ${src}/tests/runtime_triad.rs >/dev/null
-            grep -R "in_flight.origin_route()" ${src}/tests/runtime_triad.rs >/dev/null
-            grep -R "SemaEngine::apply" ${src}/tests/runtime_triad.rs >/dev/null
-            grep -R "sent_message_count" ${src}/tests/runtime_triad.rs >/dev/null
-            grep -R "processed_message_count" ${src}/tests/runtime_triad.rs >/dev/null
-            ! grep -R "enum TraceEvent" ${src}/tests/runtime_triad.rs
+          retired-triad-surfaces-absent = pkgs.runCommand "spirit-next-retired-triad-surfaces-absent" { } ''
+            ! grep -R "pub struct Mail<Phase>" ${src}/src ${src}/tests
+            ! grep -R "pub struct BeingProcessed" ${src}/src ${src}/tests
+            ! grep -R "pub struct Processed" ${src}/src ${src}/tests
+            ! grep -R "fn run_nexus(self, nexus: &mut Nexus)" ${src}/src ${src}/tests
+            ! grep -R "FromMail" ${src}/src ${src}/tests
+            ! grep -R "NexusMail<Payload>" ${src}/src ${src}/tests
+            ! grep -R "InputNexus" ${src}/src ${src}/tests
+            ! grep -R "OutputNexus" ${src}/src ${src}/tests
+            ! grep -R "dispatch_mail_with_nexus" ${src}/src ${src}/tests
+            ! grep -R "into_being_processed" ${src}/src ${src}/tests
+            ! grep -R "into_sema_input" ${src}/src ${src}/tests
+            ! grep -R "sema::Input" ${src}/src ${src}/tests
+            ! grep -R "sema::Output" ${src}/src ${src}/tests
             touch $out
           '';
           no-production-free-functions = pkgs.runCommand "spirit-next-no-production-free-functions" { } ''

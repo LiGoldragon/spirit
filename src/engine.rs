@@ -2,10 +2,10 @@ use std::{convert::Infallible, sync::Mutex};
 
 use crate::{
     DatabaseMarker, Entry, Input, Integer, MailIdentifier, MailLedgerEvent, MessageIdentifier,
-    MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook, NexusInput, NexusMail,
-    NexusOutput, OriginRoute, Output, ProcessedMail, Query, RecordIdentifier, SentMail,
-    ShortHeader, SignalEngine, SignalRejection, TopicMatch, Topics, ValidationError,
-    nexus::{BeingProcessed, FromMail, Mail, Nexus},
+    MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook, NexusEngine, NexusInput,
+    NexusOutput, OriginRoute, Output, ProcessedMail, Query, SentMail, ShortHeader, SignalEngine,
+    SignalRejection, TopicMatch, Topics, ValidationError,
+    nexus::Nexus,
     schema::lib::{nexus as nexus_plane, signal as signal_plane},
     store::Store,
 };
@@ -62,16 +62,15 @@ impl Engine {
         }
     }
 
-    /// Run one request through Signal admission, Nexus mail-keeping, and
-    /// the durable SEMA store.
+    /// Run one request through Signal admission, the NexusEngine
+    /// composition, and the durable SEMA store.
     ///
-    /// Signal validates and issues identity; the sent hook fires at the
-    /// Signal→Nexus handoff; Nexus then HOLDS the mail in a
-    /// being-processed state across the SEMA call and emits the processed
-    /// event before the Signal output leaves.
+    /// Signal admits the input (mints the origin route, issues an
+    /// identifier, and validates) before any deeper layer sees it. The
+    /// sent hook fires at the Signal→Nexus handoff; the processed hook
+    /// fires after the NexusEngine returns its reply.
     pub fn handle(&self, input: Input) -> signal_plane::Signal<Output> {
-        let signal_input = self.signal_actor.route(input);
-        let accepted = match self.signal_actor.accept(signal_input) {
+        let accepted = match self.signal_actor.admit(input) {
             Ok(accepted) => accepted,
             Err(rejected) => return rejected.into_signal_output(self.database_marker()),
         };
@@ -113,18 +112,13 @@ impl Engine {
 }
 
 impl SignalActor {
-    pub fn route(&self, input: Input) -> signal_plane::Signal<Input> {
+    /// Admit a wire Input: mint the origin route, issue a message
+    /// identifier, and validate against the schema-emitted rules.
+    pub fn admit(&self, input: Input) -> Result<SignalAccepted, SignalRejected> {
         let origin_route = self.issue_origin_route();
-        input.with_origin_route(origin_route)
-    }
-
-    pub fn accept(
-        &self,
-        input: signal_plane::Signal<Input>,
-    ) -> Result<SignalAccepted, SignalRejected> {
+        let signal_input = input.with_origin_route(origin_route);
         let identifier = self.issue_message_identifier();
-        let origin_route = input.origin_route();
-        input
+        signal_input
             .root()
             .validate()
             .map_err(|validation_error| SignalRejected {
@@ -132,8 +126,8 @@ impl SignalActor {
                 validation_error,
             })?;
         Ok(SignalAccepted {
-            sent: input.message_sent(identifier),
-            input,
+            sent: signal_input.message_sent(identifier),
+            input: signal_input,
         })
     }
 
@@ -173,13 +167,17 @@ impl SignalAccepted {
         &self.sent
     }
 
-    /// Hand the validated mail to Nexus: fire the sent hook at the
-    /// handoff, then let Nexus hold the mail across the SEMA call.
+    /// Run the validated mail through the SignalEngine + NexusEngine
+    /// composition: triage Signal Input into Nexus Input, execute Nexus
+    /// (which drives SEMA through `SemaEngine`), and frame the Nexus reply
+    /// as Signal Output.
     ///
     /// The sent hook (the Signal→Nexus on_sent event) fires BEFORE the
-    /// mail enters Nexus, so an observer sees the handoff before any SEMA
-    /// state changes. The mail is then owned by Nexus in a being-processed
-    /// type-state until the SEMA reply turns it into the Signal output.
+    /// triage call, so an observer sees the handoff before any SEMA state
+    /// changes. The processed hook fires after `NexusEngine::execute`
+    /// returns and before Signal frames the reply. The `&mut Nexus`
+    /// exclusive borrow held across `NexusEngine::execute` is the
+    /// single-flight guard.
     pub fn process_with<Signal>(
         self,
         signal_engine: &Signal,
@@ -192,32 +190,14 @@ impl SignalAccepted {
             .push_to(&mut nexus.mail_ledger().hook())
             .expect("spirit-next mail ledger is infallible");
         let identifier = self.identifier();
-        let nexus_output = nexus.process_nexus_input(identifier, signal_engine.triage(self.input));
-        signal_engine.reply(nexus_output)
-    }
-
-    /// Lower the accepted mail to its in-flight Nexus phase without
-    /// running SEMA — the witness that Nexus owns the mail in a
-    /// being-processed type-state. Used by tests to observe the held mail.
-    pub fn into_being_processed(self) -> Mail<BeingProcessed>
-    where
-        Mail<BeingProcessed>: FromMail<Entry> + FromMail<Query> + FromMail<RecordIdentifier>,
-    {
-        let identifier = self.identifier();
-        let origin_route = self.input.origin_route();
-        match self.input.into_root() {
-            Input::Record(entry) => {
-                Mail::<BeingProcessed>::from_mail(NexusMail::new(identifier, origin_route, entry))
-            }
-            Input::Observe(query) => {
-                Mail::<BeingProcessed>::from_mail(NexusMail::new(identifier, origin_route, query))
-            }
-            Input::Remove(record_identifier) => Mail::<BeingProcessed>::from_mail(NexusMail::new(
-                identifier,
-                origin_route,
-                record_identifier,
-            )),
-        }
+        let nexus_input = signal_engine.triage(self.input);
+        let origin_route = nexus_input.origin_route();
+        let nexus_output = NexusEngine::execute(nexus, nexus_input);
+        let signal_output = signal_engine.reply(nexus_output);
+        MessageProcessed::new(identifier, origin_route, signal_output.root().clone())
+            .push_to(&mut nexus.mail_ledger().hook())
+            .expect("spirit-next mail ledger is infallible");
+        signal_output
     }
 }
 

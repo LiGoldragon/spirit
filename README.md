@@ -66,11 +66,13 @@ optional: `(Some Decision)` filters by kind and `None` searches only by topic.
 
 - Signal is generated `Input`/`Output` plus the generated route/header/rkyv
   frame methods.
-- Nexus is the mail keeper and translator. It accepts schema-emitted Signal
-  mail, lowers it into generated SEMA input, holds the origin route while SEMA
-  runs, and maps the generated SEMA output back to generated Signal output.
-- SEMA is `Store::apply(sema::Sema<sema::Input>)`, a durable redb writer over
-  the `.sema` database file and the single state mutation path.
+- Nexus is the decision keeper and translator. It accepts schema-emitted Signal
+  mail, lowers it into generated SEMA write/read input, holds the origin route
+  while SEMA runs, and maps the generated SEMA output back to generated Signal
+  output.
+- SEMA is split by generated traits: `Store::apply` takes mutable write input,
+  while `Store::observe` takes shared read input. Both operate over the durable
+  `.sema` redb database file.
 
 ## Local schema stack check
 

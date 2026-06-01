@@ -53,7 +53,7 @@
 //!   `Output::FromStr` and matches typed variants.
 //!
 //! - `nix_built_daemon_rejects_invalid_input_through_schema_emitted_rejection`
-//!   — invalid Input is rejected by `SignalActor::accept` and the
+//!   — invalid Input is rejected by `SignalActor::admit` and the
 //!   schema-emitted `SignalRejection` flows back to the CLI through
 //!   the rkyv signal frame.
 //!
@@ -398,7 +398,7 @@ fn nix_built_spirit_cli_records_through_real_socket_to_nix_built_daemon() {
 #[ignore = "invokes nix build; run via cargo test --test nix_integration -- --ignored"]
 fn nix_built_daemon_rejects_invalid_input_through_schema_emitted_rejection() {
     // PATTERN: invalid Input — empty topic — fails `Entry::validate`
-    // inside SignalActor::accept on the Nix-built daemon. The reply is
+    // inside SignalActor::admit on the Nix-built daemon. The reply is
     // the schema-emitted `SignalRejection` variant carrying the schema-
     // emitted `ValidationError::EmptyTopic`. The CLI prints the
     // schema-emitted NOTA round-trip; we parse it back through
@@ -510,9 +510,9 @@ fn nix_built_daemon_observes_recorded_entries_back_through_query() {
 #[test]
 #[ignore = "invokes nix build; run via cargo test --test nix_integration -- --ignored"]
 fn nix_built_daemon_returns_missed_when_no_matching_record_exists() {
-    // PATTERN: Observe against an empty store traverses to the SEMA
-    // plane and returns `SemaOutput::Missed`, which lowers through the
-    // Nexus reverse plane to `Output::Error(ErrorReport)`. The CLI
+    // PATTERN: Observe against an empty store traverses to the SEMA read
+    // plane and returns `SemaReadOutput::Missed`, which lowers through
+    // the Nexus reverse plane to `Output::Error(ErrorReport)`. The CLI
     // prints the NOTA, we parse it back through the schema-emitted
     // FromStr surface.
     let binaries = NixBuiltBinaries::ensure();

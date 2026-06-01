@@ -76,6 +76,15 @@ impl SchemaBuild {
         });
         let expected = checked_in.expected_source();
         if actual != expected {
+            if env::var_os("SPIRIT_NEXT_UPDATE_SCHEMA_ARTIFACTS").is_some() {
+                fs::write(checked_in.path(), expected).unwrap_or_else(|error| {
+                    panic!(
+                        "failed to update checked-in generated schema source at {}: {error}",
+                        checked_in.path().display()
+                    )
+                });
+                return;
+            }
             panic!(
                 "checked-in generated schema source is stale at {}; regenerate it from schema/lib.schema",
                 checked_in.path().display()
@@ -109,6 +118,15 @@ impl CheckedInAsschemaArtifact {
         let generated = fs::read_to_string(artifact_files.nota_path())
             .expect("read generated asschema artifact");
         if checked_in != generated {
+            if env::var_os("SPIRIT_NEXT_UPDATE_SCHEMA_ARTIFACTS").is_some() {
+                fs::write(self.path(), generated).unwrap_or_else(|error| {
+                    panic!(
+                        "failed to update checked-in assembled schema artifact at {}: {error}",
+                        self.path().display()
+                    )
+                });
+                return;
+            }
             panic!(
                 "checked-in assembled schema artifact is stale at {}; regenerate it from schema/lib.schema",
                 self.path().display()

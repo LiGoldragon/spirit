@@ -7,8 +7,9 @@
 //! generated module is fresh.
 //!
 //! Plane envelopes make cross-plane mis-wiring a type error. A SEMA store
-//! accepts only a `sema::Sema<sema::Input>` root object; a Nexus envelope
-//! with the same inner payload names cannot be applied to the SEMA engine:
+//! accepts only `sema::Sema<sema::WriteInput>` for durable writes and
+//! `sema::Sema<sema::ReadInput>` for reads; a Nexus envelope with the same
+//! inner payload names cannot be applied to the SEMA engine:
 //!
 //! ```compile_fail
 //! use spirit_next::{SemaEngine, Store, nexus_plane};
@@ -35,17 +36,17 @@ pub mod schema {
 pub use config::{Configuration, ConfigurationError};
 pub use daemon::{Daemon, DaemonError};
 pub use engine::{Engine, MailLedger, MailLedgerHook, SignalAccepted, SignalActor};
-pub use nexus::{BeingProcessed, FromMail, Mail, Nexus, Processed};
+pub use nexus::Nexus;
 pub use schema::lib::{
     CommitSequence, DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport, Export, Import,
-    Input, InputNexus, InputRoute, Integer, Kind, LocalPath, Magnitude, MailIdentifier,
-    MailLedgerEvent, MessageIdentifier, MessageProcessed, MessageProcessedHook, MessageRoot,
-    MessageSent, MessageSentHook, NexusEngine, NexusInput, NexusMail, NexusOutput, NexusReuse,
-    ObservedRecords, OriginRoute, Output, OutputRoute, ProcessedMail, PublicPath, Query,
-    RecordIdentifier, RecordSet, RemoveReceipt, SemaEngine, SemaInput, SemaOutput, SemaReceipt,
-    SemaReuse, SentMail, ShortHeader, SignalEngine, SignalFrameError, SignalRejection, SignalReuse,
-    SourcePath, StateDigest, Topic, TopicMatch, Topics, ValidationError, nexus as nexus_plane,
-    schema as schema_meta, sema, signal,
+    Input, InputRoute, Integer, Kind, LocalPath, Magnitude, MailIdentifier, MailLedgerEvent,
+    MessageIdentifier, MessageProcessed, MessageProcessedHook, MessageRoot, MessageSent,
+    MessageSentHook, NexusEngine, NexusInput, NexusOutput, NexusReuse, ObservedRecords,
+    OriginRoute, Output, OutputRoute, ProcessedMail, PublicPath, Query, RecordIdentifier,
+    RecordSet, RemoveReceipt, SemaEngine, SemaReadInput, SemaReadOutput, SemaReceipt, SemaReuse,
+    SemaWriteInput, SemaWriteOutput, SentMail, ShortHeader, SignalEngine, SignalFrameError,
+    SignalRejection, SignalReuse, SourcePath, StateDigest, Topic, TopicMatch, Topics,
+    ValidationError, nexus as nexus_plane, schema as schema_meta, sema, signal,
 };
 pub use store::{Store, StoreError};
 pub use transport::{SignalTransport, TransportError};

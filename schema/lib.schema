@@ -10,10 +10,12 @@
   SignalReuse { Import * Export * }
   NexusReuse { Import * Export * }
   SemaReuse { Import * Export * }
-  NexusInput [(Signal Input) (Sema SemaOutput)]
-  NexusOutput [(Sema SemaInput) (Signal Output)]
-  SemaInput [(Record Entry) (Observe Query) (Remove RecordIdentifier)]
-  SemaOutput [(Recorded SemaReceipt) (Observed ObservedRecords) (Removed RemoveReceipt) (Missed ErrorReport)]
+  NexusInput [(Signal Input) (SemaWrite SemaWriteOutput) (SemaRead SemaReadOutput)]
+  NexusOutput [(SemaWrite SemaWriteInput) (SemaRead SemaReadInput) (Signal Output)]
+  SemaWriteInput [(Record Entry) (Remove RecordIdentifier)]
+  SemaReadInput [(Observe Query)]
+  SemaWriteOutput [(Recorded SemaReceipt) (Removed RemoveReceipt) (Missed ErrorReport)]
+  SemaReadOutput [(Observed ObservedRecords) (Missed ErrorReport)]
   Topic String
   Topics (Vec Topic)
   Description String
