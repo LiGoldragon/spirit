@@ -4,7 +4,7 @@ use crate::{
 };
 
 #[cfg(feature = "testing-trace")]
-use crate::{TraceEvent, TraceLog};
+use crate::{NexusTrace, TraceLog};
 
 /// Nexus is the runtime decision center between Signal and SEMA.
 ///
@@ -60,16 +60,12 @@ impl NexusEngine for Nexus {
         input: nexus_plane::Nexus<nexus_plane::Input>,
     ) -> nexus_plane::Nexus<nexus_plane::Output> {
         #[cfg(feature = "testing-trace")]
-        self.trace_log.record(TraceEvent::NexusEntered {
-            origin_route: input.origin_route(),
-            input: input.root().clone(),
-        });
+        self.trace_log
+            .nexus_entered(input.origin_route(), input.root());
         let output = input.into_nexus_output();
         #[cfg(feature = "testing-trace")]
-        self.trace_log.record(TraceEvent::NexusDecided {
-            origin_route: output.origin_route(),
-            output: output.root().clone(),
-        });
+        self.trace_log
+            .nexus_decided(output.origin_route(), output.root());
         let origin_route = output.origin_route();
         match output.into_root() {
             NexusOutput::SemaWrite(input) => {

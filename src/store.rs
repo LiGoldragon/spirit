@@ -9,7 +9,7 @@ use crate::{
 };
 
 #[cfg(feature = "testing-trace")]
-use crate::{TraceEvent, TraceLog};
+use crate::{SemaTrace, TraceLog};
 
 /// redb table of durable records: identifier -> rkyv-archived `Entry`.
 const RECORDS: TableDefinition<u64, &[u8]> = TableDefinition::new("records");
@@ -71,11 +71,8 @@ impl SemaEngine for Store {
             },
         };
         #[cfg(feature = "testing-trace")]
-        self.trace_log.record(TraceEvent::SemaWriteApplied {
-            origin_route,
-            input: trace_input,
-            output: output.clone(),
-        });
+        self.trace_log
+            .sema_write_applied(origin_route, &trace_input, &output);
         output.with_origin_route(origin_route)
     }
 
@@ -103,11 +100,8 @@ impl SemaEngine for Store {
             },
         };
         #[cfg(feature = "testing-trace")]
-        self.trace_log.record(TraceEvent::SemaReadObserved {
-            origin_route,
-            input: trace_input,
-            output: output.clone(),
-        });
+        self.trace_log
+            .sema_read_observed(origin_route, &trace_input, &output);
         output.with_origin_route(origin_route)
     }
 }

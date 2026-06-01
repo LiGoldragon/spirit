@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[cfg(feature = "testing-trace")]
-use crate::{TraceEvent, TraceLog};
+use crate::{SignalTrace, TraceLog};
 
 const ORIGIN_ROUTE_BASE: Integer = 1_000_000;
 
@@ -146,10 +146,8 @@ impl SignalActor {
         let identifier = self.issue_message_identifier();
         if let Err(validation_error) = signal_input.root().validate() {
             #[cfg(feature = "testing-trace")]
-            self.trace_log.record(TraceEvent::SignalRejected {
-                origin_route,
-                validation_error: validation_error.clone(),
-            });
+            self.trace_log
+                .signal_rejected(origin_route, &validation_error);
             return Err(SignalRejected {
                 origin_route,
                 validation_error,
@@ -158,10 +156,8 @@ impl SignalActor {
             });
         }
         #[cfg(feature = "testing-trace")]
-        self.trace_log.record(TraceEvent::SignalAdmitted {
-            origin_route,
-            input: signal_input.root().clone(),
-        });
+        self.trace_log
+            .signal_admitted(origin_route, signal_input.root());
         Ok(SignalAccepted {
             sent: signal_input.message_sent(identifier),
             input: signal_input,
@@ -193,10 +189,8 @@ impl SignalEngine for SignalActor {
     fn reply(&self, output: nexus_plane::Nexus<NexusOutput>) -> signal_plane::Signal<Output> {
         let signal_output = output.into_signal_output();
         #[cfg(feature = "testing-trace")]
-        self.trace_log.record(TraceEvent::SignalReplied {
-            origin_route: signal_output.origin_route(),
-            output: signal_output.root().clone(),
-        });
+        self.trace_log
+            .signal_replied(signal_output.origin_route(), signal_output.root());
         signal_output
     }
 }
@@ -434,10 +428,8 @@ impl SignalRejected {
             .into_signal_output(database_marker)
             .with_origin_route(self.origin_route);
         #[cfg(feature = "testing-trace")]
-        self.trace_log.record(TraceEvent::SignalReplied {
-            origin_route: signal_output.origin_route(),
-            output: signal_output.root().clone(),
-        });
+        self.trace_log
+            .signal_replied(signal_output.origin_route(), signal_output.root());
         signal_output
     }
 }

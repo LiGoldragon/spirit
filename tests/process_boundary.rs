@@ -35,6 +35,25 @@ impl DaemonProcess {
         wait_for_socket(socket_path);
         process
     }
+
+    #[cfg(feature = "testing-trace")]
+    fn spawn_with_trace(
+        socket_path: &Path,
+        database_path: &Path,
+        trace_socket_path: &Path,
+    ) -> Self {
+        let configuration_path = socket_path.with_extension("config.rkyv");
+        Configuration::new_with_trace(socket_path, database_path, trace_socket_path)
+            .write_binary_file(&configuration_path)
+            .expect("write binary daemon configuration with trace socket");
+        let child = Command::new(env!("CARGO_BIN_EXE_spirit-next-daemon"))
+            .arg(configuration_path)
+            .spawn()
+            .expect("spawn daemon");
+        let process = Self { child };
+        wait_for_socket(socket_path);
+        process
+    }
 }
 
 fn run_cli(socket_path: &Path, nota_argument: &str) -> Output {
@@ -55,6 +74,58 @@ fn run_cli(socket_path: &Path, nota_argument: &str) -> Output {
             stdout.trim()
         )
     })
+}
+
+#[cfg(feature = "testing-trace")]
+#[derive(Debug)]
+struct TraceCliOutput {
+    output: Output,
+    trace_lines: Vec<String>,
+}
+
+#[cfg(feature = "testing-trace")]
+impl TraceCliOutput {
+    fn from_stdout(stdout: Vec<u8>) -> Self {
+        let stdout = String::from_utf8(stdout).expect("cli stdout is UTF-8");
+        let mut lines = stdout.lines();
+        let output_line = lines.next().expect("cli prints signal output");
+        let output = Output::from_str(output_line).unwrap_or_else(|error| {
+            panic!("schema-emitted Output::FromStr on CLI stdout {output_line:?}: {error}")
+        });
+        Self {
+            output,
+            trace_lines: lines.map(String::from).collect(),
+        }
+    }
+
+    fn assert_trace_sequence(&self, expected: &[&str]) {
+        let actual = self
+            .trace_lines
+            .iter()
+            .map(|line| line.split_once(' ').map(|(name, _)| name).unwrap_or(line))
+            .collect::<Vec<_>>();
+        assert_eq!(actual, expected, "trace lines: {:#?}", self.trace_lines);
+    }
+}
+
+#[cfg(feature = "testing-trace")]
+fn run_cli_with_trace(
+    socket_path: &Path,
+    trace_socket_path: &Path,
+    nota_argument: &str,
+) -> TraceCliOutput {
+    let output = Command::new(env!("CARGO_BIN_EXE_spirit-next"))
+        .env("SPIRIT_NEXT_SOCKET", socket_path)
+        .env("SPIRIT_NEXT_TRACE_SOCKET", trace_socket_path)
+        .arg(nota_argument)
+        .output()
+        .expect("run cli with trace");
+    assert!(
+        output.status.success(),
+        "cli stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    TraceCliOutput::from_stdout(output.stdout)
 }
 
 #[test]
@@ -277,6 +348,53 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
             other => panic!("expected production post-handover record, got {other:?}"),
         }
     }
+}
+
+#[cfg(feature = "testing-trace")]
+#[test]
+fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
+    let temp = TempDir::new().expect("tempdir");
+    let socket_path = temp.path().join("spirit-next.sock");
+    let trace_socket_path = temp.path().join("spirit-next-trace.sock");
+    let database_path = temp.path().join("spirit-next.sema");
+
+    let _daemon = DaemonProcess::spawn_with_trace(&socket_path, &database_path, &trace_socket_path);
+
+    let recorded = run_cli_with_trace(
+        &socket_path,
+        &trace_socket_path,
+        "(Record ([[trace]] Constraint [trace crosses daemon boundary] Maximum))",
+    );
+    assert!(
+        matches!(recorded.output, Output::RecordAccepted(_)),
+        "record reply should still be the first CLI line, got {:?}",
+        recorded.output
+    );
+    recorded.assert_trace_sequence(&[
+        "SignalAdmitted",
+        "NexusEntered",
+        "NexusDecided",
+        "SemaWriteApplied",
+        "SignalReplied",
+    ]);
+
+    let observed = run_cli_with_trace(
+        &socket_path,
+        &trace_socket_path,
+        "(Observe ((Full [[trace]]) (Some Constraint)))",
+    );
+    assert!(
+        matches!(observed.output, Output::RecordsObserved(_)),
+        "observe reply should still be the first CLI line, got {:?}",
+        observed.output
+    );
+    observed.assert_trace_sequence(&[
+        "SignalAdmitted",
+        "NexusEntered",
+        "NexusDecided",
+        "SemaReadObserved",
+        "SignalReplied",
+    ]);
 }
 
 fn observed_descriptions(output: Output) -> Vec<String> {

@@ -97,6 +97,12 @@
         notaTextCargoArtifacts = craneLib.buildDepsOnly (commonArguments // {
           cargoExtraArgs = "--features nota-text";
         });
+        testingTraceCargoArtifacts = craneLib.buildDepsOnly (commonArguments // {
+          cargoExtraArgs = "--features testing-trace";
+        });
+        notaTextTestingTraceCargoArtifacts = craneLib.buildDepsOnly (commonArguments // {
+          cargoExtraArgs = "--features nota-text,testing-trace";
+        });
         daemonPackage = craneLib.buildPackage (commonArguments // {
           cargoArtifacts = binaryCargoArtifacts;
           cargoExtraArgs = "--no-default-features --bin spirit-next-daemon";
@@ -105,10 +111,23 @@
           cargoArtifacts = notaTextCargoArtifacts;
           cargoExtraArgs = "--features nota-text --bin spirit-next";
         });
+        traceDaemonPackage = craneLib.buildPackage (commonArguments // {
+          cargoArtifacts = testingTraceCargoArtifacts;
+          cargoExtraArgs = "--features testing-trace --bin spirit-next-daemon";
+        });
+        traceCliPackage = craneLib.buildPackage (commonArguments // {
+          cargoArtifacts = notaTextTestingTraceCargoArtifacts;
+          cargoExtraArgs = "--features nota-text,testing-trace --bin spirit-next";
+        });
         combinedPackage = pkgs.runCommand "spirit-next" { } ''
           mkdir -p "$out/bin"
           ln -s "${cliPackage}/bin/spirit-next" "$out/bin/spirit-next"
           ln -s "${daemonPackage}/bin/spirit-next-daemon" "$out/bin/spirit-next-daemon"
+        '';
+        traceCombinedPackage = pkgs.runCommand "spirit-next-trace" { } ''
+          mkdir -p "$out/bin"
+          ln -s "${traceCliPackage}/bin/spirit-next" "$out/bin/spirit-next"
+          ln -s "${traceDaemonPackage}/bin/spirit-next-daemon" "$out/bin/spirit-next-daemon"
         '';
         nixIntegrationRunner = pkgs.writeShellApplication {
           name = "spirit-next-nix-integration-tests";
@@ -123,6 +142,9 @@
         packages.default = combinedPackage;
         packages.cli = cliPackage;
         packages.daemon = daemonPackage;
+        packages.trace = traceCombinedPackage;
+        packages."trace-cli" = traceCliPackage;
+        packages."trace-daemon" = traceDaemonPackage;
         apps.nix-integration-tests = {
           type = "app";
           program = "${nixIntegrationRunner}/bin/spirit-next-nix-integration-tests";
@@ -146,8 +168,12 @@
             cargoExtraArgs = "--features nota-text";
           });
           test-testing-trace = craneLib.cargoTest (commonArguments // {
-            cargoArtifacts = binaryCargoArtifacts;
+            cargoArtifacts = testingTraceCargoArtifacts;
             cargoExtraArgs = "--features testing-trace --test instrumentation_logging";
+          });
+          test-testing-trace-process-boundary = craneLib.cargoTest (commonArguments // {
+            cargoArtifacts = notaTextTestingTraceCargoArtifacts;
+            cargoExtraArgs = "--features nota-text,testing-trace --test process_boundary cli_receives_testing_trace_events_from_daemon_trace_socket -- --exact";
           });
           no-old-signal-macro = pkgs.runCommand "spirit-next-no-old-signal-macro" { } ''
             if grep -R "signal_channel!" ${src}/build.rs ${src}/schema ${src}/src ${src}/tests; then
@@ -293,6 +319,10 @@
           clippy-nota-text = craneLib.cargoClippy (commonArguments // {
             cargoArtifacts = notaTextCargoArtifacts;
             cargoClippyExtraArgs = "--features nota-text --all-targets -- -D warnings";
+          });
+          clippy-testing-trace = craneLib.cargoClippy (commonArguments // {
+            cargoArtifacts = notaTextTestingTraceCargoArtifacts;
+            cargoClippyExtraArgs = "--features nota-text,testing-trace --all-targets -- -D warnings";
           });
           doc = craneLib.cargoDoc (commonArguments // {
             cargoArtifacts = binaryCargoArtifacts;

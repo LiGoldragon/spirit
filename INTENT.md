@@ -120,6 +120,25 @@ Load-bearing constraints:
   Signal admission/reply, Nexus execution/decision, SEMA write application,
   and SEMA read observation while preserving default production binary
   behavior.
+- The testing trace surface is live across the real daemon boundary. A
+  trace-enabled daemon can write rkyv-encoded `TraceEvent` frames to a typed
+  Unix trace socket named in binary `Configuration`; a trace-enabled CLI can
+  bind that socket through `SPIRIT_NEXT_TRACE_SOCKET`, send the normal binary
+  request on the normal socket, decode trace frames, and print human-facing
+  trace lines after the normal Signal reply. The normal daemon/CLI packages do
+  not enable this surface.
+- Trace events are emitted through object/trait surfaces (`SignalTrace`,
+  `NexusTrace`, `SemaTrace`) on the generated-interface actors, not through
+  ad-hoc source grep or detached helper functions. The runtime proof must
+  exercise the actual CLI -> daemon -> Signal -> Nexus -> SEMA -> Signal path.
+- The flake exposes separate normal and trace-enabled packages. The default
+  package remains the lean normal CLI + daemon pair; `packages.trace`,
+  `packages.trace-cli`, and `packages.trace-daemon` build the testing-trace
+  surface explicitly.
+- A future "last version" package is intended for upgrade/switchover testing
+  and old-client compatibility, but it must point at a real previous release
+  input/tag. This repository currently has no release tag wired as a previous
+  version, so the package is not faked as an alias to current main.
 - The store is the SEMA writer. SEMA means database work: real SEMA writes
   durable state to the component database file. Runtime state changes pass
   through the generated `SemaEngine::apply(sema::Sema<sema::WriteInput>) ->

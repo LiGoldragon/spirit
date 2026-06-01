@@ -32,6 +32,16 @@ surface. `tests/dependency_surface.rs` is the executable guard: the normal
 dependency tree with `--no-default-features` must contain no `nota-next`, while
 the `nota-text` tree must contain it.
 
+`testing-trace` is a second explicit surface, separate from the normal
+runtime. Normal Nix packages build a lean binary daemon plus NOTA CLI adapter.
+Trace packages build the same pair with `testing-trace`; the daemon can emit
+rkyv `TraceEvent` frames to a configured trace socket, and the CLI can listen
+on that socket and render decoded trace events after the ordinary Signal
+reply. The trace path is a runtime proof surface, not deployment grep: the
+process-boundary test starts a real daemon, sends real CLI requests, and
+asserts the Signal/Nexus/SEMA event sequence that returns over the trace
+socket.
+
 The current `schema/lib.schema` intentionally keeps braces strict as NOTA
 key-value maps. The namespace contains pairs such as `Topic String`,
 `RecordSet (Vec Entry)`, and `Entry { Topics * Kind * Description * }`; it
@@ -93,6 +103,11 @@ its binary-only build. A text launcher or test can write the binary
 configuration file; production configuration should later become another
 typed binary signal surface differentiated by the root message enumerator,
 not a NOTA side channel.
+
+`Configuration` may also carry a trace socket path. That field is still binary
+rkyv configuration; it does not add a NOTA startup path to the daemon. Only a
+daemon compiled with `testing-trace` uses it. The daemon writes trace frames as
+binary objects, and only the trace-enabled CLI decodes them into text.
 
 The binary socket also rejects text structurally. `tests/socket_negative.rs`
 feeds length-prefixed NOTA bytes and arbitrary bytes through `SignalTransport`
@@ -251,6 +266,7 @@ Production-candidate handover is exercised by copying a seeded `.sema`
 database file before starting the candidate daemon. The candidate must observe
 the copied records, resume the copied ledger for new writes, and leave the
 original production-like database unchanged when it is reopened.
+
 - `Input` and `Output` frame themselves at the Signal boundary.
 
 This is the local version of the async mail keeper pattern. `SignalActor` is
@@ -261,11 +277,32 @@ The generated plane envelopes move between those objects; the code must not
 replace that movement with module-level routing helpers or old convenience
 wrappers.
 
+Testing trace follows the same ownership rule. `TraceLog` implements
+`SignalTrace`, `NexusTrace`, and `SemaTrace`; the actors call those trait
+methods at their own phase boundaries. Signal emits admitted/rejected/replied,
+Nexus emits entered/decided, and SEMA emits write-applied/read-observed. The
+trace object decides whether to do nothing, record in memory for unit tests, or
+write a rkyv frame to the trace socket.
+
 When a data shape changes, edit `schema/lib.schema` first, then regenerate
 through `build.rs`, then update the methods that act on the regenerated types.
 Do not hand-write parallel type mirrors.
 
 ## Local stack testing
+
+The flake exposes normal and trace package surfaces:
+
+- `packages.default`, `packages.cli`, and `packages.daemon` are the normal
+  runtime pair.
+- `packages.trace`, `packages.trace-cli`, and `packages.trace-daemon` are the
+  trace-enabled testing pair.
+- `checks.test-testing-trace` proves the in-process event sequence.
+- `checks.test-testing-trace-process-boundary` proves live CLI/daemon trace
+  delivery over Unix sockets.
+
+No `last-version` package is exposed yet. That package needs a real previous
+release input/tag so upgrade tests compare current code against a previous
+artifact rather than an alias of current main.
 
 `scripts/check-local-schema-stack` runs the central local override test for
 this pilot. It rebuilds `spirit-next` with local checkouts of `nota-next`,

@@ -2,6 +2,11 @@ use std::{env, fs, path::Path};
 
 use spirit_next::{Input, SignalTransport};
 
+#[cfg(feature = "testing-trace")]
+use spirit_next::TraceSocketListener;
+#[cfg(feature = "testing-trace")]
+use std::time::Duration;
+
 fn main() {
     if let Err(error) = SpiritNextCli::from_environment().run() {
         eprintln!("spirit-next: {error}");
@@ -26,8 +31,12 @@ impl SpiritNextCli {
         let input = source.parse::<Input>()?;
         let socket_path = env::var("SPIRIT_NEXT_SOCKET")
             .unwrap_or_else(|_| String::from("/tmp/spirit-next.sock"));
+        #[cfg(feature = "testing-trace")]
+        let trace_output = TraceOutput::from_environment()?;
         let (_route, output) = SignalTransport::connect(socket_path)?.exchange(&input)?;
         println!("{output}");
+        #[cfg(feature = "testing-trace")]
+        trace_output.print_events()?;
         Ok(())
     }
 
@@ -46,5 +55,31 @@ impl SpiritNextCli {
         } else {
             Err("inline operation must be a parenthesized NOTA value".into())
         }
+    }
+}
+
+#[cfg(feature = "testing-trace")]
+struct TraceOutput {
+    listener: Option<TraceSocketListener>,
+}
+
+#[cfg(feature = "testing-trace")]
+impl TraceOutput {
+    fn from_environment() -> Result<Self, Box<dyn std::error::Error>> {
+        let listener = match env::var("SPIRIT_NEXT_TRACE_SOCKET") {
+            Ok(path) => Some(TraceSocketListener::bind(path)?),
+            Err(env::VarError::NotPresent) => None,
+            Err(error) => return Err(Box::new(error)),
+        };
+        Ok(Self { listener })
+    }
+
+    fn print_events(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(listener) = &self.listener {
+            for event in listener.collect_for(Duration::from_millis(200))? {
+                println!("{event}");
+            }
+        }
+        Ok(())
     }
 }

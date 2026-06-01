@@ -11,6 +11,9 @@ use crate::{
     transport::{SignalTransport, TransportError},
 };
 
+#[cfg(feature = "testing-trace")]
+use crate::TraceLog;
+
 #[derive(Debug)]
 pub enum DaemonError {
     Io(std::io::Error),
@@ -63,8 +66,7 @@ impl Daemon {
         }
         self.remove_stale_socket()?;
         let listener = UnixListener::bind(self.configuration.socket_path())?;
-        let store = Store::open(self.configuration.database_path())?;
-        let engine = Arc::new(Engine::new(store));
+        let engine = Arc::new(self.engine()?);
         for stream in listener.incoming() {
             match stream {
                 Ok(stream) => {
@@ -77,6 +79,25 @@ impl Daemon {
             }
         }
         Ok(())
+    }
+
+    fn engine(&self) -> Result<Engine, DaemonError> {
+        #[cfg(feature = "testing-trace")]
+        {
+            let trace_log = self
+                .configuration
+                .trace_socket_path()
+                .map(TraceLog::socket)
+                .unwrap_or_else(TraceLog::disabled);
+            let store =
+                Store::open_with_trace(self.configuration.database_path(), trace_log.clone())?;
+            Ok(Engine::new_with_trace(store, trace_log))
+        }
+        #[cfg(not(feature = "testing-trace"))]
+        {
+            let store = Store::open(self.configuration.database_path())?;
+            Ok(Engine::new(store))
+        }
     }
 
     fn handle_stream(&self, stream: UnixStream, engine: &Engine) -> Result<(), DaemonError> {

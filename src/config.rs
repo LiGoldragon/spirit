@@ -9,6 +9,7 @@ use std::{fmt, fs, path::Path};
 pub struct Configuration {
     socket_path: ConfigurationPath,
     database_path: ConfigurationPath,
+    trace_socket_path: Option<ConfigurationPath>,
 }
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, Eq, PartialEq)]
@@ -29,6 +30,19 @@ impl Configuration {
         Self {
             socket_path: ConfigurationPath::new(socket_path),
             database_path: ConfigurationPath::new(database_path),
+            trace_socket_path: None,
+        }
+    }
+
+    pub fn new_with_trace(
+        socket_path: impl AsRef<Path>,
+        database_path: impl AsRef<Path>,
+        trace_socket_path: impl AsRef<Path>,
+    ) -> Self {
+        Self {
+            socket_path: ConfigurationPath::new(socket_path),
+            database_path: ConfigurationPath::new(database_path),
+            trace_socket_path: Some(ConfigurationPath::new(trace_socket_path)),
         }
     }
 
@@ -38,6 +52,12 @@ impl Configuration {
 
     pub fn database_path(&self) -> &Path {
         self.database_path.as_path()
+    }
+
+    pub fn trace_socket_path(&self) -> Option<&Path> {
+        self.trace_socket_path
+            .as_ref()
+            .map(ConfigurationPath::as_path)
     }
 
     pub fn from_binary_path(path: impl AsRef<Path>) -> Result<Self, ConfigurationError> {
