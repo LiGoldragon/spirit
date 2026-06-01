@@ -382,6 +382,50 @@
             fi
             touch $out
           '';
+          operator-271-closed-claims = pkgs.runCommand "spirit-next-operator-271-closed-claims" { } ''
+            # Architectural-truth witnesses for operator 271 claim 4.
+            # The Rust test file at tests/operator_271_closed_claims.rs runs
+            # through cargo test; this Nix check verifies the witness names
+            # are present and that the production schema source carries the
+            # honest enum-body shape on the production daemon's path.
+            test -f ${src}/tests/operator_271_closed_claims.rs
+            # Claim 4 — honest enum bodies CLOSED.
+            # The active production Input enum body — honest data variants.
+            grep -F "[(Record Entry) (Observe Query) (Remove RecordIdentifier)]" ${src}/schema/lib.schema >/dev/null
+            # The active production Output enum body.
+            grep -F "(RecordAccepted SemaReceipt)" ${src}/schema/lib.schema >/dev/null
+            grep -F "(RecordsObserved ObservedRecords)" ${src}/schema/lib.schema >/dev/null
+            grep -F "(RecordRemoved RemoveReceipt)" ${src}/schema/lib.schema >/dev/null
+            grep -F "(Error ErrorReport)" ${src}/schema/lib.schema >/dev/null
+            grep -F "(Rejected SignalRejection)" ${src}/schema/lib.schema >/dev/null
+            # Honest unit-variant bodies (bare PascalCase atoms).
+            grep -F "ValidationError [EmptyTopic EmptyDescription EmptyQueryTopic]" ${src}/schema/lib.schema >/dev/null
+            grep -F "Kind [Decision Principle Correction Clarification Constraint]" ${src}/schema/lib.schema >/dev/null
+            grep -F "Magnitude [Minimum VeryLow Low Medium High VeryHigh Maximum]" ${src}/schema/lib.schema >/dev/null
+            # Retired short-suffix sugar is absent from the production schema.
+            if grep -F "@" ${src}/schema/lib.schema; then
+              echo "spirit-next/schema/lib.schema must not carry the retired @ short-suffix sugar" >&2
+              exit 1
+            fi
+            if grep -F "@" ${src}/schema/lib.asschema; then
+              echo "spirit-next/schema/lib.asschema must not carry the retired @ short-suffix sugar" >&2
+              exit 1
+            fi
+            # The assembled artifact lifts the honest source into the
+            # typed (VariantName (Some (Plain TypeName))) form.
+            grep -F "(Record (Some (Plain Entry)))" ${src}/schema/lib.asschema >/dev/null
+            grep -F "(Observe (Some (Plain Query)))" ${src}/schema/lib.asschema >/dev/null
+            grep -F "(EmptyTopic None)" ${src}/schema/lib.asschema >/dev/null
+            grep -F "(Decision None)" ${src}/schema/lib.asschema >/dev/null
+            # Named witness functions in the test file.
+            grep -R "lib_schema_input_uses_honest_parenthesized_data_variants" ${src}/tests/operator_271_closed_claims.rs >/dev/null
+            grep -R "lib_schema_output_uses_honest_parenthesized_data_variants" ${src}/tests/operator_271_closed_claims.rs >/dev/null
+            grep -R "lib_schema_unit_variant_enum_uses_bare_pascal_case_atoms" ${src}/tests/operator_271_closed_claims.rs >/dev/null
+            grep -R "lib_schema_carries_no_at_sigil_anywhere" ${src}/tests/operator_271_closed_claims.rs >/dev/null
+            grep -R "lib_asschema_lifts_honest_data_variants_into_typed_records" ${src}/tests/operator_271_closed_claims.rs >/dev/null
+            grep -R "schema_emitted_rust_module_mirrors_honest_enum_variants" ${src}/tests/operator_271_closed_claims.rs >/dev/null
+            touch $out
+          '';
           local-schema-source-patches = pkgs.runCommand "spirit-next-local-schema-source-patches" { } ''
             grep -R 'patch."https://github.com/LiGoldragon/nota-next.git"' ${src}/Cargo.toml >/dev/null
             grep -R 'patch."https://github.com/LiGoldragon/schema-next.git"' ${src}/Cargo.toml >/dev/null
