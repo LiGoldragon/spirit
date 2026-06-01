@@ -1,6 +1,6 @@
 use crate::{
     DatabaseMarker, Input, MailLedger, MessageIdentifier, MessageProcessed, MessageProcessedHook,
-    NexusEngine, NexusInput, NexusMail, OriginRoute, Output, SemaEngine,
+    NexusEngine, NexusInput, NexusMail, NexusOutput, OriginRoute, Output, SemaEngine,
     schema::lib::{nexus as nexus_plane, sema as sema_plane, signal as signal_plane},
     store::Store,
 };
@@ -30,10 +30,10 @@ pub struct Nexus {
 ///
 /// The `phase` field carries the phase-specific data, so the two phases
 /// are structurally different values, not one struct wearing a marker:
-/// [`BeingProcessed`] carries the SEMA input the mail will run;
+/// [`BeingProcessed`] carries the Nexus input the mail will run;
 /// [`Processed`] carries the Signal output the SEMA reply produced. The
-/// only transition is the private `run_sema` (it consumes a
-/// `Mail<BeingProcessed>` and threads it through the store), so a
+/// only transition is the private `run_nexus` (it consumes a
+/// `Mail<BeingProcessed>` and threads it through the Nexus engine), so a
 /// `Mail<Processed>` cannot exist until SEMA has run.
 #[derive(Debug)]
 pub struct Mail<Phase> {
@@ -45,7 +45,7 @@ pub struct Mail<Phase> {
 /// In-flight phase: Nexus owns the mail, the SEMA call has not yet run.
 #[derive(Debug)]
 pub struct BeingProcessed {
-    sema_input: sema_plane::Sema<sema_plane::Input>,
+    nexus_input: nexus_plane::Nexus<nexus_plane::Input>,
 }
 
 /// Reached phase: the SEMA reply, translated back into the Signal output.
@@ -74,11 +74,25 @@ impl Nexus {
         Mail<BeingProcessed>: FromMail<Payload>,
     {
         let in_flight = Mail::<BeingProcessed>::from_mail(mail);
-        let processed = in_flight.run_sema(&mut self.store);
+        self.process_in_flight(in_flight).into_output()
+    }
+
+    pub fn process_nexus_input(
+        &mut self,
+        identifier: MessageIdentifier,
+        input: nexus_plane::Nexus<nexus_plane::Input>,
+    ) -> nexus_plane::Nexus<nexus_plane::Output> {
+        let in_flight = Mail::<BeingProcessed>::from_nexus_input(identifier, input);
+        let processed = self.process_in_flight(in_flight);
+        processed.into_nexus_output()
+    }
+
+    fn process_in_flight(&mut self, in_flight: Mail<BeingProcessed>) -> Mail<Processed> {
+        let processed = in_flight.run_nexus(self);
         processed
             .emit_processed(&mut self.mail_ledger.hook())
             .expect("spirit-next mail ledger is infallible");
-        processed.into_output()
+        processed
     }
 
     pub fn mail_ledger(&self) -> &MailLedger {
@@ -113,16 +127,25 @@ where
             identifier,
             origin_route,
             phase: BeingProcessed {
-                sema_input: mail
-                    .into_nexus_input()
-                    .into_nexus_output()
-                    .into_sema_input(),
+                nexus_input: mail.into_nexus_input(),
             },
         }
     }
 }
 
 impl Mail<BeingProcessed> {
+    pub fn from_nexus_input(
+        identifier: MessageIdentifier,
+        input: nexus_plane::Nexus<nexus_plane::Input>,
+    ) -> Self {
+        let origin_route = input.origin_route();
+        Self {
+            identifier,
+            origin_route,
+            phase: BeingProcessed { nexus_input: input },
+        }
+    }
+
     pub fn identifier(&self) -> MessageIdentifier {
         self.identifier
     }
@@ -132,20 +155,21 @@ impl Mail<BeingProcessed> {
     }
 
     /// The SEMA-language form the in-flight mail will hand to the store.
-    pub fn sema_input(&self) -> &sema_plane::Sema<sema_plane::Input> {
-        &self.phase.sema_input
+    pub fn sema_input(&self) -> sema_plane::Sema<sema_plane::Input> {
+        self.phase
+            .nexus_input
+            .clone()
+            .into_nexus_output()
+            .into_sema_input()
     }
 
-    /// Run the SEMA call while Nexus holds the mail, then transition the
+    /// Run the Nexus engine while Nexus holds the mail, then transition the
     /// mail type to [`Processed`]. This is the ONLY constructor of a
-    /// `Mail<Processed>`; the SEMA reply is translated back into the
-    /// Signal output here, the outbound half of the Nexus translation.
-    fn run_sema(self, store: &mut Store) -> Mail<Processed> {
-        let sema_output = store.apply(self.phase.sema_input);
-        let output = sema_output
-            .into_nexus_input()
-            .into_nexus_output()
-            .into_signal_output();
+    /// `Mail<Processed>`; the Nexus reply is translated back into the
+    /// Signal output here.
+    fn run_nexus(self, nexus: &mut Nexus) -> Mail<Processed> {
+        let nexus_output = NexusEngine::execute(nexus, self.phase.nexus_input);
+        let output = nexus_output.into_signal_output();
         Mail {
             identifier: self.identifier,
             origin_route: self.origin_route,
@@ -188,13 +212,29 @@ impl Mail<Processed> {
     fn into_output(self) -> signal_plane::Signal<Output> {
         self.phase.output
     }
+
+    fn into_nexus_output(self) -> nexus_plane::Nexus<NexusOutput> {
+        let origin_route = self.origin_route;
+        NexusOutput::from(self.phase.output.into_root()).with_origin_route(origin_route)
+    }
 }
 
 impl NexusEngine for Nexus {
     fn execute(
-        &self,
+        &mut self,
         input: nexus_plane::Nexus<nexus_plane::Input>,
     ) -> nexus_plane::Nexus<nexus_plane::Output> {
-        input.into_nexus_output()
+        let output = input.into_nexus_output();
+        let origin_route = output.origin_route();
+        match output.into_root() {
+            NexusOutput::Sema(input) => {
+                let sema_output =
+                    SemaEngine::apply(&mut self.store, input.with_origin_route(origin_route));
+                sema_output.into_nexus_input().into_nexus_output()
+            }
+            NexusOutput::Signal(output) => {
+                NexusOutput::from(output).with_origin_route(origin_route)
+            }
+        }
     }
 }

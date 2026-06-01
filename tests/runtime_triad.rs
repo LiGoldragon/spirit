@@ -1,10 +1,10 @@
 use spirit_next::{
     CommitSequence, DatabaseMarker, Description, Engine, Entry, ErrorMessage, ErrorReport, Input,
     Kind, Magnitude, MailIdentifier, MailLedgerEvent, MessageIdentifier, MessageSent,
-    MessageSentHook, NexusInput, NexusMail, NexusOutput, OriginRoute, Output, ProcessedMail, Query,
-    RecordIdentifier, RecordSet, SemaEngine, SemaInput, SemaOutput, SemaReceipt, SentMail,
-    ShortHeader, SignalAccepted, SignalActor, SignalRejection, StateDigest, Store, Topic,
-    TopicMatch, Topics, ValidationError, schema_meta, sema,
+    MessageSentHook, Nexus, NexusEngine, NexusInput, NexusMail, NexusOutput, OriginRoute, Output,
+    ProcessedMail, Query, RecordIdentifier, RecordSet, SemaEngine, SemaInput, SemaOutput,
+    SemaReceipt, SentMail, ShortHeader, SignalAccepted, SignalActor, SignalEngine, SignalRejection,
+    StateDigest, Store, Topic, TopicMatch, Topics, ValidationError, schema_meta, sema,
 };
 #[cfg(feature = "nota-text")]
 use spirit_next::{Export, Import, LocalPath, PublicPath, SourcePath};
@@ -129,7 +129,7 @@ fn nexus_mail_lowers_signal_payload_to_generated_sema_command() {
 fn signal_actor_pushes_accepted_message_through_sent_hook_before_nexus_holds_mail() {
     let signal_actor = SignalActor::default();
     let signal_entry = entry("signal pushes to nexus");
-    let signal_input = Input::Record(signal_entry.clone());
+    let signal_input = signal_actor.route(Input::Record(signal_entry.clone()));
     let accepted = signal_actor
         .accept(signal_input.clone())
         .expect("signal input accepts");
@@ -175,7 +175,7 @@ fn nexus_holds_the_mail_in_being_processed_typestate_before_sema_runs() {
 
     let signal_actor = SignalActor::default();
     let accepted: SignalAccepted = signal_actor
-        .accept(Input::Record(entry("held in flight")))
+        .accept(signal_actor.route(Input::Record(entry("held in flight"))))
         .expect("signal accepts");
 
     let in_flight = accepted.into_being_processed();
@@ -189,14 +189,14 @@ fn nexus_holds_the_mail_in_being_processed_typestate_before_sema_runs() {
         route(1),
         "the in-flight mail keeps the origin route return address"
     );
-    let plane =
-        schema_meta::Plane::<Input, NexusInput, SemaInput>::Sema(in_flight.sema_input().clone());
+    let held_sema_input = in_flight.sema_input();
+    let plane = schema_meta::Plane::<Input, NexusInput, SemaInput>::Sema(held_sema_input.clone());
     assert_eq!(plane.origin_route(), route(1));
     let schema_meta::Plane::Sema(sema_input) = plane else {
         panic!("expected SEMA plane");
     };
-    assert_eq!(sema_input.root(), in_flight.sema_input().root());
-    match in_flight.sema_input().root() {
+    assert_eq!(sema_input.root(), held_sema_input.root());
+    match held_sema_input.root() {
         SemaInput::Record(recorded) => assert_eq!(recorded.description.0, "held in flight"),
         SemaInput::Observe(_) => panic!("a recorded entry lowers to a SEMA record command"),
         SemaInput::Remove(_) => panic!("a recorded entry lowers to a SEMA record command"),
@@ -239,6 +239,58 @@ fn sema_engine_writes_durable_records_and_returns_schema_objects() {
     assert_eq!(store.len(), 1);
     // PROOF the .sema file is real on disk.
     assert!(store.path().exists(), "the .sema database file exists");
+}
+
+#[test]
+fn nexus_engine_trait_runs_nexus_decision_through_sema_state() {
+    let sema = SemaFile::new();
+    let mut nexus = Nexus::new(sema.open_store());
+    let nexus_input =
+        NexusInput::Signal(Input::Record(entry("nexus trait root"))).with_origin_route(route(20));
+
+    let nexus_output = NexusEngine::execute(&mut nexus, nexus_input);
+
+    assert_eq!(nexus_output.origin_route(), route(20));
+    match nexus_output.root() {
+        NexusOutput::Signal(Output::RecordAccepted(receipt)) => {
+            assert_eq!(receipt.record_identifier, RecordIdentifier(1));
+            assert_eq!(receipt.database_marker.commit_sequence, CommitSequence(1));
+        }
+        other => panic!("expected NexusEngine to return a Signal reply root, got {other:?}"),
+    }
+    assert_eq!(
+        nexus.store().len(),
+        1,
+        "NexusEngine is the computation plane that invokes SEMA for database work"
+    );
+}
+
+#[test]
+fn signal_engine_trait_triages_signal_roots_to_nexus_and_back() {
+    let sema = SemaFile::new();
+    let signal_actor = SignalActor::default();
+    let mut nexus = Nexus::new(sema.open_store());
+    let signal_input = Input::Record(entry("signal trait root")).with_origin_route(route(21));
+
+    let nexus_input = SignalEngine::triage(&signal_actor, signal_input);
+    assert_eq!(nexus_input.origin_route(), route(21));
+    assert!(matches!(
+        nexus_input.root(),
+        NexusInput::Signal(Input::Record(_))
+    ));
+
+    let nexus_output = NexusEngine::execute(&mut nexus, nexus_input);
+    let signal_output = SignalEngine::reply(&signal_actor, nexus_output);
+
+    assert_eq!(signal_output.origin_route(), route(21));
+    match signal_output.root() {
+        Output::RecordAccepted(receipt) => {
+            assert_eq!(receipt.record_identifier, RecordIdentifier(1));
+            assert_eq!(receipt.database_marker.commit_sequence, CommitSequence(1));
+        }
+        other => panic!("expected SignalEngine to return a Signal output root, got {other:?}"),
+    }
+    assert_eq!(nexus.store().len(), 1);
 }
 
 #[test]

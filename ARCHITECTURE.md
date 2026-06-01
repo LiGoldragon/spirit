@@ -148,9 +148,13 @@ The schema emits the wire nouns. Rust attaches the behavior:
 - `nexus::Nexus<nexus::Input>::into_nexus_output` maps Signal-side Nexus input
   to `sema::Input`, and maps `sema::Output` back to Signal `Output`;
   `run_sema` uses it for the outbound half.
-- `Nexus` implements the generated `NexusEngine` trait, so tests can invoke
-  the Nexus translation plane as `NexusEngine::execute(nexus::Nexus<nexus::Input>)
-  -> nexus::Nexus<nexus::Output>` directly.
+- `SignalActor` implements the generated `SignalEngine` trait, so tests can
+  prove Signal only triages routed Signal input into routed Nexus input and
+  turns routed Nexus replies back into routed Signal output.
+- `Nexus` implements the generated mutable `NexusEngine` trait, so tests can
+  invoke the heavier computation plane as
+  `NexusEngine::execute(nexus::Nexus<nexus::Input>) ->
+  nexus::Nexus<nexus::Output>` and watch it invoke SEMA when state is needed.
 - `Engine` is a thin composer of the three centers (Signal admission + the
   Nexus mail keeper). It does NOT call the store directly — the SEMA invocation
   lives inside `Nexus::process`. Generated sent/processed lifecycle events are
@@ -258,6 +262,11 @@ attaches behavior to those nouns or to state-owning runtime objects:
   is `Mail::<BeingProcessed>::run_sema`, which produces the `Mail<Processed>`.
 - `MailLedgerEvent` stores sent and processed mail markers, including their
   `OriginRoute`, in the ledger Nexus owns.
+
+Production-candidate handover is exercised by copying a seeded `.sema`
+database file before starting the candidate daemon. The candidate must observe
+the copied records, resume the copied ledger for new writes, and leave the
+original production-like database unchanged when it is reopened.
 - `Input` and `Output` frame themselves at the Signal boundary.
 
 This is the local version of the async mail keeper pattern. `SignalActor` is

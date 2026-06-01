@@ -1428,8 +1428,13 @@ impl Output {
     }
 }
 
+pub trait SignalEngine {
+    fn triage(&self, input: signal::Signal<signal::Input>) -> nexus::Nexus<nexus::Input>;
+    fn reply(&self, output: nexus::Nexus<nexus::Output>) -> signal::Signal<signal::Output>;
+}
+
 pub trait NexusEngine {
-    fn execute(&self, input: nexus::Nexus<nexus::Input>) -> nexus::Nexus<nexus::Output>;
+    fn execute(&mut self, input: nexus::Nexus<nexus::Input>) -> nexus::Nexus<nexus::Output>;
 }
 
 pub trait SemaEngine {

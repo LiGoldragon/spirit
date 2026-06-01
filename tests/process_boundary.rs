@@ -1,4 +1,5 @@
 use std::{
+    fs,
     path::Path,
     process::{Child, Command},
     str::FromStr,
@@ -178,6 +179,115 @@ fn daemon_persists_sema_file_across_a_restart() {
             );
         }
         other => panic!("expected RecordAccepted after restart, got {other:?}"),
+    }
+}
+
+#[test]
+fn candidate_daemon_handover_from_production_copy_preserves_original_sema_database() {
+    let temp = TempDir::new().expect("tempdir");
+    let production_database_path = temp.path().join("production.sema");
+    let candidate_database_path = temp.path().join("candidate-copy.sema");
+
+    {
+        let socket_path = temp.path().join("production-seed.sock");
+        let _daemon = DaemonProcess::spawn(&socket_path, &production_database_path);
+        let recorded = run_cli(
+            &socket_path,
+            "(Record ([[handover]] Constraint [production entry before copy] Maximum))",
+        );
+        match recorded {
+            Output::RecordAccepted(receipt) => {
+                assert_eq!(receipt.record_identifier, RecordIdentifier(1));
+                assert_eq!(receipt.database_marker.commit_sequence, CommitSequence(1));
+            }
+            other => panic!("expected production seed record, got {other:?}"),
+        }
+    }
+
+    fs::copy(&production_database_path, &candidate_database_path)
+        .expect("copy production .sema database for candidate handover");
+
+    {
+        let socket_path = temp.path().join("candidate.sock");
+        let _daemon = DaemonProcess::spawn(&socket_path, &candidate_database_path);
+        let observed = run_cli(
+            &socket_path,
+            "(Observe ((Full [[handover]]) (Some Constraint)))",
+        );
+        assert_eq!(
+            observed_descriptions(observed),
+            vec![String::from("production entry before copy")],
+            "candidate starts from the copied production SEMA state"
+        );
+
+        let candidate_recorded = run_cli(
+            &socket_path,
+            "(Record ([[handover]] Constraint [candidate-only entry after copy] Maximum))",
+        );
+        match candidate_recorded {
+            Output::RecordAccepted(receipt) => {
+                assert_eq!(
+                    receipt.database_marker.commit_sequence,
+                    CommitSequence(2),
+                    "candidate write resumes the copied ledger"
+                );
+            }
+            other => panic!("expected candidate record, got {other:?}"),
+        }
+
+        let candidate_observed = run_cli(
+            &socket_path,
+            "(Observe ((Full [[handover]]) (Some Constraint)))",
+        );
+        assert_eq!(
+            observed_descriptions(candidate_observed),
+            vec![
+                String::from("production entry before copy"),
+                String::from("candidate-only entry after copy"),
+            ],
+            "candidate writes land only in the copied database"
+        );
+    }
+
+    {
+        let socket_path = temp.path().join("production-after.sock");
+        let _daemon = DaemonProcess::spawn(&socket_path, &production_database_path);
+        let observed = run_cli(
+            &socket_path,
+            "(Observe ((Full [[handover]]) (Some Constraint)))",
+        );
+        assert_eq!(
+            observed_descriptions(observed),
+            vec![String::from("production entry before copy")],
+            "candidate writes must not mutate the original production SEMA file"
+        );
+
+        let production_next = run_cli(
+            &socket_path,
+            "(Record ([[handover]] Constraint [production entry after handover] Maximum))",
+        );
+        match production_next {
+            Output::RecordAccepted(receipt) => {
+                assert_eq!(
+                    receipt.database_marker.commit_sequence,
+                    CommitSequence(2),
+                    "original production ledger advances from its own state, not the candidate copy"
+                );
+            }
+            other => panic!("expected production post-handover record, got {other:?}"),
+        }
+    }
+}
+
+fn observed_descriptions(output: Output) -> Vec<String> {
+    match output {
+        Output::RecordsObserved(records) => records
+            .record_set
+            .0
+            .into_iter()
+            .map(|entry| entry.description.0)
+            .collect(),
+        other => panic!("expected RecordsObserved, got {other:?}"),
     }
 }
 

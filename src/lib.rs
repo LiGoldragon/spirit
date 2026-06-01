@@ -43,8 +43,8 @@ pub use schema::lib::{
     MessageSent, MessageSentHook, NexusEngine, NexusInput, NexusMail, NexusOutput, NexusReuse,
     ObservedRecords, OriginRoute, Output, OutputRoute, ProcessedMail, PublicPath, Query,
     RecordIdentifier, RecordSet, RemoveReceipt, SemaEngine, SemaInput, SemaOutput, SemaReceipt,
-    SemaReuse, SentMail, ShortHeader, SignalFrameError, SignalRejection, SignalReuse, SourcePath,
-    StateDigest, Topic, TopicMatch, Topics, ValidationError, nexus as nexus_plane,
+    SemaReuse, SentMail, ShortHeader, SignalEngine, SignalFrameError, SignalRejection, SignalReuse,
+    SourcePath, StateDigest, Topic, TopicMatch, Topics, ValidationError, nexus as nexus_plane,
     schema as schema_meta, sema, signal,
 };
 pub use store::{Store, StoreError};

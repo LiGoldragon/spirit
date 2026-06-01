@@ -270,6 +270,7 @@
             grep -R "pub enum NexusOutput" ${src}/src/schema/lib.rs >/dev/null
             grep -R "pub enum SemaInput" ${src}/src/schema/lib.rs >/dev/null
             grep -R "pub enum SemaOutput" ${src}/src/schema/lib.rs >/dev/null
+            grep -R "pub trait SignalEngine" ${src}/src/schema/lib.rs >/dev/null
             grep -R "pub trait NexusEngine" ${src}/src/schema/lib.rs >/dev/null
             grep -R "pub trait SemaEngine" ${src}/src/schema/lib.rs >/dev/null
             grep -R "pub enum ValidationError" ${src}/src/schema/lib.rs >/dev/null
@@ -315,7 +316,7 @@
             grep -R "pub struct Mail<Phase>" ${src}/src/nexus.rs >/dev/null
             grep -R "pub struct BeingProcessed" ${src}/src/nexus.rs >/dev/null
             grep -R "pub struct Processed" ${src}/src/nexus.rs >/dev/null
-            grep -R "fn run_sema(self, store: &mut Store)" ${src}/src/nexus.rs >/dev/null
+            grep -R "fn run_nexus(self, nexus: &mut Nexus)" ${src}/src/nexus.rs >/dev/null
             grep -R "Mail<Processed>" ${src}/src/nexus.rs >/dev/null
             grep -R "impl NexusEngine for Nexus" ${src}/src/nexus.rs >/dev/null
             grep -R "into_nexus_output" ${src}/src/nexus.rs >/dev/null

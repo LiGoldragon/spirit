@@ -93,10 +93,12 @@ Load-bearing constraints:
   emits generated `NexusOutput::Sema(SemaInput)`. When SEMA replies with
   `SemaOutput`, Nexus turns it into generated Signal output and records
   `MessageProcessed<Output>`.
-- `schema-rust-next` emits `NexusEngine` and `SemaEngine` when the schema
-  declares the corresponding input/output pairs. `Engine` implements
-  `NexusEngine`; `Store` implements `SemaEngine`; tests call those trait
-  surfaces with generated schema objects.
+- `schema-rust-next` emits `SignalEngine`, `NexusEngine`, and `SemaEngine`
+  when the schema declares the corresponding input/output pairs. `SignalActor`
+  implements `SignalEngine` as the lightweight triage/reply boundary; `Nexus`
+  implements mutable `NexusEngine` as the computation and decision plane;
+  `Store` implements `SemaEngine` as the durable state plane; tests call those
+  trait surfaces with generated schema root objects.
 - Nexus mail lifecycle state is represented with generated schema nouns:
   `MailLedgerEvent`, `SentMail`, `ProcessedMail`, and `OriginRoute`. The route
   is minted separately from the message identifier and carried in the Signal,
@@ -131,6 +133,10 @@ Load-bearing constraints:
   reopened from the same `.sema` path resumes where it left off. The file
   extension is `.sema` (not `.redb`) so the name states the runtime plane, not
   the implementation library.
+- Production-candidate handover is tested as a copy of a real `.sema` file.
+  The candidate daemon must read state seeded by the production-like daemon,
+  resume the copied commit ledger, and write only to the copied database; a
+  reopened production database must not see candidate writes.
 - SEMA replies carry generated `DatabaseMarker` values so Signal replies can
   report the state commit sequence and digest that accepted or observed the
   request. `StateDigest` is a real content-addressed hash (blake3 over the

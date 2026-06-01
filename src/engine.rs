@@ -2,11 +2,11 @@ use std::{convert::Infallible, sync::Mutex};
 
 use crate::{
     DatabaseMarker, Entry, Input, Integer, MailIdentifier, MailLedgerEvent, MessageIdentifier,
-    MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook, NexusMail, OriginRoute,
-    Output, ProcessedMail, Query, RecordIdentifier, SentMail, ShortHeader, SignalRejection,
-    TopicMatch, Topics, ValidationError,
+    MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook, NexusInput, NexusMail,
+    NexusOutput, OriginRoute, Output, ProcessedMail, Query, RecordIdentifier, SentMail,
+    ShortHeader, SignalEngine, SignalRejection, TopicMatch, Topics, ValidationError,
     nexus::{BeingProcessed, FromMail, Mail, Nexus},
-    schema::lib::signal as signal_plane,
+    schema::lib::{nexus as nexus_plane, signal as signal_plane},
     store::Store,
 };
 
@@ -70,12 +70,13 @@ impl Engine {
     /// being-processed state across the SEMA call and emits the processed
     /// event before the Signal output leaves.
     pub fn handle(&self, input: Input) -> signal_plane::Signal<Output> {
-        let accepted = match self.signal_actor.accept(input) {
+        let signal_input = self.signal_actor.route(input);
+        let accepted = match self.signal_actor.accept(signal_input) {
             Ok(accepted) => accepted,
             Err(rejected) => return rejected.into_signal_output(self.database_marker()),
         };
         let mut nexus = self.nexus.lock().expect("nexus lock");
-        accepted.process_with(&mut nexus)
+        accepted.process_with(&self.signal_actor, &mut nexus)
     }
 
     pub fn record_count(&self) -> usize {
@@ -112,16 +113,24 @@ impl Engine {
 }
 
 impl SignalActor {
-    pub fn accept(&self, input: Input) -> Result<SignalAccepted, SignalRejected> {
-        let identifier = self.issue_message_identifier();
+    pub fn route(&self, input: Input) -> signal_plane::Signal<Input> {
         let origin_route = self.issue_origin_route();
+        input.with_origin_route(origin_route)
+    }
+
+    pub fn accept(
+        &self,
+        input: signal_plane::Signal<Input>,
+    ) -> Result<SignalAccepted, SignalRejected> {
+        let identifier = self.issue_message_identifier();
+        let origin_route = input.origin_route();
         input
+            .root()
             .validate()
             .map_err(|validation_error| SignalRejected {
                 origin_route,
                 validation_error,
             })?;
-        let input = input.with_origin_route(origin_route);
         Ok(SignalAccepted {
             sent: input.message_sent(identifier),
             input,
@@ -144,6 +153,17 @@ impl SignalActor {
     }
 }
 
+impl SignalEngine for SignalActor {
+    fn triage(&self, input: signal_plane::Signal<Input>) -> nexus_plane::Nexus<NexusInput> {
+        let origin_route = input.origin_route();
+        NexusInput::from(input.into_root()).with_origin_route(origin_route)
+    }
+
+    fn reply(&self, output: nexus_plane::Nexus<NexusOutput>) -> signal_plane::Signal<Output> {
+        output.into_signal_output()
+    }
+}
+
 impl SignalAccepted {
     pub fn identifier(&self) -> MessageIdentifier {
         self.sent.identifier
@@ -160,19 +180,20 @@ impl SignalAccepted {
     /// mail enters Nexus, so an observer sees the handoff before any SEMA
     /// state changes. The mail is then owned by Nexus in a being-processed
     /// type-state until the SEMA reply turns it into the Signal output.
-    pub fn process_with(self, nexus: &mut Nexus) -> signal_plane::Signal<Output> {
+    pub fn process_with<Signal>(
+        self,
+        signal_engine: &Signal,
+        nexus: &mut Nexus,
+    ) -> signal_plane::Signal<Output>
+    where
+        Signal: SignalEngine,
+    {
         self.sent
             .push_to(&mut nexus.mail_ledger().hook())
             .expect("spirit-next mail ledger is infallible");
         let identifier = self.identifier();
-        let origin_route = self.input.origin_route();
-        match self.input.into_root() {
-            Input::Record(entry) => nexus.process(NexusMail::new(identifier, origin_route, entry)),
-            Input::Observe(query) => nexus.process(NexusMail::new(identifier, origin_route, query)),
-            Input::Remove(record_identifier) => {
-                nexus.process(NexusMail::new(identifier, origin_route, record_identifier))
-            }
-        }
+        let nexus_output = nexus.process_nexus_input(identifier, signal_engine.triage(self.input));
+        signal_engine.reply(nexus_output)
     }
 
     /// Lower the accepted mail to its in-flight Nexus phase without
