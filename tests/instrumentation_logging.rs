@@ -1,7 +1,7 @@
 use spirit_next::{
     CommitSequence, DatabaseMarker, Description, Engine, Entry, Kind, Magnitude, Output,
     RecordIdentifier, SemaReadInput, SemaReadOutput, SemaWriteInput, SemaWriteOutput, StateDigest,
-    Topic, TopicMatch, Topics, TraceEvent, TraceLog, ValidationError,
+    Topic, TopicMatch, Topics, TraceActor, TraceEvent, TraceInterface, TraceLog, ValidationError,
 };
 use tempfile::TempDir;
 
@@ -56,8 +56,25 @@ fn testing_trace_records_real_signal_nexus_and_sema_trait_calls() {
     let events = trace_log.events();
     assert_eq!(
         events.len(),
-        10,
-        "record and observe each cross five traced runtime boundaries"
+        12,
+        "record and observe each cross six traced runtime boundaries"
+    );
+    assert_actor_interfaces(
+        &events,
+        &[
+            (TraceActor::Signal, TraceInterface::SignalAdmission),
+            (TraceActor::Signal, TraceInterface::SignalEngine),
+            (TraceActor::Nexus, TraceInterface::NexusEngine),
+            (TraceActor::Sema, TraceInterface::SemaEngine),
+            (TraceActor::Nexus, TraceInterface::NexusEngine),
+            (TraceActor::Signal, TraceInterface::SignalEngine),
+            (TraceActor::Signal, TraceInterface::SignalAdmission),
+            (TraceActor::Signal, TraceInterface::SignalEngine),
+            (TraceActor::Nexus, TraceInterface::NexusEngine),
+            (TraceActor::Sema, TraceInterface::SemaEngine),
+            (TraceActor::Nexus, TraceInterface::NexusEngine),
+            (TraceActor::Signal, TraceInterface::SignalEngine),
+        ],
     );
 
     match &events[0] {
@@ -71,6 +88,18 @@ fn testing_trace_records_real_signal_nexus_and_sema_trait_calls() {
         other => panic!("expected signal admission event, got {other:?}"),
     }
     match &events[1] {
+        TraceEvent::SignalTriaged {
+            origin_route,
+            input,
+            output,
+        } => {
+            assert_eq!(*origin_route, recorded.origin_route());
+            assert!(matches!(input, spirit_next::Input::Record(_)));
+            assert!(matches!(output, spirit_next::NexusInput::Signal(_)));
+        }
+        other => panic!("expected signal triage event, got {other:?}"),
+    }
+    match &events[2] {
         TraceEvent::NexusEntered {
             origin_route,
             input,
@@ -79,16 +108,6 @@ fn testing_trace_records_real_signal_nexus_and_sema_trait_calls() {
             assert!(matches!(input, spirit_next::NexusInput::Signal(_)));
         }
         other => panic!("expected nexus entry event, got {other:?}"),
-    }
-    match &events[2] {
-        TraceEvent::NexusDecided {
-            origin_route,
-            output,
-        } => {
-            assert_eq!(*origin_route, recorded.origin_route());
-            assert!(matches!(output, spirit_next::NexusOutput::SemaWrite(_)));
-        }
-        other => panic!("expected nexus decision event, got {other:?}"),
     }
     match &events[3] {
         TraceEvent::SemaWriteApplied {
@@ -109,6 +128,16 @@ fn testing_trace_records_real_signal_nexus_and_sema_trait_calls() {
         other => panic!("expected SEMA write event, got {other:?}"),
     }
     match &events[4] {
+        TraceEvent::NexusDecided {
+            origin_route,
+            output,
+        } => {
+            assert_eq!(*origin_route, recorded.origin_route());
+            assert!(matches!(output, spirit_next::NexusOutput::Signal(_)));
+        }
+        other => panic!("expected nexus decision event, got {other:?}"),
+    }
+    match &events[5] {
         TraceEvent::SignalReplied {
             origin_route,
             output,
@@ -119,7 +148,7 @@ fn testing_trace_records_real_signal_nexus_and_sema_trait_calls() {
         other => panic!("expected signal reply event, got {other:?}"),
     }
 
-    match &events[5] {
+    match &events[6] {
         TraceEvent::SignalAdmitted {
             origin_route,
             input,
@@ -129,26 +158,33 @@ fn testing_trace_records_real_signal_nexus_and_sema_trait_calls() {
         }
         other => panic!("expected observe signal admission event, got {other:?}"),
     }
-    match &events[6] {
+    match &events[7] {
+        TraceEvent::SignalTriaged { input, output, .. } => {
+            assert!(matches!(input, spirit_next::Input::Observe(_)));
+            assert!(matches!(output, spirit_next::NexusInput::Signal(_)));
+        }
+        other => panic!("expected observe signal triage event, got {other:?}"),
+    }
+    match &events[8] {
         TraceEvent::NexusEntered { input, .. } => {
             assert!(matches!(input, spirit_next::NexusInput::Signal(_)));
         }
         other => panic!("expected observe nexus entry event, got {other:?}"),
     }
-    match &events[7] {
-        TraceEvent::NexusDecided { output, .. } => {
-            assert!(matches!(output, spirit_next::NexusOutput::SemaRead(_)));
-        }
-        other => panic!("expected observe nexus decision event, got {other:?}"),
-    }
-    match &events[8] {
+    match &events[9] {
         TraceEvent::SemaReadObserved { input, output, .. } => {
             assert!(matches!(input, SemaReadInput::Observe(_)));
             assert!(matches!(output, SemaReadOutput::Observed(_)));
         }
         other => panic!("expected SEMA read event, got {other:?}"),
     }
-    match &events[9] {
+    match &events[10] {
+        TraceEvent::NexusDecided { output, .. } => {
+            assert!(matches!(output, spirit_next::NexusOutput::Signal(_)));
+        }
+        other => panic!("expected observe nexus decision event, got {other:?}"),
+    }
+    match &events[11] {
         TraceEvent::SignalReplied { output, .. } => {
             assert!(matches!(output, Output::RecordsObserved(_)));
         }
@@ -164,6 +200,28 @@ fn testing_trace_records_real_signal_nexus_and_sema_trait_calls() {
         record_marker.state_digest,
         StateDigest(0),
         "trace is attached to a real SEMA write, not a string-presence check"
+    );
+}
+
+#[test]
+fn testing_trace_builds_record_actors_by_default() {
+    let sema = SemaFile::new();
+    let engine = Engine::new(spirit_next::Store::open(&sema.path).expect("open sema store"));
+
+    let output = engine.handle(spirit_next::Input::Record(entry("default trace witness")));
+    assert!(matches!(output.root(), Output::RecordAccepted(_)));
+
+    let events = engine.trace_events();
+    assert_actor_interfaces(
+        &events,
+        &[
+            (TraceActor::Signal, TraceInterface::SignalAdmission),
+            (TraceActor::Signal, TraceInterface::SignalEngine),
+            (TraceActor::Nexus, TraceInterface::NexusEngine),
+            (TraceActor::Sema, TraceInterface::SemaEngine),
+            (TraceActor::Nexus, TraceInterface::NexusEngine),
+            (TraceActor::Signal, TraceInterface::SignalEngine),
+        ],
     );
 }
 
@@ -203,4 +261,12 @@ fn testing_trace_records_signal_rejection_without_nexus_or_sema_events() {
         ],
         "invalid Signal input is rejected and replied to without reaching Nexus or SEMA"
     );
+}
+
+fn assert_actor_interfaces(events: &[TraceEvent], expected: &[(TraceActor, TraceInterface)]) {
+    let actual = events
+        .iter()
+        .map(|event| (event.actor(), event.interface()))
+        .collect::<Vec<_>>();
+    assert_eq!(actual, expected, "trace events: {events:#?}");
 }

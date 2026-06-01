@@ -372,9 +372,10 @@ fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
     );
     recorded.assert_trace_sequence(&[
         "SignalAdmitted",
+        "SignalTriaged",
         "NexusEntered",
-        "NexusDecided",
         "SemaWriteApplied",
+        "NexusDecided",
         "SignalReplied",
     ]);
 
@@ -390,9 +391,10 @@ fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
     );
     observed.assert_trace_sequence(&[
         "SignalAdmitted",
+        "SignalTriaged",
         "NexusEntered",
-        "NexusDecided",
         "SemaReadObserved",
+        "NexusDecided",
         "SignalReplied",
     ]);
 }

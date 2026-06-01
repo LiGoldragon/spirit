@@ -1428,17 +1428,62 @@ impl sema::Sema<sema::ReadOutput> {
 }
 
 pub trait SignalEngine {
-    fn triage(&self, input: signal::Signal<signal::Input>) -> nexus::Nexus<nexus::Input>;
-    fn reply(&self, output: nexus::Nexus<nexus::Output>) -> signal::Signal<signal::Output>;
+    fn trace_signal_admitted(&self, _input: &signal::Signal<signal::Input>) {}
+    fn trace_signal_rejected(&self, _output: &signal::Signal<signal::Output>) {}
+    fn trace_signal_triaged(&self, _input: &signal::Signal<signal::Input>, _output: &nexus::Nexus<nexus::Input>) {}
+    fn trace_signal_replied(&self, _output: &signal::Signal<signal::Output>) {}
+
+    fn triage_inner(&self, input: signal::Signal<signal::Input>) -> nexus::Nexus<nexus::Input>;
+    fn reply_inner(&self, output: nexus::Nexus<nexus::Output>) -> signal::Signal<signal::Output>;
+
+    fn triage(&self, input: signal::Signal<signal::Input>) -> nexus::Nexus<nexus::Input> {
+        let trace_input = input.clone();
+        let output = self.triage_inner(input);
+        self.trace_signal_triaged(&trace_input, &output);
+        output
+    }
+
+    fn reply(&self, output: nexus::Nexus<nexus::Output>) -> signal::Signal<signal::Output> {
+        let signal_output = self.reply_inner(output);
+        self.trace_signal_replied(&signal_output);
+        signal_output
+    }
 }
 
 pub trait NexusEngine {
-    fn execute(&mut self, input: nexus::Nexus<nexus::Input>) -> nexus::Nexus<nexus::Output>;
+    fn trace_nexus_entered(&self, _input: &nexus::Nexus<nexus::Input>) {}
+    fn trace_nexus_decided(&self, _output: &nexus::Nexus<nexus::Output>) {}
+
+    fn decide(&mut self, input: nexus::Nexus<nexus::Input>) -> nexus::Nexus<nexus::Output>;
+
+    fn execute(&mut self, input: nexus::Nexus<nexus::Input>) -> nexus::Nexus<nexus::Output> {
+        self.trace_nexus_entered(&input);
+        let output = self.decide(input);
+        self.trace_nexus_decided(&output);
+        output
+    }
 }
 
 pub trait SemaEngine {
-    fn apply(&mut self, input: sema::Sema<sema::WriteInput>) -> sema::Sema<sema::WriteOutput>;
-    fn observe(&self, input: sema::Sema<sema::ReadInput>) -> sema::Sema<sema::ReadOutput>;
+    fn trace_sema_write_applied(&self, _input: &sema::Sema<sema::WriteInput>, _output: &sema::Sema<sema::WriteOutput>) {}
+    fn trace_sema_read_observed(&self, _input: &sema::Sema<sema::ReadInput>, _output: &sema::Sema<sema::ReadOutput>) {}
+
+    fn apply_inner(&mut self, input: sema::Sema<sema::WriteInput>) -> sema::Sema<sema::WriteOutput>;
+    fn observe_inner(&self, input: sema::Sema<sema::ReadInput>) -> sema::Sema<sema::ReadOutput>;
+
+    fn apply(&mut self, input: sema::Sema<sema::WriteInput>) -> sema::Sema<sema::WriteOutput> {
+        let trace_input = input.clone();
+        let output = self.apply_inner(input);
+        self.trace_sema_write_applied(&trace_input, &output);
+        output
+    }
+
+    fn observe(&self, input: sema::Sema<sema::ReadInput>) -> sema::Sema<sema::ReadOutput> {
+        let trace_input = input.clone();
+        let output = self.observe_inner(input);
+        self.trace_sema_read_observed(&trace_input, &output);
+        output
+    }
 }
 
 pub trait UpgradeFrom<Previous>: Sized {

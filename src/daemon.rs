@@ -88,7 +88,7 @@ impl Daemon {
                 .configuration
                 .trace_socket_path()
                 .map(TraceLog::socket)
-                .unwrap_or_else(TraceLog::disabled);
+                .unwrap_or_default();
             let store =
                 Store::open_with_trace(self.configuration.database_path(), trace_log.clone())?;
             Ok(Engine::new_with_trace(store, trace_log))

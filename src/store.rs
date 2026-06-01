@@ -9,7 +9,7 @@ use crate::{
 };
 
 #[cfg(feature = "testing-trace")]
-use crate::{SemaTrace, TraceLog};
+use crate::{TraceEvent, TraceLog};
 
 /// redb table of durable records: identifier -> rkyv-archived `Entry`.
 const RECORDS: TableDefinition<u64, &[u8]> = TableDefinition::new("records");
@@ -37,13 +37,37 @@ pub struct Store {
 }
 
 impl SemaEngine for Store {
-    fn apply(
+    #[cfg(feature = "testing-trace")]
+    fn trace_sema_write_applied(
+        &self,
+        input: &sema_plane::Sema<sema_plane::WriteInput>,
+        output: &sema_plane::Sema<sema_plane::WriteOutput>,
+    ) {
+        self.trace_log.record(TraceEvent::SemaWriteApplied {
+            origin_route: input.origin_route(),
+            input: input.root().clone(),
+            output: output.root().clone(),
+        });
+    }
+
+    #[cfg(feature = "testing-trace")]
+    fn trace_sema_read_observed(
+        &self,
+        input: &sema_plane::Sema<sema_plane::ReadInput>,
+        output: &sema_plane::Sema<sema_plane::ReadOutput>,
+    ) {
+        self.trace_log.record(TraceEvent::SemaReadObserved {
+            origin_route: input.origin_route(),
+            input: input.root().clone(),
+            output: output.root().clone(),
+        });
+    }
+
+    fn apply_inner(
         &mut self,
         command: sema_plane::Sema<sema_plane::WriteInput>,
     ) -> sema_plane::Sema<sema_plane::WriteOutput> {
         let origin_route = command.origin_route();
-        #[cfg(feature = "testing-trace")]
-        let trace_input = command.root().clone();
         let output = match command.into_root() {
             SemaWriteInput::Record(entry) => match self.record(entry) {
                 Ok(identifier) => SemaWriteOutput::Recorded(SemaReceipt {
@@ -70,19 +94,14 @@ impl SemaEngine for Store {
                 }),
             },
         };
-        #[cfg(feature = "testing-trace")]
-        self.trace_log
-            .sema_write_applied(origin_route, &trace_input, &output);
         output.with_origin_route(origin_route)
     }
 
-    fn observe(
+    fn observe_inner(
         &self,
         query: sema_plane::Sema<sema_plane::ReadInput>,
     ) -> sema_plane::Sema<sema_plane::ReadOutput> {
         let origin_route = query.origin_route();
-        #[cfg(feature = "testing-trace")]
-        let trace_input = query.root().clone();
         let output = match query.into_root() {
             SemaReadInput::Observe(query) => match self.observe(&query) {
                 Ok(entries) if !entries.is_empty() => SemaReadOutput::Observed(ObservedRecords {
@@ -99,9 +118,6 @@ impl SemaEngine for Store {
                 }),
             },
         };
-        #[cfg(feature = "testing-trace")]
-        self.trace_log
-            .sema_read_observed(origin_route, &trace_input, &output);
         output.with_origin_route(origin_route)
     }
 }
@@ -125,7 +141,7 @@ impl Store {
             database,
             path,
             #[cfg(feature = "testing-trace")]
-            trace_log: TraceLog::disabled(),
+            trace_log: TraceLog::default(),
         };
         store.ensure_tables()?;
         Ok(store)

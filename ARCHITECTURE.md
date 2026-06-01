@@ -277,12 +277,14 @@ The generated plane envelopes move between those objects; the code must not
 replace that movement with module-level routing helpers or old convenience
 wrappers.
 
-Testing trace follows the same ownership rule. `TraceLog` implements
-`SignalTrace`, `NexusTrace`, and `SemaTrace`; the actors call those trait
-methods at their own phase boundaries. Signal emits admitted/rejected/replied,
-Nexus emits entered/decided, and SEMA emits write-applied/read-observed. The
-trace object decides whether to do nothing, record in memory for unit tests, or
-write a rkyv frame to the trace socket.
+Testing trace follows the same ownership rule. The generated `SignalEngine`,
+`NexusEngine`, and `SemaEngine` traits own default no-op trace hooks and
+default wrapper methods around their inner behavior methods. `SignalActor`,
+`Nexus`, and `Store` override those hooks in `testing-trace` builds and write
+events into `TraceLog`. Signal emits admitted/rejected/triaged/replied, Nexus
+emits entered/decided, and SEMA emits write-applied/read-observed. The trace
+object decides whether to record in memory, write a rkyv frame to the trace
+socket, or stay disabled when explicitly requested.
 
 When a data shape changes, edit `schema/lib.schema` first, then regenerate
 through `build.rs`, then update the methods that act on the regenerated types.

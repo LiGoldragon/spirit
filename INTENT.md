@@ -127,10 +127,18 @@ Load-bearing constraints:
   request on the normal socket, decode trace frames, and print human-facing
   trace lines after the normal Signal reply. The normal daemon/CLI packages do
   not enable this surface.
-- Trace events are emitted through object/trait surfaces (`SignalTrace`,
-  `NexusTrace`, `SemaTrace`) on the generated-interface actors, not through
-  ad-hoc source grep or detached helper functions. The runtime proof must
+- Trace events are emitted through hooks on the schema-generated
+  `SignalEngine`, `NexusEngine`, and `SemaEngine` traits, not through ad-hoc
+  source grep, detached helper functions, or parallel local trace traits. The
+  generated traits provide default no-op trace hooks and wrapper methods; the
+  runtime actors override those hooks in trace builds. The runtime proof must
   exercise the actual CLI -> daemon -> Signal -> Nexus -> SEMA -> Signal path.
+- Trace events carry actor/interface semantics. Tests assert that runtime
+  events crossed Signal admission, `SignalEngine`, `NexusEngine`, and
+  `SemaEngine`, so the witness proves actor/interface use instead of string
+  presence. In `testing-trace` builds, `Engine::new` installs a shared
+  recording trace log by default; callers only choose a different destination
+  when they need a socket or an explicit disabled sink.
 - The flake exposes separate normal and trace-enabled packages. The default
   package remains the lean normal CLI + daemon pair; `packages.trace`,
   `packages.trace-cli`, and `packages.trace-daemon` build the testing-trace

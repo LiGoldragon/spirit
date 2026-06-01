@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[cfg(feature = "testing-trace")]
-use crate::{SignalTrace, TraceLog};
+use crate::{TraceEvent, TraceLog};
 
 const ORIGIN_ROUTE_BASE: Integer = 1_000_000;
 
@@ -26,6 +26,8 @@ const ORIGIN_ROUTE_BASE: Integer = 1_000_000;
 pub struct Engine {
     signal_actor: SignalActor,
     nexus: Mutex<Nexus>,
+    #[cfg(feature = "testing-trace")]
+    trace_log: TraceLog,
 }
 
 #[derive(Debug, Default)]
@@ -46,8 +48,6 @@ pub struct SignalAccepted {
 pub struct SignalRejected {
     origin_route: OriginRoute,
     validation_error: ValidationError,
-    #[cfg(feature = "testing-trace")]
-    trace_log: TraceLog,
 }
 
 #[derive(Debug, Default)]
@@ -63,9 +63,16 @@ pub struct MailLedgerHook<'a> {
 impl Engine {
     /// Build the runtime over a durable SEMA store opened at `.sema` path.
     pub fn new(store: Store) -> Self {
-        Self {
-            signal_actor: SignalActor::default(),
-            nexus: Mutex::new(Nexus::new(store)),
+        #[cfg(feature = "testing-trace")]
+        {
+            Self::new_with_trace(store, TraceLog::default())
+        }
+        #[cfg(not(feature = "testing-trace"))]
+        {
+            Self {
+                signal_actor: SignalActor::default(),
+                nexus: Mutex::new(Nexus::new(store)),
+            }
         }
     }
 
@@ -73,8 +80,14 @@ impl Engine {
     pub fn new_with_trace(store: Store, trace_log: TraceLog) -> Self {
         Self {
             signal_actor: SignalActor::with_trace(trace_log.clone()),
-            nexus: Mutex::new(Nexus::new_with_trace(store, trace_log)),
+            nexus: Mutex::new(Nexus::new_with_trace(store, trace_log.clone())),
+            trace_log,
         }
+    }
+
+    #[cfg(feature = "testing-trace")]
+    pub fn trace_events(&self) -> Vec<crate::TraceEvent> {
+        self.trace_log.events()
     }
 
     /// Run one request through Signal admission, the NexusEngine
@@ -89,6 +102,10 @@ impl Engine {
             Ok(accepted) => accepted,
             Err(rejected) => {
                 let output = rejected.into_signal_output(self.database_marker());
+                #[cfg(feature = "testing-trace")]
+                self.signal_actor.trace_signal_rejected(&output);
+                #[cfg(feature = "testing-trace")]
+                self.signal_actor.trace_signal_replied(&output);
                 return output;
             }
         };
@@ -145,19 +162,13 @@ impl SignalActor {
         let signal_input = input.with_origin_route(origin_route);
         let identifier = self.issue_message_identifier();
         if let Err(validation_error) = signal_input.root().validate() {
-            #[cfg(feature = "testing-trace")]
-            self.trace_log
-                .signal_rejected(origin_route, &validation_error);
             return Err(SignalRejected {
                 origin_route,
                 validation_error,
-                #[cfg(feature = "testing-trace")]
-                trace_log: self.trace_log.clone(),
             });
         }
         #[cfg(feature = "testing-trace")]
-        self.trace_log
-            .signal_admitted(origin_route, signal_input.root());
+        self.trace_signal_admitted(&signal_input);
         Ok(SignalAccepted {
             sent: signal_input.message_sent(identifier),
             input: signal_input,
@@ -181,17 +192,52 @@ impl SignalActor {
 }
 
 impl SignalEngine for SignalActor {
-    fn triage(&self, input: signal_plane::Signal<Input>) -> nexus_plane::Nexus<NexusInput> {
+    #[cfg(feature = "testing-trace")]
+    fn trace_signal_admitted(&self, input: &signal_plane::Signal<Input>) {
+        self.trace_log.record(TraceEvent::SignalAdmitted {
+            origin_route: input.origin_route(),
+            input: input.root().clone(),
+        });
+    }
+
+    #[cfg(feature = "testing-trace")]
+    fn trace_signal_rejected(&self, output: &signal_plane::Signal<Output>) {
+        if let Output::Rejected(rejection) = output.root() {
+            self.trace_log.record(TraceEvent::SignalRejected {
+                origin_route: output.origin_route(),
+                validation_error: rejection.validation_error.clone(),
+            });
+        }
+    }
+
+    #[cfg(feature = "testing-trace")]
+    fn trace_signal_triaged(
+        &self,
+        input: &signal_plane::Signal<Input>,
+        output: &nexus_plane::Nexus<NexusInput>,
+    ) {
+        self.trace_log.record(TraceEvent::SignalTriaged {
+            origin_route: input.origin_route(),
+            input: input.root().clone(),
+            output: output.root().clone(),
+        });
+    }
+
+    #[cfg(feature = "testing-trace")]
+    fn trace_signal_replied(&self, output: &signal_plane::Signal<Output>) {
+        self.trace_log.record(TraceEvent::SignalReplied {
+            origin_route: output.origin_route(),
+            output: output.root().clone(),
+        });
+    }
+
+    fn triage_inner(&self, input: signal_plane::Signal<Input>) -> nexus_plane::Nexus<NexusInput> {
         let origin_route = input.origin_route();
         NexusInput::from(input.into_root()).with_origin_route(origin_route)
     }
 
-    fn reply(&self, output: nexus_plane::Nexus<NexusOutput>) -> signal_plane::Signal<Output> {
-        let signal_output = output.into_signal_output();
-        #[cfg(feature = "testing-trace")]
-        self.trace_log
-            .signal_replied(signal_output.origin_route(), signal_output.root());
-        signal_output
+    fn reply_inner(&self, output: nexus_plane::Nexus<NexusOutput>) -> signal_plane::Signal<Output> {
+        output.into_signal_output()
     }
 }
 
@@ -423,13 +469,8 @@ impl SignalRejected {
         self,
         database_marker: DatabaseMarker,
     ) -> signal_plane::Signal<Output> {
-        let signal_output = self
-            .validation_error
+        self.validation_error
             .into_signal_output(database_marker)
-            .with_origin_route(self.origin_route);
-        #[cfg(feature = "testing-trace")]
-        self.trace_log
-            .signal_replied(signal_output.origin_route(), signal_output.root());
-        signal_output
+            .with_origin_route(self.origin_route)
     }
 }

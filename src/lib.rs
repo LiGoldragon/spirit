@@ -53,7 +53,7 @@ pub use schema::lib::{
 pub use store::{Store, StoreError};
 #[cfg(feature = "testing-trace")]
 pub use trace::{
-    NexusTrace, SemaTrace, SignalTrace, TraceError, TraceEvent, TraceLog, TraceSocketListener,
+    TraceActor, TraceError, TraceEvent, TraceInterface, TraceLog, TraceSocketListener,
     TraceSocketPath,
 };
 pub use transport::{SignalTransport, TransportError};

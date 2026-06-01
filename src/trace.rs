@@ -15,7 +15,7 @@ use crate::{
 
 const LENGTH_PREFIX_BYTE_COUNT: usize = 4;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct TraceLog {
     destination: TraceDestination,
 }
@@ -38,31 +38,19 @@ pub struct TraceSocketListener {
     path: PathBuf,
 }
 
-pub trait SignalTrace {
-    fn signal_admitted(&self, origin_route: OriginRoute, input: &Input);
-    fn signal_rejected(&self, origin_route: OriginRoute, validation_error: &ValidationError);
-    fn signal_replied(&self, origin_route: OriginRoute, output: &Output);
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TraceActor {
+    Signal,
+    Nexus,
+    Sema,
 }
 
-pub trait NexusTrace {
-    fn nexus_entered(&self, origin_route: OriginRoute, input: &NexusInput);
-    fn nexus_decided(&self, origin_route: OriginRoute, output: &NexusOutput);
-}
-
-pub trait SemaTrace {
-    fn sema_write_applied(
-        &self,
-        origin_route: OriginRoute,
-        input: &SemaWriteInput,
-        output: &SemaWriteOutput,
-    );
-
-    fn sema_read_observed(
-        &self,
-        origin_route: OriginRoute,
-        input: &SemaReadInput,
-        output: &SemaReadOutput,
-    );
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TraceInterface {
+    SignalAdmission,
+    SignalEngine,
+    NexusEngine,
+    SemaEngine,
 }
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -70,6 +58,11 @@ pub enum TraceEvent {
     SignalAdmitted {
         origin_route: OriginRoute,
         input: Input,
+    },
+    SignalTriaged {
+        origin_route: OriginRoute,
+        input: Input,
+        output: NexusInput,
     },
     SignalRejected {
         origin_route: OriginRoute,
@@ -105,6 +98,12 @@ pub enum TraceError {
     ArchiveEncode,
     ArchiveDecode,
     FrameTooLarge { found: usize },
+}
+
+impl Default for TraceLog {
+    fn default() -> Self {
+        Self::recording()
+    }
 }
 
 impl TraceLog {
@@ -148,73 +147,6 @@ impl TraceLog {
     }
 }
 
-impl SignalTrace for TraceLog {
-    fn signal_admitted(&self, origin_route: OriginRoute, input: &Input) {
-        self.record(TraceEvent::SignalAdmitted {
-            origin_route,
-            input: input.clone(),
-        });
-    }
-
-    fn signal_rejected(&self, origin_route: OriginRoute, validation_error: &ValidationError) {
-        self.record(TraceEvent::SignalRejected {
-            origin_route,
-            validation_error: validation_error.clone(),
-        });
-    }
-
-    fn signal_replied(&self, origin_route: OriginRoute, output: &Output) {
-        self.record(TraceEvent::SignalReplied {
-            origin_route,
-            output: output.clone(),
-        });
-    }
-}
-
-impl NexusTrace for TraceLog {
-    fn nexus_entered(&self, origin_route: OriginRoute, input: &NexusInput) {
-        self.record(TraceEvent::NexusEntered {
-            origin_route,
-            input: input.clone(),
-        });
-    }
-
-    fn nexus_decided(&self, origin_route: OriginRoute, output: &NexusOutput) {
-        self.record(TraceEvent::NexusDecided {
-            origin_route,
-            output: output.clone(),
-        });
-    }
-}
-
-impl SemaTrace for TraceLog {
-    fn sema_write_applied(
-        &self,
-        origin_route: OriginRoute,
-        input: &SemaWriteInput,
-        output: &SemaWriteOutput,
-    ) {
-        self.record(TraceEvent::SemaWriteApplied {
-            origin_route,
-            input: input.clone(),
-            output: output.clone(),
-        });
-    }
-
-    fn sema_read_observed(
-        &self,
-        origin_route: OriginRoute,
-        input: &SemaReadInput,
-        output: &SemaReadOutput,
-    ) {
-        self.record(TraceEvent::SemaReadObserved {
-            origin_route,
-            input: input.clone(),
-            output: output.clone(),
-        });
-    }
-}
-
 impl TraceEvent {
     pub fn to_frame(&self) -> Result<Vec<u8>, TraceError> {
         let archive =
@@ -249,12 +181,37 @@ impl TraceEvent {
     pub fn name(&self) -> &'static str {
         match self {
             Self::SignalAdmitted { .. } => "SignalAdmitted",
+            Self::SignalTriaged { .. } => "SignalTriaged",
             Self::SignalRejected { .. } => "SignalRejected",
             Self::SignalReplied { .. } => "SignalReplied",
             Self::NexusEntered { .. } => "NexusEntered",
             Self::NexusDecided { .. } => "NexusDecided",
             Self::SemaWriteApplied { .. } => "SemaWriteApplied",
             Self::SemaReadObserved { .. } => "SemaReadObserved",
+        }
+    }
+
+    pub fn actor(&self) -> TraceActor {
+        match self {
+            Self::SignalAdmitted { .. }
+            | Self::SignalTriaged { .. }
+            | Self::SignalRejected { .. }
+            | Self::SignalReplied { .. } => TraceActor::Signal,
+            Self::NexusEntered { .. } | Self::NexusDecided { .. } => TraceActor::Nexus,
+            Self::SemaWriteApplied { .. } | Self::SemaReadObserved { .. } => TraceActor::Sema,
+        }
+    }
+
+    pub fn interface(&self) -> TraceInterface {
+        match self {
+            Self::SignalAdmitted { .. } | Self::SignalRejected { .. } => {
+                TraceInterface::SignalAdmission
+            }
+            Self::SignalTriaged { .. } | Self::SignalReplied { .. } => TraceInterface::SignalEngine,
+            Self::NexusEntered { .. } | Self::NexusDecided { .. } => TraceInterface::NexusEngine,
+            Self::SemaWriteApplied { .. } | Self::SemaReadObserved { .. } => {
+                TraceInterface::SemaEngine
+            }
         }
     }
 }
@@ -324,40 +281,61 @@ impl fmt::Display for TraceEvent {
                 input,
             } => write!(
                 formatter,
-                "{} origin_route={origin_route:?} input={input:?}",
-                self.name()
+                "{} actor={} interface={} origin_route={origin_route:?} input={input:?}",
+                self.name(),
+                self.actor(),
+                self.interface()
+            ),
+            Self::SignalTriaged {
+                origin_route,
+                input,
+                output,
+            } => write!(
+                formatter,
+                "{} actor={} interface={} origin_route={origin_route:?} input={input:?} output={output:?}",
+                self.name(),
+                self.actor(),
+                self.interface()
             ),
             Self::SignalRejected {
                 origin_route,
                 validation_error,
             } => write!(
                 formatter,
-                "{} origin_route={origin_route:?} validation_error={validation_error:?}",
-                self.name()
+                "{} actor={} interface={} origin_route={origin_route:?} validation_error={validation_error:?}",
+                self.name(),
+                self.actor(),
+                self.interface()
             ),
             Self::SignalReplied {
                 origin_route,
                 output,
             } => write!(
                 formatter,
-                "{} origin_route={origin_route:?} output={output:?}",
-                self.name()
+                "{} actor={} interface={} origin_route={origin_route:?} output={output:?}",
+                self.name(),
+                self.actor(),
+                self.interface()
             ),
             Self::NexusEntered {
                 origin_route,
                 input,
             } => write!(
                 formatter,
-                "{} origin_route={origin_route:?} input={input:?}",
-                self.name()
+                "{} actor={} interface={} origin_route={origin_route:?} input={input:?}",
+                self.name(),
+                self.actor(),
+                self.interface()
             ),
             Self::NexusDecided {
                 origin_route,
                 output,
             } => write!(
                 formatter,
-                "{} origin_route={origin_route:?} output={output:?}",
-                self.name()
+                "{} actor={} interface={} origin_route={origin_route:?} output={output:?}",
+                self.name(),
+                self.actor(),
+                self.interface()
             ),
             Self::SemaWriteApplied {
                 origin_route,
@@ -365,8 +343,10 @@ impl fmt::Display for TraceEvent {
                 output,
             } => write!(
                 formatter,
-                "{} origin_route={origin_route:?} input={input:?} output={output:?}",
-                self.name()
+                "{} actor={} interface={} origin_route={origin_route:?} input={input:?} output={output:?}",
+                self.name(),
+                self.actor(),
+                self.interface()
             ),
             Self::SemaReadObserved {
                 origin_route,
@@ -374,9 +354,32 @@ impl fmt::Display for TraceEvent {
                 output,
             } => write!(
                 formatter,
-                "{} origin_route={origin_route:?} input={input:?} output={output:?}",
-                self.name()
+                "{} actor={} interface={} origin_route={origin_route:?} input={input:?} output={output:?}",
+                self.name(),
+                self.actor(),
+                self.interface()
             ),
+        }
+    }
+}
+
+impl fmt::Display for TraceActor {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Signal => formatter.write_str("Signal"),
+            Self::Nexus => formatter.write_str("Nexus"),
+            Self::Sema => formatter.write_str("Sema"),
+        }
+    }
+}
+
+impl fmt::Display for TraceInterface {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::SignalAdmission => formatter.write_str("SignalAdmission"),
+            Self::SignalEngine => formatter.write_str("SignalEngine"),
+            Self::NexusEngine => formatter.write_str("NexusEngine"),
+            Self::SemaEngine => formatter.write_str("SemaEngine"),
         }
     }
 }

@@ -4,7 +4,7 @@ use crate::{
 };
 
 #[cfg(feature = "testing-trace")]
-use crate::{NexusTrace, TraceLog};
+use crate::{TraceEvent, TraceLog};
 
 /// Nexus is the runtime decision center between Signal and SEMA.
 ///
@@ -24,11 +24,16 @@ pub struct Nexus {
 impl Nexus {
     /// Build a Nexus over a durable SEMA store and a fresh mail ledger.
     pub fn new(store: Store) -> Self {
-        Self {
-            store,
-            mail_ledger: MailLedger::default(),
-            #[cfg(feature = "testing-trace")]
-            trace_log: TraceLog::disabled(),
+        #[cfg(feature = "testing-trace")]
+        {
+            Self::new_with_trace(store, TraceLog::default())
+        }
+        #[cfg(not(feature = "testing-trace"))]
+        {
+            Self {
+                store,
+                mail_ledger: MailLedger::default(),
+            }
         }
     }
 
@@ -55,17 +60,27 @@ impl Nexus {
 }
 
 impl NexusEngine for Nexus {
-    fn execute(
+    #[cfg(feature = "testing-trace")]
+    fn trace_nexus_entered(&self, input: &nexus_plane::Nexus<nexus_plane::Input>) {
+        self.trace_log.record(TraceEvent::NexusEntered {
+            origin_route: input.origin_route(),
+            input: input.root().clone(),
+        });
+    }
+
+    #[cfg(feature = "testing-trace")]
+    fn trace_nexus_decided(&self, output: &nexus_plane::Nexus<nexus_plane::Output>) {
+        self.trace_log.record(TraceEvent::NexusDecided {
+            origin_route: output.origin_route(),
+            output: output.root().clone(),
+        });
+    }
+
+    fn decide(
         &mut self,
         input: nexus_plane::Nexus<nexus_plane::Input>,
     ) -> nexus_plane::Nexus<nexus_plane::Output> {
-        #[cfg(feature = "testing-trace")]
-        self.trace_log
-            .nexus_entered(input.origin_route(), input.root());
         let output = input.into_nexus_output();
-        #[cfg(feature = "testing-trace")]
-        self.trace_log
-            .nexus_decided(output.origin_route(), output.root());
         let origin_route = output.origin_route();
         match output.into_root() {
             NexusOutput::SemaWrite(input) => {
