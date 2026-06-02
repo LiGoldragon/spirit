@@ -8,11 +8,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{
-    Input, NexusInput, NexusOutput, OriginRoute, Output, SemaReadInput, SemaReadOutput,
-    SemaWriteInput, SemaWriteOutput, ValidationError,
-};
-
 const LENGTH_PREFIX_BYTE_COUNT: usize = 4;
 
 #[derive(Clone, Debug)]
@@ -38,58 +33,12 @@ pub struct TraceSocketListener {
     path: PathBuf,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum TraceActor {
-    Signal,
-    Nexus,
-    Sema,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum TraceInterface {
-    SignalAdmission,
-    SignalEngine,
-    NexusEngine,
-    SemaEngine,
-}
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct TraceObjectName(pub String);
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub enum TraceEvent {
-    SignalAdmitted {
-        origin_route: OriginRoute,
-        input: Input,
-    },
-    SignalTriaged {
-        origin_route: OriginRoute,
-        input: Input,
-        output: NexusInput,
-    },
-    SignalRejected {
-        origin_route: OriginRoute,
-        validation_error: ValidationError,
-    },
-    SignalReplied {
-        origin_route: OriginRoute,
-        output: Output,
-    },
-    NexusEntered {
-        origin_route: OriginRoute,
-        input: NexusInput,
-    },
-    NexusDecided {
-        origin_route: OriginRoute,
-        output: NexusOutput,
-    },
-    SemaWriteApplied {
-        origin_route: OriginRoute,
-        input: SemaWriteInput,
-        output: SemaWriteOutput,
-    },
-    SemaReadObserved {
-        origin_route: OriginRoute,
-        input: SemaReadInput,
-        output: SemaReadOutput,
-    },
+pub struct TraceEvent {
+    object_name: TraceObjectName,
 }
 
 #[derive(Debug)]
@@ -148,6 +97,16 @@ impl TraceLog {
 }
 
 impl TraceEvent {
+    pub fn new(object_name: impl Into<String>) -> Self {
+        Self {
+            object_name: TraceObjectName::new(object_name),
+        }
+    }
+
+    pub fn object_name(&self) -> &TraceObjectName {
+        &self.object_name
+    }
+
     pub fn to_frame(&self) -> Result<Vec<u8>, TraceError> {
         let archive =
             rkyv::to_bytes::<rkyv::rancor::Error>(self).map_err(|_| TraceError::ArchiveEncode)?;
@@ -178,41 +137,18 @@ impl TraceEvent {
         Self::from_frame(&frame)
     }
 
-    pub fn name(&self) -> &'static str {
-        match self {
-            Self::SignalAdmitted { .. } => "SignalAdmitted",
-            Self::SignalTriaged { .. } => "SignalTriaged",
-            Self::SignalRejected { .. } => "SignalRejected",
-            Self::SignalReplied { .. } => "SignalReplied",
-            Self::NexusEntered { .. } => "NexusEntered",
-            Self::NexusDecided { .. } => "NexusDecided",
-            Self::SemaWriteApplied { .. } => "SemaWriteApplied",
-            Self::SemaReadObserved { .. } => "SemaReadObserved",
-        }
+    pub fn name(&self) -> &str {
+        self.object_name.as_str()
+    }
+}
+
+impl TraceObjectName {
+    pub fn new(value: impl Into<String>) -> Self {
+        Self(value.into())
     }
 
-    pub fn actor(&self) -> TraceActor {
-        match self {
-            Self::SignalAdmitted { .. }
-            | Self::SignalTriaged { .. }
-            | Self::SignalRejected { .. }
-            | Self::SignalReplied { .. } => TraceActor::Signal,
-            Self::NexusEntered { .. } | Self::NexusDecided { .. } => TraceActor::Nexus,
-            Self::SemaWriteApplied { .. } | Self::SemaReadObserved { .. } => TraceActor::Sema,
-        }
-    }
-
-    pub fn interface(&self) -> TraceInterface {
-        match self {
-            Self::SignalAdmitted { .. } | Self::SignalRejected { .. } => {
-                TraceInterface::SignalAdmission
-            }
-            Self::SignalTriaged { .. } | Self::SignalReplied { .. } => TraceInterface::SignalEngine,
-            Self::NexusEntered { .. } | Self::NexusDecided { .. } => TraceInterface::NexusEngine,
-            Self::SemaWriteApplied { .. } | Self::SemaReadObserved { .. } => {
-                TraceInterface::SemaEngine
-            }
-        }
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
     }
 }
 
@@ -275,112 +211,7 @@ impl Drop for TraceSocketListener {
 
 impl fmt::Display for TraceEvent {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::SignalAdmitted {
-                origin_route,
-                input,
-            } => write!(
-                formatter,
-                "{} actor={} interface={} origin_route={origin_route:?} input={input:?}",
-                self.name(),
-                self.actor(),
-                self.interface()
-            ),
-            Self::SignalTriaged {
-                origin_route,
-                input,
-                output,
-            } => write!(
-                formatter,
-                "{} actor={} interface={} origin_route={origin_route:?} input={input:?} output={output:?}",
-                self.name(),
-                self.actor(),
-                self.interface()
-            ),
-            Self::SignalRejected {
-                origin_route,
-                validation_error,
-            } => write!(
-                formatter,
-                "{} actor={} interface={} origin_route={origin_route:?} validation_error={validation_error:?}",
-                self.name(),
-                self.actor(),
-                self.interface()
-            ),
-            Self::SignalReplied {
-                origin_route,
-                output,
-            } => write!(
-                formatter,
-                "{} actor={} interface={} origin_route={origin_route:?} output={output:?}",
-                self.name(),
-                self.actor(),
-                self.interface()
-            ),
-            Self::NexusEntered {
-                origin_route,
-                input,
-            } => write!(
-                formatter,
-                "{} actor={} interface={} origin_route={origin_route:?} input={input:?}",
-                self.name(),
-                self.actor(),
-                self.interface()
-            ),
-            Self::NexusDecided {
-                origin_route,
-                output,
-            } => write!(
-                formatter,
-                "{} actor={} interface={} origin_route={origin_route:?} output={output:?}",
-                self.name(),
-                self.actor(),
-                self.interface()
-            ),
-            Self::SemaWriteApplied {
-                origin_route,
-                input,
-                output,
-            } => write!(
-                formatter,
-                "{} actor={} interface={} origin_route={origin_route:?} input={input:?} output={output:?}",
-                self.name(),
-                self.actor(),
-                self.interface()
-            ),
-            Self::SemaReadObserved {
-                origin_route,
-                input,
-                output,
-            } => write!(
-                formatter,
-                "{} actor={} interface={} origin_route={origin_route:?} input={input:?} output={output:?}",
-                self.name(),
-                self.actor(),
-                self.interface()
-            ),
-        }
-    }
-}
-
-impl fmt::Display for TraceActor {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Signal => formatter.write_str("Signal"),
-            Self::Nexus => formatter.write_str("Nexus"),
-            Self::Sema => formatter.write_str("Sema"),
-        }
-    }
-}
-
-impl fmt::Display for TraceInterface {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::SignalAdmission => formatter.write_str("SignalAdmission"),
-            Self::SignalEngine => formatter.write_str("SignalEngine"),
-            Self::NexusEngine => formatter.write_str("NexusEngine"),
-            Self::SemaEngine => formatter.write_str("SemaEngine"),
-        }
+        formatter.write_str(self.name())
     }
 }
 

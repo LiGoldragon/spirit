@@ -133,12 +133,15 @@ Load-bearing constraints:
   generated traits provide default no-op trace hooks and wrapper methods; the
   runtime actors override those hooks in trace builds. The runtime proof must
   exercise the actual CLI -> daemon -> Signal -> Nexus -> SEMA -> Signal path.
-- Trace events carry actor/interface semantics. Tests assert that runtime
-  events crossed Signal admission, `SignalEngine`, `NexusEngine`, and
-  `SemaEngine`, so the witness proves actor/interface use instead of string
-  presence. In `testing-trace` builds, `Engine::new` installs a shared
-  recording trace log by default; callers only choose a different destination
-  when they need a socket or an explicit disabled sink.
+- Trace events carry the activated schema/interface object name. The generated
+  trait wrappers know names such as `SignalTriaged`, `NexusEntered`,
+  `SemaWriteApplied`, and `SemaReadObserved`; trace-enabled actors override one
+  activation hook and record those names. Tests assert the runtime events
+  crossed Signal admission, `SignalEngine`, `NexusEngine`, and `SemaEngine`, so
+  the witness proves actor/interface use instead of source-string presence. In
+  `testing-trace` builds, `Engine::new` installs a shared recording trace log by
+  default; callers only choose a different destination when they need a socket
+  or an explicit disabled sink.
 - The flake exposes separate normal and trace-enabled packages. The default
   package remains the lean normal CLI + daemon pair; `packages.trace`,
   `packages.trace-cli`, and `packages.trace-daemon` build the testing-trace
@@ -154,19 +157,22 @@ Load-bearing constraints:
   `SemaEngine::observe(sema::Sema<sema::ReadInput>) ->
   sema::Sema<sema::ReadOutput>`.
 - Spirit-next tracks production Spirit 0.3 behavior where the schema surface
-  reaches it: entries carry multiple topics, observe supports generated
-  `TopicMatch::{Partial,Full}` plus an optional kind filter, observations
-  return a multi-entry `RecordSet`, and `Remove(RecordIdentifier)` is a
-  database-work operation that returns generated `Output::RecordRemoved`.
+  reaches it while also making the read interface more developed than a toy
+  single-variant enum: entries carry multiple topics, `Observe(Query)` supports
+  generated `TopicMatch::{Partial,Full}` plus an optional kind filter,
+  `Lookup(RecordIdentifier)` returns `Output::RecordFound`, `Count(Query)`
+  returns `Output::RecordsCounted`, observations return a multi-entry
+  `RecordSet`, and `Remove(RecordIdentifier)` is a database-work operation
+  that returns generated `Output::RecordRemoved`.
 - SEMA is durable (records 1007/1008, bead `primary-q2au`). `Store` is a real
   redb database written to a `*.sema` file: each `Record` is a redb write
   transaction persisting the rkyv-archived `Entry`, each `Remove` is a redb
-  write transaction deleting an entry and advancing the commit sequence, each
-  `Observe` is a redb read transaction returning every matching entry, and the
-  commit sequence + next-identifier counter persist in the database so a store
-  reopened from the same `.sema` path resumes where it left off. The file
-  extension is `.sema` (not `.redb`) so the name states the runtime plane, not
-  the implementation library.
+  write transaction deleting an entry and advancing the commit sequence,
+  `Observe`, `Lookup`, and `Count` are redb read transactions over the generated
+  `SemaReadInput` root, and the commit sequence + next-identifier counter
+  persist in the database so a store reopened from the same `.sema` path
+  resumes where it left off. The file extension is `.sema` (not `.redb`) so the
+  name states the runtime plane, not the implementation library.
 - Production-candidate handover is tested as a copy of a real `.sema` file.
   The candidate daemon must read state seeded by the production-like daemon,
   resume the copied commit ledger, and write only to the copied database; a

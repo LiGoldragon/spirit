@@ -84,6 +84,8 @@ pub enum SemaWriteInput {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum SemaReadInput {
     Observe(Query),
+    Lookup(RecordIdentifier),
+    Count(Query),
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -98,6 +100,8 @@ pub enum SemaWriteOutput {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum SemaReadOutput {
     Observed(ObservedRecords),
+    Found(FoundRecord),
+    Counted(CountedRecords),
     Missed(ErrorReport),
 }
 
@@ -154,6 +158,25 @@ pub struct RemoveReceipt {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ObservedRecords {
     pub record_set: RecordSet,
+    pub database_marker: DatabaseMarker,
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct FoundRecord {
+    pub record_identifier: RecordIdentifier,
+    pub entry: Entry,
+    pub database_marker: DatabaseMarker,
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct RecordCount(pub Integer);
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct CountedRecords {
+    pub record_count: RecordCount,
     pub database_marker: DatabaseMarker,
 }
 
@@ -264,6 +287,8 @@ pub enum Magnitude {
 pub enum Input {
     Record(Entry),
     Observe(Query),
+    Lookup(RecordIdentifier),
+    Count(Query),
     Remove(RecordIdentifier),
 }
 
@@ -272,6 +297,8 @@ pub enum Input {
 pub enum Output {
     RecordAccepted(SemaReceipt),
     RecordsObserved(ObservedRecords),
+    RecordFound(FoundRecord),
+    RecordsCounted(CountedRecords),
     RecordRemoved(RemoveReceipt),
     Error(ErrorReport),
     Rejected(SignalRejection),
@@ -325,9 +352,9 @@ impl From<RecordIdentifier> for SemaWriteInput {
     }
 }
 
-impl From<Query> for SemaReadInput {
-    fn from(payload: Query) -> Self {
-        Self::Observe(payload)
+impl From<RecordIdentifier> for SemaReadInput {
+    fn from(payload: RecordIdentifier) -> Self {
+        Self::Lookup(payload)
     }
 }
 
@@ -355,6 +382,18 @@ impl From<ObservedRecords> for SemaReadOutput {
     }
 }
 
+impl From<FoundRecord> for SemaReadOutput {
+    fn from(payload: FoundRecord) -> Self {
+        Self::Found(payload)
+    }
+}
+
+impl From<CountedRecords> for SemaReadOutput {
+    fn from(payload: CountedRecords) -> Self {
+        Self::Counted(payload)
+    }
+}
+
 impl From<ErrorReport> for SemaReadOutput {
     fn from(payload: ErrorReport) -> Self {
         Self::Missed(payload)
@@ -379,18 +418,6 @@ impl From<Entry> for Input {
     }
 }
 
-impl From<Query> for Input {
-    fn from(payload: Query) -> Self {
-        Self::Observe(payload)
-    }
-}
-
-impl From<RecordIdentifier> for Input {
-    fn from(payload: RecordIdentifier) -> Self {
-        Self::Remove(payload)
-    }
-}
-
 impl From<SemaReceipt> for Output {
     fn from(payload: SemaReceipt) -> Self {
         Self::RecordAccepted(payload)
@@ -400,6 +427,18 @@ impl From<SemaReceipt> for Output {
 impl From<ObservedRecords> for Output {
     fn from(payload: ObservedRecords) -> Self {
         Self::RecordsObserved(payload)
+    }
+}
+
+impl From<FoundRecord> for Output {
+    fn from(payload: FoundRecord) -> Self {
+        Self::RecordFound(payload)
+    }
+}
+
+impl From<CountedRecords> for Output {
+    fn from(payload: CountedRecords) -> Self {
+        Self::RecordsCounted(payload)
     }
 }
 
@@ -697,6 +736,39 @@ impl ObservedRecords {
 }
 
 #[cfg(feature = "nota-text")]
+impl FoundRecord {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl RecordCount {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl CountedRecords {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
 impl ErrorReport {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -907,12 +979,16 @@ impl std::fmt::Display for Output {
 pub mod short_header {
     pub const INPUT_RECORD: u64 = 0x0000000000000000;
     pub const INPUT_OBSERVE: u64 = 0x0001000000000000;
-    pub const INPUT_REMOVE: u64 = 0x0002000000000000;
+    pub const INPUT_LOOKUP: u64 = 0x0002000000000000;
+    pub const INPUT_COUNT: u64 = 0x0003000000000000;
+    pub const INPUT_REMOVE: u64 = 0x0004000000000000;
     pub const OUTPUT_RECORD_ACCEPTED: u64 = 0x0100000000000000;
     pub const OUTPUT_RECORDS_OBSERVED: u64 = 0x0101000000000000;
-    pub const OUTPUT_RECORD_REMOVED: u64 = 0x0102000000000000;
-    pub const OUTPUT_ERROR: u64 = 0x0103000000000000;
-    pub const OUTPUT_REJECTED: u64 = 0x0104000000000000;
+    pub const OUTPUT_RECORD_FOUND: u64 = 0x0102000000000000;
+    pub const OUTPUT_RECORDS_COUNTED: u64 = 0x0103000000000000;
+    pub const OUTPUT_RECORD_REMOVED: u64 = 0x0104000000000000;
+    pub const OUTPUT_ERROR: u64 = 0x0105000000000000;
+    pub const OUTPUT_REJECTED: u64 = 0x0106000000000000;
 }
 
 const SIGNAL_SHORT_HEADER_BYTE_COUNT: usize = 8;
@@ -944,6 +1020,8 @@ impl std::error::Error for SignalFrameError {}
 pub enum InputRoute {
     Record,
     Observe,
+    Lookup,
+    Count,
     Remove,
 }
 
@@ -951,6 +1029,8 @@ pub enum InputRoute {
 pub enum OutputRoute {
     RecordAccepted,
     RecordsObserved,
+    RecordFound,
+    RecordsCounted,
     RecordRemoved,
     Error,
     Rejected,
@@ -961,6 +1041,8 @@ impl Input {
         match self {
             Self::Record(_) => InputRoute::Record,
             Self::Observe(_) => InputRoute::Observe,
+            Self::Lookup(_) => InputRoute::Lookup,
+            Self::Count(_) => InputRoute::Count,
             Self::Remove(_) => InputRoute::Remove,
         }
     }
@@ -969,6 +1051,8 @@ impl Input {
         match self {
             Self::Record(_) => short_header::INPUT_RECORD,
             Self::Observe(_) => short_header::INPUT_OBSERVE,
+            Self::Lookup(_) => short_header::INPUT_LOOKUP,
+            Self::Count(_) => short_header::INPUT_COUNT,
             Self::Remove(_) => short_header::INPUT_REMOVE,
         }
     }
@@ -977,6 +1061,8 @@ impl Input {
         match header {
             short_header::INPUT_RECORD => Ok(InputRoute::Record),
             short_header::INPUT_OBSERVE => Ok(InputRoute::Observe),
+            short_header::INPUT_LOOKUP => Ok(InputRoute::Lookup),
+            short_header::INPUT_COUNT => Ok(InputRoute::Count),
             short_header::INPUT_REMOVE => Ok(InputRoute::Remove),
             _ => Err(SignalFrameError::UnknownHeader { root_enum: "Input", header }),
         }
@@ -1014,6 +1100,8 @@ impl Output {
         match self {
             Self::RecordAccepted(_) => OutputRoute::RecordAccepted,
             Self::RecordsObserved(_) => OutputRoute::RecordsObserved,
+            Self::RecordFound(_) => OutputRoute::RecordFound,
+            Self::RecordsCounted(_) => OutputRoute::RecordsCounted,
             Self::RecordRemoved(_) => OutputRoute::RecordRemoved,
             Self::Error(_) => OutputRoute::Error,
             Self::Rejected(_) => OutputRoute::Rejected,
@@ -1024,6 +1112,8 @@ impl Output {
         match self {
             Self::RecordAccepted(_) => short_header::OUTPUT_RECORD_ACCEPTED,
             Self::RecordsObserved(_) => short_header::OUTPUT_RECORDS_OBSERVED,
+            Self::RecordFound(_) => short_header::OUTPUT_RECORD_FOUND,
+            Self::RecordsCounted(_) => short_header::OUTPUT_RECORDS_COUNTED,
             Self::RecordRemoved(_) => short_header::OUTPUT_RECORD_REMOVED,
             Self::Error(_) => short_header::OUTPUT_ERROR,
             Self::Rejected(_) => short_header::OUTPUT_REJECTED,
@@ -1034,6 +1124,8 @@ impl Output {
         match header {
             short_header::OUTPUT_RECORD_ACCEPTED => Ok(OutputRoute::RecordAccepted),
             short_header::OUTPUT_RECORDS_OBSERVED => Ok(OutputRoute::RecordsObserved),
+            short_header::OUTPUT_RECORD_FOUND => Ok(OutputRoute::RecordFound),
+            short_header::OUTPUT_RECORDS_COUNTED => Ok(OutputRoute::RecordsCounted),
             short_header::OUTPUT_RECORD_REMOVED => Ok(OutputRoute::RecordRemoved),
             short_header::OUTPUT_ERROR => Ok(OutputRoute::Error),
             short_header::OUTPUT_REJECTED => Ok(OutputRoute::Rejected),
@@ -1369,18 +1461,22 @@ impl nexus::Nexus<nexus::Input> {
         let origin_route = self.origin_route();
         match self.into_root() {
             NexusInput::Signal(input) => match input {
-                Input::Record(payload) => NexusOutput::from(SemaWriteInput::from(payload)),
-                Input::Observe(payload) => NexusOutput::from(SemaReadInput::from(payload)),
-                Input::Remove(payload) => NexusOutput::from(SemaWriteInput::from(payload)),
+                Input::Record(payload) => NexusOutput::from(SemaWriteInput::Record(payload)),
+                Input::Observe(payload) => NexusOutput::from(SemaReadInput::Observe(payload)),
+                Input::Lookup(payload) => NexusOutput::from(SemaReadInput::Lookup(payload)),
+                Input::Count(payload) => NexusOutput::from(SemaReadInput::Count(payload)),
+                Input::Remove(payload) => NexusOutput::from(SemaWriteInput::Remove(payload)),
             },
             NexusInput::SemaWrite(output) => match output {
-                SemaWriteOutput::Recorded(payload) => NexusOutput::from(Output::from(payload)),
-                SemaWriteOutput::Removed(payload) => NexusOutput::from(Output::from(payload)),
-                SemaWriteOutput::Missed(payload) => NexusOutput::from(Output::from(payload)),
+                SemaWriteOutput::Recorded(payload) => NexusOutput::from(Output::RecordAccepted(payload)),
+                SemaWriteOutput::Removed(payload) => NexusOutput::from(Output::RecordRemoved(payload)),
+                SemaWriteOutput::Missed(payload) => NexusOutput::from(Output::Error(payload)),
             },
             NexusInput::SemaRead(output) => match output {
-                SemaReadOutput::Observed(payload) => NexusOutput::from(Output::from(payload)),
-                SemaReadOutput::Missed(payload) => NexusOutput::from(Output::from(payload)),
+                SemaReadOutput::Observed(payload) => NexusOutput::from(Output::RecordsObserved(payload)),
+                SemaReadOutput::Found(payload) => NexusOutput::from(Output::RecordFound(payload)),
+                SemaReadOutput::Counted(payload) => NexusOutput::from(Output::RecordsCounted(payload)),
+                SemaReadOutput::Missed(payload) => NexusOutput::from(Output::Error(payload)),
             },
         }
         .with_origin_route(origin_route)
@@ -1428,60 +1524,76 @@ impl sema::Sema<sema::ReadOutput> {
 }
 
 pub trait SignalEngine {
-    fn trace_signal_admitted(&self, _input: &signal::Signal<signal::Input>) {}
-    fn trace_signal_rejected(&self, _output: &signal::Signal<signal::Output>) {}
-    fn trace_signal_triaged(&self, _input: &signal::Signal<signal::Input>, _output: &nexus::Nexus<nexus::Input>) {}
-    fn trace_signal_replied(&self, _output: &signal::Signal<signal::Output>) {}
+    fn trace_signal_activation(&self, _object_name: &'static str) {}
+    fn trace_signal_admitted(&self) {
+        self.trace_signal_activation("SignalAdmitted");
+    }
+    fn trace_signal_rejected(&self) {
+        self.trace_signal_activation("SignalRejected");
+    }
+    fn trace_signal_triaged(&self) {
+        self.trace_signal_activation("SignalTriaged");
+    }
+    fn trace_signal_replied(&self) {
+        self.trace_signal_activation("SignalReplied");
+    }
 
     fn triage_inner(&self, input: signal::Signal<signal::Input>) -> nexus::Nexus<nexus::Input>;
     fn reply_inner(&self, output: nexus::Nexus<nexus::Output>) -> signal::Signal<signal::Output>;
 
     fn triage(&self, input: signal::Signal<signal::Input>) -> nexus::Nexus<nexus::Input> {
-        let trace_input = input.clone();
         let output = self.triage_inner(input);
-        self.trace_signal_triaged(&trace_input, &output);
+        self.trace_signal_triaged();
         output
     }
 
     fn reply(&self, output: nexus::Nexus<nexus::Output>) -> signal::Signal<signal::Output> {
         let signal_output = self.reply_inner(output);
-        self.trace_signal_replied(&signal_output);
+        self.trace_signal_replied();
         signal_output
     }
 }
 
 pub trait NexusEngine {
-    fn trace_nexus_entered(&self, _input: &nexus::Nexus<nexus::Input>) {}
-    fn trace_nexus_decided(&self, _output: &nexus::Nexus<nexus::Output>) {}
+    fn trace_nexus_activation(&self, _object_name: &'static str) {}
+    fn trace_nexus_entered(&self) {
+        self.trace_nexus_activation("NexusEntered");
+    }
+    fn trace_nexus_decided(&self) {
+        self.trace_nexus_activation("NexusDecided");
+    }
 
     fn decide(&mut self, input: nexus::Nexus<nexus::Input>) -> nexus::Nexus<nexus::Output>;
 
     fn execute(&mut self, input: nexus::Nexus<nexus::Input>) -> nexus::Nexus<nexus::Output> {
-        self.trace_nexus_entered(&input);
+        self.trace_nexus_entered();
         let output = self.decide(input);
-        self.trace_nexus_decided(&output);
+        self.trace_nexus_decided();
         output
     }
 }
 
 pub trait SemaEngine {
-    fn trace_sema_write_applied(&self, _input: &sema::Sema<sema::WriteInput>, _output: &sema::Sema<sema::WriteOutput>) {}
-    fn trace_sema_read_observed(&self, _input: &sema::Sema<sema::ReadInput>, _output: &sema::Sema<sema::ReadOutput>) {}
+    fn trace_sema_activation(&self, _object_name: &'static str) {}
+    fn trace_sema_write_applied(&self) {
+        self.trace_sema_activation("SemaWriteApplied");
+    }
+    fn trace_sema_read_observed(&self) {
+        self.trace_sema_activation("SemaReadObserved");
+    }
 
     fn apply_inner(&mut self, input: sema::Sema<sema::WriteInput>) -> sema::Sema<sema::WriteOutput>;
     fn observe_inner(&self, input: sema::Sema<sema::ReadInput>) -> sema::Sema<sema::ReadOutput>;
 
     fn apply(&mut self, input: sema::Sema<sema::WriteInput>) -> sema::Sema<sema::WriteOutput> {
-        let trace_input = input.clone();
         let output = self.apply_inner(input);
-        self.trace_sema_write_applied(&trace_input, &output);
+        self.trace_sema_write_applied();
         output
     }
 
     fn observe(&self, input: sema::Sema<sema::ReadInput>) -> sema::Sema<sema::ReadOutput> {
-        let trace_input = input.clone();
         let output = self.observe_inner(input);
-        self.trace_sema_read_observed(&trace_input, &output);
+        self.trace_sema_read_observed();
         output
     }
 }

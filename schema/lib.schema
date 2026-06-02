@@ -1,6 +1,6 @@
 {}
-[(Record Entry) (Observe Query) (Remove RecordIdentifier)]
-[(RecordAccepted SemaReceipt) (RecordsObserved ObservedRecords) (RecordRemoved RemoveReceipt) (Error ErrorReport) (Rejected SignalRejection)]
+[(Record Entry) (Observe Query) (Lookup RecordIdentifier) (Count Query) (Remove RecordIdentifier)]
+[(RecordAccepted SemaReceipt) (RecordsObserved ObservedRecords) (RecordFound FoundRecord) (RecordsCounted CountedRecords) (RecordRemoved RemoveReceipt) (Error ErrorReport) (Rejected SignalRejection)]
 {
   SourcePath String
   LocalPath String
@@ -13,9 +13,9 @@
   NexusInput [(Signal Input) (SemaWrite SemaWriteOutput) (SemaRead SemaReadOutput)]
   NexusOutput [(SemaWrite SemaWriteInput) (SemaRead SemaReadInput) (Signal Output)]
   SemaWriteInput [(Record Entry) (Remove RecordIdentifier)]
-  SemaReadInput [(Observe Query)]
+  SemaReadInput [(Observe Query) (Lookup RecordIdentifier) (Count Query)]
   SemaWriteOutput [(Recorded SemaReceipt) (Removed RemoveReceipt) (Missed ErrorReport)]
-  SemaReadOutput [(Observed ObservedRecords) (Missed ErrorReport)]
+  SemaReadOutput [(Observed ObservedRecords) (Found FoundRecord) (Counted CountedRecords) (Missed ErrorReport)]
   Topic String
   Topics (Vec Topic)
   Description String
@@ -27,6 +27,9 @@
   SemaReceipt { RecordIdentifier * DatabaseMarker * }
   RemoveReceipt { RecordIdentifier * DatabaseMarker * }
   ObservedRecords { RecordSet * DatabaseMarker * }
+  FoundRecord { RecordIdentifier * Entry * DatabaseMarker * }
+  RecordCount Integer
+  CountedRecords { RecordCount * DatabaseMarker * }
   ErrorReport { ErrorMessage * DatabaseMarker * }
   SignalRejection { ValidationError * DatabaseMarker * }
   ValidationError [EmptyTopic EmptyDescription EmptyQueryTopic]

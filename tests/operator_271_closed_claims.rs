@@ -57,7 +57,7 @@ fn lib_schema_input_uses_honest_parenthesized_data_variants() {
 
     // The active production Input enum body — honest data variants.
     witness.must_contain(
-        "[(Record Entry) (Observe Query) (Remove RecordIdentifier)]",
+        "[(Record Entry) (Observe Query) (Lookup RecordIdentifier) (Count Query) (Remove RecordIdentifier)]",
         "4",
     );
 
@@ -80,6 +80,8 @@ fn lib_schema_output_uses_honest_parenthesized_data_variants() {
     // The active production Output enum body.
     witness.must_contain("(RecordAccepted SemaReceipt)", "4");
     witness.must_contain("(RecordsObserved ObservedRecords)", "4");
+    witness.must_contain("(RecordFound FoundRecord)", "4");
+    witness.must_contain("(RecordsCounted CountedRecords)", "4");
     witness.must_contain("(RecordRemoved RemoveReceipt)", "4");
     witness.must_contain("(Error ErrorReport)", "4");
     witness.must_contain("(Rejected SignalRejection)", "4");
@@ -131,10 +133,14 @@ fn lib_asschema_lifts_honest_data_variants_into_typed_records() {
     // Input variants lifted to the assembled (Some (Plain ...)) form.
     witness.must_contain("(Record (Some (Plain Entry)))", "4");
     witness.must_contain("(Observe (Some (Plain Query)))", "4");
+    witness.must_contain("(Lookup (Some (Plain RecordIdentifier)))", "4");
+    witness.must_contain("(Count (Some (Plain Query)))", "4");
     witness.must_contain("(Remove (Some (Plain RecordIdentifier)))", "4");
 
     // Output variants similarly lifted.
     witness.must_contain("(RecordAccepted (Some (Plain SemaReceipt)))", "4");
+    witness.must_contain("(RecordFound (Some (Plain FoundRecord)))", "4");
+    witness.must_contain("(RecordsCounted (Some (Plain CountedRecords)))", "4");
     witness.must_contain("(RecordRemoved (Some (Plain RemoveReceipt)))", "4");
 
     // Unit variants land as `(VariantName None)`.
@@ -155,16 +161,20 @@ fn schema_emitted_rust_module_mirrors_honest_enum_variants() {
     let emitted_rust = include_str!("../src/schema/lib.rs");
     let witness = SchemaSourceWitness::new("src/schema/lib.rs", emitted_rust);
 
-    // The schema-emitted Input enum carries the same three data variants.
+    // The schema-emitted Input enum carries the same data variants.
     witness.must_contain("pub enum Input {", "4");
     witness.must_contain("Record(Entry)", "4");
     witness.must_contain("Observe(Query)", "4");
+    witness.must_contain("Lookup(RecordIdentifier)", "4");
+    witness.must_contain("Count(Query)", "4");
     witness.must_contain("Remove(RecordIdentifier)", "4");
 
-    // The schema-emitted Output enum carries the same five data variants.
+    // The schema-emitted Output enum carries the same data variants.
     witness.must_contain("pub enum Output {", "4");
     witness.must_contain("RecordAccepted(SemaReceipt)", "4");
     witness.must_contain("RecordsObserved(ObservedRecords)", "4");
+    witness.must_contain("RecordFound(FoundRecord)", "4");
+    witness.must_contain("RecordsCounted(CountedRecords)", "4");
     witness.must_contain("RecordRemoved(RemoveReceipt)", "4");
     witness.must_contain("Error(ErrorReport)", "4");
     witness.must_contain("Rejected(SignalRejection)", "4");

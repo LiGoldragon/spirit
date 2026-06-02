@@ -37,7 +37,10 @@ runtime. Normal Nix packages build a lean binary daemon plus NOTA CLI adapter.
 Trace packages build the same pair with `testing-trace`; the daemon can emit
 rkyv `TraceEvent` frames to a configured trace socket, and the CLI can listen
 on that socket and render decoded trace events after the ordinary Signal
-reply. The trace path is a runtime proof surface, not deployment grep: the
+reply. A trace event is the activated schema/interface object name supplied by
+the generated trait wrapper (`SignalTriaged`, `NexusEntered`,
+`SemaWriteApplied`, `SemaReadObserved`, and siblings), not a cloned payload
+snapshot. The trace path is a runtime proof surface, not deployment grep: the
 process-boundary test starts a real daemon, sends real CLI requests, and
 asserts the Signal/Nexus/SEMA event sequence that returns over the trace
 socket.
@@ -173,14 +176,18 @@ a real **redb** database written to a `*.sema` file:
   `Remove` is a redb write transaction that deletes the record and advances
   the persisted `commit-sequence` when a record was present.
 - `SemaEngine::observe(sema::Sema<sema::ReadInput>) ->
-  sema::Sema<sema::ReadOutput>` is the read surface. An `Observe` is a redb
+  sema::Sema<sema::ReadOutput>` is the read surface. `Observe(Query)` is a redb
   read transaction scanning the `records` table and returning every matching
-  entry. The `&self` receiver lets parallel readers share the store reference;
+  entry, `Lookup(RecordIdentifier)` returns one identified record when present,
+  and `Count(Query)` returns the number of matching records without mutating
+  state. The `&self` receiver lets parallel readers share the store reference;
   `tests/runtime_triad.rs` has a scoped-thread witness for this shape.
 - Entries carry `Topics`, a generated vector newtype. Queries carry
-  `TopicMatch::{Partial,Full}` and an optional `Kind`: `Partial` accepts any
-  requested topic, `Full` requires every requested topic, and `None` in the
-  kind position searches only by topic.
+`TopicMatch::{Partial,Full}` and an optional `Kind`: `Partial` accepts any
+requested topic, `Full` requires every requested topic, and `None` in the
+kind position searches only by topic. The same query noun drives both
+`Observe` and `Count`, while `Lookup` uses the generated `RecordIdentifier`
+newtype.
 - redb's transaction model gives crash-consistency: a store reopened from the
   same `.sema` path resumes its committed records AND its commit ledger, so the
   next write after a restart continues the sequence rather than restarting at 1.

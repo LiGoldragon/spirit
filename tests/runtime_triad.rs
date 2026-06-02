@@ -2,10 +2,10 @@ use spirit_next::{
     CommitSequence, DatabaseMarker, Description, Engine, Entry, ErrorMessage, ErrorReport, Input,
     Kind, Magnitude, MailIdentifier, MailLedgerEvent, MessageIdentifier, MessageSent,
     MessageSentHook, Nexus, NexusEngine, NexusInput, NexusOutput, OriginRoute, Output,
-    ProcessedMail, Query, RecordIdentifier, RecordSet, SemaEngine, SemaReadInput, SemaReadOutput,
-    SemaReceipt, SemaWriteInput, SemaWriteOutput, SentMail, ShortHeader, SignalActor, SignalEngine,
-    SignalRejection, StateDigest, Store, Topic, TopicMatch, Topics, ValidationError, schema_meta,
-    sema,
+    ProcessedMail, Query, RecordCount, RecordIdentifier, RecordSet, SemaEngine, SemaReadInput,
+    SemaReadOutput, SemaReceipt, SemaWriteInput, SemaWriteOutput, SentMail, ShortHeader,
+    SignalActor, SignalEngine, SignalRejection, StateDigest, Store, Topic, TopicMatch, Topics,
+    ValidationError, schema_meta, sema,
 };
 #[cfg(feature = "nota-text")]
 use spirit_next::{Export, Import, LocalPath, PublicPath, SourcePath};
@@ -400,6 +400,54 @@ fn sema_engine_queries_partial_and_full_topic_sets() {
 }
 
 #[test]
+fn sema_engine_lookup_and_count_are_read_plane_operations() {
+    let sema = SemaFile::new();
+    let mut store = sema.open_store();
+    SemaEngine::apply(
+        &mut store,
+        sema_write_message(
+            SemaWriteInput::Record(entry_with_topics(&["runtime-triad", "schema"], "first")),
+            1,
+        ),
+    );
+    SemaEngine::apply(
+        &mut store,
+        sema_write_message(
+            SemaWriteInput::Record(entry_with_topics(&["runtime-triad"], "second")),
+            2,
+        ),
+    );
+
+    let found = SemaEngine::observe(
+        &store,
+        sema_read_message(SemaReadInput::Lookup(RecordIdentifier(2)), 3),
+    );
+    match found.root() {
+        SemaReadOutput::Found(record) => {
+            assert_eq!(record.record_identifier, RecordIdentifier(2));
+            assert_eq!(record.entry.description.0, "second");
+            assert_eq!(record.database_marker.commit_sequence, CommitSequence(2));
+        }
+        other => panic!("expected SEMA lookup to find the second record, got {other:?}"),
+    }
+
+    let counted = SemaEngine::observe(
+        &store,
+        sema_read_message(
+            SemaReadInput::Count(partial_query(&["runtime-triad"], None)),
+            4,
+        ),
+    );
+    match counted.root() {
+        SemaReadOutput::Counted(records) => {
+            assert_eq!(records.record_count, RecordCount(2));
+            assert_eq!(records.database_marker.commit_sequence, CommitSequence(2));
+        }
+        other => panic!("expected SEMA count to return two records, got {other:?}"),
+    }
+}
+
+#[test]
 fn sema_engine_observes_through_shared_reference_for_parallel_readers() {
     let sema = SemaFile::new();
     let mut store = sema.open_store();
@@ -694,4 +742,38 @@ fn full_runtime_triad_records_then_observes_through_durable_sema() {
             }),
         ]
     );
+}
+
+#[test]
+fn full_runtime_triad_looks_up_and_counts_through_signal_nexus_and_sema() {
+    let sema = SemaFile::new();
+    let engine = sema.engine();
+
+    engine.handle(Input::Record(entry_with_topics(
+        &["runtime-triad", "schema"],
+        "lookup one",
+    )));
+    engine.handle(Input::Record(entry_with_topics(
+        &["runtime-triad"],
+        "lookup two",
+    )));
+
+    let found = engine.handle(Input::Lookup(RecordIdentifier(1)));
+    match found.root() {
+        Output::RecordFound(record) => {
+            assert_eq!(record.record_identifier, RecordIdentifier(1));
+            assert_eq!(record.entry.description.0, "lookup one");
+            assert_eq!(record.database_marker.commit_sequence, CommitSequence(2));
+        }
+        other => panic!("expected full runtime lookup to return RecordFound, got {other:?}"),
+    }
+
+    let counted = engine.handle(Input::Count(partial_query(&["runtime-triad"], None)));
+    match counted.root() {
+        Output::RecordsCounted(records) => {
+            assert_eq!(records.record_count, RecordCount(2));
+            assert_eq!(records.database_marker.commit_sequence, CommitSequence(2));
+        }
+        other => panic!("expected full runtime count to return RecordsCounted, got {other:?}"),
+    }
 }

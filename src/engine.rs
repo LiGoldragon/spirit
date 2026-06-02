@@ -103,9 +103,9 @@ impl Engine {
             Err(rejected) => {
                 let output = rejected.into_signal_output(self.database_marker());
                 #[cfg(feature = "testing-trace")]
-                self.signal_actor.trace_signal_rejected(&output);
+                self.signal_actor.trace_signal_rejected();
                 #[cfg(feature = "testing-trace")]
-                self.signal_actor.trace_signal_replied(&output);
+                self.signal_actor.trace_signal_replied();
                 return output;
             }
         };
@@ -168,7 +168,7 @@ impl SignalActor {
             });
         }
         #[cfg(feature = "testing-trace")]
-        self.trace_signal_admitted(&signal_input);
+        self.trace_signal_admitted();
         Ok(SignalAccepted {
             sent: signal_input.message_sent(identifier),
             input: signal_input,
@@ -193,42 +193,8 @@ impl SignalActor {
 
 impl SignalEngine for SignalActor {
     #[cfg(feature = "testing-trace")]
-    fn trace_signal_admitted(&self, input: &signal_plane::Signal<Input>) {
-        self.trace_log.record(TraceEvent::SignalAdmitted {
-            origin_route: input.origin_route(),
-            input: input.root().clone(),
-        });
-    }
-
-    #[cfg(feature = "testing-trace")]
-    fn trace_signal_rejected(&self, output: &signal_plane::Signal<Output>) {
-        if let Output::Rejected(rejection) = output.root() {
-            self.trace_log.record(TraceEvent::SignalRejected {
-                origin_route: output.origin_route(),
-                validation_error: rejection.validation_error.clone(),
-            });
-        }
-    }
-
-    #[cfg(feature = "testing-trace")]
-    fn trace_signal_triaged(
-        &self,
-        input: &signal_plane::Signal<Input>,
-        output: &nexus_plane::Nexus<NexusInput>,
-    ) {
-        self.trace_log.record(TraceEvent::SignalTriaged {
-            origin_route: input.origin_route(),
-            input: input.root().clone(),
-            output: output.root().clone(),
-        });
-    }
-
-    #[cfg(feature = "testing-trace")]
-    fn trace_signal_replied(&self, output: &signal_plane::Signal<Output>) {
-        self.trace_log.record(TraceEvent::SignalReplied {
-            origin_route: output.origin_route(),
-            output: output.root().clone(),
-        });
+    fn trace_signal_activation(&self, object_name: &'static str) {
+        self.trace_log.record(TraceEvent::new(object_name));
     }
 
     fn triage_inner(&self, input: signal_plane::Signal<Input>) -> nexus_plane::Nexus<NexusInput> {
@@ -343,7 +309,8 @@ impl Input {
         match self {
             Self::Record(entry) => entry.validate(),
             Self::Observe(query) => query.validate(),
-            Self::Remove(_) => Ok(()),
+            Self::Lookup(_) | Self::Remove(_) => Ok(()),
+            Self::Count(query) => query.validate(),
         }
     }
 }
@@ -448,6 +415,8 @@ impl Output {
         match self {
             Self::RecordAccepted(receipt) => receipt.database_marker.clone(),
             Self::RecordsObserved(records) => records.database_marker.clone(),
+            Self::RecordFound(record) => record.database_marker.clone(),
+            Self::RecordsCounted(records) => records.database_marker.clone(),
             Self::RecordRemoved(receipt) => receipt.database_marker.clone(),
             Self::Error(report) => report.database_marker.clone(),
             Self::Rejected(rejection) => rejection.database_marker.clone(),

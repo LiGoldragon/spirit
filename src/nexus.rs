@@ -61,19 +61,8 @@ impl Nexus {
 
 impl NexusEngine for Nexus {
     #[cfg(feature = "testing-trace")]
-    fn trace_nexus_entered(&self, input: &nexus_plane::Nexus<nexus_plane::Input>) {
-        self.trace_log.record(TraceEvent::NexusEntered {
-            origin_route: input.origin_route(),
-            input: input.root().clone(),
-        });
-    }
-
-    #[cfg(feature = "testing-trace")]
-    fn trace_nexus_decided(&self, output: &nexus_plane::Nexus<nexus_plane::Output>) {
-        self.trace_log.record(TraceEvent::NexusDecided {
-            origin_route: output.origin_route(),
-            output: output.root().clone(),
-        });
+    fn trace_nexus_activation(&self, object_name: &'static str) {
+        self.trace_log.record(TraceEvent::new(object_name));
     }
 
     fn decide(

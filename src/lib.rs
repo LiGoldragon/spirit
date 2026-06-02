@@ -40,20 +40,19 @@ pub use daemon::{Daemon, DaemonError};
 pub use engine::{Engine, MailLedger, MailLedgerHook, SignalAccepted, SignalActor};
 pub use nexus::Nexus;
 pub use schema::lib::{
-    CommitSequence, DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport, Export, Import,
-    Input, InputRoute, Integer, Kind, LocalPath, Magnitude, MailIdentifier, MailLedgerEvent,
-    MessageIdentifier, MessageProcessed, MessageProcessedHook, MessageRoot, MessageSent,
-    MessageSentHook, NexusEngine, NexusInput, NexusOutput, NexusReuse, ObservedRecords,
-    OriginRoute, Output, OutputRoute, ProcessedMail, PublicPath, Query, RecordIdentifier,
-    RecordSet, RemoveReceipt, SemaEngine, SemaReadInput, SemaReadOutput, SemaReceipt, SemaReuse,
-    SemaWriteInput, SemaWriteOutput, SentMail, ShortHeader, SignalEngine, SignalFrameError,
-    SignalRejection, SignalReuse, SourcePath, StateDigest, Topic, TopicMatch, Topics,
-    ValidationError, nexus as nexus_plane, schema as schema_meta, sema, signal,
+    CommitSequence, CountedRecords, DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport,
+    Export, FoundRecord, Import, Input, InputRoute, Integer, Kind, LocalPath, Magnitude,
+    MailIdentifier, MailLedgerEvent, MessageIdentifier, MessageProcessed, MessageProcessedHook,
+    MessageRoot, MessageSent, MessageSentHook, NexusEngine, NexusInput, NexusOutput, NexusReuse,
+    ObservedRecords, OriginRoute, Output, OutputRoute, ProcessedMail, PublicPath, Query,
+    RecordCount, RecordIdentifier, RecordSet, RemoveReceipt, SemaEngine, SemaReadInput,
+    SemaReadOutput, SemaReceipt, SemaReuse, SemaWriteInput, SemaWriteOutput, SentMail, ShortHeader,
+    SignalEngine, SignalFrameError, SignalRejection, SignalReuse, SourcePath, StateDigest, Topic,
+    TopicMatch, Topics, ValidationError, nexus as nexus_plane, schema as schema_meta, sema, signal,
 };
 pub use store::{Store, StoreError};
 #[cfg(feature = "testing-trace")]
 pub use trace::{
-    TraceActor, TraceError, TraceEvent, TraceInterface, TraceLog, TraceSocketListener,
-    TraceSocketPath,
+    TraceError, TraceEvent, TraceLog, TraceObjectName, TraceSocketListener, TraceSocketPath,
 };
 pub use transport::{SignalTransport, TransportError};

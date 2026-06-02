@@ -3,9 +3,10 @@ use std::{fmt, fs, path::PathBuf};
 use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
 
 use crate::{
-    CommitSequence, DatabaseMarker, Entry, ErrorMessage, ErrorReport, Magnitude, ObservedRecords,
-    Query, RecordIdentifier, RecordSet, RemoveReceipt, SemaEngine, SemaReadInput, SemaReadOutput,
-    SemaReceipt, SemaWriteInput, SemaWriteOutput, StateDigest, schema::lib::sema as sema_plane,
+    CommitSequence, CountedRecords, DatabaseMarker, Entry, ErrorMessage, ErrorReport, FoundRecord,
+    Magnitude, ObservedRecords, Query, RecordCount, RecordIdentifier, RecordSet, RemoveReceipt,
+    SemaEngine, SemaReadInput, SemaReadOutput, SemaReceipt, SemaWriteInput, SemaWriteOutput,
+    StateDigest, schema::lib::sema as sema_plane,
 };
 
 #[cfg(feature = "testing-trace")]
@@ -38,29 +39,8 @@ pub struct Store {
 
 impl SemaEngine for Store {
     #[cfg(feature = "testing-trace")]
-    fn trace_sema_write_applied(
-        &self,
-        input: &sema_plane::Sema<sema_plane::WriteInput>,
-        output: &sema_plane::Sema<sema_plane::WriteOutput>,
-    ) {
-        self.trace_log.record(TraceEvent::SemaWriteApplied {
-            origin_route: input.origin_route(),
-            input: input.root().clone(),
-            output: output.root().clone(),
-        });
-    }
-
-    #[cfg(feature = "testing-trace")]
-    fn trace_sema_read_observed(
-        &self,
-        input: &sema_plane::Sema<sema_plane::ReadInput>,
-        output: &sema_plane::Sema<sema_plane::ReadOutput>,
-    ) {
-        self.trace_log.record(TraceEvent::SemaReadObserved {
-            origin_route: input.origin_route(),
-            input: input.root().clone(),
-            output: output.root().clone(),
-        });
+    fn trace_sema_activation(&self, object_name: &'static str) {
+        self.trace_log.record(TraceEvent::new(object_name));
     }
 
     fn apply_inner(
@@ -110,6 +90,31 @@ impl SemaEngine for Store {
                 }),
                 Ok(_) => SemaReadOutput::Missed(ErrorReport {
                     error_message: ErrorMessage(String::from("no matching record")),
+                    database_marker: self.database_marker(),
+                }),
+                Err(error) => SemaReadOutput::Missed(ErrorReport {
+                    error_message: ErrorMessage(error.to_string()),
+                    database_marker: self.database_marker(),
+                }),
+            },
+            SemaReadInput::Lookup(record_identifier) => match self.lookup(record_identifier.0) {
+                Ok(Some(entry)) => SemaReadOutput::Found(FoundRecord {
+                    record_identifier,
+                    entry,
+                    database_marker: self.database_marker(),
+                }),
+                Ok(None) => SemaReadOutput::Missed(ErrorReport {
+                    error_message: ErrorMessage(String::from("record not found")),
+                    database_marker: self.database_marker(),
+                }),
+                Err(error) => SemaReadOutput::Missed(ErrorReport {
+                    error_message: ErrorMessage(error.to_string()),
+                    database_marker: self.database_marker(),
+                }),
+            },
+            SemaReadInput::Count(query) => match self.count(&query) {
+                Ok(count) => SemaReadOutput::Counted(CountedRecords {
+                    record_count: RecordCount(count),
                     database_marker: self.database_marker(),
                 }),
                 Err(error) => SemaReadOutput::Missed(ErrorReport {
@@ -218,6 +223,33 @@ impl Store {
             }
         }
         Ok(matches)
+    }
+
+    fn lookup(&self, identifier: u64) -> Result<Option<Entry>, StoreError> {
+        let transaction = self.database.begin_read()?;
+        let records = transaction.open_table(RECORDS)?;
+        records
+            .get(identifier)?
+            .map(|archive| {
+                rkyv::from_bytes::<Entry, rkyv::rancor::Error>(archive.value())
+                    .map_err(|_| StoreError::ArchiveDecode)
+            })
+            .transpose()
+    }
+
+    fn count(&self, query: &Query) -> Result<u64, StoreError> {
+        let transaction = self.database.begin_read()?;
+        let records = transaction.open_table(RECORDS)?;
+        let mut count = 0_u64;
+        for row in records.iter()? {
+            let (_, archive) = row?;
+            let entry = rkyv::from_bytes::<Entry, rkyv::rancor::Error>(archive.value())
+                .map_err(|_| StoreError::ArchiveDecode)?;
+            if entry.matches(query) {
+                count += 1;
+            }
+        }
+        Ok(count)
     }
 
     fn remove(&self, identifier: u64) -> Result<bool, StoreError> {
