@@ -8,6 +8,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+use crate::TraceEvent;
+
 const LENGTH_PREFIX_BYTE_COUNT: usize = 4;
 
 #[derive(Clone, Debug)]
@@ -31,14 +33,6 @@ pub struct TraceSocketPath {
 pub struct TraceSocketListener {
     listener: UnixListener,
     path: PathBuf,
-}
-
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct TraceObjectName(pub String);
-
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct TraceEvent {
-    object_name: TraceObjectName,
 }
 
 #[derive(Debug)]
@@ -97,16 +91,6 @@ impl TraceLog {
 }
 
 impl TraceEvent {
-    pub fn new(object_name: impl Into<String>) -> Self {
-        Self {
-            object_name: TraceObjectName::new(object_name),
-        }
-    }
-
-    pub fn object_name(&self) -> &TraceObjectName {
-        &self.object_name
-    }
-
     pub fn to_frame(&self) -> Result<Vec<u8>, TraceError> {
         let archive =
             rkyv::to_bytes::<rkyv::rancor::Error>(self).map_err(|_| TraceError::ArchiveEncode)?;
@@ -135,20 +119,6 @@ impl TraceEvent {
         let mut frame = vec![0_u8; length];
         stream.read_exact(&mut frame)?;
         Self::from_frame(&frame)
-    }
-
-    pub fn name(&self) -> &str {
-        self.object_name.as_str()
-    }
-}
-
-impl TraceObjectName {
-    pub fn new(value: impl Into<String>) -> Self {
-        Self(value.into())
-    }
-
-    pub fn as_str(&self) -> &str {
-        self.0.as_str()
     }
 }
 

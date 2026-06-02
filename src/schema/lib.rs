@@ -1016,7 +1016,8 @@ impl std::fmt::Display for SignalFrameError {
 
 impl std::error::Error for SignalFrameError {}
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum InputRoute {
     Record,
     Observe,
@@ -1025,7 +1026,8 @@ pub enum InputRoute {
     Remove,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OutputRoute {
     RecordAccepted,
     RecordsObserved,
@@ -1157,6 +1159,244 @@ impl Output {
             return Err(SignalFrameError::HeaderMismatch { expected, found: header });
         }
         Ok((route, value))
+    }
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NexusInputRoute {
+    Signal,
+    SemaWrite,
+    SemaRead,
+}
+
+impl NexusInput {
+    pub fn route(&self) -> NexusInputRoute {
+        match self {
+            Self::Signal(_) => NexusInputRoute::Signal,
+            Self::SemaWrite(_) => NexusInputRoute::SemaWrite,
+            Self::SemaRead(_) => NexusInputRoute::SemaRead,
+        }
+    }
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NexusOutputRoute {
+    SemaWrite,
+    SemaRead,
+    Signal,
+}
+
+impl NexusOutput {
+    pub fn route(&self) -> NexusOutputRoute {
+        match self {
+            Self::SemaWrite(_) => NexusOutputRoute::SemaWrite,
+            Self::SemaRead(_) => NexusOutputRoute::SemaRead,
+            Self::Signal(_) => NexusOutputRoute::Signal,
+        }
+    }
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SemaWriteInputRoute {
+    Record,
+    Remove,
+}
+
+impl SemaWriteInput {
+    pub fn route(&self) -> SemaWriteInputRoute {
+        match self {
+            Self::Record(_) => SemaWriteInputRoute::Record,
+            Self::Remove(_) => SemaWriteInputRoute::Remove,
+        }
+    }
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SemaReadInputRoute {
+    Observe,
+    Lookup,
+    Count,
+}
+
+impl SemaReadInput {
+    pub fn route(&self) -> SemaReadInputRoute {
+        match self {
+            Self::Observe(_) => SemaReadInputRoute::Observe,
+            Self::Lookup(_) => SemaReadInputRoute::Lookup,
+            Self::Count(_) => SemaReadInputRoute::Count,
+        }
+    }
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SemaWriteOutputRoute {
+    Recorded,
+    Removed,
+    Missed,
+}
+
+impl SemaWriteOutput {
+    pub fn route(&self) -> SemaWriteOutputRoute {
+        match self {
+            Self::Recorded(_) => SemaWriteOutputRoute::Recorded,
+            Self::Removed(_) => SemaWriteOutputRoute::Removed,
+            Self::Missed(_) => SemaWriteOutputRoute::Missed,
+        }
+    }
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SemaReadOutputRoute {
+    Observed,
+    Found,
+    Counted,
+    Missed,
+}
+
+impl SemaReadOutput {
+    pub fn route(&self) -> SemaReadOutputRoute {
+        match self {
+            Self::Observed(_) => SemaReadOutputRoute::Observed,
+            Self::Found(_) => SemaReadOutputRoute::Found,
+            Self::Counted(_) => SemaReadOutputRoute::Counted,
+            Self::Missed(_) => SemaReadOutputRoute::Missed,
+        }
+    }
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TraceInterfaceObject {
+    SignalInput(InputRoute),
+    SignalOutput(OutputRoute),
+    NexusInput(NexusInputRoute),
+    NexusOutput(NexusOutputRoute),
+    SemaWriteInput(SemaWriteInputRoute),
+    SemaReadInput(SemaReadInputRoute),
+    SemaWriteOutput(SemaWriteOutputRoute),
+    SemaReadOutput(SemaReadOutputRoute),
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TraceActorObject {
+    SignalAdmitted,
+    SignalRejected,
+    SignalTriaged,
+    SignalReplied,
+    NexusEntered,
+    NexusDecided,
+    SemaWriteApplied,
+    SemaReadObserved,
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TraceObject {
+    Interface(TraceInterfaceObject),
+    Actor(TraceActorObject),
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TraceEvent {
+    pub object: TraceObject,
+}
+
+impl TraceInterfaceObject {
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::SignalInput(route) => match route {
+                InputRoute::Record => "SignalInputRecord",
+                InputRoute::Observe => "SignalInputObserve",
+                InputRoute::Lookup => "SignalInputLookup",
+                InputRoute::Count => "SignalInputCount",
+                InputRoute::Remove => "SignalInputRemove",
+            },
+            Self::SignalOutput(route) => match route {
+                OutputRoute::RecordAccepted => "SignalOutputRecordAccepted",
+                OutputRoute::RecordsObserved => "SignalOutputRecordsObserved",
+                OutputRoute::RecordFound => "SignalOutputRecordFound",
+                OutputRoute::RecordsCounted => "SignalOutputRecordsCounted",
+                OutputRoute::RecordRemoved => "SignalOutputRecordRemoved",
+                OutputRoute::Error => "SignalOutputError",
+                OutputRoute::Rejected => "SignalOutputRejected",
+            },
+            Self::NexusInput(route) => match route {
+                NexusInputRoute::Signal => "NexusInputSignal",
+                NexusInputRoute::SemaWrite => "NexusInputSemaWrite",
+                NexusInputRoute::SemaRead => "NexusInputSemaRead",
+            },
+            Self::NexusOutput(route) => match route {
+                NexusOutputRoute::SemaWrite => "NexusOutputSemaWrite",
+                NexusOutputRoute::SemaRead => "NexusOutputSemaRead",
+                NexusOutputRoute::Signal => "NexusOutputSignal",
+            },
+            Self::SemaWriteInput(route) => match route {
+                SemaWriteInputRoute::Record => "SemaWriteInputRecord",
+                SemaWriteInputRoute::Remove => "SemaWriteInputRemove",
+            },
+            Self::SemaReadInput(route) => match route {
+                SemaReadInputRoute::Observe => "SemaReadInputObserve",
+                SemaReadInputRoute::Lookup => "SemaReadInputLookup",
+                SemaReadInputRoute::Count => "SemaReadInputCount",
+            },
+            Self::SemaWriteOutput(route) => match route {
+                SemaWriteOutputRoute::Recorded => "SemaWriteOutputRecorded",
+                SemaWriteOutputRoute::Removed => "SemaWriteOutputRemoved",
+                SemaWriteOutputRoute::Missed => "SemaWriteOutputMissed",
+            },
+            Self::SemaReadOutput(route) => match route {
+                SemaReadOutputRoute::Observed => "SemaReadOutputObserved",
+                SemaReadOutputRoute::Found => "SemaReadOutputFound",
+                SemaReadOutputRoute::Counted => "SemaReadOutputCounted",
+                SemaReadOutputRoute::Missed => "SemaReadOutputMissed",
+            },
+        }
+    }
+}
+
+impl TraceActorObject {
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::SignalAdmitted => "SignalAdmitted",
+            Self::SignalRejected => "SignalRejected",
+            Self::SignalTriaged => "SignalTriaged",
+            Self::SignalReplied => "SignalReplied",
+            Self::NexusEntered => "NexusEntered",
+            Self::NexusDecided => "NexusDecided",
+            Self::SemaWriteApplied => "SemaWriteApplied",
+            Self::SemaReadObserved => "SemaReadObserved",
+        }
+    }
+}
+
+impl TraceObject {
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Interface(object) => object.name(),
+            Self::Actor(object) => object.name(),
+        }
+    }
+}
+
+impl TraceEvent {
+    pub fn new(object: TraceObject) -> Self {
+        Self { object }
+    }
+
+    pub fn object(&self) -> TraceObject {
+        self.object
+    }
+
+    pub fn name(&self) -> &'static str {
+        self.object.name()
     }
 }
 
@@ -1524,18 +1764,18 @@ impl sema::Sema<sema::ReadOutput> {
 }
 
 pub trait SignalEngine {
-    fn trace_signal_activation(&self, _object_name: &'static str) {}
+    fn trace_signal_activation(&self, _object: TraceObject) {}
     fn trace_signal_admitted(&self) {
-        self.trace_signal_activation("SignalAdmitted");
+        self.trace_signal_activation(TraceObject::Actor(TraceActorObject::SignalAdmitted));
     }
     fn trace_signal_rejected(&self) {
-        self.trace_signal_activation("SignalRejected");
+        self.trace_signal_activation(TraceObject::Actor(TraceActorObject::SignalRejected));
     }
     fn trace_signal_triaged(&self) {
-        self.trace_signal_activation("SignalTriaged");
+        self.trace_signal_activation(TraceObject::Actor(TraceActorObject::SignalTriaged));
     }
     fn trace_signal_replied(&self) {
-        self.trace_signal_activation("SignalReplied");
+        self.trace_signal_activation(TraceObject::Actor(TraceActorObject::SignalReplied));
     }
 
     fn triage_inner(&self, input: signal::Signal<signal::Input>) -> nexus::Nexus<nexus::Input>;
@@ -1555,12 +1795,12 @@ pub trait SignalEngine {
 }
 
 pub trait NexusEngine {
-    fn trace_nexus_activation(&self, _object_name: &'static str) {}
+    fn trace_nexus_activation(&self, _object: TraceObject) {}
     fn trace_nexus_entered(&self) {
-        self.trace_nexus_activation("NexusEntered");
+        self.trace_nexus_activation(TraceObject::Actor(TraceActorObject::NexusEntered));
     }
     fn trace_nexus_decided(&self) {
-        self.trace_nexus_activation("NexusDecided");
+        self.trace_nexus_activation(TraceObject::Actor(TraceActorObject::NexusDecided));
     }
 
     fn decide(&mut self, input: nexus::Nexus<nexus::Input>) -> nexus::Nexus<nexus::Output>;
@@ -1574,12 +1814,12 @@ pub trait NexusEngine {
 }
 
 pub trait SemaEngine {
-    fn trace_sema_activation(&self, _object_name: &'static str) {}
+    fn trace_sema_activation(&self, _object: TraceObject) {}
     fn trace_sema_write_applied(&self) {
-        self.trace_sema_activation("SemaWriteApplied");
+        self.trace_sema_activation(TraceObject::Actor(TraceActorObject::SemaWriteApplied));
     }
     fn trace_sema_read_observed(&self) {
-        self.trace_sema_activation("SemaReadObserved");
+        self.trace_sema_activation(TraceObject::Actor(TraceActorObject::SemaReadObserved));
     }
 
     fn apply_inner(&mut self, input: sema::Sema<sema::WriteInput>) -> sema::Sema<sema::WriteOutput>;

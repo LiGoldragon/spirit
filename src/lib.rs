@@ -43,16 +43,17 @@ pub use schema::lib::{
     CommitSequence, CountedRecords, DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport,
     Export, FoundRecord, Import, Input, InputRoute, Integer, Kind, LocalPath, Magnitude,
     MailIdentifier, MailLedgerEvent, MessageIdentifier, MessageProcessed, MessageProcessedHook,
-    MessageRoot, MessageSent, MessageSentHook, NexusEngine, NexusInput, NexusOutput, NexusReuse,
-    ObservedRecords, OriginRoute, Output, OutputRoute, ProcessedMail, PublicPath, Query,
-    RecordCount, RecordIdentifier, RecordSet, RemoveReceipt, SemaEngine, SemaReadInput,
-    SemaReadOutput, SemaReceipt, SemaReuse, SemaWriteInput, SemaWriteOutput, SentMail, ShortHeader,
-    SignalEngine, SignalFrameError, SignalRejection, SignalReuse, SourcePath, StateDigest, Topic,
-    TopicMatch, Topics, ValidationError, nexus as nexus_plane, schema as schema_meta, sema, signal,
+    MessageRoot, MessageSent, MessageSentHook, NexusEngine, NexusInput, NexusInputRoute,
+    NexusOutput, NexusOutputRoute, NexusReuse, ObservedRecords, OriginRoute, Output, OutputRoute,
+    ProcessedMail, PublicPath, Query, RecordCount, RecordIdentifier, RecordSet, RemoveReceipt,
+    SemaEngine, SemaReadInput, SemaReadInputRoute, SemaReadOutput, SemaReadOutputRoute,
+    SemaReceipt, SemaReuse, SemaWriteInput, SemaWriteInputRoute, SemaWriteOutput,
+    SemaWriteOutputRoute, SentMail, ShortHeader, SignalEngine, SignalFrameError, SignalRejection,
+    SignalReuse, SourcePath, StateDigest, Topic, TopicMatch, Topics, TraceActorObject, TraceEvent,
+    TraceInterfaceObject, TraceObject, ValidationError, nexus as nexus_plane,
+    schema as schema_meta, sema, signal,
 };
 pub use store::{Store, StoreError};
 #[cfg(feature = "testing-trace")]
-pub use trace::{
-    TraceError, TraceEvent, TraceLog, TraceObjectName, TraceSocketListener, TraceSocketPath,
-};
+pub use trace::{TraceError, TraceLog, TraceSocketListener, TraceSocketPath};
 pub use transport::{SignalTransport, TransportError};

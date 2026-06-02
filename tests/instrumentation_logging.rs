@@ -1,6 +1,7 @@
 use spirit_next::{
     CommitSequence, DatabaseMarker, Description, Engine, Entry, Kind, Magnitude, Output,
-    StateDigest, Topic, TopicMatch, Topics, TraceEvent, TraceLog, ValidationError,
+    StateDigest, Topic, TopicMatch, Topics, TraceActorObject, TraceEvent, TraceLog, TraceObject,
+    ValidationError,
 };
 use tempfile::TempDir;
 
@@ -71,6 +72,23 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
     );
 
     let events = trace_log.events();
+    assert_activation_objects(
+        &events,
+        &[
+            TraceActorObject::SignalAdmitted,
+            TraceActorObject::SignalTriaged,
+            TraceActorObject::NexusEntered,
+            TraceActorObject::SemaWriteApplied,
+            TraceActorObject::NexusDecided,
+            TraceActorObject::SignalReplied,
+            TraceActorObject::SignalAdmitted,
+            TraceActorObject::SignalTriaged,
+            TraceActorObject::NexusEntered,
+            TraceActorObject::SemaReadObserved,
+            TraceActorObject::NexusDecided,
+            TraceActorObject::SignalReplied,
+        ],
+    );
     let archive =
         rkyv::to_bytes::<rkyv::rancor::Error>(&events[3]).expect("trace event archives as rkyv");
     let decoded = rkyv::from_bytes::<TraceEvent, rkyv::rancor::Error>(&archive)
@@ -131,5 +149,18 @@ fn testing_trace_records_signal_rejection_without_nexus_or_sema_activations() {
 
 fn assert_activation_names(events: &[TraceEvent], expected: &[&str]) {
     let actual = events.iter().map(TraceEvent::name).collect::<Vec<_>>();
+    assert_eq!(actual, expected, "trace events: {events:#?}");
+}
+
+fn assert_activation_objects(events: &[TraceEvent], expected: &[TraceActorObject]) {
+    let actual = events
+        .iter()
+        .map(TraceEvent::object)
+        .collect::<Vec<TraceObject>>();
+    let expected = expected
+        .iter()
+        .copied()
+        .map(TraceObject::Actor)
+        .collect::<Vec<_>>();
     assert_eq!(actual, expected, "trace events: {events:#?}");
 }

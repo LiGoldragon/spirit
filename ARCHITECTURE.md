@@ -37,13 +37,13 @@ runtime. Normal Nix packages build a lean binary daemon plus NOTA CLI adapter.
 Trace packages build the same pair with `testing-trace`; the daemon can emit
 rkyv `TraceEvent` frames to a configured trace socket, and the CLI can listen
 on that socket and render decoded trace events after the ordinary Signal
-reply. A trace event is the activated schema/interface object name supplied by
-the generated trait wrapper (`SignalTriaged`, `NexusEntered`,
-`SemaWriteApplied`, `SemaReadObserved`, and siblings), not a cloned payload
-snapshot. The trace path is a runtime proof surface, not deployment grep: the
-process-boundary test starts a real daemon, sends real CLI requests, and
-asserts the Signal/Nexus/SEMA event sequence that returns over the trace
-socket.
+reply. A trace event is a schema-generated typed `TraceObject` supplied by the
+generated trait wrapper (`SignalTriaged`, `NexusEntered`, `SemaWriteApplied`,
+`SemaReadObserved`, and siblings), not a free string or cloned payload
+snapshot. The CLI renders that object to a human-facing name. The trace path is
+a runtime proof surface, not deployment grep: the process-boundary test starts
+a real daemon, sends real CLI requests, and asserts the Signal/Nexus/SEMA event
+sequence that returns over the trace socket.
 
 The current `schema/lib.schema` intentionally keeps braces strict as NOTA
 key-value maps. The namespace contains pairs such as `Topic String`,
@@ -289,9 +289,9 @@ Testing trace follows the same ownership rule. The generated `SignalEngine`,
 default wrapper methods around their inner behavior methods. `SignalActor`,
 `Nexus`, and `Store` override those hooks in `testing-trace` builds and write
 events into `TraceLog`. Signal emits admitted/rejected/triaged/replied, Nexus
-emits entered/decided, and SEMA emits write-applied/read-observed. The trace
-object decides whether to record in memory, write a rkyv frame to the trace
-socket, or stay disabled when explicitly requested.
+emits entered/decided, and SEMA emits write-applied/read-observed. `TraceLog`
+decides whether to record in memory, write a rkyv frame to the trace socket, or
+stay disabled when explicitly requested.
 
 When a data shape changes, edit `schema/lib.schema` first, then regenerate
 through `build.rs`, then update the methods that act on the regenerated types.
@@ -365,8 +365,8 @@ for instrumentation tests. It is compiled out of default and `nota-text`
 production builds. When enabled, `TraceEvent` values are emitted from the live
 Signal admission/reply, Nexus execution/decision, and SEMA apply/observe call
 sites. `tests/instrumentation_logging.rs` installs a `TraceLog`, drives the
-normal runtime through `Engine::handle`, and asserts the typed event sequence
-instead of grepping for trait names.
+normal runtime through `Engine::handle`, and asserts the schema-generated typed
+event sequence instead of grepping for trait names.
 
 The next larger migration candidate is the workspace split proven in the
 designer worktree: separate working-signal, owner-signal, engine, daemon, and
