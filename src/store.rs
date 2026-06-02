@@ -3,10 +3,11 @@ use std::{fmt, fs, path::PathBuf};
 use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
 
 use crate::{
-    CommitSequence, CountedRecords, DatabaseMarker, Entry, ErrorMessage, ErrorReport, FoundRecord,
-    Magnitude, ObservedRecords, Privacy, PrivacySelection, Query, RecordCount, RecordIdentifier,
-    RecordSet, RemoveReceipt, SemaEngine, SemaReadInput, SemaReadOutput, SemaReceipt,
-    SemaWriteInput, SemaWriteOutput, StateDigest, schema::lib::sema as sema_plane,
+    ActorStartFailure, ActorStopFailure, CommitSequence, CountedRecords, DatabaseMarker, Entry,
+    ErrorMessage, ErrorReport, FoundRecord, Magnitude, ObservedRecords, Privacy, PrivacySelection,
+    Query, RecordCount, RecordIdentifier, RecordSet, RemoveReceipt, SemaEngine, SemaReadInput,
+    SemaReadOutput, SemaReceipt, SemaWriteInput, SemaWriteOutput, StateDigest,
+    schema::lib::sema as sema_plane,
 };
 
 #[cfg(feature = "testing-trace")]
@@ -38,6 +39,18 @@ pub struct Store {
 }
 
 impl SemaEngine for Store {
+    fn on_start(&mut self) -> Result<(), ActorStartFailure> {
+        #[cfg(feature = "testing-trace")]
+        self.trace_sema_activation(SemaObjectName::Started);
+        Ok(())
+    }
+
+    fn on_stop(&mut self) -> Result<(), ActorStopFailure> {
+        #[cfg(feature = "testing-trace")]
+        self.trace_sema_activation(SemaObjectName::Stopped);
+        Ok(())
+    }
+
     #[cfg(feature = "testing-trace")]
     fn trace_sema_activation(&self, object_name: SemaObjectName) {
         self.trace_log

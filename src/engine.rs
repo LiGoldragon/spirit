@@ -1,10 +1,11 @@
 use std::{convert::Infallible, sync::Mutex};
 
 use crate::{
-    DatabaseMarker, Entry, Input, Integer, MailIdentifier, MailLedgerEvent, MessageIdentifier,
-    MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook, NexusAction, NexusEngine,
-    NexusWork, OriginRoute, Output, ProcessedMail, Query, SentMail, ShortHeader, SignalEngine,
-    SignalRejection, TopicMatch, Topics, ValidationError,
+    ActorStartFailure, ActorStopFailure, DatabaseMarker, Entry, Input, Integer, MailIdentifier,
+    MailLedgerEvent, MessageIdentifier, MessageProcessed, MessageProcessedHook, MessageSent,
+    MessageSentHook, NexusAction, NexusEngine, NexusWork, OriginRoute, Output, ProcessedMail,
+    Query, SentMail, ShortHeader, SignalEngine, SignalRejection, TopicMatch, Topics,
+    ValidationError,
     nexus::Nexus,
     schema::lib::{nexus as nexus_plane, signal as signal_plane},
     store::Store,
@@ -88,6 +89,20 @@ impl Engine {
     #[cfg(feature = "testing-trace")]
     pub fn trace_events(&self) -> Vec<crate::TraceEvent> {
         self.trace_log.events()
+    }
+
+    pub fn start(&mut self) -> Result<(), ActorStartFailure> {
+        {
+            let mut nexus = self.nexus.lock().expect("nexus lock");
+            NexusEngine::on_start(&mut *nexus)?;
+        }
+        SignalEngine::on_start(&mut self.signal_actor)
+    }
+
+    pub fn stop(&mut self) -> Result<(), ActorStopFailure> {
+        SignalEngine::on_stop(&mut self.signal_actor)?;
+        let mut nexus = self.nexus.lock().expect("nexus lock");
+        NexusEngine::on_stop(&mut *nexus)
     }
 
     /// Run one request through Signal admission, the NexusEngine
@@ -192,6 +207,18 @@ impl SignalActor {
 }
 
 impl SignalEngine for SignalActor {
+    fn on_start(&mut self) -> Result<(), ActorStartFailure> {
+        #[cfg(feature = "testing-trace")]
+        self.trace_signal_activation(SignalObjectName::Started);
+        Ok(())
+    }
+
+    fn on_stop(&mut self) -> Result<(), ActorStopFailure> {
+        #[cfg(feature = "testing-trace")]
+        self.trace_signal_activation(SignalObjectName::Stopped);
+        Ok(())
+    }
+
     #[cfg(feature = "testing-trace")]
     fn trace_signal_activation(&self, object_name: SignalObjectName) {
         self.trace_log

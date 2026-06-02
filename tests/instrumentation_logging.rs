@@ -109,6 +109,39 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
 }
 
 #[test]
+fn testing_trace_records_lifecycle_hooks_from_generated_engine_traits() {
+    let sema = SemaFile::new();
+    let trace_log = TraceLog::recording();
+    let mut engine = sema.engine_with_trace(trace_log.clone());
+
+    engine.start().expect("start lifecycle hooks run");
+    engine.stop().expect("stop lifecycle hooks run");
+
+    assert_activation_names(
+        &trace_log.events(),
+        &[
+            "SemaStarted",
+            "NexusStarted",
+            "SignalStarted",
+            "SignalStopped",
+            "NexusStopped",
+            "SemaStopped",
+        ],
+    );
+    assert_activation_objects(
+        &trace_log.events(),
+        &[
+            ObjectName::Sema(SemaObjectName::Started),
+            ObjectName::Nexus(NexusObjectName::Started),
+            ObjectName::Signal(SignalObjectName::Started),
+            ObjectName::Signal(SignalObjectName::Stopped),
+            ObjectName::Nexus(NexusObjectName::Stopped),
+            ObjectName::Sema(SemaObjectName::Stopped),
+        ],
+    );
+}
+
+#[test]
 fn testing_trace_builds_record_activations_by_default() {
     let sema = SemaFile::new();
     let engine = Engine::new(spirit_next::Store::open(&sema.path).expect("open sema store"));

@@ -112,6 +112,14 @@ Load-bearing constraints:
   `Store` implements `SemaEngine` as the durable state plane with split
   `apply(&mut self, WriteInput)` and `observe(&self, ReadInput)` surfaces;
   tests call those trait surfaces with generated schema root objects.
+- The generated engine traits also provide the minimal lifecycle address.
+  `Engine::start` runs the generated hooks from inner durable state outward
+  (SEMA, then Nexus, then Signal), and `Engine::stop` runs them from the
+  communication boundary inward (Signal, then Nexus, then SEMA). In
+  `testing-trace` builds, those lifecycle hook calls emit generated object
+  names (`SemaStarted`, `NexusStarted`, `SignalStarted`, then the matching
+  stopped names), proving the lifecycle path is live without introducing full
+  actor mailbox or backpressure machinery.
 - Nexus mail lifecycle state is represented with generated schema nouns:
   `MailLedgerEvent`, `SentMail`, `ProcessedMail`, and `OriginRoute`. The route
   is minted separately from the message identifier and carried in the Signal,

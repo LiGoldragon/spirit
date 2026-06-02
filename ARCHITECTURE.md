@@ -69,6 +69,15 @@ The three runtime centers are concrete objects: `SignalActor` (admission),
 durable `.sema` redb database). `Engine` composes them and owns no SEMA state
 of its own.
 
+The generated engine traits carry lifecycle hooks. `Engine::start` calls
+`NexusEngine::on_start`, which starts its owned SEMA store through
+`SemaEngine::on_start`, then starts Signal through `SignalEngine::on_start`.
+`Engine::stop` reverses the boundary: Signal stops first, then Nexus, then the
+owned SEMA store. The hooks are default no-ops in normal builds; trace builds
+override them and emit typed generated object names. This is the current
+addressable lifecycle surface; full actor mailbox and runtime-control
+machinery remain future work.
+
 `DaemonCommand` is the current programmatic startup noun. The daemon binary
 `main` only creates `DaemonCommand::from_environment()` and runs it; the
 command loads the single binary configuration path and constructs `Daemon`.
@@ -311,8 +320,10 @@ Testing trace follows the same ownership rule. The generated `SignalEngine`,
 `NexusEngine`, and `SemaEngine` traits own default no-op trace hooks and
 default wrapper methods around their inner behavior methods. `SignalActor`,
 `Nexus`, and `Store` override those hooks in `testing-trace` builds and write
-events into `TraceLog`. Signal emits admitted/rejected/triaged/replied, Nexus
-emits entered/decided, and SEMA emits write-applied/read-observed. The local
+events into `TraceLog`. Signal emits started/stopped plus
+admitted/rejected/triaged/replied, Nexus emits started/stopped plus
+entered/decided, and SEMA emits started/stopped plus
+write-applied/read-observed. The local
 trace module only implements `triad_runtime::trace::TraceEventFrame` for the
 generated `TraceEvent` and re-exports the generic runtime objects.
 `triad-runtime` decides whether to record in memory, write a rkyv frame to the

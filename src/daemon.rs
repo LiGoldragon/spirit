@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-    Configuration, ConfigurationError, Engine, StoreError,
+    ActorStartFailure, ActorStopFailure, Configuration, ConfigurationError, Engine, StoreError,
     store::Store,
     transport::{SignalTransport, TransportError},
 };
@@ -19,6 +19,8 @@ pub enum DaemonError {
     Io(std::io::Error),
     Transport(TransportError),
     Store(StoreError),
+    ActorStart(ActorStartFailure),
+    ActorStop(ActorStopFailure),
 }
 
 impl std::fmt::Display for DaemonError {
@@ -27,6 +29,8 @@ impl std::fmt::Display for DaemonError {
             Self::Io(error) => write!(formatter, "daemon IO error: {error}"),
             Self::Transport(error) => write!(formatter, "daemon transport error: {error}"),
             Self::Store(error) => write!(formatter, "daemon sema store error: {error}"),
+            Self::ActorStart(error) => write!(formatter, "daemon actor start error: {error}"),
+            Self::ActorStop(error) => write!(formatter, "daemon actor stop error: {error}"),
         }
     }
 }
@@ -48,6 +52,18 @@ impl From<TransportError> for DaemonError {
 impl From<StoreError> for DaemonError {
     fn from(value: StoreError) -> Self {
         Self::Store(value)
+    }
+}
+
+impl From<ActorStartFailure> for DaemonError {
+    fn from(value: ActorStartFailure) -> Self {
+        Self::ActorStart(value)
+    }
+}
+
+impl From<ActorStopFailure> for DaemonError {
+    fn from(value: ActorStopFailure) -> Self {
+        Self::ActorStop(value)
     }
 }
 
@@ -139,7 +155,9 @@ impl Daemon {
         }
         self.remove_stale_socket()?;
         let listener = UnixListener::bind(self.configuration.socket_path())?;
-        let engine = Arc::new(self.engine()?);
+        let mut engine = self.engine()?;
+        engine.start()?;
+        let engine = Arc::new(engine);
         for stream in listener.incoming() {
             match stream {
                 Ok(stream) => {

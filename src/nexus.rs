@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use crate::{
-    DatabaseMarker, ErrorMessage, ErrorReport, Input, MailLedger, NexusAction, NexusEffectCommand,
-    NexusEffectResult, NexusEngine, NexusWork, Output, Records, SemaEngine, SemaReadInput,
-    SemaReadOutput, SemaWriteInput, SemaWriteOutput, SignalRejection, StashHandle, StashRequest,
-    StashResult, StashedObservation, ValidationError, schema::lib::nexus as nexus_plane,
-    store::Store,
+    ActorStartFailure, ActorStopFailure, DatabaseMarker, ErrorMessage, ErrorReport, Input,
+    MailLedger, NexusAction, NexusEffectCommand, NexusEffectResult, NexusEngine, NexusWork, Output,
+    Records, SemaEngine, SemaReadInput, SemaReadOutput, SemaWriteInput, SemaWriteOutput,
+    SignalRejection, StashHandle, StashRequest, StashResult, StashedObservation, ValidationError,
+    schema::lib::nexus as nexus_plane, store::Store,
 };
 
 #[cfg(feature = "testing-trace")]
@@ -200,6 +200,19 @@ impl Nexus {
 /// The continuation budget bounds the loop; running out is a typed
 /// error reply (per Spirit 1469 + operator 287).
 impl NexusEngine for Nexus {
+    fn on_start(&mut self) -> Result<(), ActorStartFailure> {
+        SemaEngine::on_start(&mut self.store)?;
+        #[cfg(feature = "testing-trace")]
+        self.trace_nexus_activation(NexusObjectName::Started);
+        Ok(())
+    }
+
+    fn on_stop(&mut self) -> Result<(), ActorStopFailure> {
+        #[cfg(feature = "testing-trace")]
+        self.trace_nexus_activation(NexusObjectName::Stopped);
+        SemaEngine::on_stop(&mut self.store)
+    }
+
     #[cfg(feature = "testing-trace")]
     fn trace_nexus_activation(&self, object_name: NexusObjectName) {
         self.trace_log

@@ -40,19 +40,20 @@ pub use daemon::{Daemon, DaemonCommand, DaemonCommandError, DaemonError};
 pub use engine::{Engine, MailLedger, MailLedgerHook, SignalAccepted, SignalActor};
 pub use nexus::{ContinuationBudget, Nexus, StashTable};
 pub use schema::lib::{
-    CommitSequence, CountedRecords, DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport,
-    Export, FoundRecord, Import, Input, InputRoute, Integer, Kind, LocalPath, Magnitude,
-    MailIdentifier, MailLedgerEvent, MessageIdentifier, MessageProcessed, MessageProcessedHook,
-    MessageRoot, MessageSent, MessageSentHook, NexusAction, NexusActionRoute, NexusEffectCommand,
-    NexusEffectResult, NexusEngine, NexusObjectName, NexusReuse, NexusWork, NexusWorkRoute,
-    ObjectName, ObservedRecords, OriginRoute, Output, OutputRoute, Privacy, PrivacySelection,
-    ProcessedMail, PublicPath, Query, RecordCount, RecordIdentifier, RecordSet, Records,
-    RemoveReceipt, SemaEngine, SemaObjectName, SemaReadInput, SemaReadInputRoute, SemaReadOutput,
-    SemaReadOutputRoute, SemaReceipt, SemaReuse, SemaWriteInput, SemaWriteInputRoute,
-    SemaWriteOutput, SemaWriteOutputRoute, SentMail, ShortHeader, SignalEngine, SignalFrameError,
-    SignalObjectName, SignalRejection, SignalReuse, SourcePath, StashHandle, StashRequest,
-    StashResult, StashedObservation, StateDigest, Topic, TopicMatch, Topics, TraceEvent,
-    ValidationError, nexus as nexus_plane, schema as schema_meta, sema, signal,
+    ActorStartFailure, ActorStopFailure, CommitSequence, CountedRecords, DatabaseMarker,
+    Description, Entry, ErrorMessage, ErrorReport, Export, FoundRecord, Import, Input, InputRoute,
+    Integer, Kind, LocalPath, Magnitude, MailIdentifier, MailLedgerEvent, MessageIdentifier,
+    MessageProcessed, MessageProcessedHook, MessageRoot, MessageSent, MessageSentHook, NexusAction,
+    NexusActionRoute, NexusEffectCommand, NexusEffectResult, NexusEngine, NexusObjectName,
+    NexusReuse, NexusWork, NexusWorkRoute, ObjectName, ObservedRecords, OriginRoute, Output,
+    OutputRoute, Privacy, PrivacySelection, ProcessedMail, PublicPath, Query, RecordCount,
+    RecordIdentifier, RecordSet, Records, RemoveReceipt, SemaEngine, SemaObjectName, SemaReadInput,
+    SemaReadInputRoute, SemaReadOutput, SemaReadOutputRoute, SemaReceipt, SemaReuse,
+    SemaWriteInput, SemaWriteInputRoute, SemaWriteOutput, SemaWriteOutputRoute, SentMail,
+    ShortHeader, SignalEngine, SignalFrameError, SignalObjectName, SignalRejection, SignalReuse,
+    SourcePath, StashHandle, StashRequest, StashResult, StashedObservation, StateDigest, Topic,
+    TopicMatch, Topics, TraceEvent, ValidationError, nexus as nexus_plane, schema as schema_meta,
+    sema, signal,
 };
 pub use store::{Store, StoreError};
 #[cfg(feature = "testing-trace")]

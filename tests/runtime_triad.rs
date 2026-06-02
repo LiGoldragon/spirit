@@ -248,6 +248,24 @@ fn sema_engine_writes_durable_records_and_returns_schema_objects() {
 }
 
 #[test]
+fn engine_lifecycle_runs_generated_trait_hooks_without_actor_mailboxes() {
+    let sema = SemaFile::new();
+    let mut engine = sema.engine();
+
+    engine.start().expect("generated lifecycle start hooks run");
+    let output = engine.handle(Input::Record(entry("lifecycle still handles input")));
+    engine.stop().expect("generated lifecycle stop hooks run");
+
+    match output.root() {
+        Output::RecordAccepted(receipt) => {
+            assert_eq!(receipt.record_identifier, RecordIdentifier(1));
+            assert_eq!(receipt.database_marker.commit_sequence, CommitSequence(1));
+        }
+        other => panic!("expected lifecycle-wrapped engine to accept record, got {other:?}"),
+    }
+}
+
+#[test]
 fn nexus_engine_trait_runs_nexus_decision_through_sema_state() {
     let sema = SemaFile::new();
     let mut nexus = Nexus::new(sema.open_store());

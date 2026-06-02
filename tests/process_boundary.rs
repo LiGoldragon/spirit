@@ -106,6 +106,19 @@ impl TraceCliOutput {
             .collect::<Vec<_>>();
         assert_eq!(actual, expected, "trace lines: {:#?}", self.trace_lines);
     }
+
+    fn assert_trace_sequence_after_optional_lifecycle_start(&self, expected: &[&str]) {
+        let mut actual = self
+            .trace_lines
+            .iter()
+            .map(|line| line.split_once(' ').map(|(name, _)| name).unwrap_or(line))
+            .collect::<Vec<_>>();
+        let lifecycle_start = ["SemaStarted", "NexusStarted", "SignalStarted"];
+        if actual.starts_with(&lifecycle_start) {
+            actual.drain(..lifecycle_start.len());
+        }
+        assert_eq!(actual, expected, "trace lines: {:#?}", self.trace_lines);
+    }
 }
 
 #[cfg(feature = "testing-trace")]
@@ -386,7 +399,12 @@ fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
         "record reply should still be the first CLI line, got {:?}",
         recorded.output
     );
-    recorded.assert_trace_sequence(&[
+    // The CLI binds the trace socket for this request, so startup events
+    // are timing-dependent at this process boundary. The invariant here
+    // is the exact request activation sequence after any lifecycle prefix.
+    // instrumentation_logging.rs proves lifecycle tracing with an
+    // in-process sink bound before Engine::start.
+    recorded.assert_trace_sequence_after_optional_lifecycle_start(&[
         "SignalAdmitted",
         "SignalTriaged",
         "NexusEntered",

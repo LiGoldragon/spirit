@@ -1497,6 +1497,8 @@ impl SemaReadOutput {
 pub enum SignalObjectName {
     Input(InputRoute),
     Output(OutputRoute),
+    Started,
+    Stopped,
     Admitted,
     Rejected,
     Triaged,
@@ -1524,6 +1526,8 @@ impl SignalObjectName {
                 OutputRoute::Error => "SignalOutputError",
                 OutputRoute::Rejected => "SignalOutputRejected",
             },
+            Self::Started => "SignalStarted",
+            Self::Stopped => "SignalStopped",
             Self::Admitted => "SignalAdmitted",
             Self::Rejected => "SignalRejected",
             Self::Triaged => "SignalTriaged",
@@ -1537,6 +1541,8 @@ impl SignalObjectName {
 pub enum NexusObjectName {
     Work(NexusWorkRoute),
     Action(NexusActionRoute),
+    Started,
+    Stopped,
     Entered,
     Decided,
 }
@@ -1557,6 +1563,8 @@ impl NexusObjectName {
                 NexusActionRoute::CommandEffect => "NexusActionCommandEffect",
                 NexusActionRoute::Continue => "NexusActionContinue",
             },
+            Self::Started => "NexusStarted",
+            Self::Stopped => "NexusStopped",
             Self::Entered => "NexusEntered",
             Self::Decided => "NexusDecided",
         }
@@ -1570,6 +1578,8 @@ pub enum SemaObjectName {
     ReadInput(SemaReadInputRoute),
     WriteOutput(SemaWriteOutputRoute),
     ReadOutput(SemaReadOutputRoute),
+    Started,
+    Stopped,
     WriteApplied,
     ReadObserved,
 }
@@ -1597,6 +1607,8 @@ impl SemaObjectName {
                 SemaReadOutputRoute::Counted => "SemaReadOutputCounted",
                 SemaReadOutputRoute::Missed => "SemaReadOutputMissed",
             },
+            Self::Started => "SemaStarted",
+            Self::Stopped => "SemaStopped",
             Self::WriteApplied => "SemaWriteApplied",
             Self::ReadObserved => "SemaReadObserved",
         }
@@ -1977,7 +1989,48 @@ impl sema::Sema<sema::ReadOutput> {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ActorStartFailure {
+    ResourceBusy(String),
+    ConfigurationInvalid(String),
+}
+
+impl std::fmt::Display for ActorStartFailure {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ResourceBusy(message) => write!(formatter, "actor resource busy: {message}"),
+            Self::ConfigurationInvalid(message) => write!(formatter, "actor configuration invalid: {message}"),
+        }
+    }
+}
+
+impl std::error::Error for ActorStartFailure {}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ActorStopFailure {
+    ResourceLocked(String),
+    ChildStillRunning(String),
+}
+
+impl std::fmt::Display for ActorStopFailure {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ResourceLocked(message) => write!(formatter, "actor resource locked: {message}"),
+            Self::ChildStillRunning(message) => write!(formatter, "actor child still running: {message}"),
+        }
+    }
+}
+
+impl std::error::Error for ActorStopFailure {}
+
 pub trait SignalEngine {
+    fn on_start(&mut self) -> Result<(), ActorStartFailure> {
+        Ok(())
+    }
+    fn on_stop(&mut self) -> Result<(), ActorStopFailure> {
+        Ok(())
+    }
+
     fn trace_signal_activation(&self, _object_name: SignalObjectName) {}
     fn trace_signal_admitted(&self) {
         self.trace_signal_activation(SignalObjectName::Admitted);
@@ -2009,6 +2062,13 @@ pub trait SignalEngine {
 }
 
 pub trait NexusEngine {
+    fn on_start(&mut self) -> Result<(), ActorStartFailure> {
+        Ok(())
+    }
+    fn on_stop(&mut self) -> Result<(), ActorStopFailure> {
+        Ok(())
+    }
+
     fn trace_nexus_activation(&self, _object_name: NexusObjectName) {}
     fn trace_nexus_entered(&self) {
         self.trace_nexus_activation(NexusObjectName::Entered);
@@ -2028,6 +2088,13 @@ pub trait NexusEngine {
 }
 
 pub trait SemaEngine {
+    fn on_start(&mut self) -> Result<(), ActorStartFailure> {
+        Ok(())
+    }
+    fn on_stop(&mut self) -> Result<(), ActorStopFailure> {
+        Ok(())
+    }
+
     fn trace_sema_activation(&self, _object_name: SemaObjectName) {}
     fn trace_sema_write_applied(&self) {
         self.trace_sema_activation(SemaObjectName::WriteApplied);
