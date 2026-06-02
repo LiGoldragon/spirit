@@ -1272,54 +1272,26 @@ impl SemaReadOutput {
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TraceInterfaceObject {
-    SignalInput(InputRoute),
-    SignalOutput(OutputRoute),
-    NexusInput(NexusInputRoute),
-    NexusOutput(NexusOutputRoute),
-    SemaWriteInput(SemaWriteInputRoute),
-    SemaReadInput(SemaReadInputRoute),
-    SemaWriteOutput(SemaWriteOutputRoute),
-    SemaReadOutput(SemaReadOutputRoute),
+pub enum SignalObjectName {
+    Input(InputRoute),
+    Output(OutputRoute),
+    Admitted,
+    Rejected,
+    Triaged,
+    Replied,
 }
 
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TraceActorObject {
-    SignalAdmitted,
-    SignalRejected,
-    SignalTriaged,
-    SignalReplied,
-    NexusEntered,
-    NexusDecided,
-    SemaWriteApplied,
-    SemaReadObserved,
-}
-
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TraceObject {
-    Interface(TraceInterfaceObject),
-    Actor(TraceActorObject),
-}
-
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct TraceEvent {
-    pub object: TraceObject,
-}
-
-impl TraceInterfaceObject {
+impl SignalObjectName {
     pub fn name(self) -> &'static str {
         match self {
-            Self::SignalInput(route) => match route {
+            Self::Input(route) => match route {
                 InputRoute::Record => "SignalInputRecord",
                 InputRoute::Observe => "SignalInputObserve",
                 InputRoute::Lookup => "SignalInputLookup",
                 InputRoute::Count => "SignalInputCount",
                 InputRoute::Remove => "SignalInputRemove",
             },
-            Self::SignalOutput(route) => match route {
+            Self::Output(route) => match route {
                 OutputRoute::RecordAccepted => "SignalOutputRecordAccepted",
                 OutputRoute::RecordsObserved => "SignalOutputRecordsObserved",
                 OutputRoute::RecordFound => "SignalOutputRecordFound",
@@ -1328,75 +1300,117 @@ impl TraceInterfaceObject {
                 OutputRoute::Error => "SignalOutputError",
                 OutputRoute::Rejected => "SignalOutputRejected",
             },
-            Self::NexusInput(route) => match route {
+            Self::Admitted => "SignalAdmitted",
+            Self::Rejected => "SignalRejected",
+            Self::Triaged => "SignalTriaged",
+            Self::Replied => "SignalReplied",
+        }
+    }
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NexusObjectName {
+    Input(NexusInputRoute),
+    Output(NexusOutputRoute),
+    Entered,
+    Decided,
+}
+
+impl NexusObjectName {
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Input(route) => match route {
                 NexusInputRoute::Signal => "NexusInputSignal",
                 NexusInputRoute::SemaWrite => "NexusInputSemaWrite",
                 NexusInputRoute::SemaRead => "NexusInputSemaRead",
             },
-            Self::NexusOutput(route) => match route {
+            Self::Output(route) => match route {
                 NexusOutputRoute::SemaWrite => "NexusOutputSemaWrite",
                 NexusOutputRoute::SemaRead => "NexusOutputSemaRead",
                 NexusOutputRoute::Signal => "NexusOutputSignal",
             },
-            Self::SemaWriteInput(route) => match route {
+            Self::Entered => "NexusEntered",
+            Self::Decided => "NexusDecided",
+        }
+    }
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SemaObjectName {
+    WriteInput(SemaWriteInputRoute),
+    ReadInput(SemaReadInputRoute),
+    WriteOutput(SemaWriteOutputRoute),
+    ReadOutput(SemaReadOutputRoute),
+    WriteApplied,
+    ReadObserved,
+}
+
+impl SemaObjectName {
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::WriteInput(route) => match route {
                 SemaWriteInputRoute::Record => "SemaWriteInputRecord",
                 SemaWriteInputRoute::Remove => "SemaWriteInputRemove",
             },
-            Self::SemaReadInput(route) => match route {
+            Self::ReadInput(route) => match route {
                 SemaReadInputRoute::Observe => "SemaReadInputObserve",
                 SemaReadInputRoute::Lookup => "SemaReadInputLookup",
                 SemaReadInputRoute::Count => "SemaReadInputCount",
             },
-            Self::SemaWriteOutput(route) => match route {
+            Self::WriteOutput(route) => match route {
                 SemaWriteOutputRoute::Recorded => "SemaWriteOutputRecorded",
                 SemaWriteOutputRoute::Removed => "SemaWriteOutputRemoved",
                 SemaWriteOutputRoute::Missed => "SemaWriteOutputMissed",
             },
-            Self::SemaReadOutput(route) => match route {
+            Self::ReadOutput(route) => match route {
                 SemaReadOutputRoute::Observed => "SemaReadOutputObserved",
                 SemaReadOutputRoute::Found => "SemaReadOutputFound",
                 SemaReadOutputRoute::Counted => "SemaReadOutputCounted",
                 SemaReadOutputRoute::Missed => "SemaReadOutputMissed",
             },
+            Self::WriteApplied => "SemaWriteApplied",
+            Self::ReadObserved => "SemaReadObserved",
         }
     }
 }
 
-impl TraceActorObject {
-    pub fn name(self) -> &'static str {
-        match self {
-            Self::SignalAdmitted => "SignalAdmitted",
-            Self::SignalRejected => "SignalRejected",
-            Self::SignalTriaged => "SignalTriaged",
-            Self::SignalReplied => "SignalReplied",
-            Self::NexusEntered => "NexusEntered",
-            Self::NexusDecided => "NexusDecided",
-            Self::SemaWriteApplied => "SemaWriteApplied",
-            Self::SemaReadObserved => "SemaReadObserved",
-        }
-    }
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ObjectName {
+    Signal(SignalObjectName),
+    Nexus(NexusObjectName),
+    Sema(SemaObjectName),
 }
 
-impl TraceObject {
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TraceEvent {
+    pub object_name: ObjectName,
+}
+
+impl ObjectName {
     pub fn name(self) -> &'static str {
         match self {
-            Self::Interface(object) => object.name(),
-            Self::Actor(object) => object.name(),
+            Self::Signal(object_name) => object_name.name(),
+            Self::Nexus(object_name) => object_name.name(),
+            Self::Sema(object_name) => object_name.name(),
         }
     }
 }
 
 impl TraceEvent {
-    pub fn new(object: TraceObject) -> Self {
-        Self { object }
+    pub fn new(object_name: ObjectName) -> Self {
+        Self { object_name }
     }
 
-    pub fn object(&self) -> TraceObject {
-        self.object
+    pub fn object_name(&self) -> ObjectName {
+        self.object_name
     }
 
     pub fn name(&self) -> &'static str {
-        self.object.name()
+        self.object_name.name()
     }
 }
 
@@ -1764,18 +1778,18 @@ impl sema::Sema<sema::ReadOutput> {
 }
 
 pub trait SignalEngine {
-    fn trace_signal_activation(&self, _object: TraceObject) {}
+    fn trace_signal_activation(&self, _object_name: SignalObjectName) {}
     fn trace_signal_admitted(&self) {
-        self.trace_signal_activation(TraceObject::Actor(TraceActorObject::SignalAdmitted));
+        self.trace_signal_activation(SignalObjectName::Admitted);
     }
     fn trace_signal_rejected(&self) {
-        self.trace_signal_activation(TraceObject::Actor(TraceActorObject::SignalRejected));
+        self.trace_signal_activation(SignalObjectName::Rejected);
     }
     fn trace_signal_triaged(&self) {
-        self.trace_signal_activation(TraceObject::Actor(TraceActorObject::SignalTriaged));
+        self.trace_signal_activation(SignalObjectName::Triaged);
     }
     fn trace_signal_replied(&self) {
-        self.trace_signal_activation(TraceObject::Actor(TraceActorObject::SignalReplied));
+        self.trace_signal_activation(SignalObjectName::Replied);
     }
 
     fn triage_inner(&self, input: signal::Signal<signal::Input>) -> nexus::Nexus<nexus::Input>;
@@ -1795,12 +1809,12 @@ pub trait SignalEngine {
 }
 
 pub trait NexusEngine {
-    fn trace_nexus_activation(&self, _object: TraceObject) {}
+    fn trace_nexus_activation(&self, _object_name: NexusObjectName) {}
     fn trace_nexus_entered(&self) {
-        self.trace_nexus_activation(TraceObject::Actor(TraceActorObject::NexusEntered));
+        self.trace_nexus_activation(NexusObjectName::Entered);
     }
     fn trace_nexus_decided(&self) {
-        self.trace_nexus_activation(TraceObject::Actor(TraceActorObject::NexusDecided));
+        self.trace_nexus_activation(NexusObjectName::Decided);
     }
 
     fn decide(&mut self, input: nexus::Nexus<nexus::Input>) -> nexus::Nexus<nexus::Output>;
@@ -1814,12 +1828,12 @@ pub trait NexusEngine {
 }
 
 pub trait SemaEngine {
-    fn trace_sema_activation(&self, _object: TraceObject) {}
+    fn trace_sema_activation(&self, _object_name: SemaObjectName) {}
     fn trace_sema_write_applied(&self) {
-        self.trace_sema_activation(TraceObject::Actor(TraceActorObject::SemaWriteApplied));
+        self.trace_sema_activation(SemaObjectName::WriteApplied);
     }
     fn trace_sema_read_observed(&self) {
-        self.trace_sema_activation(TraceObject::Actor(TraceActorObject::SemaReadObserved));
+        self.trace_sema_activation(SemaObjectName::ReadObserved);
     }
 
     fn apply_inner(&mut self, input: sema::Sema<sema::WriteInput>) -> sema::Sema<sema::WriteOutput>;

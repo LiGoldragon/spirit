@@ -10,7 +10,7 @@ use crate::{
 };
 
 #[cfg(feature = "testing-trace")]
-use crate::{TraceEvent, TraceLog, TraceObject};
+use crate::{ObjectName, SemaObjectName, TraceEvent, TraceLog};
 
 /// redb table of durable records: identifier -> rkyv-archived `Entry`.
 const RECORDS: TableDefinition<u64, &[u8]> = TableDefinition::new("records");
@@ -39,8 +39,9 @@ pub struct Store {
 
 impl SemaEngine for Store {
     #[cfg(feature = "testing-trace")]
-    fn trace_sema_activation(&self, object: TraceObject) {
-        self.trace_log.record(TraceEvent::new(object));
+    fn trace_sema_activation(&self, object_name: SemaObjectName) {
+        self.trace_log
+            .record(TraceEvent::new(ObjectName::Sema(object_name)));
     }
 
     fn apply_inner(

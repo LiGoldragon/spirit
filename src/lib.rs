@@ -44,14 +44,14 @@ pub use schema::lib::{
     Export, FoundRecord, Import, Input, InputRoute, Integer, Kind, LocalPath, Magnitude,
     MailIdentifier, MailLedgerEvent, MessageIdentifier, MessageProcessed, MessageProcessedHook,
     MessageRoot, MessageSent, MessageSentHook, NexusEngine, NexusInput, NexusInputRoute,
-    NexusOutput, NexusOutputRoute, NexusReuse, ObservedRecords, OriginRoute, Output, OutputRoute,
-    ProcessedMail, PublicPath, Query, RecordCount, RecordIdentifier, RecordSet, RemoveReceipt,
-    SemaEngine, SemaReadInput, SemaReadInputRoute, SemaReadOutput, SemaReadOutputRoute,
-    SemaReceipt, SemaReuse, SemaWriteInput, SemaWriteInputRoute, SemaWriteOutput,
-    SemaWriteOutputRoute, SentMail, ShortHeader, SignalEngine, SignalFrameError, SignalRejection,
-    SignalReuse, SourcePath, StateDigest, Topic, TopicMatch, Topics, TraceActorObject, TraceEvent,
-    TraceInterfaceObject, TraceObject, ValidationError, nexus as nexus_plane,
-    schema as schema_meta, sema, signal,
+    NexusObjectName, NexusOutput, NexusOutputRoute, NexusReuse, ObjectName, ObservedRecords,
+    OriginRoute, Output, OutputRoute, ProcessedMail, PublicPath, Query, RecordCount,
+    RecordIdentifier, RecordSet, RemoveReceipt, SemaEngine, SemaObjectName, SemaReadInput,
+    SemaReadInputRoute, SemaReadOutput, SemaReadOutputRoute, SemaReceipt, SemaReuse,
+    SemaWriteInput, SemaWriteInputRoute, SemaWriteOutput, SemaWriteOutputRoute, SentMail,
+    ShortHeader, SignalEngine, SignalFrameError, SignalObjectName, SignalRejection, SignalReuse,
+    SourcePath, StateDigest, Topic, TopicMatch, Topics, TraceEvent, ValidationError,
+    nexus as nexus_plane, schema as schema_meta, sema, signal,
 };
 pub use store::{Store, StoreError};
 #[cfg(feature = "testing-trace")]

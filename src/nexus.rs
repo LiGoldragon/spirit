@@ -4,7 +4,7 @@ use crate::{
 };
 
 #[cfg(feature = "testing-trace")]
-use crate::{TraceEvent, TraceLog, TraceObject};
+use crate::{NexusObjectName, ObjectName, TraceEvent, TraceLog};
 
 /// Nexus is the runtime decision center between Signal and SEMA.
 ///
@@ -61,8 +61,9 @@ impl Nexus {
 
 impl NexusEngine for Nexus {
     #[cfg(feature = "testing-trace")]
-    fn trace_nexus_activation(&self, object: TraceObject) {
-        self.trace_log.record(TraceEvent::new(object));
+    fn trace_nexus_activation(&self, object_name: NexusObjectName) {
+        self.trace_log
+            .record(TraceEvent::new(ObjectName::Nexus(object_name)));
     }
 
     fn decide(

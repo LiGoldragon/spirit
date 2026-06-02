@@ -133,16 +133,18 @@ Load-bearing constraints:
   generated traits provide default no-op trace hooks and wrapper methods; the
   runtime actors override those hooks in trace builds. The runtime proof must
   exercise the actual CLI -> daemon -> Signal -> Nexus -> SEMA -> Signal path.
-- Trace events carry a schema-generated typed `TraceObject`, not a free
-  string. The generated trait wrappers know actor objects such as
-  `SignalTriaged`, `NexusEntered`, `SemaWriteApplied`, and
-  `SemaReadObserved`; trace-enabled actors override one activation hook and
-  record those objects. Names are rendered at the CLI/reporting edge. Tests
-  assert the runtime events crossed Signal admission, `SignalEngine`,
-  `NexusEngine`, and `SemaEngine`, so the witness proves actor/interface use
-  instead of source-string presence. In `testing-trace` builds, `Engine::new`
-  installs a shared recording trace log by default; callers only choose a
-  different destination when they need a socket or an explicit disabled sink.
+- Trace events carry a schema-generated typed `ObjectName`, not a free string.
+  The generated trait wrappers know plane-local actor objects such as
+  `SignalObjectName::Triaged`, `NexusObjectName::Entered`,
+  `SemaObjectName::WriteApplied`, and `SemaObjectName::ReadObserved`;
+  trace-enabled actors override one activation hook per plane and record those
+  objects through the shared `ObjectName` wrapper. Names are rendered at the
+  CLI/reporting edge. Tests assert the runtime events crossed Signal
+  admission, `SignalEngine`, `NexusEngine`, and `SemaEngine`, so the witness
+  proves actor/interface use instead of source-string presence. In
+  `testing-trace` builds, `Engine::new` installs a shared recording trace log
+  by default; callers only choose a different destination when they need a
+  socket or an explicit disabled sink.
 - The flake exposes separate normal and trace-enabled packages. The default
   package remains the lean normal CLI + daemon pair; `packages.trace`,
   `packages.trace-cli`, and `packages.trace-daemon` build the testing-trace

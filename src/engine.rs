@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[cfg(feature = "testing-trace")]
-use crate::{TraceEvent, TraceLog, TraceObject};
+use crate::{ObjectName, SignalObjectName, TraceEvent, TraceLog};
 
 const ORIGIN_ROUTE_BASE: Integer = 1_000_000;
 
@@ -193,8 +193,9 @@ impl SignalActor {
 
 impl SignalEngine for SignalActor {
     #[cfg(feature = "testing-trace")]
-    fn trace_signal_activation(&self, object: TraceObject) {
-        self.trace_log.record(TraceEvent::new(object));
+    fn trace_signal_activation(&self, object_name: SignalObjectName) {
+        self.trace_log
+            .record(TraceEvent::new(ObjectName::Signal(object_name)));
     }
 
     fn triage_inner(&self, input: signal_plane::Signal<Input>) -> nexus_plane::Nexus<NexusInput> {

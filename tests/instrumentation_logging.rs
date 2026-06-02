@@ -1,7 +1,7 @@
 use spirit_next::{
-    CommitSequence, DatabaseMarker, Description, Engine, Entry, Kind, Magnitude, Output,
-    StateDigest, Topic, TopicMatch, Topics, TraceActorObject, TraceEvent, TraceLog, TraceObject,
-    ValidationError,
+    CommitSequence, DatabaseMarker, Description, Engine, Entry, Kind, Magnitude, NexusObjectName,
+    ObjectName, Output, SemaObjectName, SignalObjectName, StateDigest, Topic, TopicMatch, Topics,
+    TraceEvent, TraceLog, ValidationError,
 };
 use tempfile::TempDir;
 
@@ -75,18 +75,18 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
     assert_activation_objects(
         &events,
         &[
-            TraceActorObject::SignalAdmitted,
-            TraceActorObject::SignalTriaged,
-            TraceActorObject::NexusEntered,
-            TraceActorObject::SemaWriteApplied,
-            TraceActorObject::NexusDecided,
-            TraceActorObject::SignalReplied,
-            TraceActorObject::SignalAdmitted,
-            TraceActorObject::SignalTriaged,
-            TraceActorObject::NexusEntered,
-            TraceActorObject::SemaReadObserved,
-            TraceActorObject::NexusDecided,
-            TraceActorObject::SignalReplied,
+            ObjectName::Signal(SignalObjectName::Admitted),
+            ObjectName::Signal(SignalObjectName::Triaged),
+            ObjectName::Nexus(NexusObjectName::Entered),
+            ObjectName::Sema(SemaObjectName::WriteApplied),
+            ObjectName::Nexus(NexusObjectName::Decided),
+            ObjectName::Signal(SignalObjectName::Replied),
+            ObjectName::Signal(SignalObjectName::Admitted),
+            ObjectName::Signal(SignalObjectName::Triaged),
+            ObjectName::Nexus(NexusObjectName::Entered),
+            ObjectName::Sema(SemaObjectName::ReadObserved),
+            ObjectName::Nexus(NexusObjectName::Decided),
+            ObjectName::Signal(SignalObjectName::Replied),
         ],
     );
     let archive =
@@ -152,15 +152,11 @@ fn assert_activation_names(events: &[TraceEvent], expected: &[&str]) {
     assert_eq!(actual, expected, "trace events: {events:#?}");
 }
 
-fn assert_activation_objects(events: &[TraceEvent], expected: &[TraceActorObject]) {
+fn assert_activation_objects(events: &[TraceEvent], expected: &[ObjectName]) {
     let actual = events
         .iter()
-        .map(TraceEvent::object)
-        .collect::<Vec<TraceObject>>();
-    let expected = expected
-        .iter()
-        .copied()
-        .map(TraceObject::Actor)
-        .collect::<Vec<_>>();
+        .map(TraceEvent::object_name)
+        .collect::<Vec<ObjectName>>();
+    let expected = expected.to_vec();
     assert_eq!(actual, expected, "trace events: {events:#?}");
 }
