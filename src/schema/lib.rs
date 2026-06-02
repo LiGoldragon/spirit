@@ -59,19 +59,65 @@ pub struct SemaReuse {
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub enum NexusInput {
-    Signal(Input),
-    SemaWrite(SemaWriteOutput),
-    SemaRead(SemaReadOutput),
+pub enum NexusWork {
+    SignalArrived(Input),
+    SemaWriteCompleted(SemaWriteOutput),
+    SemaReadCompleted(SemaReadOutput),
+    EffectCompleted(NexusEffectResult),
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub enum NexusOutput {
-    SemaWrite(SemaWriteInput),
-    SemaRead(SemaReadInput),
-    Signal(Output),
+pub enum NexusAction {
+    CommandSemaWrite(SemaWriteInput),
+    CommandSemaRead(SemaReadInput),
+    ReplyToSignal(Output),
+    CommandEffect(NexusEffectCommand),
+    Continue(NexusWork),
 }
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum NexusEffectCommand {
+    Stash(StashRequest),
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum NexusEffectResult {
+    Stashed(StashResult),
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct StashHandle(pub Integer);
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct StashRequest {
+    pub records: Records,
+    pub database_marker: DatabaseMarker,
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct StashResult {
+    pub stash_handle: StashHandle,
+    pub record_count: RecordCount,
+    pub database_marker: DatabaseMarker,
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct StashedObservation {
+    pub stash_handle: StashHandle,
+    pub record_count: RecordCount,
+    pub database_marker: DatabaseMarker,
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Records(pub Vec<Entry>);
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -200,6 +246,7 @@ pub enum ValidationError {
     EmptyTopic,
     EmptyDescription,
     EmptyQueryTopic,
+    StashHandleNotFound,
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -306,6 +353,7 @@ pub enum Input {
     Lookup(RecordIdentifier),
     Count(Query),
     Remove(RecordIdentifier),
+    LookupStash(StashHandle),
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -313,6 +361,7 @@ pub enum Input {
 pub enum Output {
     RecordAccepted(SemaReceipt),
     RecordsObserved(ObservedRecords),
+    RecordsStashed(StashedObservation),
     RecordFound(FoundRecord),
     RecordsCounted(CountedRecords),
     RecordRemoved(RemoveReceipt),
@@ -320,39 +369,69 @@ pub enum Output {
     Rejected(SignalRejection),
 }
 
-impl From<Input> for NexusInput {
+impl From<Input> for NexusWork {
     fn from(payload: Input) -> Self {
-        Self::Signal(payload)
+        Self::SignalArrived(payload)
     }
 }
 
-impl From<SemaWriteOutput> for NexusInput {
+impl From<SemaWriteOutput> for NexusWork {
     fn from(payload: SemaWriteOutput) -> Self {
-        Self::SemaWrite(payload)
+        Self::SemaWriteCompleted(payload)
     }
 }
 
-impl From<SemaReadOutput> for NexusInput {
+impl From<SemaReadOutput> for NexusWork {
     fn from(payload: SemaReadOutput) -> Self {
-        Self::SemaRead(payload)
+        Self::SemaReadCompleted(payload)
     }
 }
 
-impl From<SemaWriteInput> for NexusOutput {
+impl From<NexusEffectResult> for NexusWork {
+    fn from(payload: NexusEffectResult) -> Self {
+        Self::EffectCompleted(payload)
+    }
+}
+
+impl From<SemaWriteInput> for NexusAction {
     fn from(payload: SemaWriteInput) -> Self {
-        Self::SemaWrite(payload)
+        Self::CommandSemaWrite(payload)
     }
 }
 
-impl From<SemaReadInput> for NexusOutput {
+impl From<SemaReadInput> for NexusAction {
     fn from(payload: SemaReadInput) -> Self {
-        Self::SemaRead(payload)
+        Self::CommandSemaRead(payload)
     }
 }
 
-impl From<Output> for NexusOutput {
+impl From<Output> for NexusAction {
     fn from(payload: Output) -> Self {
-        Self::Signal(payload)
+        Self::ReplyToSignal(payload)
+    }
+}
+
+impl From<NexusEffectCommand> for NexusAction {
+    fn from(payload: NexusEffectCommand) -> Self {
+        Self::CommandEffect(payload)
+    }
+}
+
+impl From<NexusWork> for NexusAction {
+    fn from(payload: NexusWork) -> Self {
+        Self::Continue(payload)
+    }
+}
+
+impl From<StashRequest> for NexusEffectCommand {
+    fn from(payload: StashRequest) -> Self {
+        Self::Stash(payload)
+    }
+}
+
+impl From<StashResult> for NexusEffectResult {
+    fn from(payload: StashResult) -> Self {
+        Self::Stashed(payload)
     }
 }
 
@@ -434,6 +513,12 @@ impl From<Entry> for Input {
     }
 }
 
+impl From<StashHandle> for Input {
+    fn from(payload: StashHandle) -> Self {
+        Self::LookupStash(payload)
+    }
+}
+
 impl From<SemaReceipt> for Output {
     fn from(payload: SemaReceipt) -> Self {
         Self::RecordAccepted(payload)
@@ -443,6 +528,12 @@ impl From<SemaReceipt> for Output {
 impl From<ObservedRecords> for Output {
     fn from(payload: ObservedRecords) -> Self {
         Self::RecordsObserved(payload)
+    }
+}
+
+impl From<StashedObservation> for Output {
+    fn from(payload: StashedObservation) -> Self {
+        Self::RecordsStashed(payload)
     }
 }
 
@@ -565,7 +656,7 @@ impl SemaReuse {
 }
 
 #[cfg(feature = "nota-text")]
-impl NexusInput {
+impl NexusWork {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -576,7 +667,84 @@ impl NexusInput {
 }
 
 #[cfg(feature = "nota-text")]
-impl NexusOutput {
+impl NexusAction {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl NexusEffectCommand {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl NexusEffectResult {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl StashHandle {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl StashRequest {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl StashResult {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl StashedObservation {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl Records {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -1020,13 +1188,15 @@ pub mod short_header {
     pub const INPUT_LOOKUP: u64 = 0x0002000000000000;
     pub const INPUT_COUNT: u64 = 0x0003000000000000;
     pub const INPUT_REMOVE: u64 = 0x0004000000000000;
+    pub const INPUT_LOOKUP_STASH: u64 = 0x0005000000000000;
     pub const OUTPUT_RECORD_ACCEPTED: u64 = 0x0100000000000000;
     pub const OUTPUT_RECORDS_OBSERVED: u64 = 0x0101000000000000;
-    pub const OUTPUT_RECORD_FOUND: u64 = 0x0102000000000000;
-    pub const OUTPUT_RECORDS_COUNTED: u64 = 0x0103000000000000;
-    pub const OUTPUT_RECORD_REMOVED: u64 = 0x0104000000000000;
-    pub const OUTPUT_ERROR: u64 = 0x0105000000000000;
-    pub const OUTPUT_REJECTED: u64 = 0x0106000000000000;
+    pub const OUTPUT_RECORDS_STASHED: u64 = 0x0102000000000000;
+    pub const OUTPUT_RECORD_FOUND: u64 = 0x0103000000000000;
+    pub const OUTPUT_RECORDS_COUNTED: u64 = 0x0104000000000000;
+    pub const OUTPUT_RECORD_REMOVED: u64 = 0x0105000000000000;
+    pub const OUTPUT_ERROR: u64 = 0x0106000000000000;
+    pub const OUTPUT_REJECTED: u64 = 0x0107000000000000;
 }
 
 const SIGNAL_SHORT_HEADER_BYTE_COUNT: usize = 8;
@@ -1062,6 +1232,7 @@ pub enum InputRoute {
     Lookup,
     Count,
     Remove,
+    LookupStash,
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -1069,6 +1240,7 @@ pub enum InputRoute {
 pub enum OutputRoute {
     RecordAccepted,
     RecordsObserved,
+    RecordsStashed,
     RecordFound,
     RecordsCounted,
     RecordRemoved,
@@ -1084,6 +1256,7 @@ impl Input {
             Self::Lookup(_) => InputRoute::Lookup,
             Self::Count(_) => InputRoute::Count,
             Self::Remove(_) => InputRoute::Remove,
+            Self::LookupStash(_) => InputRoute::LookupStash,
         }
     }
 
@@ -1094,6 +1267,7 @@ impl Input {
             Self::Lookup(_) => short_header::INPUT_LOOKUP,
             Self::Count(_) => short_header::INPUT_COUNT,
             Self::Remove(_) => short_header::INPUT_REMOVE,
+            Self::LookupStash(_) => short_header::INPUT_LOOKUP_STASH,
         }
     }
 
@@ -1104,6 +1278,7 @@ impl Input {
             short_header::INPUT_LOOKUP => Ok(InputRoute::Lookup),
             short_header::INPUT_COUNT => Ok(InputRoute::Count),
             short_header::INPUT_REMOVE => Ok(InputRoute::Remove),
+            short_header::INPUT_LOOKUP_STASH => Ok(InputRoute::LookupStash),
             _ => Err(SignalFrameError::UnknownHeader { root_enum: "Input", header }),
         }
     }
@@ -1140,6 +1315,7 @@ impl Output {
         match self {
             Self::RecordAccepted(_) => OutputRoute::RecordAccepted,
             Self::RecordsObserved(_) => OutputRoute::RecordsObserved,
+            Self::RecordsStashed(_) => OutputRoute::RecordsStashed,
             Self::RecordFound(_) => OutputRoute::RecordFound,
             Self::RecordsCounted(_) => OutputRoute::RecordsCounted,
             Self::RecordRemoved(_) => OutputRoute::RecordRemoved,
@@ -1152,6 +1328,7 @@ impl Output {
         match self {
             Self::RecordAccepted(_) => short_header::OUTPUT_RECORD_ACCEPTED,
             Self::RecordsObserved(_) => short_header::OUTPUT_RECORDS_OBSERVED,
+            Self::RecordsStashed(_) => short_header::OUTPUT_RECORDS_STASHED,
             Self::RecordFound(_) => short_header::OUTPUT_RECORD_FOUND,
             Self::RecordsCounted(_) => short_header::OUTPUT_RECORDS_COUNTED,
             Self::RecordRemoved(_) => short_header::OUTPUT_RECORD_REMOVED,
@@ -1164,6 +1341,7 @@ impl Output {
         match header {
             short_header::OUTPUT_RECORD_ACCEPTED => Ok(OutputRoute::RecordAccepted),
             short_header::OUTPUT_RECORDS_OBSERVED => Ok(OutputRoute::RecordsObserved),
+            short_header::OUTPUT_RECORDS_STASHED => Ok(OutputRoute::RecordsStashed),
             short_header::OUTPUT_RECORD_FOUND => Ok(OutputRoute::RecordFound),
             short_header::OUTPUT_RECORDS_COUNTED => Ok(OutputRoute::RecordsCounted),
             short_header::OUTPUT_RECORD_REMOVED => Ok(OutputRoute::RecordRemoved),
@@ -1202,36 +1380,42 @@ impl Output {
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum NexusInputRoute {
-    Signal,
-    SemaWrite,
-    SemaRead,
+pub enum NexusWorkRoute {
+    SignalArrived,
+    SemaWriteCompleted,
+    SemaReadCompleted,
+    EffectCompleted,
 }
 
-impl NexusInput {
-    pub fn route(&self) -> NexusInputRoute {
+impl NexusWork {
+    pub fn route(&self) -> NexusWorkRoute {
         match self {
-            Self::Signal(_) => NexusInputRoute::Signal,
-            Self::SemaWrite(_) => NexusInputRoute::SemaWrite,
-            Self::SemaRead(_) => NexusInputRoute::SemaRead,
+            Self::SignalArrived(_) => NexusWorkRoute::SignalArrived,
+            Self::SemaWriteCompleted(_) => NexusWorkRoute::SemaWriteCompleted,
+            Self::SemaReadCompleted(_) => NexusWorkRoute::SemaReadCompleted,
+            Self::EffectCompleted(_) => NexusWorkRoute::EffectCompleted,
         }
     }
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum NexusOutputRoute {
-    SemaWrite,
-    SemaRead,
-    Signal,
+pub enum NexusActionRoute {
+    CommandSemaWrite,
+    CommandSemaRead,
+    ReplyToSignal,
+    CommandEffect,
+    Continue,
 }
 
-impl NexusOutput {
-    pub fn route(&self) -> NexusOutputRoute {
+impl NexusAction {
+    pub fn route(&self) -> NexusActionRoute {
         match self {
-            Self::SemaWrite(_) => NexusOutputRoute::SemaWrite,
-            Self::SemaRead(_) => NexusOutputRoute::SemaRead,
-            Self::Signal(_) => NexusOutputRoute::Signal,
+            Self::CommandSemaWrite(_) => NexusActionRoute::CommandSemaWrite,
+            Self::CommandSemaRead(_) => NexusActionRoute::CommandSemaRead,
+            Self::ReplyToSignal(_) => NexusActionRoute::ReplyToSignal,
+            Self::CommandEffect(_) => NexusActionRoute::CommandEffect,
+            Self::Continue(_) => NexusActionRoute::Continue,
         }
     }
 }
@@ -1328,10 +1512,12 @@ impl SignalObjectName {
                 InputRoute::Lookup => "SignalInputLookup",
                 InputRoute::Count => "SignalInputCount",
                 InputRoute::Remove => "SignalInputRemove",
+                InputRoute::LookupStash => "SignalInputLookupStash",
             },
             Self::Output(route) => match route {
                 OutputRoute::RecordAccepted => "SignalOutputRecordAccepted",
                 OutputRoute::RecordsObserved => "SignalOutputRecordsObserved",
+                OutputRoute::RecordsStashed => "SignalOutputRecordsStashed",
                 OutputRoute::RecordFound => "SignalOutputRecordFound",
                 OutputRoute::RecordsCounted => "SignalOutputRecordsCounted",
                 OutputRoute::RecordRemoved => "SignalOutputRecordRemoved",
@@ -1349,8 +1535,8 @@ impl SignalObjectName {
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NexusObjectName {
-    Input(NexusInputRoute),
-    Output(NexusOutputRoute),
+    Work(NexusWorkRoute),
+    Action(NexusActionRoute),
     Entered,
     Decided,
 }
@@ -1358,15 +1544,18 @@ pub enum NexusObjectName {
 impl NexusObjectName {
     pub fn name(self) -> &'static str {
         match self {
-            Self::Input(route) => match route {
-                NexusInputRoute::Signal => "NexusInputSignal",
-                NexusInputRoute::SemaWrite => "NexusInputSemaWrite",
-                NexusInputRoute::SemaRead => "NexusInputSemaRead",
+            Self::Work(route) => match route {
+                NexusWorkRoute::SignalArrived => "NexusWorkSignalArrived",
+                NexusWorkRoute::SemaWriteCompleted => "NexusWorkSemaWriteCompleted",
+                NexusWorkRoute::SemaReadCompleted => "NexusWorkSemaReadCompleted",
+                NexusWorkRoute::EffectCompleted => "NexusWorkEffectCompleted",
             },
-            Self::Output(route) => match route {
-                NexusOutputRoute::SemaWrite => "NexusOutputSemaWrite",
-                NexusOutputRoute::SemaRead => "NexusOutputSemaRead",
-                NexusOutputRoute::Signal => "NexusOutputSignal",
+            Self::Action(route) => match route {
+                NexusActionRoute::CommandSemaWrite => "NexusActionCommandSemaWrite",
+                NexusActionRoute::CommandSemaRead => "NexusActionCommandSemaRead",
+                NexusActionRoute::ReplyToSignal => "NexusActionReplyToSignal",
+                NexusActionRoute::CommandEffect => "NexusActionCommandEffect",
+                NexusActionRoute::Continue => "NexusActionContinue",
             },
             Self::Entered => "NexusEntered",
             Self::Decided => "NexusDecided",
@@ -1699,8 +1888,8 @@ pub mod signal {
 }
 
 pub mod nexus {
-    pub type Input = super::NexusInput;
-    pub type Output = super::NexusOutput;
+    pub type Work = super::NexusWork;
+    pub type Action = super::NexusAction;
     pub type Nexus<Root> = super::Nexus<Root>;
 }
 
@@ -1712,13 +1901,13 @@ pub mod sema {
     pub type Sema<Root> = super::Sema<Root>;
 }
 
-impl NexusInput {
+impl NexusWork {
     pub fn with_origin_route(self, origin_route: OriginRoute) -> nexus::Nexus<Self> {
         nexus::Nexus::new(origin_route, self)
     }
 }
 
-impl NexusOutput {
+impl NexusAction {
     pub fn with_origin_route(self, origin_route: OriginRoute) -> nexus::Nexus<Self> {
         nexus::Nexus::new(origin_route, self)
     }
@@ -1748,70 +1937,43 @@ impl SemaReadOutput {
     }
 }
 
-impl nexus::Nexus<nexus::Input> {
-    pub fn into_nexus_output(self) -> nexus::Nexus<nexus::Output> {
-        let origin_route = self.origin_route();
-        match self.into_root() {
-            NexusInput::Signal(input) => match input {
-                Input::Record(payload) => NexusOutput::from(SemaWriteInput::Record(payload)),
-                Input::Observe(payload) => NexusOutput::from(SemaReadInput::Observe(payload)),
-                Input::Lookup(payload) => NexusOutput::from(SemaReadInput::Lookup(payload)),
-                Input::Count(payload) => NexusOutput::from(SemaReadInput::Count(payload)),
-                Input::Remove(payload) => NexusOutput::from(SemaWriteInput::Remove(payload)),
-            },
-            NexusInput::SemaWrite(output) => match output {
-                SemaWriteOutput::Recorded(payload) => NexusOutput::from(Output::RecordAccepted(payload)),
-                SemaWriteOutput::Removed(payload) => NexusOutput::from(Output::RecordRemoved(payload)),
-                SemaWriteOutput::Missed(payload) => NexusOutput::from(Output::Error(payload)),
-            },
-            NexusInput::SemaRead(output) => match output {
-                SemaReadOutput::Observed(payload) => NexusOutput::from(Output::RecordsObserved(payload)),
-                SemaReadOutput::Found(payload) => NexusOutput::from(Output::RecordFound(payload)),
-                SemaReadOutput::Counted(payload) => NexusOutput::from(Output::RecordsCounted(payload)),
-                SemaReadOutput::Missed(payload) => NexusOutput::from(Output::Error(payload)),
-            },
-        }
-        .with_origin_route(origin_route)
-    }
-}
-
-impl nexus::Nexus<nexus::Output> {
+impl nexus::Nexus<nexus::Action> {
     pub fn into_sema_write_input(self) -> sema::Sema<sema::WriteInput> {
         let origin_route = self.origin_route();
         match self.into_root() {
-            NexusOutput::SemaWrite(input) => input.with_origin_route(origin_route),
-            _ => panic!("nexus output is not a SEMA write input"),
+            NexusAction::CommandSemaWrite(input) => input.with_origin_route(origin_route),
+            _ => panic!("nexus action is not a SEMA write input"),
         }
     }
 
     pub fn into_sema_read_input(self) -> sema::Sema<sema::ReadInput> {
         let origin_route = self.origin_route();
         match self.into_root() {
-            NexusOutput::SemaRead(input) => input.with_origin_route(origin_route),
-            _ => panic!("nexus output is not a SEMA read input"),
+            NexusAction::CommandSemaRead(input) => input.with_origin_route(origin_route),
+            _ => panic!("nexus action is not a SEMA read input"),
         }
     }
 
     pub fn into_signal_output(self) -> signal::Signal<signal::Output> {
         let origin_route = self.origin_route();
         match self.into_root() {
-            NexusOutput::Signal(output) => output.with_origin_route(origin_route),
-            _ => panic!("nexus output is a SEMA input, not a signal reply"),
+            NexusAction::ReplyToSignal(output) => output.with_origin_route(origin_route),
+            _ => panic!("nexus action is not a signal reply"),
         }
     }
 }
 
 impl sema::Sema<sema::WriteOutput> {
-    pub fn into_nexus_input(self) -> nexus::Nexus<nexus::Input> {
+    pub fn into_nexus_work(self) -> nexus::Nexus<nexus::Work> {
         let origin_route = self.origin_route();
-        NexusInput::from(self.into_root()).with_origin_route(origin_route)
+        NexusWork::from(self.into_root()).with_origin_route(origin_route)
     }
 }
 
 impl sema::Sema<sema::ReadOutput> {
-    pub fn into_nexus_input(self) -> nexus::Nexus<nexus::Input> {
+    pub fn into_nexus_work(self) -> nexus::Nexus<nexus::Work> {
         let origin_route = self.origin_route();
-        NexusInput::from(self.into_root()).with_origin_route(origin_route)
+        NexusWork::from(self.into_root()).with_origin_route(origin_route)
     }
 }
 
@@ -1830,16 +1992,16 @@ pub trait SignalEngine {
         self.trace_signal_activation(SignalObjectName::Replied);
     }
 
-    fn triage_inner(&self, input: signal::Signal<signal::Input>) -> nexus::Nexus<nexus::Input>;
-    fn reply_inner(&self, output: nexus::Nexus<nexus::Output>) -> signal::Signal<signal::Output>;
+    fn triage_inner(&self, input: signal::Signal<signal::Input>) -> nexus::Nexus<nexus::Work>;
+    fn reply_inner(&self, output: nexus::Nexus<nexus::Action>) -> signal::Signal<signal::Output>;
 
-    fn triage(&self, input: signal::Signal<signal::Input>) -> nexus::Nexus<nexus::Input> {
+    fn triage(&self, input: signal::Signal<signal::Input>) -> nexus::Nexus<nexus::Work> {
         let output = self.triage_inner(input);
         self.trace_signal_triaged();
         output
     }
 
-    fn reply(&self, output: nexus::Nexus<nexus::Output>) -> signal::Signal<signal::Output> {
+    fn reply(&self, output: nexus::Nexus<nexus::Action>) -> signal::Signal<signal::Output> {
         let signal_output = self.reply_inner(output);
         self.trace_signal_replied();
         signal_output
@@ -1855,9 +2017,9 @@ pub trait NexusEngine {
         self.trace_nexus_activation(NexusObjectName::Decided);
     }
 
-    fn decide(&mut self, input: nexus::Nexus<nexus::Input>) -> nexus::Nexus<nexus::Output>;
+    fn decide(&mut self, input: nexus::Nexus<nexus::Work>) -> nexus::Nexus<nexus::Action>;
 
-    fn execute(&mut self, input: nexus::Nexus<nexus::Input>) -> nexus::Nexus<nexus::Output> {
+    fn execute(&mut self, input: nexus::Nexus<nexus::Work>) -> nexus::Nexus<nexus::Action> {
         self.trace_nexus_entered();
         let output = self.decide(input);
         self.trace_nexus_decided();

@@ -1,6 +1,6 @@
 {}
-[(Record Entry) (Observe Query) (Lookup RecordIdentifier) (Count Query) (Remove RecordIdentifier)]
-[(RecordAccepted SemaReceipt) (RecordsObserved ObservedRecords) (RecordFound FoundRecord) (RecordsCounted CountedRecords) (RecordRemoved RemoveReceipt) (Error ErrorReport) (Rejected SignalRejection)]
+[(Record Entry) (Observe Query) (Lookup RecordIdentifier) (Count Query) (Remove RecordIdentifier) (LookupStash StashHandle)]
+[(RecordAccepted SemaReceipt) (RecordsObserved ObservedRecords) (RecordsStashed StashedObservation) (RecordFound FoundRecord) (RecordsCounted CountedRecords) (RecordRemoved RemoveReceipt) (Error ErrorReport) (Rejected SignalRejection)]
 {
   SourcePath String
   LocalPath String
@@ -10,8 +10,15 @@
   SignalReuse { Import * Export * }
   NexusReuse { Import * Export * }
   SemaReuse { Import * Export * }
-  NexusInput [(Signal Input) (SemaWrite SemaWriteOutput) (SemaRead SemaReadOutput)]
-  NexusOutput [(SemaWrite SemaWriteInput) (SemaRead SemaReadInput) (Signal Output)]
+  NexusWork [(SignalArrived Input) (SemaWriteCompleted SemaWriteOutput) (SemaReadCompleted SemaReadOutput) (EffectCompleted NexusEffectResult)]
+  NexusAction [(CommandSemaWrite SemaWriteInput) (CommandSemaRead SemaReadInput) (ReplyToSignal Output) (CommandEffect NexusEffectCommand) (Continue NexusWork)]
+  NexusEffectCommand [(Stash StashRequest)]
+  NexusEffectResult [(Stashed StashResult)]
+  StashHandle Integer
+  StashRequest { Records * DatabaseMarker * }
+  StashResult { StashHandle * RecordCount * DatabaseMarker * }
+  StashedObservation { StashHandle * RecordCount * DatabaseMarker * }
+  Records (Vec Entry)
   SemaWriteInput [(Record Entry) (Remove RecordIdentifier)]
   SemaReadInput [(Observe Query) (Lookup RecordIdentifier) (Count Query)]
   SemaWriteOutput [(Recorded SemaReceipt) (Removed RemoveReceipt) (Missed ErrorReport)]
@@ -32,7 +39,7 @@
   CountedRecords { RecordCount * DatabaseMarker * }
   ErrorReport { ErrorMessage * DatabaseMarker * }
   SignalRejection { ValidationError * DatabaseMarker * }
-  ValidationError [EmptyTopic EmptyDescription EmptyQueryTopic]
+  ValidationError [EmptyTopic EmptyDescription EmptyQueryTopic StashHandleNotFound]
   MailIdentifier Integer
   ShortHeader Integer
   SentMail { MailIdentifier * OriginRoute * ShortHeader * }

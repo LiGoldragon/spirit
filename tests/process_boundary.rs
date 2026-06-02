@@ -155,9 +155,11 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
         &socket_path,
         "(Observe ((Full [[schema]]) (Some Constraint) (Exact Zero)))",
     );
+    // Designer 480: Observe now flows through Stash; the slim wire reply
+    // carries a handle, not the full record set.
     assert!(
-        matches!(observed, Output::RecordsObserved(_)),
-        "the daemon observes the recorded entry, got {observed:?}"
+        matches!(observed, Output::RecordsStashed(_)),
+        "the daemon stashes the observed records and returns a slim handle, got {observed:?}"
     );
 
     let removed = run_cli(&socket_path, "(Remove 1)");
@@ -225,14 +227,28 @@ fn daemon_persists_sema_file_across_a_restart() {
         &socket_path,
         "(Observe ((Full [[durable-topic]]) (Some Decision) (Exact Zero)))",
     );
-    match observed {
+    // Designer 480: Observe stashes the durable result; the slim reply
+    // returns the handle + count. Follow up by LookupStash to verify the
+    // full content survived the daemon restart.
+    let stash_handle = match observed {
+        Output::RecordsStashed(stashed) => {
+            assert_eq!(
+                stashed.record_count.0, 1,
+                "the restarted daemon observes one durable record"
+            );
+            stashed.stash_handle
+        }
+        other => panic!("expected RecordsStashed after restart, got {other:?}"),
+    };
+    let looked_up = run_cli(&socket_path, &format!("(LookupStash {})", stash_handle.0));
+    match looked_up {
         Output::RecordsObserved(records) => {
             assert_eq!(
                 records.record_set.0[0].description.0, "survives restart",
-                "the restarted daemon observes the entry the first daemon wrote"
+                "the restarted daemon's stash retrieves the durable content"
             );
         }
-        other => panic!("expected RecordsObserved after restart, got {other:?}"),
+        other => panic!("expected RecordsObserved from LookupStash, got {other:?}"),
     }
 
     // The commit ledger resumed: the next record is sequence 2, proving
@@ -286,7 +302,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
             "(Observe ((Full [[handover]]) (Some Constraint) (Exact Zero)))",
         );
         assert_eq!(
-            observed_descriptions(observed),
+            stashed_descriptions(&socket_path, observed),
             vec![String::from("production entry before copy")],
             "candidate starts from the copied production SEMA state"
         );
@@ -311,7 +327,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
             "(Observe ((Full [[handover]]) (Some Constraint) (Exact Zero)))",
         );
         assert_eq!(
-            observed_descriptions(candidate_observed),
+            stashed_descriptions(&socket_path, candidate_observed),
             vec![
                 String::from("production entry before copy"),
                 String::from("candidate-only entry after copy"),
@@ -328,7 +344,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
             "(Observe ((Full [[handover]]) (Some Constraint) (Exact Zero)))",
         );
         assert_eq!(
-            observed_descriptions(observed),
+            stashed_descriptions(&socket_path, observed),
             vec![String::from("production entry before copy")],
             "candidate writes must not mutate the original production SEMA file"
         );
@@ -384,8 +400,12 @@ fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
         &trace_socket_path,
         "(Observe ((Full [[trace]]) (Some Constraint) (Exact Zero)))",
     );
+    // Designer 480: Observe flows through the recursive Nexus loop with
+    // Stash; the slim wire reply carries a handle, not the full record set.
+    // The trace below shows the loop ran SEMA once and Nexus once — the
+    // additional Effect step is internal to one NexusEngine::execute call.
     assert!(
-        matches!(observed.output, Output::RecordsObserved(_)),
+        matches!(observed.output, Output::RecordsStashed(_)),
         "observe reply should still be the first CLI line, got {:?}",
         observed.output
     );
@@ -399,15 +419,22 @@ fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
     ]);
 }
 
-fn observed_descriptions(output: Output) -> Vec<String> {
-    match output {
+/// Designer 480: Observe now returns a slim Stash handle; the helper
+/// resolves the handle through LookupStash and reads back the descriptions.
+fn stashed_descriptions(socket_path: &Path, output: Output) -> Vec<String> {
+    let stash_handle = match output {
+        Output::RecordsStashed(stashed) => stashed.stash_handle,
+        other => panic!("expected RecordsStashed, got {other:?}"),
+    };
+    let resolved = run_cli(socket_path, &format!("(LookupStash {})", stash_handle.0));
+    match resolved {
         Output::RecordsObserved(records) => records
             .record_set
             .0
             .into_iter()
             .map(|entry| entry.description.0)
             .collect(),
-        other => panic!("expected RecordsObserved, got {other:?}"),
+        other => panic!("expected RecordsObserved from LookupStash, got {other:?}"),
     }
 }
 

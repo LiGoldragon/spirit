@@ -15,7 +15,7 @@
 //! use spirit_next::{SemaEngine, Store, nexus_plane};
 //!
 //! let mut store: Store = todo!();
-//! let message: nexus_plane::Nexus<nexus_plane::Input> = todo!();
+//! let message: nexus_plane::Nexus<nexus_plane::Work> = todo!();
 //! let _ = store.apply(message);
 //! ```
 
@@ -38,20 +38,21 @@ pub mod schema {
 pub use config::{Configuration, ConfigurationError};
 pub use daemon::{Daemon, DaemonCommand, DaemonCommandError, DaemonError};
 pub use engine::{Engine, MailLedger, MailLedgerHook, SignalAccepted, SignalActor};
-pub use nexus::Nexus;
+pub use nexus::{ContinuationBudget, Nexus, StashTable};
 pub use schema::lib::{
     CommitSequence, CountedRecords, DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport,
     Export, FoundRecord, Import, Input, InputRoute, Integer, Kind, LocalPath, Magnitude,
     MailIdentifier, MailLedgerEvent, MessageIdentifier, MessageProcessed, MessageProcessedHook,
-    MessageRoot, MessageSent, MessageSentHook, NexusEngine, NexusInput, NexusInputRoute,
-    NexusObjectName, NexusOutput, NexusOutputRoute, NexusReuse, ObjectName, ObservedRecords,
-    OriginRoute, Output, OutputRoute, Privacy, PrivacySelection, ProcessedMail, PublicPath, Query,
-    RecordCount, RecordIdentifier, RecordSet, RemoveReceipt, SemaEngine, SemaObjectName,
-    SemaReadInput, SemaReadInputRoute, SemaReadOutput, SemaReadOutputRoute, SemaReceipt, SemaReuse,
-    SemaWriteInput, SemaWriteInputRoute, SemaWriteOutput, SemaWriteOutputRoute, SentMail,
-    ShortHeader, SignalEngine, SignalFrameError, SignalObjectName, SignalRejection, SignalReuse,
-    SourcePath, StateDigest, Topic, TopicMatch, Topics, TraceEvent, ValidationError,
-    nexus as nexus_plane, schema as schema_meta, sema, signal,
+    MessageRoot, MessageSent, MessageSentHook, NexusAction, NexusActionRoute, NexusEffectCommand,
+    NexusEffectResult, NexusEngine, NexusObjectName, NexusReuse, NexusWork, NexusWorkRoute,
+    ObjectName, ObservedRecords, OriginRoute, Output, OutputRoute, Privacy, PrivacySelection,
+    ProcessedMail, PublicPath, Query, RecordCount, RecordIdentifier, RecordSet, Records,
+    RemoveReceipt, SemaEngine, SemaObjectName, SemaReadInput, SemaReadInputRoute, SemaReadOutput,
+    SemaReadOutputRoute, SemaReceipt, SemaReuse, SemaWriteInput, SemaWriteInputRoute,
+    SemaWriteOutput, SemaWriteOutputRoute, SentMail, ShortHeader, SignalEngine, SignalFrameError,
+    SignalObjectName, SignalRejection, SignalReuse, SourcePath, StashHandle, StashRequest,
+    StashResult, StashedObservation, StateDigest, Topic, TopicMatch, Topics, TraceEvent,
+    ValidationError, nexus as nexus_plane, schema as schema_meta, sema, signal,
 };
 pub use store::{Store, StoreError};
 #[cfg(feature = "testing-trace")]

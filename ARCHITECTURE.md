@@ -137,7 +137,7 @@ not own route enums, short-header matching, or rkyv archive encode/decode.
 origin route, issues the generated `MessageSent` event, validates generated
 `Input`, and produces `SignalAccepted`. `SignalAccepted::process_with` is the
 flat composition point: it emits the sent event, asks `SignalEngine::triage` for
-a generated `nexus::Nexus<nexus::Input>`, runs `NexusEngine::execute`, emits
+a generated `nexus::Nexus<nexus::Work>`, runs `NexusEngine::execute`, emits
 `MessageProcessed<Output>`, and asks `SignalEngine::reply` for the generated
 Signal output.
 
@@ -148,9 +148,9 @@ mutable `NexusEngine` trait:
 ```text
 signal::Signal<Input>
   -> SignalEngine::triage
-  -> nexus::Nexus<NexusInput>
+  -> nexus::Nexus<NexusWork>
   -> NexusEngine::execute(&mut Nexus, ...)
-  -> nexus::Nexus<NexusOutput>
+  -> nexus::Nexus<NexusAction>
   -> SignalEngine::reply
   -> signal::Signal<Output>
 ```
@@ -161,14 +161,14 @@ Per Spirit record 1339, the one working path is the schema-plane trait path:
 Signal emits a generated Nexus envelope, Nexus executes it, and SEMA is reached
 only through generated split write/read roots.
 
-Nexus owns both translations. The generated projection
-`nexus::Nexus<nexus::Input>::into_nexus_output` maps accepted Signal input into
-either `NexusOutput::SemaWrite(SemaWriteInput)` or
-`NexusOutput::SemaRead(SemaReadInput)`. `NexusEngine::execute` then calls the
-matching SEMA trait method and projects the SEMA reply back toward Signal. The
-processed ledger event is generated `MessageProcessed<Output>`, so the same
-`OriginRoute` is carried from Signal admission through Nexus, SEMA, and back to
-the Signal reply.
+Nexus owns the central decision loop. `NexusWork` is the fact stream Nexus
+decides from: Signal arrivals, SEMA completions, effect completions, and
+recursive work. `NexusAction` is the command stream Nexus emits next:
+`CommandSemaWrite`, `CommandSemaRead`, `CommandEffect`, `Continue`, or
+`ReplyToSignal`. `NexusEngine::execute` runs that loop until a Signal reply is
+ready. The processed ledger event is generated `MessageProcessed<Output>`, so
+the same `OriginRoute` is carried from Signal admission through Nexus, SEMA,
+effects, and back to the Signal reply.
 
 Nexus is the home for non-default decision algorithms. Frecency ranking,
 co-occurrence decisions, semantic similarity, or future topic-discovery logic
@@ -234,7 +234,7 @@ The paths are single-colon namespaces, mirroring Rust crate/module paths with
 `:` instead of `::`, for example `signal:sema:Magnitude`.
 
 The same root shape applies to the Spirit language planes in this pilot:
-Signal (`Input`/`Output`), Nexus (`NexusInput`/`NexusOutput`), and split SEMA
+Signal (`Input`/`Output`), Nexus (`NexusWork`/`NexusAction`), and split SEMA
 write/read roots (`SemaWriteInput`/`SemaWriteOutput`,
 `SemaReadInput`/`SemaReadOutput`). Each plane has imports/exports and a
 namespace available to it; the implementation difference is which actor object
@@ -252,7 +252,7 @@ to the same `Asschema` roots and namespace before `src/schema/lib.rs` is
 regenerated.
 
 The generated Rust exposes plane namespaces over those bootstrap backing names:
-`signal::Input`, `nexus::Input`, `sema::WriteInput`, and `sema::ReadInput`
+`signal::Input`, `nexus::Work`, `sema::WriteInput`, and `sema::ReadInput`
 (plus matching output roots). Public execution signatures use the
 namespace-local names, for example `sema::Sema<sema::WriteInput>`, so the
 envelope carries the plane and payload names stay short.
@@ -271,19 +271,20 @@ attaches behavior to those nouns or to state-owning runtime objects:
   before mail is sent or SEMA is touched.
 - `SignalAccepted` emits `MessageSent` through a hook at the Signal→Nexus
   handoff and asks `SignalEngine::triage` for generated
-  `nexus::Nexus<nexus::Input>`.
-- `NexusEngine::execute(&mut Nexus, nexus::Nexus<nexus::Input>)` is the Nexus
+  `nexus::Nexus<nexus::Work>`.
+- `NexusEngine::execute(&mut Nexus, nexus::Nexus<nexus::Work>)` is the Nexus
   decision boundary. Its mutable borrow enforces one execution at a time on
   the Nexus object.
-- `nexus::Nexus<nexus::Input>` becomes generated `nexus::Nexus<nexus::Output>`.
-- `nexus::Output::SemaWrite` carries generated `sema::WriteInput`, and
-  `nexus::Output::SemaRead` carries generated `sema::ReadInput`.
+- `nexus::Nexus<nexus::Work>` becomes generated
+  `nexus::Nexus<nexus::Action>`.
+- `nexus::Action::CommandSemaWrite` carries generated `sema::WriteInput`, and
+  `nexus::Action::CommandSemaRead` carries generated `sema::ReadInput`.
 - `sema::Sema<sema::WriteInput>` is applied by `Store` through generated
   `SemaEngine::apply`, writing the durable `.sema` redb database.
 - `sema::Sema<sema::ReadInput>` is observed by `Store` through generated
   `SemaEngine::observe`, using a redb read transaction.
 - `sema::Sema<sema::WriteOutput>` or `sema::Sema<sema::ReadOutput>` becomes
-  `nexus::Input::SemaWrite` or `nexus::Input::SemaRead`, then generated
+  `nexus::Work::SemaWriteCompleted` or `nexus::Work::SemaReadCompleted`, then generated
   `signal::Signal<signal::Output>` carrying a `DatabaseMarker`.
 - `MailLedgerEvent` stores sent and processed mail markers, including their
   `OriginRoute`, in the ledger Nexus owns.
@@ -363,8 +364,8 @@ The schema-rust output path is already crate-relative (`src/schema/lib.rs`).
 `schema/lib.rs` path relative to `src/`.
 
 Runtime-chain tests assert on schema-emitted objects, not test-local shadow
-languages. Pattern A uses generated `MailLedgerEvent`, `NexusInput`,
-`NexusOutput`, `SemaWriteInput`, `SemaWriteOutput`, `SemaReadInput`, and
+languages. Pattern A uses generated `MailLedgerEvent`, `NexusWork`,
+`NexusAction`, `SemaWriteInput`, `SemaWriteOutput`, `SemaReadInput`, and
 `SemaReadOutput` as witnesses. The SEMA engine tests call generated
 `SemaEngine::apply(sema::Sema<sema::WriteInput>) ->
 sema::Sema<sema::WriteOutput>` and

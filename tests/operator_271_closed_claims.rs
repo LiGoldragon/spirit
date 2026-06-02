@@ -56,8 +56,10 @@ fn lib_schema_input_uses_honest_parenthesized_data_variants() {
     let witness = SchemaSourceWitness::new("schema/lib.schema", LIB_SCHEMA);
 
     // The active production Input enum body — honest data variants.
+    // Designer 480: Input gained (LookupStash StashHandle) for the
+    // Stash effect's follow-up lookup path.
     witness.must_contain(
-        "[(Record Entry) (Observe Query) (Lookup RecordIdentifier) (Count Query) (Remove RecordIdentifier)]",
+        "[(Record Entry) (Observe Query) (Lookup RecordIdentifier) (Count Query) (Remove RecordIdentifier) (LookupStash StashHandle)]",
         "4",
     );
 
@@ -94,9 +96,10 @@ fn lib_schema_output_uses_honest_parenthesized_data_variants() {
 fn lib_schema_unit_variant_enum_uses_bare_pascal_case_atoms() {
     let witness = SchemaSourceWitness::new("schema/lib.schema", LIB_SCHEMA);
 
-    // ValidationError carries three bare unit variants.
+    // ValidationError carries four bare unit variants per designer 480 —
+    // StashHandleNotFound joins the Stash effect's lookup-by-handle path.
     witness.must_contain(
-        "ValidationError [EmptyTopic EmptyDescription EmptyQueryTopic]",
+        "ValidationError [EmptyTopic EmptyDescription EmptyQueryTopic StashHandleNotFound]",
         "4",
     );
 

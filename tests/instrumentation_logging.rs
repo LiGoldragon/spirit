@@ -53,7 +53,12 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
     }));
-    assert!(matches!(observed.root(), Output::RecordsObserved(_)));
+    // Designer 480: Observe now flows through Stash (operator 287 §
+    // "Acceptance Tests"). The slim wire reply carries a handle, not the
+    // full record set. The trace below witnesses the recursive Nexus loop:
+    // NexusEntered fires ONCE per route — the loop runs SEMA + effect under
+    // one Nexus activation.
+    assert!(matches!(observed.root(), Output::RecordsStashed(_)));
 
     assert_activation_names(
         &trace_log.events(),

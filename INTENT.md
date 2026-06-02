@@ -62,11 +62,11 @@ Load-bearing constraints:
   in non-default implementations of the generated Signal, Nexus, and SEMA
   engine traits, not in daemon main or local orchestration conveniences.
 - The schema declares the runtime triad surfaces:
-  `Input`/`Output` for Signal, `NexusInput`/`NexusOutput` for execution mail,
+  `Input`/`Output` for Signal, `NexusWork`/`NexusAction` for Nexus decision flow,
   `SemaWriteInput`/`SemaWriteOutput` for database mutations, and
   `SemaReadInput`/`SemaReadOutput` for database reads.
 - Generated plane namespaces expose the same shapes as `signal::Input` /
-  `signal::Output`, `nexus::Input` / `nexus::Output`,
+  `signal::Output`, `nexus::Work` / `nexus::Action`,
   `sema::WriteInput`, `sema::WriteOutput`, `sema::ReadInput`, and
   `sema::ReadOutput`. The flat names are bootstrap backing names; runtime
   trait signatures and tests use the plane namespaces so the plane carries
@@ -81,7 +81,7 @@ Load-bearing constraints:
   roots, and namespace. Their generated Rust differs by trait support and
   runtime ownership, not by a separate notation.
 - Nexus is the execution plane between Signal and SEMA. Signal triage produces
-  a generated `nexus::Nexus<nexus::Input>` envelope directly; that envelope is
+  a generated `nexus::Nexus<nexus::Work>` envelope directly; that envelope is
   the only Signal-to-Nexus runtime handoff.
 - Heavier topic-discovery and ranking algorithms belong to Nexus as
   non-default decision implementations over generated root messages. The
@@ -89,7 +89,7 @@ Load-bearing constraints:
   accepts, validates, correlates, and replies.
 - Nexus is a real runtime object (`Nexus`), not a set of methods on the
   orchestrator. It owns the durable SEMA store handle and the mail ledger. The
-  mutable `NexusEngine::execute(&mut self, nexus::Nexus<nexus::Input>)`
+  mutable `NexusEngine::execute(&mut self, nexus::Nexus<nexus::Work>)`
   borrow is the single-flight guard. `Engine` is a thin composer of the three
   centers and never calls the store directly.
 - Signal admission is explicit in the pilot. `SignalActor::admit` mints the
@@ -100,11 +100,11 @@ Load-bearing constraints:
   `Output::Rejected(SignalRejection { validation_error, database_marker })`
   where `ValidationError` is generated from `schema/lib.schema`; the runtime
   does not use a hand-written rejection enum at the wire boundary.
-- Nexus lowers generated Signal input into generated `NexusOutput::SemaWrite`
-  or `NexusOutput::SemaRead`. Write operations call `SemaEngine::apply`; read
-  operations call `SemaEngine::observe`. When SEMA replies with
-  `SemaWriteOutput` or `SemaReadOutput`, Nexus turns the reply into generated
-  Signal output and records `MessageProcessed<Output>`.
+- Nexus decides from generated `NexusWork` facts and emits generated
+  `NexusAction` commands. Signal arrivals become command actions such as
+  `CommandSemaWrite` or `CommandSemaRead`; SEMA completions re-enter as
+  `SemaWriteCompleted` or `SemaReadCompleted`; Nexus-local effects re-enter
+  as `EffectCompleted`; only `ReplyToSignal` exits back to Signal.
 - `schema-rust-next` emits `SignalEngine`, `NexusEngine`, and `SemaEngine`
   when the schema declares the corresponding input/output pairs. `SignalActor`
   implements `SignalEngine` as the lightweight triage/reply boundary; `Nexus`
@@ -123,7 +123,7 @@ Load-bearing constraints:
   method surfaces that move through them. The pilot should not grow free
   routing helpers beside the generated objects.
 - Runtime-triad tests use schema-emitted data types as their witnesses:
-  `MailLedgerEvent` for lifecycle hooks, `NexusInput`/`NexusOutput` for Nexus
+  `MailLedgerEvent` for lifecycle hooks, `NexusWork`/`NexusAction` for Nexus
   execution, and split SEMA write/read roots for SEMA operations. Test-only
   enums are not valid substitutes for the schema objects whose path is being
   proved.

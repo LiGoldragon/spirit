@@ -2,8 +2,8 @@ use std::{convert::Infallible, sync::Mutex};
 
 use crate::{
     DatabaseMarker, Entry, Input, Integer, MailIdentifier, MailLedgerEvent, MessageIdentifier,
-    MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook, NexusEngine, NexusInput,
-    NexusOutput, OriginRoute, Output, ProcessedMail, Query, SentMail, ShortHeader, SignalEngine,
+    MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook, NexusAction, NexusEngine,
+    NexusWork, OriginRoute, Output, ProcessedMail, Query, SentMail, ShortHeader, SignalEngine,
     SignalRejection, TopicMatch, Topics, ValidationError,
     nexus::Nexus,
     schema::lib::{nexus as nexus_plane, signal as signal_plane},
@@ -198,12 +198,12 @@ impl SignalEngine for SignalActor {
             .record(TraceEvent::new(ObjectName::Signal(object_name)));
     }
 
-    fn triage_inner(&self, input: signal_plane::Signal<Input>) -> nexus_plane::Nexus<NexusInput> {
+    fn triage_inner(&self, input: signal_plane::Signal<Input>) -> nexus_plane::Nexus<NexusWork> {
         let origin_route = input.origin_route();
-        NexusInput::from(input.into_root()).with_origin_route(origin_route)
+        NexusWork::from(input.into_root()).with_origin_route(origin_route)
     }
 
-    fn reply_inner(&self, output: nexus_plane::Nexus<NexusOutput>) -> signal_plane::Signal<Output> {
+    fn reply_inner(&self, output: nexus_plane::Nexus<NexusAction>) -> signal_plane::Signal<Output> {
         output.into_signal_output()
     }
 }
@@ -310,7 +310,7 @@ impl Input {
         match self {
             Self::Record(entry) => entry.validate(),
             Self::Observe(query) => query.validate(),
-            Self::Lookup(_) | Self::Remove(_) => Ok(()),
+            Self::Lookup(_) | Self::Remove(_) | Self::LookupStash(_) => Ok(()),
             Self::Count(query) => query.validate(),
         }
     }
@@ -416,6 +416,7 @@ impl Output {
         match self {
             Self::RecordAccepted(receipt) => receipt.database_marker.clone(),
             Self::RecordsObserved(records) => records.database_marker.clone(),
+            Self::RecordsStashed(stashed) => stashed.database_marker.clone(),
             Self::RecordFound(record) => record.database_marker.clone(),
             Self::RecordsCounted(records) => records.database_marker.clone(),
             Self::RecordRemoved(receipt) => receipt.database_marker.clone(),
