@@ -39,9 +39,11 @@
   ProcessedMail { MailIdentifier * OriginRoute * DatabaseMarker * }
   MailLedgerEvent [(Sent SentMail) (Processed ProcessedMail)]
   TopicMatch [(Partial Topics) (Full Topics)]
-  Entry { Topics * Kind * Description * Magnitude * }
-  Query { TopicMatch * kind (Optional Kind) }
+  Privacy Magnitude
+  PrivacySelection [Any (Exact Privacy) (AtMost Privacy) (AtLeast Privacy)]
+  Entry { Topics * Kind * Description * Magnitude * Privacy * }
+  Query { TopicMatch * kind (Optional Kind) privacy_selection PrivacySelection }
   RecordSet (Vec Entry)
   Kind [Decision Principle Correction Clarification Constraint]
-  Magnitude [Minimum VeryLow Low Medium High VeryHigh Maximum]
+  Magnitude [Zero Minimum VeryLow Low Medium High VeryHigh Maximum]
 }

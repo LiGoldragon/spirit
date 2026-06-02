@@ -26,7 +26,9 @@ Load-bearing constraints:
   and keeps `.asschema.rkyv` as a generated binary cache/witness.
 - `schema/lib.schema` preserves NOTA brace semantics: braces are key-value
   maps, not collections of one-object declarations. A namespace entry is a
-  pair such as `Topic String`, `Entry { Topics * Kind * }`, or `Kind [...]`.
+  pair such as `Topic String`,
+  `Entry { Topics * Kind * Description * Magnitude * Privacy * }`, or
+  `Kind [...]`.
   Struct fields are also key-value pairs; `Topics *` means the key names the
   field and `*` reuses the same type, while `kind (Optional Kind)` binds a
   field to a different composite reference. Enum bodies are square-bracket
@@ -172,11 +174,14 @@ Load-bearing constraints:
 - Spirit-next tracks production Spirit 0.3 behavior where the schema surface
   reaches it while also making the read interface more developed than a toy
   single-variant enum: entries carry multiple topics, `Observe(Query)` supports
-  generated `TopicMatch::{Partial,Full}` plus an optional kind filter,
-  `Lookup(RecordIdentifier)` returns `Output::RecordFound`, `Count(Query)`
-  returns `Output::RecordsCounted`, observations return a multi-entry
-  `RecordSet`, and `Remove(RecordIdentifier)` is a database-work operation
-  that returns generated `Output::RecordRemoved`.
+  generated `TopicMatch::{Partial,Full}` plus optional kind and generated
+  `PrivacySelection` filters, `Lookup(RecordIdentifier)` returns
+  `Output::RecordFound`, `Count(Query)` returns `Output::RecordsCounted`,
+  observations return a multi-entry `RecordSet`, and
+  `Remove(RecordIdentifier)` is a database-work operation that returns
+  generated `Output::RecordRemoved`. Privacy is a directional generated
+  `Magnitude`: `Zero` is open/public, and higher values narrow the intended
+  audience.
 - SEMA is durable (records 1007/1008, bead `primary-q2au`). `Store` is a real
   redb database written to a `*.sema` file: each `Record` is a redb write
   transaction persisting the rkyv-archived `Entry`, each `Remove` is a redb

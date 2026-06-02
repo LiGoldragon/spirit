@@ -141,7 +141,7 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
     // real content hash).
     let recorded = run_cli(
         &socket_path,
-        "(Record ([[schema]] Constraint [schema creates the interface] Maximum))",
+        "(Record ([[schema]] Constraint [schema creates the interface] Maximum Zero))",
     );
     match recorded {
         Output::RecordAccepted(receipt) => {
@@ -153,7 +153,7 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
 
     let observed = run_cli(
         &socket_path,
-        "(Observe ((Full [[schema]]) (Some Constraint)))",
+        "(Observe ((Full [[schema]]) (Some Constraint) (Exact Zero)))",
     );
     assert!(
         matches!(observed, Output::RecordsObserved(_)),
@@ -168,7 +168,7 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
 
     let missing_after_remove = run_cli(
         &socket_path,
-        "(Observe ((Full [[schema]]) (Some Constraint)))",
+        "(Observe ((Full [[schema]]) (Some Constraint) (Exact Zero)))",
     );
     assert!(
         matches!(missing_after_remove, Output::Error(_)),
@@ -177,7 +177,7 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
 
     let rejected = run_cli(
         &socket_path,
-        "(Record ([] Constraint [schema rejects before SEMA] Maximum))",
+        "(Record ([] Constraint [schema rejects before SEMA] Maximum Zero))",
     );
     assert!(
         matches!(rejected, Output::Rejected(_)),
@@ -201,7 +201,7 @@ fn daemon_persists_sema_file_across_a_restart() {
         let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
         let recorded = run_cli(
             &socket_path,
-            "(Record ([[durable-topic]] Decision [survives restart] Maximum))",
+            "(Record ([[durable-topic]] Decision [survives restart] Maximum Zero))",
         );
         match recorded {
             Output::RecordAccepted(receipt) => {
@@ -223,7 +223,7 @@ fn daemon_persists_sema_file_across_a_restart() {
 
     let observed = run_cli(
         &socket_path,
-        "(Observe ((Full [[durable-topic]]) (Some Decision)))",
+        "(Observe ((Full [[durable-topic]]) (Some Decision) (Exact Zero)))",
     );
     match observed {
         Output::RecordsObserved(records) => {
@@ -239,7 +239,7 @@ fn daemon_persists_sema_file_across_a_restart() {
     // the durable counter persisted across the restart, not just records.
     let next = run_cli(
         &socket_path,
-        "(Record ([[durable-topic]] Decision [second after restart] Maximum))",
+        "(Record ([[durable-topic]] Decision [second after restart] Maximum Zero))",
     );
     match next {
         Output::RecordAccepted(receipt) => {
@@ -264,7 +264,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
         let _daemon = DaemonProcess::spawn(&socket_path, &production_database_path);
         let recorded = run_cli(
             &socket_path,
-            "(Record ([[handover]] Constraint [production entry before copy] Maximum))",
+            "(Record ([[handover]] Constraint [production entry before copy] Maximum Zero))",
         );
         match recorded {
             Output::RecordAccepted(receipt) => {
@@ -283,7 +283,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
         let _daemon = DaemonProcess::spawn(&socket_path, &candidate_database_path);
         let observed = run_cli(
             &socket_path,
-            "(Observe ((Full [[handover]]) (Some Constraint)))",
+            "(Observe ((Full [[handover]]) (Some Constraint) (Exact Zero)))",
         );
         assert_eq!(
             observed_descriptions(observed),
@@ -293,7 +293,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
 
         let candidate_recorded = run_cli(
             &socket_path,
-            "(Record ([[handover]] Constraint [candidate-only entry after copy] Maximum))",
+            "(Record ([[handover]] Constraint [candidate-only entry after copy] Maximum Zero))",
         );
         match candidate_recorded {
             Output::RecordAccepted(receipt) => {
@@ -308,7 +308,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
 
         let candidate_observed = run_cli(
             &socket_path,
-            "(Observe ((Full [[handover]]) (Some Constraint)))",
+            "(Observe ((Full [[handover]]) (Some Constraint) (Exact Zero)))",
         );
         assert_eq!(
             observed_descriptions(candidate_observed),
@@ -325,7 +325,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
         let _daemon = DaemonProcess::spawn(&socket_path, &production_database_path);
         let observed = run_cli(
             &socket_path,
-            "(Observe ((Full [[handover]]) (Some Constraint)))",
+            "(Observe ((Full [[handover]]) (Some Constraint) (Exact Zero)))",
         );
         assert_eq!(
             observed_descriptions(observed),
@@ -335,7 +335,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
 
         let production_next = run_cli(
             &socket_path,
-            "(Record ([[handover]] Constraint [production entry after handover] Maximum))",
+            "(Record ([[handover]] Constraint [production entry after handover] Maximum Zero))",
         );
         match production_next {
             Output::RecordAccepted(receipt) => {
@@ -363,7 +363,7 @@ fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
     let recorded = run_cli_with_trace(
         &socket_path,
         &trace_socket_path,
-        "(Record ([[trace]] Constraint [trace crosses daemon boundary] Maximum))",
+        "(Record ([[trace]] Constraint [trace crosses daemon boundary] Maximum Zero))",
     );
     assert!(
         matches!(recorded.output, Output::RecordAccepted(_)),
@@ -382,7 +382,7 @@ fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
     let observed = run_cli_with_trace(
         &socket_path,
         &trace_socket_path,
-        "(Observe ((Full [[trace]]) (Some Constraint)))",
+        "(Observe ((Full [[trace]]) (Some Constraint) (Exact Zero)))",
     );
     assert!(
         matches!(observed.output, Output::RecordsObserved(_)),

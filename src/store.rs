@@ -4,9 +4,9 @@ use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
 
 use crate::{
     CommitSequence, CountedRecords, DatabaseMarker, Entry, ErrorMessage, ErrorReport, FoundRecord,
-    Magnitude, ObservedRecords, Query, RecordCount, RecordIdentifier, RecordSet, RemoveReceipt,
-    SemaEngine, SemaReadInput, SemaReadOutput, SemaReceipt, SemaWriteInput, SemaWriteOutput,
-    StateDigest, schema::lib::sema as sema_plane,
+    Magnitude, ObservedRecords, Privacy, PrivacySelection, Query, RecordCount, RecordIdentifier,
+    RecordSet, RemoveReceipt, SemaEngine, SemaReadInput, SemaReadOutput, SemaReceipt,
+    SemaWriteInput, SemaWriteOutput, StateDigest, schema::lib::sema as sema_plane,
 };
 
 #[cfg(feature = "testing-trace")]
@@ -408,12 +408,29 @@ impl Query {
     pub fn matches(&self, entry: &Entry) -> bool {
         self.topic_match.matches(&entry.topics)
             && self.kind.as_ref().is_none_or(|kind| &entry.kind == kind)
+            && self.privacy_selection.matches(&entry.privacy)
+    }
+}
+
+impl PrivacySelection {
+    pub fn default_observation_privacy() -> Self {
+        Self::Exact(Privacy(Magnitude::Zero))
+    }
+
+    pub fn matches(&self, privacy: &Privacy) -> bool {
+        match self {
+            Self::Any => true,
+            Self::Exact(expected) => privacy == expected,
+            Self::AtMost(maximum) => privacy.0.weight() <= maximum.0.weight(),
+            Self::AtLeast(minimum) => privacy.0.weight() >= minimum.0.weight(),
+        }
     }
 }
 
 impl Magnitude {
     pub fn weight(&self) -> u64 {
         match self {
+            Self::Zero => 0,
             Self::Minimum => 1,
             Self::VeryLow => 2,
             Self::Low => 3,

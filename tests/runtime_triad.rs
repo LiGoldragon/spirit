@@ -1,11 +1,11 @@
 use spirit_next::{
     CommitSequence, DatabaseMarker, Description, Engine, Entry, ErrorMessage, ErrorReport, Input,
     Kind, Magnitude, MailIdentifier, MailLedgerEvent, MessageIdentifier, MessageSent,
-    MessageSentHook, Nexus, NexusEngine, NexusInput, NexusOutput, OriginRoute, Output,
-    ProcessedMail, Query, RecordCount, RecordIdentifier, RecordSet, SemaEngine, SemaReadInput,
-    SemaReadOutput, SemaReceipt, SemaWriteInput, SemaWriteOutput, SentMail, ShortHeader,
-    SignalActor, SignalEngine, SignalRejection, StateDigest, Store, Topic, TopicMatch, Topics,
-    ValidationError, schema_meta, sema,
+    MessageSentHook, Nexus, NexusEngine, NexusInput, NexusOutput, OriginRoute, Output, Privacy,
+    PrivacySelection, ProcessedMail, Query, RecordCount, RecordIdentifier, RecordSet, SemaEngine,
+    SemaReadInput, SemaReadOutput, SemaReceipt, SemaWriteInput, SemaWriteOutput, SentMail,
+    ShortHeader, SignalActor, SignalEngine, SignalRejection, StateDigest, Store, Topic, TopicMatch,
+    Topics, ValidationError, schema_meta, sema,
 };
 #[cfg(feature = "nota-text")]
 use spirit_next::{Export, Import, LocalPath, PublicPath, SourcePath};
@@ -61,6 +61,14 @@ fn entry_with_topics(topics: &[&str], description: &str) -> Entry {
         kind: Kind::Decision,
         description: Description(String::from(description)),
         magnitude: Magnitude::Maximum,
+        privacy: Privacy(Magnitude::Zero),
+    }
+}
+
+fn entry_with_privacy(description: &str, privacy: Magnitude) -> Entry {
+    Entry {
+        privacy: Privacy(privacy),
+        ..entry(description)
     }
 }
 
@@ -77,6 +85,7 @@ fn full_query(topics: &[&str], kind: Option<Kind>) -> Query {
                 .collect(),
         )),
         kind,
+        privacy_selection: PrivacySelection::default_observation_privacy(),
     }
 }
 
@@ -89,6 +98,14 @@ fn partial_query(topics: &[&str], kind: Option<Kind>) -> Query {
                 .collect(),
         )),
         kind,
+        privacy_selection: PrivacySelection::default_observation_privacy(),
+    }
+}
+
+fn privacy_query(privacy_selection: PrivacySelection) -> Query {
+    Query {
+        privacy_selection,
+        ..query()
     }
 }
 
@@ -400,6 +417,68 @@ fn sema_engine_queries_partial_and_full_topic_sets() {
 }
 
 #[test]
+fn sema_engine_queries_privacy_as_directional_magnitude() {
+    let sema = SemaFile::new();
+    let mut store = sema.open_store();
+    SemaEngine::apply(
+        &mut store,
+        sema_write_message(SemaWriteInput::Record(entry("open")), 1),
+    );
+    SemaEngine::apply(
+        &mut store,
+        sema_write_message(
+            SemaWriteInput::Record(entry_with_privacy("private", Magnitude::High)),
+            2,
+        ),
+    );
+
+    let default = SemaEngine::observe(
+        &store,
+        sema_read_message(
+            SemaReadInput::Observe(privacy_query(
+                PrivacySelection::default_observation_privacy(),
+            )),
+            3,
+        ),
+    );
+    let any = SemaEngine::observe(
+        &store,
+        sema_read_message(
+            SemaReadInput::Observe(privacy_query(PrivacySelection::Any)),
+            4,
+        ),
+    );
+    let high = SemaEngine::observe(
+        &store,
+        sema_read_message(
+            SemaReadInput::Observe(privacy_query(PrivacySelection::AtLeast(Privacy(
+                Magnitude::High,
+            )))),
+            5,
+        ),
+    );
+
+    match default.root() {
+        SemaReadOutput::Observed(records) => {
+            assert_eq!(records.record_set.0.len(), 1);
+            assert_eq!(records.record_set.0[0].description.0, "open");
+        }
+        other => panic!("expected default privacy query to observe open record, got {other:?}"),
+    }
+    match any.root() {
+        SemaReadOutput::Observed(records) => assert_eq!(records.record_set.0.len(), 2),
+        other => panic!("expected any privacy query to observe both records, got {other:?}"),
+    }
+    match high.root() {
+        SemaReadOutput::Observed(records) => {
+            assert_eq!(records.record_set.0.len(), 1);
+            assert_eq!(records.record_set.0[0].description.0, "private");
+        }
+        other => panic!("expected high privacy query to observe private record, got {other:?}"),
+    }
+}
+
+#[test]
 fn sema_engine_lookup_and_count_are_read_plane_operations() {
     let sema = SemaFile::new();
     let mut store = sema.open_store();
@@ -699,6 +778,7 @@ fn full_runtime_triad_records_then_observes_through_durable_sema() {
     let observed = engine.handle(Input::Observe(Query {
         topic_match: TopicMatch::Full(Topics(vec![Topic(String::from("runtime-triad"))])),
         kind: Some(Kind::Decision),
+        privacy_selection: PrivacySelection::default_observation_privacy(),
     }));
 
     assert_eq!(observed.origin_route(), route(2));

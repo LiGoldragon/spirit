@@ -24,7 +24,8 @@ impl<'payload> LengthPrefixedFrame<'payload> {
 
 #[test]
 fn transport_rejects_length_prefixed_raw_nota_text() {
-    let nota = b"(Record ([[socket-negative]] Decision [text must not be daemon wire] Maximum))";
+    let nota =
+        b"(Record ([[socket-negative]] Decision [text must not be daemon wire] Maximum Zero))";
     let bytes = LengthPrefixedFrame::new(nota).to_bytes();
     let mut transport = SignalTransport::new(Cursor::new(bytes));
 
@@ -47,7 +48,8 @@ fn transport_rejects_length_prefixed_garbage_bytes() {
 
 #[test]
 fn generated_input_decoder_rejects_raw_nota_text_directly() {
-    let nota = b"(Record ([[socket-negative]] Decision [text must not be signal frame] Maximum))";
+    let nota =
+        b"(Record ([[socket-negative]] Decision [text must not be signal frame] Maximum Zero))";
 
     assert!(
         Input::decode_signal_frame(nota).is_err(),

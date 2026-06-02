@@ -48,7 +48,8 @@ Signal/Nexus/SEMA event sequence that returns over the trace socket.
 
 The current `schema/lib.schema` intentionally keeps braces strict as NOTA
 key-value maps. The namespace contains pairs such as `Topic String`,
-`RecordSet (Vec Entry)`, and `Entry { Topics * Kind * Description * }`; it
+`RecordSet (Vec Entry)`, and
+`Entry { Topics * Kind * Description * Magnitude * Privacy * }`; it
 does not contain declarations that repeat their own name inside the value.
 Inside a struct map, `Topics *` derives the `topics` field from the existing
 `Topics` type, and explicit bindings such as `kind (Optional Kind)` stay only
@@ -197,12 +198,15 @@ a real **redb** database written to a `*.sema` file:
   and `Count(Query)` returns the number of matching records without mutating
   state. The `&self` receiver lets parallel readers share the store reference;
   `tests/runtime_triad.rs` has a scoped-thread witness for this shape.
-- Entries carry `Topics`, a generated vector newtype. Queries carry
-`TopicMatch::{Partial,Full}` and an optional `Kind`: `Partial` accepts any
-requested topic, `Full` requires every requested topic, and `None` in the
-kind position searches only by topic. The same query noun drives both
-`Observe` and `Count`, while `Lookup` uses the generated `RecordIdentifier`
-newtype.
+- Entries carry `Topics`, a generated vector newtype, plus generated
+`Privacy`. Privacy is a directional `Magnitude`: `Zero` is open/public, and
+higher magnitudes narrow the intended audience. Queries carry
+`TopicMatch::{Partial,Full}`, an optional `Kind`, and generated
+`PrivacySelection`: `Partial` accepts any requested topic, `Full` requires
+every requested topic, `None` in the kind position searches by topic and
+privacy, and default privacy selection is exact `Zero`. The same query noun
+drives both `Observe` and `Count`, while `Lookup` uses the generated
+`RecordIdentifier` newtype.
 - redb's transaction model gives crash-consistency: a store reopened from the
   same `.sema` path resumes its committed records AND its commit ledger, so the
   next write after a restart continues the sequence rather than restarting at 1.

@@ -242,11 +242,25 @@ pub enum TopicMatch {
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Privacy(pub Magnitude);
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum PrivacySelection {
+    Any,
+    Exact(Privacy),
+    AtMost(Privacy),
+    AtLeast(Privacy),
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Entry {
     pub topics: Topics,
     pub kind: Kind,
     pub description: Description,
     pub magnitude: Magnitude,
+    pub privacy: Privacy,
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -254,6 +268,7 @@ pub struct Entry {
 pub struct Query {
     pub topic_match: TopicMatch,
     pub kind: Option<Kind>,
+    pub privacy_selection: PrivacySelection,
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -273,6 +288,7 @@ pub enum Kind {
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum Magnitude {
+    Zero,
     Minimum,
     VeryLow,
     Low,
@@ -858,6 +874,28 @@ impl MailLedgerEvent {
 
 #[cfg(feature = "nota-text")]
 impl TopicMatch {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl Privacy {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl PrivacySelection {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }

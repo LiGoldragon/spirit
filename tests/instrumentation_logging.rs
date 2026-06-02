@@ -1,7 +1,7 @@
 use spirit_next::{
     CommitSequence, DatabaseMarker, Description, Engine, Entry, Kind, Magnitude, NexusObjectName,
-    ObjectName, Output, SemaObjectName, SignalObjectName, StateDigest, Topic, TopicMatch, Topics,
-    TraceEvent, TraceLog, ValidationError,
+    ObjectName, Output, Privacy, PrivacySelection, SemaObjectName, SignalObjectName, StateDigest,
+    Topic, TopicMatch, Topics, TraceEvent, TraceLog, ValidationError,
 };
 use tempfile::TempDir;
 
@@ -32,6 +32,7 @@ fn entry(description: &str) -> Entry {
         kind: Kind::Decision,
         description: Description(String::from(description)),
         magnitude: Magnitude::Maximum,
+        privacy: Privacy(Magnitude::Zero),
     }
 }
 
@@ -50,6 +51,7 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
     let observed = engine.handle(spirit_next::Input::Observe(spirit_next::Query {
         topic_match: TopicMatch::Full(Topics(vec![Topic(String::from("trace"))])),
         kind: Some(Kind::Decision),
+        privacy_selection: PrivacySelection::default_observation_privacy(),
     }));
     assert!(matches!(observed.root(), Output::RecordsObserved(_)));
 

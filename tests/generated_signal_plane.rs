@@ -1,6 +1,6 @@
 use spirit_next::{
     CommitSequence, DatabaseMarker, Description, Entry, Input, InputRoute, Kind, Magnitude,
-    MessageIdentifier, MessageRoot, OriginRoute, Output, OutputRoute, RecordIdentifier,
+    MessageIdentifier, MessageRoot, OriginRoute, Output, OutputRoute, Privacy, RecordIdentifier,
     SemaReceipt, SignalFrameError, SignalRejection, StateDigest, Topic, Topics, ValidationError,
 };
 
@@ -18,6 +18,7 @@ fn generated_input_surface_owns_route_header_and_rkyv_frame() {
         kind: Kind::Constraint,
         description: Description(String::from("schema creates the signal plane")),
         magnitude: Magnitude::Maximum,
+        privacy: Privacy(Magnitude::Zero),
     });
 
     assert_eq!(input.route(), InputRoute::Record);
@@ -87,6 +88,7 @@ fn generated_signal_surface_rejects_unknown_header_before_body_decode() {
         kind: Kind::Constraint,
         description: Description(String::from("schema rejects unknown routes")),
         magnitude: Magnitude::Maximum,
+        privacy: Privacy(Magnitude::Zero),
     })
     .encode_signal_frame()
     .expect("encode frame");
@@ -110,6 +112,7 @@ fn generated_signal_surface_emits_mail_sent_event() {
         kind: Kind::Constraint,
         description: Description(String::from("schema emits mail events")),
         magnitude: Magnitude::Maximum,
+        privacy: Privacy(Magnitude::Zero),
     });
 
     let message = input.with_origin_route(OriginRoute(91));

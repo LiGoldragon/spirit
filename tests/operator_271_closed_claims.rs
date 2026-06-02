@@ -108,7 +108,7 @@ fn lib_schema_unit_variant_enum_uses_bare_pascal_case_atoms() {
 
     // Magnitude is a seven-variant unit enum.
     witness.must_contain(
-        "Magnitude [Minimum VeryLow Low Medium High VeryHigh Maximum]",
+        "Magnitude [Zero Minimum VeryLow Low Medium High VeryHigh Maximum]",
         "4",
     );
 }
