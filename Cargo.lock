@@ -540,6 +540,7 @@ dependencies = [
  "schema-next",
  "schema-rust-next",
  "tempfile",
+ "triad-runtime",
 ]
 
 [[package]]
@@ -567,6 +568,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "thiserror"
+version = "2.0.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4288b5bcbc7920c07a1149a35cf9590a2aa808e0bc1eafaade0b80947865fbc4"
+dependencies = [
+ "thiserror-impl",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "2.0.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebc4ee7f67670e9b64d05fa4253e753e016c6c95ff35b89b7941d6b856dec1d5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "tinyvec"
 version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -580,6 +601,14 @@ name = "tinyvec_macros"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
+
+[[package]]
+name = "triad-runtime"
+version = "0.1.0"
+source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#cfbcca4c822811876dc9db609720f5d1e057b22f"
+dependencies = [
+ "thiserror",
+]
 
 [[package]]
 name = "unicode-ident"

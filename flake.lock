@@ -94,7 +94,8 @@
         "nixpkgs": "nixpkgs",
         "nota-next-source": "nota-next-source",
         "schema-next-source": "schema-next-source",
-        "schema-rust-next-source": "schema-rust-next-source"
+        "schema-rust-next-source": "schema-rust-next-source",
+        "triad-runtime-source": "triad-runtime-source"
       }
     },
     "rust-analyzer-src": {
@@ -117,11 +118,11 @@
     "schema-next-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1780308011,
-        "narHash": "sha256-QuEpnAJ+lPZAc0/5I//mGRAeVhdHJi7HbnMgdboBm4s=",
+        "lastModified": 1780420194,
+        "narHash": "sha256-hMS20UWOhy15y83aANl+7FaF37cNOiqU2glzH3uz/cU=",
         "owner": "LiGoldragon",
         "repo": "schema-next",
-        "rev": "e2a8abfcaae2d083dc19e46e15be26f8f7a5e5cc",
+        "rev": "6b34fa93587645af6a380e36621b14793c18f58b",
         "type": "github"
       },
       "original": {
@@ -133,11 +134,11 @@
     "schema-rust-next-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1780385724,
-        "narHash": "sha256-g9SEiEnoGhnFYZOGRGq4VPpUvjgt9K4VcHyB6E5emcY=",
+        "lastModified": 1780421565,
+        "narHash": "sha256-6nKxTCquR4U/pqQXroF7Ai3bOARlixfiODCNbqGfKtw=",
         "owner": "LiGoldragon",
         "repo": "schema-rust-next",
-        "rev": "d3ec9f9113bb80ea018460bf9654179ae3dda16b",
+        "rev": "c6ec14e42ceedad9f84de5c8c18a63fdb81c531b",
         "type": "github"
       },
       "original": {
@@ -158,6 +159,22 @@
       "original": {
         "owner": "nix-systems",
         "repo": "default",
+        "type": "github"
+      }
+    },
+    "triad-runtime-source": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1780424106,
+        "narHash": "sha256-/jqHR+zSzIopuzVleqAl8lwwaNKmgYgcFYuG+jhNK74=",
+        "owner": "LiGoldragon",
+        "repo": "triad-runtime",
+        "rev": "cfbcca4c822811876dc9db609720f5d1e057b22f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "LiGoldragon",
+        "repo": "triad-runtime",
         "type": "github"
       }
     }

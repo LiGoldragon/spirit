@@ -132,6 +132,11 @@ Load-bearing constraints:
   Signal admission/reply, Nexus execution/decision, SEMA write application,
   and SEMA read observation while preserving default production binary
   behavior.
+- Trace transport mechanics come from `triad-runtime` in trace builds. Spirit
+  owns the generated `TraceEvent` object and actor hook emission; the shared
+  runtime owns the generic in-memory log, length-prefixed binary trace frame,
+  and Unix trace socket listener. Backpressure and deeper runtime-control
+  machinery are deferred future work, not part of this production slice.
 - The testing trace surface is live across the real daemon boundary. A
   trace-enabled daemon can write rkyv-encoded `TraceEvent` frames to a typed
   Unix trace socket named in binary `Configuration`; a trace-enabled CLI can

@@ -34,7 +34,7 @@ required-features = ["nota-text"]
 [features]
 default = []
 nota-text = ["dep:nota-next"]
-testing-trace = []
+testing-trace = ["dep:triad-runtime"]
 
 [[test]]
 name = "instrumentation_logging"
@@ -46,6 +46,7 @@ nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "ma
 rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
 redb = "2.6.3"
 blake3 = "1"
+triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main", optional = true }
 
 [build-dependencies]
 schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }

@@ -37,14 +37,17 @@ runtime. Normal Nix packages build a lean binary daemon plus NOTA CLI adapter.
 Trace packages build the same pair with `testing-trace`; the daemon can emit
 rkyv `TraceEvent` frames to a configured trace socket, and the CLI can listen
 on that socket and render decoded trace events after the ordinary Signal
-reply. A trace event is a schema-generated typed `ObjectName` supplied by the
-generated trait wrapper (`SignalObjectName::Triaged`,
-`NexusObjectName::Entered`, `SemaObjectName::WriteApplied`,
-`SemaObjectName::ReadObserved`, and siblings), not a free string or cloned
-payload snapshot. The CLI renders that object to a human-facing name. The trace
-path is a runtime proof surface, not deployment grep: the process-boundary test
-starts a real daemon, sends real CLI requests, and asserts the
-Signal/Nexus/SEMA event sequence that returns over the trace socket.
+reply. Spirit owns the schema-generated typed `TraceEvent` and actor hook
+emission. `triad-runtime` owns the reusable trace log, length-prefixed binary
+frame, and Unix trace socket listener. A trace event is a generated
+`ObjectName` supplied by the generated trait wrapper
+(`SignalObjectName::Triaged`, `NexusObjectName::Entered`,
+`SemaObjectName::WriteApplied`, `SemaObjectName::ReadObserved`, and siblings),
+not a free string or cloned payload snapshot. The CLI renders that object to a
+human-facing name. The trace path is a runtime proof surface, not deployment
+grep: the process-boundary test starts a real daemon, sends real CLI requests,
+and asserts the Signal/Nexus/SEMA event sequence that returns over the trace
+socket.
 
 The current `schema/lib.schema` intentionally keeps braces strict as NOTA
 key-value maps. The namespace contains pairs such as `Topic String`,
@@ -309,9 +312,11 @@ Testing trace follows the same ownership rule. The generated `SignalEngine`,
 default wrapper methods around their inner behavior methods. `SignalActor`,
 `Nexus`, and `Store` override those hooks in `testing-trace` builds and write
 events into `TraceLog`. Signal emits admitted/rejected/triaged/replied, Nexus
-emits entered/decided, and SEMA emits write-applied/read-observed. `TraceLog`
-decides whether to record in memory, write a rkyv frame to the trace socket, or
-stay disabled when explicitly requested.
+emits entered/decided, and SEMA emits write-applied/read-observed. The local
+trace module only implements `triad_runtime::trace::TraceEventFrame` for the
+generated `TraceEvent` and re-exports the generic runtime objects.
+`triad-runtime` decides whether to record in memory, write a rkyv frame to the
+trace socket, or stay disabled when explicitly requested.
 
 When a data shape changes, edit `schema/lib.schema` first, then regenerate
 through `build.rs`, then update the methods that act on the regenerated types.

@@ -21,12 +21,17 @@
       url = "github:LiGoldragon/schema-rust-next";
       flake = false;
     };
+    triad-runtime-source = {
+      url = "github:LiGoldragon/triad-runtime";
+      flake = false;
+    };
   };
 
   outputs = { self, nixpkgs, flake-utils, fenix, crane
     , nota-next-source
     , schema-next-source
     , schema-rust-next-source
+    , triad-runtime-source
   }:
     flake-utils.lib.eachDefaultSystem (system:
       let
@@ -63,6 +68,7 @@
           notaNextSource = nota-next-source;
           schemaNextSource = schema-next-source;
           schemaRustNextSource = schema-rust-next-source;
+          triadRuntimeSource = triad-runtime-source;
         } ''
           cp -R ${cleanSource} $out
           chmod -R u+w $out
@@ -70,6 +76,7 @@
           cp -R "$notaNextSource" $out/vendor-sources/nota-next
           cp -R "$schemaNextSource" $out/vendor-sources/schema-next
           cp -R "$schemaRustNextSource" $out/vendor-sources/schema-rust-next
+          cp -R "$triadRuntimeSource" $out/vendor-sources/triad-runtime
 
           cat >> $out/Cargo.toml <<'EOF'
           [patch."https://github.com/LiGoldragon/nota-next.git"]
@@ -80,11 +87,15 @@
 
           [patch."https://github.com/LiGoldragon/schema-rust-next.git"]
           schema-rust-next = { path = "vendor-sources/schema-rust-next" }
+
+          [patch."https://github.com/LiGoldragon/triad-runtime.git"]
+          triad-runtime = { path = "vendor-sources/triad-runtime" }
           EOF
 
           sed -i '\|^source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#|d' $out/Cargo.lock
           sed -i '\|^source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#|d' $out/Cargo.lock
           sed -i '\|^source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#|d' $out/Cargo.lock
+          sed -i '\|^source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#|d' $out/Cargo.lock
         '';
         cargoVendorDirectory = craneLib.vendorCargoDeps { inherit src; };
         commonArguments = {
