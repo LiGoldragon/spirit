@@ -1,12 +1,12 @@
 use std::{
-    fs,
+    env, fs,
     os::unix::net::{UnixListener, UnixStream},
     path::Path,
     sync::Arc,
 };
 
 use crate::{
-    Configuration, Engine, StoreError,
+    Configuration, ConfigurationError, Engine, StoreError,
     store::Store,
     transport::{SignalTransport, TransportError},
 };
@@ -48,6 +48,79 @@ impl From<TransportError> for DaemonError {
 impl From<StoreError> for DaemonError {
     fn from(value: StoreError) -> Self {
         Self::Store(value)
+    }
+}
+
+#[derive(Debug)]
+pub enum DaemonCommandError {
+    ArgumentCount { count: usize },
+    Configuration(ConfigurationError),
+    Daemon(DaemonError),
+}
+
+impl std::fmt::Display for DaemonCommandError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ArgumentCount { count } => write!(
+                formatter,
+                "expected exactly one binary configuration path, received {count}"
+            ),
+            Self::Configuration(error) => write!(formatter, "{error}"),
+            Self::Daemon(error) => write!(formatter, "{error}"),
+        }
+    }
+}
+
+impl std::error::Error for DaemonCommandError {}
+
+impl From<ConfigurationError> for DaemonCommandError {
+    fn from(value: ConfigurationError) -> Self {
+        Self::Configuration(value)
+    }
+}
+
+impl From<DaemonError> for DaemonCommandError {
+    fn from(value: DaemonError) -> Self {
+        Self::Daemon(value)
+    }
+}
+
+pub struct DaemonCommand {
+    arguments: Vec<String>,
+}
+
+impl DaemonCommand {
+    pub fn from_environment() -> Self {
+        Self {
+            arguments: env::args().skip(1).collect(),
+        }
+    }
+
+    pub fn from_arguments<Arguments, Argument>(arguments: Arguments) -> Self
+    where
+        Arguments: IntoIterator<Item = Argument>,
+        Argument: Into<String>,
+    {
+        Self {
+            arguments: arguments.into_iter().map(Into::into).collect(),
+        }
+    }
+
+    pub fn configuration(&self) -> Result<Configuration, DaemonCommandError> {
+        Configuration::from_binary_path(self.single_argument()?).map_err(Into::into)
+    }
+
+    pub fn run(&self) -> Result<(), DaemonCommandError> {
+        Daemon::new(self.configuration()?).run().map_err(Into::into)
+    }
+
+    fn single_argument(&self) -> Result<&str, DaemonCommandError> {
+        match self.arguments.as_slice() {
+            [argument] => Ok(argument),
+            _ => Err(DaemonCommandError::ArgumentCount {
+                count: self.arguments.len(),
+            }),
+        }
     }
 }
 

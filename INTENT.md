@@ -53,6 +53,12 @@ Load-bearing constraints:
 - Old design-convenience APIs do not remain beside the working interface
   (Spirit record 1339). Once the schema-derived trait path exists, parallel
   bypass/convenience surfaces are removed rather than carried for comfort.
+- Daemon startup should move toward a generated/programmatic triad runner.
+  The binary `main` is only an entrypoint; argument handling, binary
+  configuration loading, daemon construction, and the eventual component
+  runner surface belong on data-bearing library nouns. Domain behavior stays
+  in non-default implementations of the generated Signal, Nexus, and SEMA
+  engine traits, not in daemon main or local orchestration conveniences.
 - The schema declares the runtime triad surfaces:
   `Input`/`Output` for Signal, `NexusInput`/`NexusOutput` for execution mail,
   `SemaWriteInput`/`SemaWriteOutput` for database mutations, and
@@ -75,6 +81,10 @@ Load-bearing constraints:
 - Nexus is the execution plane between Signal and SEMA. Signal triage produces
   a generated `nexus::Nexus<nexus::Input>` envelope directly; that envelope is
   the only Signal-to-Nexus runtime handoff.
+- Heavier topic-discovery and ranking algorithms belong to Nexus as
+  non-default decision implementations over generated root messages. The
+  durable tables and indexes those algorithms need belong to SEMA; Signal only
+  accepts, validates, correlates, and replies.
 - Nexus is a real runtime object (`Nexus`), not a set of methods on the
   orchestrator. It owns the durable SEMA store handle and the mail ledger. The
   mutable `NexusEngine::execute(&mut self, nexus::Nexus<nexus::Input>)`

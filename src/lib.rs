@@ -36,7 +36,7 @@ pub mod schema {
 }
 
 pub use config::{Configuration, ConfigurationError};
-pub use daemon::{Daemon, DaemonError};
+pub use daemon::{Daemon, DaemonCommand, DaemonCommandError, DaemonError};
 pub use engine::{Engine, MailLedger, MailLedgerHook, SignalAccepted, SignalActor};
 pub use nexus::Nexus;
 pub use schema::lib::{

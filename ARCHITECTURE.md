@@ -65,6 +65,13 @@ The three runtime centers are concrete objects: `SignalActor` (admission),
 durable `.sema` redb database). `Engine` composes them and owns no SEMA state
 of its own.
 
+`DaemonCommand` is the current programmatic startup noun. The daemon binary
+`main` only creates `DaemonCommand::from_environment()` and runs it; the
+command loads the single binary configuration path and constructs `Daemon`.
+This is the small live step toward the generated component runner: startup
+behavior belongs to library nouns, while domain decisions belong to generated
+engine trait implementations.
+
 ## Borrowed prototype lessons
 
 - From `design-nota-from-schema`: make the recursion floor explicit and keep
@@ -94,7 +101,8 @@ The CLI:
 
 The daemon:
 
-1. starts from a path to a binary rkyv `Configuration` object;
+1. starts from `DaemonCommand`, which accepts exactly one argument: a path to a
+   binary rkyv `Configuration` object;
 2. opens the configured socket and `.sema` database path;
 3. reads a length-prefixed binary frame;
 4. asks generated `Input` to triage by short header and decode itself;
@@ -160,6 +168,12 @@ matching SEMA trait method and projects the SEMA reply back toward Signal. The
 processed ledger event is generated `MessageProcessed<Output>`, so the same
 `OriginRoute` is carried from Signal admission through Nexus, SEMA, and back to
 the Signal reply.
+
+Nexus is the home for non-default decision algorithms. Frecency ranking,
+co-occurrence decisions, semantic similarity, or future topic-discovery logic
+should extend `NexusEngine` behavior over generated root messages. SEMA owns
+the durable indexes and tables those algorithms read; Signal remains the
+communication boundary.
 
 ### SEMA
 
