@@ -7,6 +7,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[cfg(feature = "testing-trace")]
+use spirit_next::TraceEvent;
 use spirit_next::{CommitSequence, Configuration, Output, RecordIdentifier};
 use tempfile::TempDir;
 
@@ -99,25 +101,36 @@ impl TraceCliOutput {
     }
 
     fn assert_trace_sequence(&self, expected: &[&str]) {
-        let actual = self
-            .trace_lines
-            .iter()
-            .map(|line| line.split_once(' ').map(|(name, _)| name).unwrap_or(line))
-            .collect::<Vec<_>>();
+        let events = self.trace_events();
+        let actual = events.iter().map(TraceEvent::name).collect::<Vec<_>>();
         assert_eq!(actual, expected, "trace lines: {:#?}", self.trace_lines);
     }
 
     fn assert_trace_sequence_after_optional_lifecycle_start(&self, expected: &[&str]) {
-        let mut actual = self
-            .trace_lines
-            .iter()
-            .map(|line| line.split_once(' ').map(|(name, _)| name).unwrap_or(line))
-            .collect::<Vec<_>>();
+        let events = self.trace_events();
+        let mut actual = events.iter().map(TraceEvent::name).collect::<Vec<_>>();
         let lifecycle_start = ["SemaStarted", "NexusStarted", "SignalStarted"];
         if actual.starts_with(&lifecycle_start) {
             actual.drain(..lifecycle_start.len());
         }
         assert_eq!(actual, expected, "trace lines: {:#?}", self.trace_lines);
+    }
+
+    fn trace_events(&self) -> Vec<TraceEvent> {
+        self.trace_lines
+            .iter()
+            .map(|line| {
+                let event = TraceEvent::from_str(line).unwrap_or_else(|error| {
+                    panic!("trace CLI line should be generated NOTA {line:?}: {error}")
+                });
+                assert_eq!(
+                    event.to_string(),
+                    *line,
+                    "trace CLI line should be canonical NOTA"
+                );
+                event
+            })
+            .collect()
     }
 }
 

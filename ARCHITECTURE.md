@@ -43,11 +43,12 @@ frame, Unix trace socket listener, and generic client-side trace collector. A
 trace event is a generated `ObjectName` supplied by the generated trait wrapper
 (`SignalObjectName::Triaged`, `NexusObjectName::Entered`,
 `SemaObjectName::WriteApplied`, `SemaObjectName::ReadObserved`, and siblings),
-not a free string or cloned payload snapshot. The CLI renders that object to a
-human-facing name through the shared typed trace client. The trace path is a
-runtime proof surface, not deployment grep: the process-boundary test starts a
-real daemon, sends real CLI requests, and asserts the Signal/Nexus/SEMA event
-sequence that returns over the trace socket.
+not a free string or cloned payload snapshot. The CLI renders the decoded
+`TraceEvent` through its generated NOTA surface via the shared typed trace
+client. The trace path is a runtime proof surface, not deployment grep: the
+process-boundary test starts a real daemon, sends real CLI requests, decodes
+each displayed NOTA trace line back into `TraceEvent`, and asserts the
+Signal/Nexus/SEMA event sequence that returns over the trace socket.
 
 The current `schema/lib.schema` intentionally keeps braces strict as NOTA
 key-value maps. The namespace contains pairs such as `Topic String`,
@@ -325,7 +326,8 @@ admitted/rejected/triaged/replied, Nexus emits started/stopped plus
 entered/decided, and SEMA emits started/stopped plus
 write-applied/read-observed. The local
 trace module only implements `triad_runtime::trace::TraceEventFrame` for the
-generated `TraceEvent` and re-exports the generic runtime objects.
+generated `TraceEvent`, renders `TraceEvent` as generated NOTA in text-client
+builds, and re-exports the generic runtime objects.
 `triad-runtime` decides whether to record in memory, write a rkyv frame to the
 trace socket, or stay disabled when explicitly requested.
 

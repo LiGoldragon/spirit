@@ -151,7 +151,7 @@ Load-bearing constraints:
   the shared `triad-runtime` generic trace client to bind that socket through
   `SPIRIT_NEXT_TRACE_SOCKET`, send the normal binary request on the normal
   socket, decode trace frames as typed `TraceEvent` values, and print
-  human-facing trace lines only at the display edge after the normal Signal
+  generated NOTA trace lines only at the display edge after the normal Signal
   reply. The normal daemon/CLI packages do not enable this surface.
 - Trace events are emitted through hooks on the schema-generated
   `SignalEngine`, `NexusEngine`, and `SemaEngine` traits, not through ad-hoc
@@ -164,8 +164,9 @@ Load-bearing constraints:
   `SignalObjectName::Triaged`, `NexusObjectName::Entered`,
   `SemaObjectName::WriteApplied`, and `SemaObjectName::ReadObserved`;
   trace-enabled actors override one activation hook per plane and record those
-  objects through the shared `ObjectName` wrapper. Names are rendered at the
-  CLI/reporting edge. Tests assert the runtime events crossed Signal
+  objects through the shared `ObjectName` wrapper. The CLI/reporting edge
+  renders the full typed `TraceEvent` through its generated NOTA surface, not
+  through ad-hoc string logs. Tests assert the runtime events crossed Signal
   admission, `SignalEngine`, `NexusEngine`, and `SemaEngine`, so the witness
   proves actor/interface use instead of source-string presence. In
   `testing-trace` builds, `Engine::new` installs a shared recording trace log
@@ -175,7 +176,10 @@ Load-bearing constraints:
   component logic. The CLI supplies the component-specific trace socket
   environment variable and uses the shared typed trace client; future
   `schema-rust-next` emission should remove the remaining component-specific
-  `TraceEventFrame` and `Display` adapter.
+  `TraceEventFrame` and NOTA display adapter. The same client surface can hand
+  typed events to a future trace/introspect SEMA store instead of printing
+  them; the CLI should remain a thin wrapper around that reusable client
+  behavior.
 - The flake exposes separate normal and trace-enabled packages. The default
   package remains the lean normal CLI + daemon pair; `packages.trace`,
   `packages.trace-cli`, and `packages.trace-daemon` build the testing-trace

@@ -1,5 +1,3 @@
-use std::fmt;
-
 use crate::TraceEvent;
 pub use triad_runtime::trace::{TraceError, TraceEventFrame, TraceSocketPath};
 
@@ -20,8 +18,18 @@ impl TraceEventFrame for TraceEvent {
     }
 }
 
-impl fmt::Display for TraceEvent {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(self.name())
+#[cfg(feature = "nota-text")]
+impl std::fmt::Display for TraceEvent {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&<Self as crate::schema::lib::NotaEncode>::to_nota(self))
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl std::str::FromStr for TraceEvent {
+    type Err = crate::schema::lib::NotaDecodeError;
+
+    fn from_str(source: &str) -> Result<Self, Self::Err> {
+        crate::schema::lib::NotaSource::new(source).parse::<Self>()
     }
 }
