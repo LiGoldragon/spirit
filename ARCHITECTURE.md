@@ -40,12 +40,14 @@ on that socket and render decoded trace events after the ordinary Signal
 reply. Spirit owns the schema-generated typed `TraceEvent` and actor hook
 emission. `triad-runtime` owns the reusable trace log, length-prefixed binary
 frame, Unix trace socket listener, and generic client-side trace collector. A
-trace event is a generated `ObjectName` supplied by the generated trait wrapper
+trace event is a transparent generated newtype over `ObjectName`, and that
+object name is supplied by the generated trait wrapper
 (`SignalObjectName::Triaged`, `NexusObjectName::Entered`,
 `SemaObjectName::WriteApplied`, `SemaObjectName::ReadObserved`, and siblings),
 not a free string or cloned payload snapshot. The CLI renders the decoded
 `TraceEvent` through its generated NOTA surface via the shared typed trace
-client. The trace path is a runtime proof surface, not deployment grep: the
+client, producing one object such as `(Sema WriteApplied)` rather than a
+one-field wrapper around it. The trace path is a runtime proof surface, not deployment grep: the
 process-boundary test starts a real daemon, sends real CLI requests, decodes
 each displayed NOTA trace line back into `TraceEvent`, and asserts the
 Signal/Nexus/SEMA event sequence that returns over the trace socket.

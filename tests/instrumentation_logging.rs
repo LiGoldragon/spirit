@@ -101,6 +101,15 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
     let decoded = rkyv::from_bytes::<TraceEvent, rkyv::rancor::Error>(&archive)
         .expect("trace event decodes from rkyv");
     assert_eq!(decoded, events[3]);
+    #[cfg(feature = "nota-text")]
+    {
+        let rendered = events[3].to_string();
+        assert_eq!(rendered, "(Sema WriteApplied)");
+        let parsed = rendered
+            .parse::<TraceEvent>()
+            .expect("trace event parses from generated NOTA");
+        assert_eq!(parsed, events[3]);
+    }
     assert_ne!(
         record_marker.state_digest,
         StateDigest(0),

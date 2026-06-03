@@ -164,9 +164,10 @@ Load-bearing constraints:
   `SignalObjectName::Triaged`, `NexusObjectName::Entered`,
   `SemaObjectName::WriteApplied`, and `SemaObjectName::ReadObserved`;
   trace-enabled actors override one activation hook per plane and record those
-  objects through the shared `ObjectName` wrapper. The CLI/reporting edge
-  renders the full typed `TraceEvent` through its generated NOTA surface, not
-  through ad-hoc string logs. Tests assert the runtime events crossed Signal
+  objects through the shared `ObjectName` wrapper. `TraceEvent` is a
+  transparent generated newtype over that object name, so the CLI/reporting
+  edge renders one generated NOTA object such as `(Sema WriteApplied)`, not a
+  double-delimited one-field wrapper. Tests assert the runtime events crossed Signal
   admission, `SignalEngine`, `NexusEngine`, and `SemaEngine`, so the witness
   proves actor/interface use instead of source-string presence. In
   `testing-trace` builds, `Engine::new` installs a shared recording trace log
