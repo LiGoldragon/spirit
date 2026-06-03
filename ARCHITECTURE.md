@@ -39,15 +39,15 @@ rkyv `TraceEvent` frames to a configured trace socket, and the CLI can listen
 on that socket and render decoded trace events after the ordinary Signal
 reply. Spirit owns the schema-generated typed `TraceEvent` and actor hook
 emission. `triad-runtime` owns the reusable trace log, length-prefixed binary
-frame, and Unix trace socket listener. A trace event is a generated
-`ObjectName` supplied by the generated trait wrapper
+frame, Unix trace socket listener, and generic client-side trace collector. A
+trace event is a generated `ObjectName` supplied by the generated trait wrapper
 (`SignalObjectName::Triaged`, `NexusObjectName::Entered`,
 `SemaObjectName::WriteApplied`, `SemaObjectName::ReadObserved`, and siblings),
 not a free string or cloned payload snapshot. The CLI renders that object to a
-human-facing name. The trace path is a runtime proof surface, not deployment
-grep: the process-boundary test starts a real daemon, sends real CLI requests,
-and asserts the Signal/Nexus/SEMA event sequence that returns over the trace
-socket.
+human-facing name through the shared typed trace client. The trace path is a
+runtime proof surface, not deployment grep: the process-boundary test starts a
+real daemon, sends real CLI requests, and asserts the Signal/Nexus/SEMA event
+sequence that returns over the trace socket.
 
 The current `schema/lib.schema` intentionally keeps braces strict as NOTA
 key-value maps. The namespace contains pairs such as `Topic String`,

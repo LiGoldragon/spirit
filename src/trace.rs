@@ -3,6 +3,7 @@ use std::fmt;
 use crate::TraceEvent;
 pub use triad_runtime::trace::{TraceError, TraceEventFrame, TraceSocketPath};
 
+pub type TraceClient = triad_runtime::trace::TraceClient<TraceEvent>;
 pub type TraceLog = triad_runtime::trace::TraceLog<TraceEvent>;
 pub type TraceSocketListener = triad_runtime::trace::TraceSocketListener<TraceEvent>;
 

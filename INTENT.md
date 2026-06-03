@@ -147,11 +147,12 @@ Load-bearing constraints:
   machinery are deferred future work, not part of this production slice.
 - The testing trace surface is live across the real daemon boundary. A
   trace-enabled daemon can write rkyv-encoded `TraceEvent` frames to a typed
-  Unix trace socket named in binary `Configuration`; a trace-enabled CLI can
-  bind that socket through `SPIRIT_NEXT_TRACE_SOCKET`, send the normal binary
-  request on the normal socket, decode trace frames, and print human-facing
-  trace lines after the normal Signal reply. The normal daemon/CLI packages do
-  not enable this surface.
+  Unix trace socket named in binary `Configuration`; a trace-enabled CLI uses
+  the shared `triad-runtime` generic trace client to bind that socket through
+  `SPIRIT_NEXT_TRACE_SOCKET`, send the normal binary request on the normal
+  socket, decode trace frames as typed `TraceEvent` values, and print
+  human-facing trace lines only at the display edge after the normal Signal
+  reply. The normal daemon/CLI packages do not enable this surface.
 - Trace events are emitted through hooks on the schema-generated
   `SignalEngine`, `NexusEngine`, and `SemaEngine` traits, not through ad-hoc
   source grep, detached helper functions, or parallel local trace traits. The
@@ -170,6 +171,11 @@ Load-bearing constraints:
   `testing-trace` builds, `Engine::new` installs a shared recording trace log
   by default; callers only choose a different destination when they need a
   socket or an explicit disabled sink.
+- Client-side trace collection is generic runtime behavior, not CLI-local
+  component logic. The CLI supplies the component-specific trace socket
+  environment variable and uses the shared typed trace client; future
+  `schema-rust-next` emission should remove the remaining component-specific
+  `TraceEventFrame` and `Display` adapter.
 - The flake exposes separate normal and trace-enabled packages. The default
   package remains the lean normal CLI + daemon pair; `packages.trace`,
   `packages.trace-cli`, and `packages.trace-daemon` build the testing-trace

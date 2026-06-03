@@ -57,5 +57,5 @@ pub use schema::lib::{
 };
 pub use store::{Store, StoreError};
 #[cfg(feature = "testing-trace")]
-pub use trace::{TraceError, TraceLog, TraceSocketListener, TraceSocketPath};
+pub use trace::{TraceClient, TraceError, TraceLog, TraceSocketListener, TraceSocketPath};
 pub use transport::{SignalTransport, TransportError};
