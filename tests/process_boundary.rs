@@ -214,6 +214,61 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
 }
 
 #[test]
+fn cli_renders_alias_payload_outputs_without_wrapper_repetition() {
+    let temp = TempDir::new().expect("tempdir");
+    let socket_path = temp.path().join("alias-payload.sock");
+    let database_path = temp.path().join("alias-payload.sema");
+
+    let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
+
+    let rejected = Command::new(env!("CARGO_BIN_EXE_spirit-next"))
+        .env("SPIRIT_NEXT_SOCKET", &socket_path)
+        .arg("(Record ([] Constraint [alias payload rejection] Maximum Zero))")
+        .output()
+        .expect("run cli");
+    assert!(
+        rejected.status.success(),
+        "cli stderr: {}",
+        String::from_utf8_lossy(&rejected.stderr)
+    );
+    let rejected_stdout = String::from_utf8(rejected.stdout).expect("cli stdout is UTF-8");
+    assert_eq!(
+        rejected_stdout.trim(),
+        "(Rejected (EmptyTopic (0 0)))",
+        "Rejected aliases must render the direct SignalRejection payload without a Rejected wrapper"
+    );
+    let rejected_output = Output::from_str(rejected_stdout.trim()).unwrap_or_else(|error| {
+        panic!("schema-emitted Output::FromStr on rejection stdout: {error}")
+    });
+    assert!(
+        matches!(rejected_output, Output::Rejected(_)),
+        "parsed rejection should be direct Output::Rejected payload"
+    );
+
+    let recorded = Command::new(env!("CARGO_BIN_EXE_spirit-next"))
+        .env("SPIRIT_NEXT_SOCKET", &socket_path)
+        .arg("(Record ([[alias-payload]] Constraint [direct accepted payload] Maximum Zero))")
+        .output()
+        .expect("run cli");
+    assert!(
+        recorded.status.success(),
+        "cli stderr: {}",
+        String::from_utf8_lossy(&recorded.stderr)
+    );
+    let recorded_stdout = String::from_utf8(recorded.stdout).expect("cli stdout is UTF-8");
+    assert!(
+        recorded_stdout.trim().starts_with("(RecordAccepted (1 (1 "),
+        "RecordAccepted aliases must render the direct SemaReceipt payload, got {recorded_stdout:?}"
+    );
+    let recorded_output = Output::from_str(recorded_stdout.trim())
+        .unwrap_or_else(|error| panic!("schema-emitted Output::FromStr on record stdout: {error}"));
+    assert!(
+        matches!(recorded_output, Output::RecordAccepted(_)),
+        "parsed record reply should be direct Output::RecordAccepted payload"
+    );
+}
+
+#[test]
 fn daemon_persists_sema_file_across_a_restart() {
     // The strongest durability proof: a daemon writes the `.sema` file,
     // the daemon process is killed, a NEW daemon process opens the SAME

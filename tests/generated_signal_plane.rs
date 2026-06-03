@@ -1,7 +1,7 @@
 use spirit_next::{
     DatabaseMarker, Entry, Input, InputRoute, Kind, Magnitude, MessageIdentifier, MessageRoot,
-    OriginRoute, Output, OutputRoute, SemaReceipt, SignalFrameError, SignalRejection,
-    ValidationError,
+    OriginRoute, Output, OutputRoute, Record, Rejected, SemaReceipt, SignalFrameError,
+    SignalRejection, ValidationError,
 };
 
 fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
@@ -62,6 +62,37 @@ fn generated_rejection_output_is_a_signal_schema_variant() {
 
     assert_eq!(route, OutputRoute::Rejected);
     assert_eq!(decoded, output);
+}
+
+#[test]
+fn bare_schema_bindings_are_direct_payload_aliases_not_wrappers() {
+    let record: Record = Entry {
+        topics: vec![String::from("schema")],
+        kind: Kind::Constraint,
+        description: String::from("alias bindings carry direct payloads"),
+        magnitude: Magnitude::Maximum,
+        privacy: Magnitude::Zero,
+    };
+    let input = Input::Record(record);
+    match input {
+        Input::Record(entry) => {
+            assert_eq!(entry.description, "alias bindings carry direct payloads");
+        }
+        other => panic!("expected direct Record payload, got {other:?}"),
+    }
+
+    let rejected: Rejected = SignalRejection {
+        validation_error: ValidationError::EmptyTopic,
+        database_marker: marker(0, 0),
+    };
+    let output = Output::Rejected(rejected);
+    match output {
+        Output::Rejected(rejection) => {
+            assert_eq!(rejection.validation_error, ValidationError::EmptyTopic);
+            assert_eq!(rejection.database_marker, marker(0, 0));
+        }
+        other => panic!("expected direct Rejected payload, got {other:?}"),
+    }
 }
 
 #[cfg(feature = "nota-text")]
