@@ -448,7 +448,7 @@ checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 [[package]]
 name = "schema-next"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#f76e53f3619abcf03f62f92e3efa35195765ca23"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#9e170f4d0d992da0c8631460603a8b724bef6a06"
 dependencies = [
  "nota-next",
  "redb",
@@ -605,7 +605,7 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 [[package]]
 name = "triad-runtime"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#524da352b76f576eca125fd27436da4863cf0f78"
+source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#2b51462fef72540610de0df3f1f0c7ccebc4b653"
 dependencies = [
  "thiserror",
 ]

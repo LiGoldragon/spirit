@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use schema_next::{AsschemaArtifact, SchemaEngine, SchemaPackage};
+use schema_next::{AsschemaArtifact, SchemaEngine, SchemaPackage, SchemaSourceArtifact};
 use schema_rust_next::{GeneratedFile, RustEmissionOptions, RustEmitter};
 
 fn main() {
@@ -36,9 +36,25 @@ impl SchemaBuild {
     fn generated_schema_file(&self) -> GeneratedFile {
         let package = SchemaPackage::new(&self.crate_root, "spirit-next", "0.1.0");
         let source = package.load_lib().expect("read schema/lib.schema");
-        let asschema = SchemaEngine::default()
-            .lower_source(source.source(), source.identity().clone())
-            .expect("lower spirit-next schema");
+        let source_artifact =
+            SchemaSourceArtifact::new(source.to_schema_source().expect("decode schema source"));
+        let source_file = GeneratedSchemaSourceFile::new(&self.output_directory);
+        source_artifact
+            .write_schema_file(source_file.path())
+            .expect("write generated canonical schema source artifact");
+        let recovered_source = SchemaSourceArtifact::read_schema_file(source_file.path())
+            .expect("read generated canonical schema source artifact");
+        if recovered_source != source_artifact {
+            panic!(
+                "generated schema source artifact did not round-trip through {}",
+                source_file.path().display()
+            );
+        }
+
+        let asschema = recovered_source
+            .source()
+            .lower(&SchemaEngine::default(), source.identity().clone())
+            .expect("lower spirit-next schema source");
         let artifact = AsschemaArtifact::new(asschema);
         let artifact_files = GeneratedAsschemaArtifactFiles::new(&self.output_directory);
         artifact
@@ -132,6 +148,18 @@ impl CheckedInAsschemaArtifact {
                 self.path().display()
             );
         }
+    }
+}
+
+struct GeneratedSchemaSourceFile(PathBuf);
+
+impl GeneratedSchemaSourceFile {
+    fn new(output_directory: &Path) -> Self {
+        Self(output_directory.join("lib.schema"))
+    }
+
+    fn path(&self) -> &Path {
+        &self.0
     }
 }
 

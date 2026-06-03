@@ -360,14 +360,16 @@ the intended loop while improving the NOTA parser, schema lowering, or Rust
 emitter: edit a substrate repo, run the consumer check here, and prove the
 generated Rust still compiles and crosses the CLI/daemon rkyv boundary.
 
-`build.rs` lowers with `SchemaEngine::lower_source`, wraps the produced
-`Asschema` in `AsschemaArtifact`, writes fresh `lib.asschema` and
-`lib.asschema.rkyv` witnesses into Cargo's `OUT_DIR`, compares the fresh NOTA
-artifact with checked-in `schema/lib.asschema`, then asks `schema-rust-next` to
-emit Rust from the checked-in artifact path. It compares that output against
-`src/schema/lib.rs`. The build fails if the checked-in assembled schema, the
-checked-in generated source, or the binary artifact witness is missing or
-stale.
+`build.rs` now treats authored schema source as its own artifact. It reads
+`schema/lib.schema` into `SchemaSource`, writes canonical `lib.schema` through
+`SchemaSourceArtifact` in Cargo's `OUT_DIR`, reads that file back, and lowers
+the recovered typed source into `Asschema`. It then wraps the assembled value
+in `AsschemaArtifact`, writes fresh `lib.asschema` and `lib.asschema.rkyv`
+witnesses into `OUT_DIR`, compares the fresh NOTA artifact with checked-in
+`schema/lib.asschema`, then asks `schema-rust-next` to emit Rust from the
+checked-in artifact path. It compares that output against `src/schema/lib.rs`.
+The build fails if the source artifact round-trip, checked-in assembled schema,
+checked-in generated source, or binary artifact witness is missing or stale.
 Runtime code imports `src/schema/lib.rs` directly; it does not include
 generated Rust from `OUT_DIR`.
 

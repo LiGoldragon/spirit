@@ -24,6 +24,12 @@ Load-bearing constraints:
   `schema/lib.asschema` text. Build code compares it against the fresh lowering
   of `schema/lib.schema`, emits Rust from the checked-in `.asschema` artifact,
   and keeps `.asschema.rkyv` as a generated binary cache/witness.
+- Authored schema source is also a typed artifact before assembly.
+  `build.rs` reads `schema/lib.schema` into `SchemaSource`, writes canonical
+  source text through `SchemaSourceArtifact`, reads it back, lowers the
+  recovered typed source into `Asschema`, and only then emits Rust from the
+  checked-in assembled artifact. The source language therefore has an in/out
+  codec on the Spirit stack instead of being a one-way parser.
 - `schema/lib.schema` preserves NOTA brace semantics: braces are key-value
   maps, not collections of one-object declarations. A namespace entry is a
   pair such as `Topic String`,
