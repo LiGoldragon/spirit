@@ -3,10 +3,9 @@ use std::{fmt, fs, path::PathBuf};
 use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
 
 use crate::{
-    ActorStartFailure, ActorStopFailure, CommitSequence, CountedRecords, DatabaseMarker, Entry,
-    ErrorMessage, ErrorReport, FoundRecord, Magnitude, ObservedRecords, Privacy, PrivacySelection,
-    Query, RecordCount, RecordIdentifier, RecordSet, RemoveReceipt, SemaEngine, SemaReadInput,
-    SemaReadOutput, SemaReceipt, SemaWriteInput, SemaWriteOutput, StateDigest,
+    ActorStartFailure, ActorStopFailure, CountedRecords, DatabaseMarker, Entry, ErrorReport,
+    FoundRecord, Magnitude, Privacy, PrivacySelection, Query, RemoveReceipt, SemaEngine,
+    SemaReadInput, SemaReadOutput, SemaReceipt, SemaWriteInput, SemaWriteOutput,
     schema::lib::sema as sema_plane,
 };
 
@@ -63,30 +62,33 @@ impl SemaEngine for Store {
     ) -> sema_plane::Sema<sema_plane::WriteOutput> {
         let origin_route = command.origin_route();
         let output = match command.into_root() {
-            SemaWriteInput::Record(entry) => match self.record(entry) {
-                Ok(identifier) => SemaWriteOutput::Recorded(SemaReceipt {
-                    record_identifier: RecordIdentifier(identifier),
+            SemaWriteInput::Record(record) => match self.record(record) {
+                Ok(identifier) => SemaWriteOutput::recorded(SemaReceipt {
+                    record_identifier: identifier,
                     database_marker: self.database_marker(),
                 }),
-                Err(error) => SemaWriteOutput::Missed(ErrorReport {
-                    error_message: ErrorMessage(error.to_string()),
-                    database_marker: self.database_marker(),
-                }),
-            },
-            SemaWriteInput::Remove(record_identifier) => match self.remove(record_identifier.0) {
-                Ok(true) => SemaWriteOutput::Removed(RemoveReceipt {
-                    record_identifier,
-                    database_marker: self.database_marker(),
-                }),
-                Ok(false) => SemaWriteOutput::Missed(ErrorReport {
-                    error_message: ErrorMessage(String::from("record not found")),
-                    database_marker: self.database_marker(),
-                }),
-                Err(error) => SemaWriteOutput::Missed(ErrorReport {
-                    error_message: ErrorMessage(error.to_string()),
+                Err(error) => SemaWriteOutput::missed(ErrorReport {
+                    error_message: error.to_string(),
                     database_marker: self.database_marker(),
                 }),
             },
+            SemaWriteInput::Remove(remove) => {
+                let record_identifier = remove;
+                match self.remove(record_identifier) {
+                    Ok(true) => SemaWriteOutput::removed(RemoveReceipt {
+                        record_identifier,
+                        database_marker: self.database_marker(),
+                    }),
+                    Ok(false) => SemaWriteOutput::missed(ErrorReport {
+                        error_message: String::from("record not found"),
+                        database_marker: self.database_marker(),
+                    }),
+                    Err(error) => SemaWriteOutput::missed(ErrorReport {
+                        error_message: error.to_string(),
+                        database_marker: self.database_marker(),
+                    }),
+                }
+            }
         };
         output.with_origin_route(origin_route)
     }
@@ -97,42 +99,47 @@ impl SemaEngine for Store {
     ) -> sema_plane::Sema<sema_plane::ReadOutput> {
         let origin_route = query.origin_route();
         let output = match query.into_root() {
-            SemaReadInput::Observe(query) => match self.observe(&query) {
-                Ok(entries) if !entries.is_empty() => SemaReadOutput::Observed(ObservedRecords {
-                    record_set: RecordSet(entries),
+            SemaReadInput::Observe(observe) => match self.observe(&observe) {
+                Ok(entries) if !entries.is_empty() => {
+                    SemaReadOutput::observed(crate::ObservedRecords {
+                        record_set: entries,
+                        database_marker: self.database_marker(),
+                    })
+                }
+                Ok(_) => SemaReadOutput::missed(ErrorReport {
+                    error_message: String::from("no matching record"),
                     database_marker: self.database_marker(),
                 }),
-                Ok(_) => SemaReadOutput::Missed(ErrorReport {
-                    error_message: ErrorMessage(String::from("no matching record")),
-                    database_marker: self.database_marker(),
-                }),
-                Err(error) => SemaReadOutput::Missed(ErrorReport {
-                    error_message: ErrorMessage(error.to_string()),
-                    database_marker: self.database_marker(),
-                }),
-            },
-            SemaReadInput::Lookup(record_identifier) => match self.lookup(record_identifier.0) {
-                Ok(Some(entry)) => SemaReadOutput::Found(FoundRecord {
-                    record_identifier,
-                    entry,
-                    database_marker: self.database_marker(),
-                }),
-                Ok(None) => SemaReadOutput::Missed(ErrorReport {
-                    error_message: ErrorMessage(String::from("record not found")),
-                    database_marker: self.database_marker(),
-                }),
-                Err(error) => SemaReadOutput::Missed(ErrorReport {
-                    error_message: ErrorMessage(error.to_string()),
+                Err(error) => SemaReadOutput::missed(ErrorReport {
+                    error_message: error.to_string(),
                     database_marker: self.database_marker(),
                 }),
             },
-            SemaReadInput::Count(query) => match self.count(&query) {
-                Ok(count) => SemaReadOutput::Counted(CountedRecords {
-                    record_count: RecordCount(count),
+            SemaReadInput::Lookup(lookup) => {
+                let record_identifier = lookup;
+                match self.lookup(record_identifier) {
+                    Ok(Some(entry)) => SemaReadOutput::found(FoundRecord {
+                        record_identifier,
+                        entry,
+                        database_marker: self.database_marker(),
+                    }),
+                    Ok(None) => SemaReadOutput::missed(ErrorReport {
+                        error_message: String::from("record not found"),
+                        database_marker: self.database_marker(),
+                    }),
+                    Err(error) => SemaReadOutput::missed(ErrorReport {
+                        error_message: error.to_string(),
+                        database_marker: self.database_marker(),
+                    }),
+                }
+            }
+            SemaReadInput::Count(count) => match self.count(&count) {
+                Ok(count) => SemaReadOutput::counted(CountedRecords {
+                    record_count: count,
                     database_marker: self.database_marker(),
                 }),
-                Err(error) => SemaReadOutput::Missed(ErrorReport {
-                    error_message: ErrorMessage(error.to_string()),
+                Err(error) => SemaReadOutput::missed(ErrorReport {
+                    error_message: error.to_string(),
                     database_marker: self.database_marker(),
                 }),
             },
@@ -303,8 +310,8 @@ impl Store {
     /// content hash of the committed records.
     pub fn database_marker(&self) -> DatabaseMarker {
         DatabaseMarker {
-            commit_sequence: CommitSequence(self.commit_sequence().unwrap_or(0)),
-            state_digest: StateDigest(self.state_digest().unwrap_or(0)),
+            commit_sequence: self.commit_sequence().unwrap_or(0),
+            state_digest: self.state_digest().unwrap_or(0),
         }
     }
 
@@ -427,15 +434,15 @@ impl Query {
 
 impl PrivacySelection {
     pub fn default_observation_privacy() -> Self {
-        Self::Exact(Privacy(Magnitude::Zero))
+        Self::exact(Magnitude::Zero)
     }
 
     pub fn matches(&self, privacy: &Privacy) -> bool {
         match self {
             Self::Any => true,
             Self::Exact(expected) => privacy == expected,
-            Self::AtMost(maximum) => privacy.0.weight() <= maximum.0.weight(),
-            Self::AtLeast(minimum) => privacy.0.weight() >= minimum.0.weight(),
+            Self::AtMost(maximum) => privacy.weight() <= maximum.weight(),
+            Self::AtLeast(minimum) => privacy.weight() >= minimum.weight(),
         }
     }
 }

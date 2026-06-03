@@ -99,9 +99,8 @@ use std::{
 };
 
 use spirit_next::{
-    CommitSequence, Configuration, DatabaseMarker, Description, Entry, ErrorReport, Kind,
-    Magnitude, Output, OutputRoute, Privacy, RecordIdentifier, SemaReceipt, SignalRejection,
-    StateDigest, Topic, Topics, ValidationError,
+    Configuration, DatabaseMarker, Entry, ErrorReport, Kind, Magnitude, Output, OutputRoute,
+    SemaReceipt, SignalRejection, ValidationError,
 };
 use tempfile::TempDir;
 
@@ -320,18 +319,18 @@ fn run_cli_for_output(binaries: &NixBuiltBinaries, socket: &Path, nota_argument:
 
 fn entry(description: &str) -> Entry {
     Entry {
-        topics: Topics(vec![Topic(String::from("nix-integration"))]),
+        topics: vec![String::from("nix-integration")],
         kind: Kind::Decision,
-        description: Description(String::from(description)),
+        description: String::from(description),
         magnitude: Magnitude::Maximum,
-        privacy: Privacy(Magnitude::Zero),
+        privacy: Magnitude::Zero,
     }
 }
 
 fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
     DatabaseMarker {
-        commit_sequence: CommitSequence(commit_sequence),
-        state_digest: StateDigest(state_digest),
+        commit_sequence,
+        state_digest,
     }
 }
 
@@ -387,8 +386,8 @@ fn nix_built_spirit_cli_records_through_real_socket_to_nix_built_daemon() {
             record_identifier,
             database_marker,
         }) => {
-            assert_eq!(record_identifier, RecordIdentifier(1));
-            assert_eq!(database_marker.commit_sequence, CommitSequence(1));
+            assert_eq!(record_identifier, 1);
+            assert_eq!(database_marker.commit_sequence, 1);
         }
         other => panic!("expected schema-emitted RecordAccepted, got {other:?}"),
     }
@@ -453,10 +452,10 @@ fn nix_built_daemon_persists_state_across_two_cli_invocations() {
     };
 
     assert!(
-        second_marker.commit_sequence.0 > first_marker.commit_sequence.0,
+        second_marker.commit_sequence > first_marker.commit_sequence,
         "schema-emitted CommitSequence advances across CLI invocations: {} -> {}",
-        first_marker.commit_sequence.0,
-        second_marker.commit_sequence.0
+        first_marker.commit_sequence,
+        second_marker.commit_sequence
     );
     // The state digest also evolves (different records contribute
     // different magnitude weights into the digest fold).
@@ -493,13 +492,12 @@ fn nix_built_daemon_observes_recorded_entries_back_through_query() {
             // The schema-emitted RecordSet carries the typed Entry; we
             // assert against schema-typed fixture (record 995).
             assert_eq!(
-                records.record_set.0,
+                records.record_set,
                 vec![entry("observe round trip")],
                 "RecordsObserved must echo the schema-emitted Entry we recorded"
             );
             assert_eq!(
-                records.database_marker.commit_sequence,
-                CommitSequence(1),
+                records.database_marker.commit_sequence, 1,
                 "Observe does not advance the schema-emitted CommitSequence"
             );
         }
@@ -530,7 +528,7 @@ fn nix_built_daemon_returns_missed_when_no_matching_record_exists() {
             database_marker,
         }) => {
             // The schema-emitted ErrorMessage carries the SEMA "no matching record" string.
-            assert_eq!(error_message.0, "no matching record");
+            assert_eq!(error_message, "no matching record");
             assert_eq!(database_marker, marker(0, 0));
         }
         other => panic!("expected schema-emitted Output::Error, got {other:?}"),
@@ -562,11 +560,11 @@ fn nix_built_daemon_handles_back_to_back_inputs_through_one_socket() {
     }
 
     assert_eq!(markers.len(), 3);
-    assert_eq!(markers[0].commit_sequence, CommitSequence(1));
-    assert_eq!(markers[1].commit_sequence, CommitSequence(2));
-    assert_eq!(markers[2].commit_sequence, CommitSequence(3));
+    assert_eq!(markers[0].commit_sequence, 1);
+    assert_eq!(markers[1].commit_sequence, 2);
+    assert_eq!(markers[2].commit_sequence, 3);
     // Each digest distinct — proving Record actually changed state, not just the counter.
-    let digests: Vec<_> = markers.iter().map(|m| m.state_digest.0).collect();
+    let digests: Vec<_> = markers.iter().map(|m| m.state_digest).collect();
     let mut sorted = digests.clone();
     sorted.sort();
     sorted.dedup();

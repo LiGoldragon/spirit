@@ -1,24 +1,24 @@
 use spirit_next::{
-    CommitSequence, DatabaseMarker, Description, Entry, Input, InputRoute, Kind, Magnitude,
-    MessageIdentifier, MessageRoot, OriginRoute, Output, OutputRoute, Privacy, RecordIdentifier,
-    SemaReceipt, SignalFrameError, SignalRejection, StateDigest, Topic, Topics, ValidationError,
+    DatabaseMarker, Entry, Input, InputRoute, Kind, Magnitude, MessageIdentifier, MessageRoot,
+    OriginRoute, Output, OutputRoute, SemaReceipt, SignalFrameError, SignalRejection,
+    ValidationError,
 };
 
 fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
     DatabaseMarker {
-        commit_sequence: CommitSequence(commit_sequence),
-        state_digest: StateDigest(state_digest),
+        commit_sequence,
+        state_digest,
     }
 }
 
 #[test]
 fn generated_input_surface_owns_route_header_and_rkyv_frame() {
-    let input = Input::Record(Entry {
-        topics: Topics(vec![Topic(String::from("schema"))]),
+    let input = Input::record(Entry {
+        topics: vec![String::from("schema")],
         kind: Kind::Constraint,
-        description: Description(String::from("schema creates the signal plane")),
+        description: String::from("schema creates the signal plane"),
         magnitude: Magnitude::Maximum,
-        privacy: Privacy(Magnitude::Zero),
+        privacy: Magnitude::Zero,
     });
 
     assert_eq!(input.route(), InputRoute::Record);
@@ -32,8 +32,8 @@ fn generated_input_surface_owns_route_header_and_rkyv_frame() {
 
 #[test]
 fn generated_output_surface_owns_route_header_and_rkyv_frame() {
-    let output = Output::RecordAccepted(SemaReceipt {
-        record_identifier: RecordIdentifier(7),
+    let output = Output::record_accepted(SemaReceipt {
+        record_identifier: 7,
         database_marker: marker(3, 97),
     });
 
@@ -48,7 +48,7 @@ fn generated_output_surface_owns_route_header_and_rkyv_frame() {
 
 #[test]
 fn generated_rejection_output_is_a_signal_schema_variant() {
-    let output = Output::Rejected(SignalRejection {
+    let output = Output::rejected(SignalRejection {
         validation_error: ValidationError::EmptyTopic,
         database_marker: marker(0, 0),
     });
@@ -73,7 +73,7 @@ fn generated_validation_error_round_trips_through_nota() {
 
     assert_eq!(
         rejection,
-        Output::Rejected(SignalRejection {
+        Output::rejected(SignalRejection {
             validation_error: ValidationError::EmptyDescription,
             database_marker: marker(0, 0),
         })
@@ -83,12 +83,12 @@ fn generated_validation_error_round_trips_through_nota() {
 
 #[test]
 fn generated_signal_surface_rejects_unknown_header_before_body_decode() {
-    let mut frame = Input::Record(Entry {
-        topics: Topics(vec![Topic(String::from("schema"))]),
+    let mut frame = Input::record(Entry {
+        topics: vec![String::from("schema")],
         kind: Kind::Constraint,
-        description: Description(String::from("schema rejects unknown routes")),
+        description: String::from("schema rejects unknown routes"),
         magnitude: Magnitude::Maximum,
-        privacy: Privacy(Magnitude::Zero),
+        privacy: Magnitude::Zero,
     })
     .encode_signal_frame()
     .expect("encode frame");
@@ -107,12 +107,12 @@ fn generated_signal_surface_rejects_unknown_header_before_body_decode() {
 
 #[test]
 fn generated_signal_surface_emits_mail_sent_event() {
-    let input = Input::Record(Entry {
-        topics: Topics(vec![Topic(String::from("schema"))]),
+    let input = Input::record(Entry {
+        topics: vec![String::from("schema")],
         kind: Kind::Constraint,
-        description: Description(String::from("schema emits mail events")),
+        description: String::from("schema emits mail events"),
         magnitude: Magnitude::Maximum,
-        privacy: Privacy(Magnitude::Zero),
+        privacy: Magnitude::Zero,
     });
 
     let message = input.with_origin_route(OriginRoute(91));

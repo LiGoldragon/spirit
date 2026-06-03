@@ -1,6 +1,6 @@
 {}
-[(Record Entry) (Observe Query) (Lookup RecordIdentifier) (Count Query) (Remove RecordIdentifier) (LookupStash StashHandle)]
-[(RecordAccepted SemaReceipt) (RecordsObserved ObservedRecords) (RecordsStashed StashedObservation) (RecordFound FoundRecord) (RecordsCounted CountedRecords) (RecordRemoved RemoveReceipt) (Error ErrorReport) (Rejected SignalRejection)]
+[Record Observe Lookup Count Remove LookupStash]
+[RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved Error Rejected]
 {
   SourcePath String
   LocalPath String
@@ -10,19 +10,50 @@
   SignalReuse { Import * Export * }
   NexusReuse { Import * Export * }
   SemaReuse { Import * Export * }
-  NexusWork [(SignalArrived Input) (SemaWriteCompleted SemaWriteOutput) (SemaReadCompleted SemaReadOutput) (EffectCompleted NexusEffectResult)]
-  NexusAction [(CommandSemaWrite SemaWriteInput) (CommandSemaRead SemaReadInput) (ReplyToSignal Output) (CommandEffect NexusEffectCommand) (Continue NexusWork)]
-  NexusEffectCommand [(Stash StashRequest)]
-  NexusEffectResult [(Stashed StashResult)]
+  Record Entry
+  Observe Query
+  Lookup RecordIdentifier
+  Count Query
+  Remove RecordIdentifier
+  LookupStash StashHandle
+  RecordAccepted SemaReceipt
+  RecordsObserved ObservedRecords
+  RecordsStashed StashedObservation
+  RecordFound FoundRecord
+  RecordsCounted CountedRecords
+  RecordRemoved RemoveReceipt
+  Error ErrorReport
+  Rejected SignalRejection
+  NexusWork [SignalArrived SemaWriteCompleted SemaReadCompleted EffectCompleted]
+  SignalArrived Input
+  SemaWriteCompleted SemaWriteOutput
+  SemaReadCompleted SemaReadOutput
+  EffectCompleted NexusEffectResult
+  NexusAction [CommandSemaWrite CommandSemaRead ReplyToSignal CommandEffect Continue]
+  CommandSemaWrite SemaWriteInput
+  CommandSemaRead SemaReadInput
+  ReplyToSignal Output
+  CommandEffect NexusEffectCommand
+  Continue NexusWork
+  NexusEffectCommand [Stash]
+  Stash StashRequest
+  NexusEffectResult [Stashed]
+  Stashed StashResult
   StashHandle Integer
   StashRequest { Records * DatabaseMarker * }
   StashResult { StashHandle * RecordCount * DatabaseMarker * }
   StashedObservation { StashHandle * RecordCount * DatabaseMarker * }
   Records (Vec Entry)
-  SemaWriteInput [(Record Entry) (Remove RecordIdentifier)]
-  SemaReadInput [(Observe Query) (Lookup RecordIdentifier) (Count Query)]
-  SemaWriteOutput [(Recorded SemaReceipt) (Removed RemoveReceipt) (Missed ErrorReport)]
-  SemaReadOutput [(Observed ObservedRecords) (Found FoundRecord) (Counted CountedRecords) (Missed ErrorReport)]
+  SemaWriteInput [Record Remove]
+  SemaReadInput [Observe Lookup Count]
+  SemaWriteOutput [Recorded Removed Missed]
+  Recorded SemaReceipt
+  Removed RemoveReceipt
+  Missed ErrorReport
+  SemaReadOutput [Observed Found Counted Missed]
+  Observed ObservedRecords
+  Found FoundRecord
+  Counted CountedRecords
   Topic String
   Topics (Vec Topic)
   Description String
@@ -44,10 +75,17 @@
   ShortHeader Integer
   SentMail { MailIdentifier * OriginRoute * ShortHeader * }
   ProcessedMail { MailIdentifier * OriginRoute * DatabaseMarker * }
-  MailLedgerEvent [(Sent SentMail) (Processed ProcessedMail)]
-  TopicMatch [(Partial Topics) (Full Topics)]
+  MailLedgerEvent [Sent Processed]
+  Sent SentMail
+  Processed ProcessedMail
+  TopicMatch [Partial Full]
+  Partial Topics
+  Full Topics
   Privacy Magnitude
-  PrivacySelection [Any (Exact Privacy) (AtMost Privacy) (AtLeast Privacy)]
+  PrivacySelection [Any Exact AtMost AtLeast]
+  Exact Privacy
+  AtMost Privacy
+  AtLeast Privacy
   Entry { Topics * Kind * Description * Magnitude * Privacy * }
   Query { TopicMatch * kind (Optional Kind) privacy_selection PrivacySelection }
   RecordSet (Vec Entry)

@@ -38,13 +38,15 @@ Load-bearing constraints:
   Struct fields are also key-value pairs; `Topics *` means the key names the
   field and `*` reuses the same type, while `kind (Optional Kind)` binds a
   field to a different composite reference. Enum bodies are square-bracket
-  variant lists whose elements are one type: bare PascalCase symbols for unit
-  variants and parenthesized records such as `(Record Entry)` for
-  data-carrying variants.
-  Single-reference declarations such as `Topic String` and
-  `Topics (Vec Topic)` lower to real tuple newtypes, not one-field maps. The
-  generated `Asschema` and emitted Rust consume only the strict authored
-  surface.
+  lists of exported object names. Namespace bindings such as `Record Entry`,
+  `RecordAccepted SemaReceipt`, and `SignalArrived Input` define the payload
+  shape for data-carrying objects; names without payload bindings are unit
+  variants.
+  Bare reference declarations such as `Topic String`,
+  `Topics (Vec Topic)`, and `Record Entry` lower to exported aliases and
+  direct enum payloads, not wrapper structs. Explicit brace-body singleton
+  declarations remain the source form for real tuple newtypes. The generated
+  `Asschema` and emitted Rust consume only the strict authored surface.
 - The generated file path from schema-rust is crate-relative
   `src/schema/lib.rs`; build code uses that path directly instead of treating
   `schema/lib.rs` as relative to `src/`.

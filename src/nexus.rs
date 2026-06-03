@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use crate::{
-    ActorStartFailure, ActorStopFailure, DatabaseMarker, ErrorMessage, ErrorReport, Input,
-    MailLedger, NexusAction, NexusEffectCommand, NexusEffectResult, NexusEngine, NexusWork, Output,
-    Records, SemaEngine, SemaReadInput, SemaReadOutput, SemaWriteInput, SemaWriteOutput,
-    SignalRejection, StashHandle, StashRequest, StashResult, StashedObservation, ValidationError,
+    ActorStartFailure, ActorStopFailure, DatabaseMarker, ErrorReport, Input, MailLedger,
+    NexusAction, NexusEffectCommand, NexusEffectResult, NexusEngine, NexusWork, Output, Records,
+    SemaEngine, SemaReadInput, SemaReadOutput, SemaWriteInput, SemaWriteOutput, SignalRejection,
+    StashHandle, StashRequest, StashResult, StashedObservation, ValidationError,
     schema::lib::nexus as nexus_plane, store::Store,
 };
 
@@ -69,7 +69,7 @@ impl StashTable {
     pub fn put(&mut self, records: Records, database_marker: DatabaseMarker) -> StashResult {
         self.next_handle += 1;
         let handle = self.next_handle;
-        let record_count = crate::RecordCount(records.0.len() as u64);
+        let record_count = records.len() as u64;
         self.entries.insert(
             handle,
             StashEntry {
@@ -78,7 +78,7 @@ impl StashTable {
             },
         );
         StashResult {
-            stash_handle: StashHandle(handle),
+            stash_handle: handle,
             record_count,
             database_marker,
         }
@@ -88,7 +88,7 @@ impl StashTable {
     /// marker the stash was sealed under.
     pub fn lookup(&self, handle: &StashHandle) -> Option<(Records, DatabaseMarker)> {
         self.entries
-            .get(&handle.0)
+            .get(handle)
             .map(|entry| (entry.records.clone(), entry.database_marker.clone()))
     }
 
@@ -173,7 +173,7 @@ impl Nexus {
                 database_marker,
             }) => {
                 let result = self.stash_table.put(records, database_marker);
-                NexusEffectResult::Stashed(result)
+                NexusEffectResult::stashed(result)
             }
         }
     }
@@ -233,21 +233,21 @@ impl NexusEngine for Nexus {
 
             match action {
                 NexusAction::ReplyToSignal(reply) => {
-                    return NexusAction::from(reply).with_origin_route(origin_route);
+                    return NexusAction::reply_to_signal(reply).with_origin_route(origin_route);
                 }
                 NexusAction::CommandSemaWrite(command) => {
                     let sema_output =
                         SemaEngine::apply(&mut self.store, command.with_origin_route(origin_route));
-                    work = NexusWork::from(sema_output.into_root());
+                    work = NexusWork::sema_write_completed(sema_output.into_root());
                 }
                 NexusAction::CommandSemaRead(command) => {
                     let sema_output =
                         SemaEngine::observe(&self.store, command.with_origin_route(origin_route));
-                    work = NexusWork::from(sema_output.into_root());
+                    work = NexusWork::sema_read_completed(sema_output.into_root());
                 }
                 NexusAction::CommandEffect(command) => {
                     let result = self.apply_effect(command);
-                    work = NexusWork::from(result);
+                    work = NexusWork::effect_completed(result);
                 }
                 NexusAction::Continue(next_work) => {
                     work = next_work;
@@ -257,10 +257,8 @@ impl NexusEngine for Nexus {
             match budget.spend_one() {
                 Some(remaining) => budget = remaining,
                 None => {
-                    return NexusAction::from(Output::Error(ErrorReport {
-                        error_message: ErrorMessage(String::from(
-                            "nexus continuation budget exhausted",
-                        )),
+                    return NexusAction::reply_to_signal(Output::error(ErrorReport {
+                        error_message: String::from("nexus continuation budget exhausted"),
                         database_marker: self.database_marker(),
                     }))
                     .with_origin_route(origin_route);
@@ -289,23 +287,25 @@ impl Nexus {
 
     fn decide_signal_arrival(&self, input: Input) -> NexusAction {
         match input {
-            Input::Record(entry) => NexusAction::from(SemaWriteInput::Record(entry)),
-            Input::Observe(query) => NexusAction::from(SemaReadInput::Observe(query)),
-            Input::Lookup(record_identifier) => {
-                NexusAction::from(SemaReadInput::Lookup(record_identifier))
+            Input::Record(record) => {
+                NexusAction::command_sema_write(SemaWriteInput::record(record))
             }
-            Input::Count(query) => NexusAction::from(SemaReadInput::Count(query)),
-            Input::Remove(record_identifier) => {
-                NexusAction::from(SemaWriteInput::Remove(record_identifier))
+            Input::Observe(observe) => {
+                NexusAction::command_sema_read(SemaReadInput::observe(observe))
+            }
+            Input::Lookup(lookup) => NexusAction::command_sema_read(SemaReadInput::lookup(lookup)),
+            Input::Count(count) => NexusAction::command_sema_read(SemaReadInput::count(count)),
+            Input::Remove(remove) => {
+                NexusAction::command_sema_write(SemaWriteInput::remove(remove))
             }
             Input::LookupStash(handle) => match self.stash_table.lookup(&handle) {
                 Some((records, database_marker)) => {
-                    NexusAction::from(Output::RecordsObserved(crate::ObservedRecords {
-                        record_set: crate::RecordSet(records.0),
+                    NexusAction::reply_to_signal(Output::records_observed(crate::ObservedRecords {
+                        record_set: records,
                         database_marker,
                     }))
                 }
-                None => NexusAction::from(Output::Rejected(SignalRejection {
+                None => NexusAction::reply_to_signal(Output::rejected(SignalRejection {
                     validation_error: ValidationError::StashHandleNotFound,
                     database_marker: self.database_marker(),
                 })),
@@ -316,10 +316,12 @@ impl Nexus {
     fn decide_sema_write_completion(&self, output: SemaWriteOutput) -> NexusAction {
         match output {
             SemaWriteOutput::Recorded(receipt) => {
-                NexusAction::from(Output::RecordAccepted(receipt))
+                NexusAction::reply_to_signal(Output::record_accepted(receipt))
             }
-            SemaWriteOutput::Removed(receipt) => NexusAction::from(Output::RecordRemoved(receipt)),
-            SemaWriteOutput::Missed(report) => NexusAction::from(Output::Error(report)),
+            SemaWriteOutput::Removed(receipt) => {
+                NexusAction::reply_to_signal(Output::record_removed(receipt))
+            }
+            SemaWriteOutput::Missed(report) => NexusAction::reply_to_signal(Output::error(report)),
         }
     }
 
@@ -330,15 +332,19 @@ impl Nexus {
                 // through Stash effect so the wire reply carries a
                 // handle, not the full record set.
                 let database_marker = observed.database_marker;
-                let records = Records(observed.record_set.0);
-                NexusAction::from(NexusEffectCommand::Stash(StashRequest {
+                let records = observed.record_set;
+                NexusAction::command_effect(NexusEffectCommand::stash(StashRequest {
                     records,
                     database_marker,
                 }))
             }
-            SemaReadOutput::Found(record) => NexusAction::from(Output::RecordFound(record)),
-            SemaReadOutput::Counted(counted) => NexusAction::from(Output::RecordsCounted(counted)),
-            SemaReadOutput::Missed(report) => NexusAction::from(Output::Error(report)),
+            SemaReadOutput::Found(record) => {
+                NexusAction::reply_to_signal(Output::record_found(record))
+            }
+            SemaReadOutput::Counted(counted) => {
+                NexusAction::reply_to_signal(Output::records_counted(counted))
+            }
+            SemaReadOutput::Missed(report) => NexusAction::reply_to_signal(Output::error(report)),
         }
     }
 
@@ -348,7 +354,7 @@ impl Nexus {
                 stash_handle,
                 record_count,
                 database_marker,
-            }) => NexusAction::from(Output::RecordsStashed(StashedObservation {
+            }) => NexusAction::reply_to_signal(Output::records_stashed(StashedObservation {
                 stash_handle,
                 record_count,
                 database_marker,

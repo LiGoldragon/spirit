@@ -9,7 +9,7 @@ use std::{
 
 #[cfg(feature = "testing-trace")]
 use spirit_next::TraceEvent;
-use spirit_next::{CommitSequence, Configuration, Output, RecordIdentifier};
+use spirit_next::{Configuration, Output};
 use tempfile::TempDir;
 
 struct DaemonProcess {
@@ -171,8 +171,8 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
     );
     match recorded {
         Output::RecordAccepted(receipt) => {
-            assert_eq!(receipt.record_identifier, RecordIdentifier(1));
-            assert_eq!(receipt.database_marker.commit_sequence, CommitSequence(1));
+            assert_eq!(receipt.record_identifier, 1);
+            assert_eq!(receipt.database_marker.commit_sequence, 1);
         }
         other => panic!("expected RecordAccepted, got {other:?}"),
     }
@@ -233,7 +233,7 @@ fn daemon_persists_sema_file_across_a_restart() {
         );
         match recorded {
             Output::RecordAccepted(receipt) => {
-                assert_eq!(receipt.database_marker.commit_sequence, CommitSequence(1));
+                assert_eq!(receipt.database_marker.commit_sequence, 1);
             }
             other => panic!("expected RecordAccepted from first daemon, got {other:?}"),
         }
@@ -259,18 +259,18 @@ fn daemon_persists_sema_file_across_a_restart() {
     let stash_handle = match observed {
         Output::RecordsStashed(stashed) => {
             assert_eq!(
-                stashed.record_count.0, 1,
+                stashed.record_count, 1,
                 "the restarted daemon observes one durable record"
             );
             stashed.stash_handle
         }
         other => panic!("expected RecordsStashed after restart, got {other:?}"),
     };
-    let looked_up = run_cli(&socket_path, &format!("(LookupStash {})", stash_handle.0));
+    let looked_up = run_cli(&socket_path, &format!("(LookupStash {})", stash_handle));
     match looked_up {
         Output::RecordsObserved(records) => {
             assert_eq!(
-                records.record_set.0[0].description.0, "survives restart",
+                records.record_set[0].description, "survives restart",
                 "the restarted daemon's stash retrieves the durable content"
             );
         }
@@ -286,8 +286,7 @@ fn daemon_persists_sema_file_across_a_restart() {
     match next {
         Output::RecordAccepted(receipt) => {
             assert_eq!(
-                receipt.database_marker.commit_sequence,
-                CommitSequence(2),
+                receipt.database_marker.commit_sequence, 2,
                 "commit sequence resumes from the persisted ledger after restart"
             );
         }
@@ -310,8 +309,8 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
         );
         match recorded {
             Output::RecordAccepted(receipt) => {
-                assert_eq!(receipt.record_identifier, RecordIdentifier(1));
-                assert_eq!(receipt.database_marker.commit_sequence, CommitSequence(1));
+                assert_eq!(receipt.record_identifier, 1);
+                assert_eq!(receipt.database_marker.commit_sequence, 1);
             }
             other => panic!("expected production seed record, got {other:?}"),
         }
@@ -340,8 +339,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
         match candidate_recorded {
             Output::RecordAccepted(receipt) => {
                 assert_eq!(
-                    receipt.database_marker.commit_sequence,
-                    CommitSequence(2),
+                    receipt.database_marker.commit_sequence, 2,
                     "candidate write resumes the copied ledger"
                 );
             }
@@ -382,8 +380,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
         match production_next {
             Output::RecordAccepted(receipt) => {
                 assert_eq!(
-                    receipt.database_marker.commit_sequence,
-                    CommitSequence(2),
+                    receipt.database_marker.commit_sequence, 2,
                     "original production ledger advances from its own state, not the candidate copy"
                 );
             }
@@ -457,13 +454,12 @@ fn stashed_descriptions(socket_path: &Path, output: Output) -> Vec<String> {
         Output::RecordsStashed(stashed) => stashed.stash_handle,
         other => panic!("expected RecordsStashed, got {other:?}"),
     };
-    let resolved = run_cli(socket_path, &format!("(LookupStash {})", stash_handle.0));
+    let resolved = run_cli(socket_path, &format!("(LookupStash {})", stash_handle));
     match resolved {
         Output::RecordsObserved(records) => records
             .record_set
-            .0
             .into_iter()
-            .map(|entry| entry.description.0)
+            .map(|entry| entry.description)
             .collect(),
         other => panic!("expected RecordsObserved from LookupStash, got {other:?}"),
     }

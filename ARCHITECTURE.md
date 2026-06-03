@@ -59,13 +59,17 @@ key-value maps. The namespace contains pairs such as `Topic String`,
 does not contain declarations that repeat their own name inside the value.
 Inside a struct map, `Topics *` derives the `topics` field from the existing
 `Topics` type, and explicit bindings such as `kind (Optional Kind)` stay only
-where the field name differs from the referenced type. Single-reference
-declarations (`Topic String`, `RecordSet (Vec Entry)`) are newtypes in
-asschema and emitted Rust.
+where the field name differs from the referenced type. Bare reference
+declarations (`Topic String`, `RecordSet (Vec Entry)`, `Record Entry`) become
+exported aliases in asschema and generated Rust, so enum variants carry direct
+payloads instead of wrapper structs. Explicit brace-body singleton declarations
+are the newtype form.
 
-Enum bodies keep vector homogeneity. A unit variant is a bare symbol, and a
-data-carrying variant is a parenthesized signature such as `(Record Entry)`.
-The vector does not contain pseudo key-value pairs.
+Enum bodies keep vector homogeneity by listing exported object names. Namespace
+bindings such as `Record Entry`, `RecordAccepted SemaReceipt`, and
+`SignalArrived Input` define the payload shape for data-carrying objects; names
+without payload bindings are unit variants. The vector does not contain pseudo
+key-value pairs or parenthesized root signatures.
 
 The three runtime centers are concrete objects: `SignalActor` (admission),
 `Nexus` (mail keeper + translator, owns the store + ledger), and `Store` (the
@@ -213,7 +217,7 @@ a real **redb** database written to a `*.sema` file:
   and `Count(Query)` returns the number of matching records without mutating
   state. The `&self` receiver lets parallel readers share the store reference;
   `tests/runtime_triad.rs` has a scoped-thread witness for this shape.
-- Entries carry `Topics`, a generated vector newtype, plus generated
+- Entries carry `Topics`, a generated vector alias, plus generated
 `Privacy`. Privacy is a directional `Magnitude`: `Zero` is open/public, and
 higher magnitudes narrow the intended audience. Queries carry
 `TopicMatch::{Partial,Full}`, an optional `Kind`, and generated
@@ -221,7 +225,7 @@ higher magnitudes narrow the intended audience. Queries carry
 every requested topic, `None` in the kind position searches by topic and
 privacy, and default privacy selection is exact `Zero`. The same query noun
 drives both `Observe` and `Count`, while `Lookup` uses the generated
-`RecordIdentifier` newtype.
+`RecordIdentifier` alias.
 - redb's transaction model gives crash-consistency: a store reopened from the
   same `.sema` path resumes its committed records AND its commit ledger, so the
   next write after a restart continues the sequence rather than restarting at 1.
@@ -260,8 +264,9 @@ The known root positions provide the Signal input and output enum names, so the
 root enum bodies are bare square-bracket values. Namespace declarations are
 key-value pairs: a brace value declares a struct map, a square-bracket value
 declares an enum variant list, and an atom or parenthesized reference declares
-a newtype. Data-carrying enum variants are parenthesized signatures such as
-`(Record Entry)`; parentheses also remain the composite/reference and
+an alias. Data-carrying enum payloads are declared through namespace bindings
+such as `Record Entry` and `RecordAccepted SemaReceipt`; those bindings lower
+to direct payload aliases. Parentheses remain the composite/reference and
 macro-call argument shape at reference positions. That authored syntax lowers
 to the same `Asschema` roots and namespace before `src/schema/lib.rs` is
 regenerated.

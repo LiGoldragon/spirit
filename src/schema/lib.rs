@@ -10,17 +10,11 @@ pub use nota_next::{
     NotaDecode, NotaDecodeError, NotaEncode, NotaSource,
 };
 
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct SourcePath(pub String);
+pub type SourcePath = String;
 
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct LocalPath(pub String);
+pub type LocalPath = String;
 
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct PublicPath(pub String);
+pub type PublicPath = String;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -57,40 +51,88 @@ pub struct SemaReuse {
     pub export: Export,
 }
 
+pub type Record = Entry;
+
+pub type Observe = Query;
+
+pub type Lookup = RecordIdentifier;
+
+pub type Count = Query;
+
+pub type Remove = RecordIdentifier;
+
+pub type LookupStash = StashHandle;
+
+pub type RecordAccepted = SemaReceipt;
+
+pub type RecordsObserved = ObservedRecords;
+
+pub type RecordsStashed = StashedObservation;
+
+pub type RecordFound = FoundRecord;
+
+pub type RecordsCounted = CountedRecords;
+
+pub type RecordRemoved = RemoveReceipt;
+
+pub type Error = ErrorReport;
+
+pub type Rejected = SignalRejection;
+
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum NexusWork {
-    SignalArrived(Input),
-    SemaWriteCompleted(SemaWriteOutput),
-    SemaReadCompleted(SemaReadOutput),
-    EffectCompleted(NexusEffectResult),
+    SignalArrived(SignalArrived),
+    SemaWriteCompleted(SemaWriteCompleted),
+    SemaReadCompleted(SemaReadCompleted),
+    EffectCompleted(EffectCompleted),
 }
+
+pub type SignalArrived = Input;
+
+pub type SemaWriteCompleted = SemaWriteOutput;
+
+pub type SemaReadCompleted = SemaReadOutput;
+
+pub type EffectCompleted = NexusEffectResult;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum NexusAction {
-    CommandSemaWrite(SemaWriteInput),
-    CommandSemaRead(SemaReadInput),
-    ReplyToSignal(Output),
-    CommandEffect(NexusEffectCommand),
-    Continue(NexusWork),
+    CommandSemaWrite(CommandSemaWrite),
+    CommandSemaRead(CommandSemaRead),
+    ReplyToSignal(ReplyToSignal),
+    CommandEffect(CommandEffect),
+    Continue(Continue),
 }
+
+pub type CommandSemaWrite = SemaWriteInput;
+
+pub type CommandSemaRead = SemaReadInput;
+
+pub type ReplyToSignal = Output;
+
+pub type CommandEffect = NexusEffectCommand;
+
+pub type Continue = NexusWork;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum NexusEffectCommand {
-    Stash(StashRequest),
+    Stash(Stash),
 }
+
+pub type Stash = StashRequest;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum NexusEffectResult {
-    Stashed(StashResult),
+    Stashed(Stashed),
 }
 
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct StashHandle(pub Integer);
+pub type Stashed = StashResult;
+
+pub type StashHandle = Integer;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -115,69 +157,65 @@ pub struct StashedObservation {
     pub database_marker: DatabaseMarker,
 }
 
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Records(pub Vec<Entry>);
+pub type Records = Vec<Entry>;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum SemaWriteInput {
-    Record(Entry),
-    Remove(RecordIdentifier),
+    Record(Record),
+    Remove(Remove),
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum SemaReadInput {
-    Observe(Query),
-    Lookup(RecordIdentifier),
-    Count(Query),
+    Observe(Observe),
+    Lookup(Lookup),
+    Count(Count),
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum SemaWriteOutput {
-    Recorded(SemaReceipt),
-    Removed(RemoveReceipt),
-    Missed(ErrorReport),
+    Recorded(Recorded),
+    Removed(Removed),
+    Missed(Missed),
 }
+
+pub type Recorded = SemaReceipt;
+
+pub type Removed = RemoveReceipt;
+
+pub type Missed = ErrorReport;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum SemaReadOutput {
-    Observed(ObservedRecords),
-    Found(FoundRecord),
-    Counted(CountedRecords),
-    Missed(ErrorReport),
+    Observed(Observed),
+    Found(Found),
+    Counted(Counted),
+    Missed(Missed),
 }
 
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Topic(pub String);
+pub type Observed = ObservedRecords;
 
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Topics(pub Vec<Topic>);
+pub type Found = FoundRecord;
 
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Description(pub String);
+pub type Counted = CountedRecords;
 
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ErrorMessage(pub String);
+pub type Topic = String;
 
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct RecordIdentifier(pub Integer);
+pub type Topics = Vec<Topic>;
 
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct CommitSequence(pub Integer);
+pub type Description = String;
 
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct StateDigest(pub Integer);
+pub type ErrorMessage = String;
+
+pub type RecordIdentifier = Integer;
+
+pub type CommitSequence = Integer;
+
+pub type StateDigest = Integer;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -215,9 +253,7 @@ pub struct FoundRecord {
     pub database_marker: DatabaseMarker,
 }
 
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct RecordCount(pub Integer);
+pub type RecordCount = Integer;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -249,13 +285,9 @@ pub enum ValidationError {
     StashHandleNotFound,
 }
 
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct MailIdentifier(pub Integer);
+pub type MailIdentifier = Integer;
 
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ShortHeader(pub Integer);
+pub type ShortHeader = Integer;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -276,29 +308,41 @@ pub struct ProcessedMail {
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum MailLedgerEvent {
-    Sent(SentMail),
-    Processed(ProcessedMail),
+    Sent(Sent),
+    Processed(Processed),
 }
+
+pub type Sent = SentMail;
+
+pub type Processed = ProcessedMail;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum TopicMatch {
-    Partial(Topics),
-    Full(Topics),
+    Partial(Partial),
+    Full(Full),
 }
 
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Privacy(pub Magnitude);
+pub type Partial = Topics;
+
+pub type Full = Topics;
+
+pub type Privacy = Magnitude;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum PrivacySelection {
     Any,
-    Exact(Privacy),
-    AtMost(Privacy),
-    AtLeast(Privacy),
+    Exact(Exact),
+    AtMost(AtMost),
+    AtLeast(AtLeast),
 }
+
+pub type Exact = Privacy;
+
+pub type AtMost = Privacy;
+
+pub type AtLeast = Privacy;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -318,9 +362,7 @@ pub struct Query {
     pub privacy_selection: PrivacySelection,
 }
 
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct RecordSet(pub Vec<Entry>);
+pub type RecordSet = Vec<Entry>;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -348,255 +390,226 @@ pub enum Magnitude {
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum Input {
-    Record(Entry),
-    Observe(Query),
-    Lookup(RecordIdentifier),
-    Count(Query),
-    Remove(RecordIdentifier),
-    LookupStash(StashHandle),
+    Record(Record),
+    Observe(Observe),
+    Lookup(Lookup),
+    Count(Count),
+    Remove(Remove),
+    LookupStash(LookupStash),
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum Output {
-    RecordAccepted(SemaReceipt),
-    RecordsObserved(ObservedRecords),
-    RecordsStashed(StashedObservation),
-    RecordFound(FoundRecord),
-    RecordsCounted(CountedRecords),
-    RecordRemoved(RemoveReceipt),
-    Error(ErrorReport),
-    Rejected(SignalRejection),
+    RecordAccepted(RecordAccepted),
+    RecordsObserved(RecordsObserved),
+    RecordsStashed(RecordsStashed),
+    RecordFound(RecordFound),
+    RecordsCounted(RecordsCounted),
+    RecordRemoved(RecordRemoved),
+    Error(Error),
+    Rejected(Rejected),
 }
 
-impl From<Input> for NexusWork {
-    fn from(payload: Input) -> Self {
+impl NexusWork {
+    pub fn signal_arrived(payload: SignalArrived) -> Self {
         Self::SignalArrived(payload)
     }
-}
 
-impl From<SemaWriteOutput> for NexusWork {
-    fn from(payload: SemaWriteOutput) -> Self {
+    pub fn sema_write_completed(payload: SemaWriteCompleted) -> Self {
         Self::SemaWriteCompleted(payload)
     }
-}
 
-impl From<SemaReadOutput> for NexusWork {
-    fn from(payload: SemaReadOutput) -> Self {
+    pub fn sema_read_completed(payload: SemaReadCompleted) -> Self {
         Self::SemaReadCompleted(payload)
     }
-}
 
-impl From<NexusEffectResult> for NexusWork {
-    fn from(payload: NexusEffectResult) -> Self {
+    pub fn effect_completed(payload: EffectCompleted) -> Self {
         Self::EffectCompleted(payload)
     }
 }
 
-impl From<SemaWriteInput> for NexusAction {
-    fn from(payload: SemaWriteInput) -> Self {
+impl NexusAction {
+    pub fn command_sema_write(payload: CommandSemaWrite) -> Self {
         Self::CommandSemaWrite(payload)
     }
-}
 
-impl From<SemaReadInput> for NexusAction {
-    fn from(payload: SemaReadInput) -> Self {
+    pub fn command_sema_read(payload: CommandSemaRead) -> Self {
         Self::CommandSemaRead(payload)
     }
-}
 
-impl From<Output> for NexusAction {
-    fn from(payload: Output) -> Self {
+    pub fn reply_to_signal(payload: ReplyToSignal) -> Self {
         Self::ReplyToSignal(payload)
     }
-}
 
-impl From<NexusEffectCommand> for NexusAction {
-    fn from(payload: NexusEffectCommand) -> Self {
+    pub fn command_effect(payload: CommandEffect) -> Self {
         Self::CommandEffect(payload)
     }
-}
 
-impl From<NexusWork> for NexusAction {
-    fn from(payload: NexusWork) -> Self {
+    pub fn r#continue(payload: Continue) -> Self {
         Self::Continue(payload)
     }
 }
 
-impl From<StashRequest> for NexusEffectCommand {
-    fn from(payload: StashRequest) -> Self {
+impl NexusEffectCommand {
+    pub fn stash(payload: Stash) -> Self {
         Self::Stash(payload)
     }
 }
 
-impl From<StashResult> for NexusEffectResult {
-    fn from(payload: StashResult) -> Self {
+impl NexusEffectResult {
+    pub fn stashed(payload: Stashed) -> Self {
         Self::Stashed(payload)
     }
 }
 
-impl From<Entry> for SemaWriteInput {
-    fn from(payload: Entry) -> Self {
+impl SemaWriteInput {
+    pub fn record(payload: Record) -> Self {
         Self::Record(payload)
     }
-}
 
-impl From<RecordIdentifier> for SemaWriteInput {
-    fn from(payload: RecordIdentifier) -> Self {
+    pub fn remove(payload: Remove) -> Self {
         Self::Remove(payload)
     }
 }
 
-impl From<RecordIdentifier> for SemaReadInput {
-    fn from(payload: RecordIdentifier) -> Self {
+impl SemaReadInput {
+    pub fn observe(payload: Observe) -> Self {
+        Self::Observe(payload)
+    }
+
+    pub fn lookup(payload: Lookup) -> Self {
         Self::Lookup(payload)
     }
+
+    pub fn count(payload: Count) -> Self {
+        Self::Count(payload)
+    }
 }
 
-impl From<SemaReceipt> for SemaWriteOutput {
-    fn from(payload: SemaReceipt) -> Self {
+impl SemaWriteOutput {
+    pub fn recorded(payload: Recorded) -> Self {
         Self::Recorded(payload)
     }
-}
 
-impl From<RemoveReceipt> for SemaWriteOutput {
-    fn from(payload: RemoveReceipt) -> Self {
+    pub fn removed(payload: Removed) -> Self {
         Self::Removed(payload)
     }
-}
 
-impl From<ErrorReport> for SemaWriteOutput {
-    fn from(payload: ErrorReport) -> Self {
+    pub fn missed(payload: Missed) -> Self {
         Self::Missed(payload)
     }
 }
 
-impl From<ObservedRecords> for SemaReadOutput {
-    fn from(payload: ObservedRecords) -> Self {
+impl SemaReadOutput {
+    pub fn observed(payload: Observed) -> Self {
         Self::Observed(payload)
     }
-}
 
-impl From<FoundRecord> for SemaReadOutput {
-    fn from(payload: FoundRecord) -> Self {
+    pub fn found(payload: Found) -> Self {
         Self::Found(payload)
     }
-}
 
-impl From<CountedRecords> for SemaReadOutput {
-    fn from(payload: CountedRecords) -> Self {
+    pub fn counted(payload: Counted) -> Self {
         Self::Counted(payload)
     }
-}
 
-impl From<ErrorReport> for SemaReadOutput {
-    fn from(payload: ErrorReport) -> Self {
+    pub fn missed(payload: Missed) -> Self {
         Self::Missed(payload)
     }
 }
 
-impl From<SentMail> for MailLedgerEvent {
-    fn from(payload: SentMail) -> Self {
+impl MailLedgerEvent {
+    pub fn sent(payload: Sent) -> Self {
         Self::Sent(payload)
     }
-}
 
-impl From<ProcessedMail> for MailLedgerEvent {
-    fn from(payload: ProcessedMail) -> Self {
+    pub fn processed(payload: Processed) -> Self {
         Self::Processed(payload)
     }
 }
 
-impl From<Entry> for Input {
-    fn from(payload: Entry) -> Self {
-        Self::Record(payload)
+impl TopicMatch {
+    pub fn partial(payload: Partial) -> Self {
+        Self::Partial(payload)
+    }
+
+    pub fn full(payload: Full) -> Self {
+        Self::Full(payload)
     }
 }
 
-impl From<StashHandle> for Input {
-    fn from(payload: StashHandle) -> Self {
+impl PrivacySelection {
+    pub fn exact(payload: Exact) -> Self {
+        Self::Exact(payload)
+    }
+
+    pub fn at_most(payload: AtMost) -> Self {
+        Self::AtMost(payload)
+    }
+
+    pub fn at_least(payload: AtLeast) -> Self {
+        Self::AtLeast(payload)
+    }
+}
+
+impl Input {
+    pub fn record(payload: Record) -> Self {
+        Self::Record(payload)
+    }
+
+    pub fn observe(payload: Observe) -> Self {
+        Self::Observe(payload)
+    }
+
+    pub fn lookup(payload: Lookup) -> Self {
+        Self::Lookup(payload)
+    }
+
+    pub fn count(payload: Count) -> Self {
+        Self::Count(payload)
+    }
+
+    pub fn remove(payload: Remove) -> Self {
+        Self::Remove(payload)
+    }
+
+    pub fn lookup_stash(payload: LookupStash) -> Self {
         Self::LookupStash(payload)
     }
 }
 
-impl From<SemaReceipt> for Output {
-    fn from(payload: SemaReceipt) -> Self {
+impl Output {
+    pub fn record_accepted(payload: RecordAccepted) -> Self {
         Self::RecordAccepted(payload)
     }
-}
 
-impl From<ObservedRecords> for Output {
-    fn from(payload: ObservedRecords) -> Self {
+    pub fn records_observed(payload: RecordsObserved) -> Self {
         Self::RecordsObserved(payload)
     }
-}
 
-impl From<StashedObservation> for Output {
-    fn from(payload: StashedObservation) -> Self {
+    pub fn records_stashed(payload: RecordsStashed) -> Self {
         Self::RecordsStashed(payload)
     }
-}
 
-impl From<FoundRecord> for Output {
-    fn from(payload: FoundRecord) -> Self {
+    pub fn record_found(payload: RecordFound) -> Self {
         Self::RecordFound(payload)
     }
-}
 
-impl From<CountedRecords> for Output {
-    fn from(payload: CountedRecords) -> Self {
+    pub fn records_counted(payload: RecordsCounted) -> Self {
         Self::RecordsCounted(payload)
     }
-}
 
-impl From<RemoveReceipt> for Output {
-    fn from(payload: RemoveReceipt) -> Self {
+    pub fn record_removed(payload: RecordRemoved) -> Self {
         Self::RecordRemoved(payload)
     }
-}
 
-impl From<ErrorReport> for Output {
-    fn from(payload: ErrorReport) -> Self {
+    pub fn error(payload: Error) -> Self {
         Self::Error(payload)
     }
-}
 
-impl From<SignalRejection> for Output {
-    fn from(payload: SignalRejection) -> Self {
+    pub fn rejected(payload: Rejected) -> Self {
         Self::Rejected(payload)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl SourcePath {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl LocalPath {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl PublicPath {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
     }
 }
 
@@ -700,17 +713,6 @@ impl NexusEffectResult {
 }
 
 #[cfg(feature = "nota-text")]
-impl StashHandle {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
 impl StashRequest {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -734,17 +736,6 @@ impl StashResult {
 
 #[cfg(feature = "nota-text")]
 impl StashedObservation {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl Records {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -789,83 +780,6 @@ impl SemaWriteOutput {
 
 #[cfg(feature = "nota-text")]
 impl SemaReadOutput {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl Topic {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl Topics {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl Description {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl ErrorMessage {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl RecordIdentifier {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl CommitSequence {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl StateDigest {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -931,17 +845,6 @@ impl FoundRecord {
 }
 
 #[cfg(feature = "nota-text")]
-impl RecordCount {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
 impl CountedRecords {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -976,28 +879,6 @@ impl SignalRejection {
 
 #[cfg(feature = "nota-text")]
 impl ValidationError {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl MailIdentifier {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl ShortHeader {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -1052,17 +933,6 @@ impl TopicMatch {
 }
 
 #[cfg(feature = "nota-text")]
-impl Privacy {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
 impl PrivacySelection {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -1086,17 +956,6 @@ impl Entry {
 
 #[cfg(feature = "nota-text")]
 impl Query {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl RecordSet {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -1944,46 +1803,6 @@ impl SemaReadInput {
 impl SemaReadOutput {
     pub fn with_origin_route(self, origin_route: OriginRoute) -> sema::Sema<Self> {
         sema::Sema::new(origin_route, self)
-    }
-}
-
-impl nexus::Nexus<nexus::Action> {
-    pub fn into_sema_write_input(self) -> sema::Sema<sema::WriteInput> {
-        let origin_route = self.origin_route();
-        match self.into_root() {
-            NexusAction::CommandSemaWrite(input) => input.with_origin_route(origin_route),
-            _ => panic!("nexus action is not a SEMA write input"),
-        }
-    }
-
-    pub fn into_sema_read_input(self) -> sema::Sema<sema::ReadInput> {
-        let origin_route = self.origin_route();
-        match self.into_root() {
-            NexusAction::CommandSemaRead(input) => input.with_origin_route(origin_route),
-            _ => panic!("nexus action is not a SEMA read input"),
-        }
-    }
-
-    pub fn into_signal_output(self) -> signal::Signal<signal::Output> {
-        let origin_route = self.origin_route();
-        match self.into_root() {
-            NexusAction::ReplyToSignal(output) => output.with_origin_route(origin_route),
-            _ => panic!("nexus action is not a signal reply"),
-        }
-    }
-}
-
-impl sema::Sema<sema::WriteOutput> {
-    pub fn into_nexus_work(self) -> nexus::Nexus<nexus::Work> {
-        let origin_route = self.origin_route();
-        NexusWork::from(self.into_root()).with_origin_route(origin_route)
-    }
-}
-
-impl sema::Sema<sema::ReadOutput> {
-    pub fn into_nexus_work(self) -> nexus::Nexus<nexus::Work> {
-        let origin_route = self.origin_route();
-        NexusWork::from(self.into_root()).with_origin_route(origin_route)
     }
 }
 

@@ -1,11 +1,10 @@
 use std::{convert::Infallible, sync::Mutex};
 
 use crate::{
-    ActorStartFailure, ActorStopFailure, DatabaseMarker, Entry, Input, Integer, MailIdentifier,
+    ActorStartFailure, ActorStopFailure, DatabaseMarker, Entry, ErrorReport, Input, Integer,
     MailLedgerEvent, MessageIdentifier, MessageProcessed, MessageProcessedHook, MessageSent,
     MessageSentHook, NexusAction, NexusEngine, NexusWork, OriginRoute, Output, ProcessedMail,
-    Query, SentMail, ShortHeader, SignalEngine, SignalRejection, TopicMatch, Topics,
-    ValidationError,
+    Query, SentMail, SignalEngine, SignalRejection, TopicMatch, Topics, ValidationError,
     nexus::Nexus,
     schema::lib::{nexus as nexus_plane, signal as signal_plane},
     store::Store,
@@ -227,7 +226,7 @@ impl SignalEngine for SignalActor {
 
     fn triage_inner(&self, input: signal_plane::Signal<Input>) -> nexus_plane::Nexus<NexusWork> {
         let origin_route = input.origin_route();
-        NexusWork::from(input.into_root()).with_origin_route(origin_route)
+        NexusWork::signal_arrived(input.into_root()).with_origin_route(origin_route)
     }
 
     fn reply_inner(&self, output: nexus_plane::Nexus<NexusAction>) -> signal_plane::Signal<Output> {
@@ -335,31 +334,24 @@ impl MessageProcessedHook<Output> for MailLedgerHook<'_> {
 impl Input {
     pub fn validate(&self) -> Result<(), ValidationError> {
         match self {
-            Self::Record(entry) => entry.validate(),
-            Self::Observe(query) => query.validate(),
+            Self::Record(record) => record.validate(),
+            Self::Observe(observe) => observe.validate(),
             Self::Lookup(_) | Self::Remove(_) | Self::LookupStash(_) => Ok(()),
-            Self::Count(query) => query.validate(),
+            Self::Count(count) => count.validate(),
         }
     }
 }
 
 impl Entry {
     pub fn validate(&self) -> Result<(), ValidationError> {
-        self.topics.validate()?;
-        if self.description.0.trim().is_empty() {
+        if self.topics.is_empty() {
+            return Err(ValidationError::EmptyTopic);
+        }
+        if self.topics.iter().any(|topic| topic.trim().is_empty()) {
+            return Err(ValidationError::EmptyTopic);
+        }
+        if self.description.trim().is_empty() {
             return Err(ValidationError::EmptyDescription);
-        }
-        Ok(())
-    }
-}
-
-impl Topics {
-    pub fn validate(&self) -> Result<(), ValidationError> {
-        if self.0.is_empty() {
-            return Err(ValidationError::EmptyTopic);
-        }
-        if self.0.iter().any(|topic| topic.0.trim().is_empty()) {
-            return Err(ValidationError::EmptyTopic);
         }
         Ok(())
     }
@@ -373,31 +365,31 @@ impl Query {
 
 impl TopicMatch {
     pub fn validate(&self) -> Result<(), ValidationError> {
-        self.topics()
-            .validate()
-            .map_err(|_| ValidationError::EmptyQueryTopic)
+        let topics = self.topics();
+        if topics.is_empty() {
+            return Err(ValidationError::EmptyQueryTopic);
+        }
+        if topics.iter().any(|topic| topic.trim().is_empty()) {
+            return Err(ValidationError::EmptyQueryTopic);
+        }
+        Ok(())
     }
 
     pub fn topics(&self) -> &Topics {
         match self {
-            Self::Partial(topics) | Self::Full(topics) => topics,
+            Self::Partial(partial) => partial,
+            Self::Full(full) => full,
         }
     }
 
     pub fn matches(&self, entry_topics: &Topics) -> bool {
         match self {
-            Self::Partial(topics) => topics.0.iter().any(|topic| {
-                entry_topics
-                    .0
-                    .iter()
-                    .any(|entry_topic| entry_topic == topic)
-            }),
-            Self::Full(topics) => topics.0.iter().all(|topic| {
-                entry_topics
-                    .0
-                    .iter()
-                    .any(|entry_topic| entry_topic == topic)
-            }),
+            Self::Partial(partial) => partial
+                .iter()
+                .any(|topic| entry_topics.iter().any(|entry_topic| entry_topic == topic)),
+            Self::Full(full) => full
+                .iter()
+                .all(|topic| entry_topics.iter().any(|entry_topic| entry_topic == topic)),
         }
     }
 }
@@ -410,18 +402,18 @@ impl MessageIdentifier {
 
 impl MessageSent {
     pub fn into_mail_ledger_event(self) -> MailLedgerEvent {
-        MailLedgerEvent::Sent(SentMail {
-            mail_identifier: MailIdentifier(self.identifier.as_integer()),
+        MailLedgerEvent::sent(SentMail {
+            mail_identifier: self.identifier.as_integer(),
             origin_route: self.origin_route(),
-            short_header: ShortHeader(self.short_header),
+            short_header: self.short_header,
         })
     }
 }
 
 impl MessageProcessed<Output> {
     pub fn processed_mail_event(&self) -> MailLedgerEvent {
-        MailLedgerEvent::Processed(ProcessedMail {
-            mail_identifier: MailIdentifier(self.identifier().as_integer()),
+        MailLedgerEvent::processed(ProcessedMail {
+            mail_identifier: self.identifier().as_integer(),
             origin_route: self.origin_route(),
             database_marker: self.reply.database_marker(),
         })
@@ -453,12 +445,35 @@ impl Output {
     }
 }
 
+impl DatabaseMarker {
+    pub fn zero() -> Self {
+        Self {
+            commit_sequence: 0,
+            state_digest: 0,
+        }
+    }
+}
+
 impl ValidationError {
     pub fn into_signal_output(self, database_marker: DatabaseMarker) -> Output {
-        Output::Rejected(SignalRejection {
+        Output::rejected(SignalRejection {
             validation_error: self,
             database_marker,
         })
+    }
+}
+
+impl nexus_plane::Nexus<NexusAction> {
+    pub fn into_signal_output(self) -> signal_plane::Signal<Output> {
+        let origin_route = self.origin_route();
+        match self.into_root() {
+            NexusAction::ReplyToSignal(output) => output.with_origin_route(origin_route),
+            _ => Output::error(ErrorReport {
+                error_message: String::from("nexus returned non-signal action"),
+                database_marker: DatabaseMarker::zero(),
+            })
+            .with_origin_route(origin_route),
+        }
     }
 }
 

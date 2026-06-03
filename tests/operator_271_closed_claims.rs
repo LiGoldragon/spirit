@@ -3,11 +3,13 @@
 //!
 //! Coverage in this file:
 //! - Claim 4 — strict schema syntax and honest enum bodies CLOSED.
-//!   The production-path schema `schema/lib.schema` carries parenthesized
-//!   data-variant records `(Record Entry) (Observe Query)` and bare
-//!   PascalCase unit variants; the retired `Record@Entry` short-suffix
-//!   sugar is absent. The companion `schema/lib.asschema` artifact
-//!   carries the lifted honest shape.
+//!   The production-path schema `schema/lib.schema` carries compact
+//!   root-header object names (`Record Observe Lookup ...`) and defines
+//!   those exported objects in the namespace (`Record Entry`, `Observe
+//!   Query`, ...). The retired `Record@Entry` short-suffix sugar is
+//!   absent. The companion `schema/lib.asschema` artifact carries the
+//!   lifted honest shape: root variants point at exported alias nouns,
+//!   and the namespace stores the alias definitions.
 //!
 //! Spirit-next is the production-pilot consumer of schema-emitted nouns,
 //! so its source schema is the production witness for claim 4: the schema
@@ -49,19 +51,21 @@ impl<'source> SchemaSourceWitness<'source> {
 }
 
 /// Claim 4 — `schema/lib.schema` declares the `Input` enum body with
-/// honest parenthesized data variants. The retired `Record@Entry`
-/// short-suffix sugar is absent from the active production schema.
+/// compact exported object names. The retired `Record@Entry`
+/// short-suffix sugar is absent from the active production schema, and
+/// the payload shape lives in namespace declarations.
 #[test]
-fn lib_schema_input_uses_honest_parenthesized_data_variants() {
+fn lib_schema_input_uses_exported_object_variant_names() {
     let witness = SchemaSourceWitness::new("schema/lib.schema", LIB_SCHEMA);
 
-    // The active production Input enum body — honest data variants.
-    // Designer 480: Input gained (LookupStash StashHandle) for the
-    // Stash effect's follow-up lookup path.
-    witness.must_contain(
-        "[(Record Entry) (Observe Query) (Lookup RecordIdentifier) (Count Query) (Remove RecordIdentifier) (LookupStash StashHandle)]",
-        "4",
-    );
+    // The active production Input enum body — compact exported objects.
+    witness.must_contain("[Record Observe Lookup Count Remove LookupStash]", "4");
+    witness.must_contain("Record Entry", "4");
+    witness.must_contain("Observe Query", "4");
+    witness.must_contain("Lookup RecordIdentifier", "4");
+    witness.must_contain("Count Query", "4");
+    witness.must_contain("Remove RecordIdentifier", "4");
+    witness.must_contain("LookupStash StashHandle", "4");
 
     // Retired short-suffix shorthand must not appear.
     witness.must_not_contain("Record@Entry", "4");
@@ -74,19 +78,23 @@ fn lib_schema_input_uses_honest_parenthesized_data_variants() {
 }
 
 /// Claim 4 — `schema/lib.schema` declares the `Output` enum body with
-/// honest parenthesized data variants.
+/// compact exported object names and namespace declarations.
 #[test]
-fn lib_schema_output_uses_honest_parenthesized_data_variants() {
+fn lib_schema_output_uses_exported_object_variant_names() {
     let witness = SchemaSourceWitness::new("schema/lib.schema", LIB_SCHEMA);
 
     // The active production Output enum body.
-    witness.must_contain("(RecordAccepted SemaReceipt)", "4");
-    witness.must_contain("(RecordsObserved ObservedRecords)", "4");
-    witness.must_contain("(RecordFound FoundRecord)", "4");
-    witness.must_contain("(RecordsCounted CountedRecords)", "4");
-    witness.must_contain("(RecordRemoved RemoveReceipt)", "4");
-    witness.must_contain("(Error ErrorReport)", "4");
-    witness.must_contain("(Rejected SignalRejection)", "4");
+    witness.must_contain(
+        "[RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved Error Rejected]",
+        "4",
+    );
+    witness.must_contain("RecordAccepted SemaReceipt", "4");
+    witness.must_contain("RecordsObserved ObservedRecords", "4");
+    witness.must_contain("RecordFound FoundRecord", "4");
+    witness.must_contain("RecordsCounted CountedRecords", "4");
+    witness.must_contain("RecordRemoved RemoveReceipt", "4");
+    witness.must_contain("Error ErrorReport", "4");
+    witness.must_contain("Rejected SignalRejection", "4");
 }
 
 /// Claim 4 — `schema/lib.schema` declares the `ValidationError` enum body
@@ -126,25 +134,33 @@ fn lib_schema_carries_no_at_sigil_anywhere() {
 }
 
 /// Claim 4 — The lifted `lib.asschema` artifact carries the assembled
-/// shape with the parenthesized variants lifted into typed
-/// `(VariantName (Some (Plain TypeName)))` records — the assembled-data
-/// equivalent of honest source-level enum bodies.
+/// shape with root variants pointing at exported alias nouns. The
+/// alias nouns then carry the payload shape without creating wrapper
+/// ceremony in generated Rust.
 #[test]
-fn lib_asschema_lifts_honest_data_variants_into_typed_records() {
+fn lib_asschema_lifts_exported_variant_objects_into_typed_records() {
     let witness = SchemaSourceWitness::new("schema/lib.asschema", LIB_ASSCHEMA);
 
-    // Input variants lifted to the assembled (Some (Plain ...)) form.
-    witness.must_contain("(Record (Some (Plain Entry)))", "4");
-    witness.must_contain("(Observe (Some (Plain Query)))", "4");
-    witness.must_contain("(Lookup (Some (Plain RecordIdentifier)))", "4");
-    witness.must_contain("(Count (Some (Plain Query)))", "4");
-    witness.must_contain("(Remove (Some (Plain RecordIdentifier)))", "4");
+    // Input variants lift to exported alias nouns, not directly to payload structs.
+    witness.must_contain("(Record (Some (Plain Record)))", "4");
+    witness.must_contain("(Observe (Some (Plain Observe)))", "4");
+    witness.must_contain("(Lookup (Some (Plain Lookup)))", "4");
+    witness.must_contain("(Count (Some (Plain Count)))", "4");
+    witness.must_contain("(Remove (Some (Plain Remove)))", "4");
 
-    // Output variants similarly lifted.
-    witness.must_contain("(RecordAccepted (Some (Plain SemaReceipt)))", "4");
-    witness.must_contain("(RecordFound (Some (Plain FoundRecord)))", "4");
-    witness.must_contain("(RecordsCounted (Some (Plain CountedRecords)))", "4");
-    witness.must_contain("(RecordRemoved (Some (Plain RemoveReceipt)))", "4");
+    // Namespace declarations carry the payload shape as aliases.
+    witness.must_contain("(Public Record (Alias (Record (Plain Entry))))", "4");
+    witness.must_contain("(Public Observe (Alias (Observe (Plain Query))))", "4");
+    witness.must_contain(
+        "(Public Lookup (Alias (Lookup (Plain RecordIdentifier))))",
+        "4",
+    );
+
+    // Output variants similarly lift to exported alias nouns.
+    witness.must_contain("(RecordAccepted (Some (Plain RecordAccepted)))", "4");
+    witness.must_contain("(RecordFound (Some (Plain RecordFound)))", "4");
+    witness.must_contain("(RecordsCounted (Some (Plain RecordsCounted)))", "4");
+    witness.must_contain("(RecordRemoved (Some (Plain RecordRemoved)))", "4");
 
     // Unit variants land as `(VariantName None)`.
     witness.must_contain("(EmptyTopic None)", "4");
@@ -164,23 +180,28 @@ fn schema_emitted_rust_module_mirrors_honest_enum_variants() {
     let emitted_rust = include_str!("../src/schema/lib.rs");
     let witness = SchemaSourceWitness::new("src/schema/lib.rs", emitted_rust);
 
-    // The schema-emitted Input enum carries the same data variants.
+    // The schema-emitted Input enum carries exported alias nouns.
     witness.must_contain("pub enum Input {", "4");
-    witness.must_contain("Record(Entry)", "4");
-    witness.must_contain("Observe(Query)", "4");
-    witness.must_contain("Lookup(RecordIdentifier)", "4");
-    witness.must_contain("Count(Query)", "4");
-    witness.must_contain("Remove(RecordIdentifier)", "4");
+    witness.must_contain("pub type Record = Entry;", "4");
+    witness.must_contain("pub type Observe = Query;", "4");
+    witness.must_contain("pub type Lookup = RecordIdentifier;", "4");
+    witness.must_contain("Record(Record)", "4");
+    witness.must_contain("Observe(Observe)", "4");
+    witness.must_contain("Lookup(Lookup)", "4");
+    witness.must_contain("Count(Count)", "4");
+    witness.must_contain("Remove(Remove)", "4");
 
-    // The schema-emitted Output enum carries the same data variants.
+    // The schema-emitted Output enum carries exported alias nouns.
     witness.must_contain("pub enum Output {", "4");
-    witness.must_contain("RecordAccepted(SemaReceipt)", "4");
-    witness.must_contain("RecordsObserved(ObservedRecords)", "4");
-    witness.must_contain("RecordFound(FoundRecord)", "4");
-    witness.must_contain("RecordsCounted(CountedRecords)", "4");
-    witness.must_contain("RecordRemoved(RemoveReceipt)", "4");
-    witness.must_contain("Error(ErrorReport)", "4");
-    witness.must_contain("Rejected(SignalRejection)", "4");
+    witness.must_contain("pub type RecordAccepted = SemaReceipt;", "4");
+    witness.must_contain("pub type RecordsObserved = ObservedRecords;", "4");
+    witness.must_contain("RecordAccepted(RecordAccepted)", "4");
+    witness.must_contain("RecordsObserved(RecordsObserved)", "4");
+    witness.must_contain("RecordFound(RecordFound)", "4");
+    witness.must_contain("RecordsCounted(RecordsCounted)", "4");
+    witness.must_contain("RecordRemoved(RecordRemoved)", "4");
+    witness.must_contain("Error(Error)", "4");
+    witness.must_contain("Rejected(Rejected)", "4");
 
     // The schema-emitted unit enums carry bare variants.
     witness.must_contain("pub enum ValidationError", "4");

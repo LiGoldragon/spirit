@@ -1,7 +1,7 @@
 use spirit_next::{
-    CommitSequence, DatabaseMarker, Description, Engine, Entry, Kind, Magnitude, NexusObjectName,
-    ObjectName, Output, Privacy, PrivacySelection, SemaObjectName, SignalObjectName, StateDigest,
-    Topic, TopicMatch, Topics, TraceEvent, TraceLog, ValidationError,
+    DatabaseMarker, Engine, Entry, Kind, Magnitude, NexusObjectName, ObjectName, Output,
+    PrivacySelection, SemaObjectName, SignalObjectName, TopicMatch, TraceEvent, TraceLog,
+    ValidationError,
 };
 use tempfile::TempDir;
 
@@ -28,11 +28,11 @@ impl SemaFile {
 
 fn entry(description: &str) -> Entry {
     Entry {
-        topics: Topics(vec![Topic(String::from("trace"))]),
+        topics: vec![String::from("trace")],
         kind: Kind::Decision,
-        description: Description(String::from(description)),
+        description: String::from(description),
         magnitude: Magnitude::Maximum,
-        privacy: Privacy(Magnitude::Zero),
+        privacy: Magnitude::Zero,
     }
 }
 
@@ -49,7 +49,7 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
     };
 
     let observed = engine.handle(spirit_next::Input::Observe(spirit_next::Query {
-        topic_match: TopicMatch::Full(Topics(vec![Topic(String::from("trace"))])),
+        topic_match: TopicMatch::full(vec![String::from("trace")]),
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
     }));
@@ -111,8 +111,7 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
         assert_eq!(parsed, events[3]);
     }
     assert_ne!(
-        record_marker.state_digest,
-        StateDigest(0),
+        record_marker.state_digest, 0,
         "trace is attached to a real SEMA write, not a string-presence check"
     );
 }
@@ -178,7 +177,7 @@ fn testing_trace_records_signal_rejection_without_nexus_or_sema_activations() {
     let engine = sema.engine_with_trace(trace_log.clone());
 
     let mut invalid_entry = entry("invalid trace witness");
-    invalid_entry.topics = Topics(vec![]);
+    invalid_entry.topics = vec![];
 
     let output = engine.handle(spirit_next::Input::Record(invalid_entry));
 
@@ -188,8 +187,8 @@ fn testing_trace_records_signal_rejection_without_nexus_or_sema_activations() {
         &Output::Rejected(spirit_next::SignalRejection {
             validation_error: ValidationError::EmptyTopic,
             database_marker: DatabaseMarker {
-                commit_sequence: CommitSequence(0),
-                state_digest: StateDigest(0),
+                commit_sequence: 0,
+                state_digest: 0,
             },
         })
     );
