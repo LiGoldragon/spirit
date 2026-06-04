@@ -496,8 +496,8 @@ dependencies = [
 
 [[package]]
 name = "schema-next"
-version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#711b5fc9fe8809336c7fc54d90c1aa40cf614cc6"
+version = "0.1.1"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#3f7813cfc7eecb45d372db57650d3558d1362f18"
 dependencies = [
  "nota-next",
  "redb 2.6.3",
@@ -516,10 +516,11 @@ dependencies = [
 
 [[package]]
 name = "schema-rust-next"
-version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#a789a85e71b0c7b60402ca68c5ac553d6ca65a5c"
+version = "0.1.3"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#e25cc3eee37db3cd22341e368c8de69fa77ae27e"
 dependencies = [
  "schema-next",
+ "thiserror",
 ]
 
 [[package]]
@@ -674,7 +675,6 @@ dependencies = [
  "blake3",
  "nota-next",
  "rkyv",
- "schema-next",
  "schema-rust-next",
  "sema-engine",
  "tempfile",

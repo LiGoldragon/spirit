@@ -10,14 +10,12 @@ a real CLI and daemon pair.
 ```text
 schema/lib.schema
   -> build.rs
-  -> schema-next::SchemaPackage
-  -> schema-next::SchemaEngine
-  -> schema-next::MacroRegistry
-  -> schema-next::Asschema
+  -> schema_rust_next::build::GenerationPlan::component_runtime_compatibility
+  -> schema_rust_next::build::GenerationDriver
+  -> schema-next lowering and macro registry inside the shared driver
   -> schema-next::AsschemaArtifact
   -> schema/lib.asschema checked-in review artifact
-  -> OUT_DIR/lib.asschema.rkyv
-  -> schema-rust-next::RustEmitter with opt-in NOTA surface
+  -> schema-rust-next::RustEmitter with opt-in NOTA surface inside the driver
   -> checked-in generated module at src/schema/lib.rs
   -> engine composer + nexus mail keeper + sema-engine backed store + transport
 ```
@@ -368,26 +366,24 @@ the intended loop while improving the NOTA parser, schema lowering, or Rust
 emitter: edit a substrate repo, run the consumer check here, and prove the
 generated Rust still compiles and crosses the CLI/daemon rkyv boundary.
 
-`build.rs` now treats authored schema source as its own artifact. It reads
-`schema/lib.schema` into `SchemaSource`, writes canonical `lib.schema` through
-`SchemaSourceArtifact` in Cargo's `OUT_DIR`, reads that file back, and lowers
-the recovered typed source into `Asschema`. It then wraps the assembled value
-in `AsschemaArtifact`, writes fresh `lib.asschema` and `lib.asschema.rkyv`
-witnesses into `OUT_DIR`, compares the fresh NOTA artifact with checked-in
-`schema/lib.asschema`, then asks `schema-rust-next` to emit Rust from the
-checked-in artifact path. It compares that output against `src/schema/lib.rs`.
-The build fails if the source artifact round-trip, checked-in assembled schema,
-checked-in generated source, or binary artifact witness is missing or stale.
-Runtime code imports `src/schema/lib.rs` directly; it does not include
-generated Rust from `OUT_DIR`.
+`build.rs` delegates the build-time schema pipeline to
+`schema_rust_next::build`. The plan is explicitly
+`component_runtime_compatibility`, because this bootstrap Spirit schema is
+still the unsplit all-in-one `schema/lib.schema`. The shared driver reads the
+authored schema into `SchemaSource`, round-trips it through
+`SchemaSourceArtifact` as an internal codec witness, lowers it to `Asschema`,
+materializes fresh `.asschema` NOTA, and emits Rust with the opt-in
+`nota-text` surface. It compares generated `.asschema` and Rust output against
+`schema/lib.asschema` and `src/schema/lib.rs`, or rewrites them when
+`SPIRIT_UPDATE_SCHEMA_ARTIFACTS` is set. Runtime code imports
+`src/schema/lib.rs` directly; it does not include generated Rust from
+`OUT_DIR`.
 
-`build.rs` calls `RustEmitter::new(RustEmissionOptions::feature_gated_nota(
-"nota-text"))`. The same schema-emitted data types can therefore be compiled
-as binary-only daemon nouns or as dual NOTA+rkyv CLI nouns without hand-written
-parallel mirrors. Cargo feature unification means a single Cargo invocation
-cannot prove "CLI has NOTA, daemon lacks NOTA"; Nix builds the daemon and CLI
-as separate package derivations and joins their binaries for integration
-tests.
+The same schema-emitted data types can therefore be compiled as binary-only
+daemon nouns or as dual NOTA+rkyv CLI nouns without hand-written parallel
+mirrors. Cargo feature unification means a single Cargo invocation cannot
+prove "CLI has NOTA, daemon lacks NOTA"; Nix builds the daemon and CLI as
+separate package derivations and joins their binaries for integration tests.
 
 The schema-rust output path is already crate-relative (`src/schema/lib.rs`).
 `build.rs` uses that path directly; it does not reinterpret a generated

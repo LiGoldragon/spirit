@@ -22,14 +22,15 @@ Load-bearing constraints:
   entrypoint and materialized as checked-in source under `src/schema/`.
 - The macro-free assembled form is materialized as checked-in
   `schema/lib.asschema` text. Build code compares it against the fresh lowering
-  of `schema/lib.schema`, emits Rust from the checked-in `.asschema` artifact,
-  and keeps `.asschema.rkyv` as a generated binary cache/witness.
+  of `schema/lib.schema`, then emits Rust through the shared
+  `schema_rust_next::build` driver.
 - Authored schema source is also a typed artifact before assembly.
-  `build.rs` reads `schema/lib.schema` into `SchemaSource`, writes canonical
-  source text through `SchemaSourceArtifact`, reads it back, lowers the
-  recovered typed source into `Asschema`, and only then emits Rust from the
-  checked-in assembled artifact. The source language therefore has an in/out
-  codec on the Spirit stack instead of being a one-way parser.
+  The shared generation driver reads `schema/lib.schema` into `SchemaSource`,
+  round-trips canonical source text through `SchemaSourceArtifact`, lowers the
+  recovered typed source into `Asschema`, and compares the generated
+  `.asschema` and Rust artifacts with the checked-in files. The source
+  language therefore has an in/out codec on the Spirit stack instead of being a
+  one-way parser.
 - `schema/lib.schema` preserves NOTA brace semantics: braces are key-value
   maps, not collections of one-object declarations. A namespace entry is a
   pair such as `Topic String`,
@@ -53,11 +54,10 @@ Load-bearing constraints:
 - Schema lowering goes through `schema-next` before Rust emission; build and
   runtime tests prove the generated `Asschema` data and emitted Rust, not a
   macro trace side channel. The build freshness path materializes
-  `AsschemaArtifact` as legal `.asschema` NOTA and `.asschema.rkyv` files,
-  compares the generated NOTA artifact with checked-in `schema/lib.asschema`,
-  then emits Rust from that checked-in artifact path. The checked-in generated
-  Rust is produced from serialized assembled-schema data rather than a private
-  lowerer-to-emitter value.
+  `AsschemaArtifact` as legal `.asschema` NOTA, compares it with checked-in
+  `schema/lib.asschema`, and compares emitted Rust with `src/schema/lib.rs`.
+  The checked-in generated Rust is produced from typed assembled-schema data
+  rather than a private parser side channel.
 - `build.rs` is a freshness witness for the generated source. It regenerates
   in memory and fails if `src/schema/lib.rs` is missing or stale.
 - Old design-convenience APIs do not remain beside the working interface

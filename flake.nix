@@ -78,17 +78,41 @@
           cp -R "$schemaRustNextSource" $out/vendor-sources/schema-rust-next
           cp -R "$triadRuntimeSource" $out/vendor-sources/triad-runtime
 
-          cat >> $out/Cargo.toml <<'EOF'
-          [patch."https://github.com/LiGoldragon/nota-next.git"]
-          nota-next = { path = "vendor-sources/nota-next" }
+          substituteInPlace $out/Cargo.toml \
+            --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota-next = { path = "vendor-sources/nota-next", optional = true }' \
+            --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "vendor-sources/triad-runtime" }' \
+            --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust-next = { path = "vendor-sources/schema-rust-next" }'
 
-          [patch."https://github.com/LiGoldragon/schema-next.git"]
+          substituteInPlace $out/vendor-sources/schema-rust-next/Cargo.toml \
+            --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "../schema-next" }' \
+            --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next = { path = "../nota-next" }'
+
+          substituteInPlace $out/vendor-sources/schema-next/Cargo.toml \
+            --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next = { path = "../nota-next" }'
+
+          mkdir -p $out/.cargo
+          cat >> $out/.cargo/config.toml <<'EOF'
+          paths = [
+            "vendor-sources/nota-next",
+            "vendor-sources/nota-next/derive",
+            "vendor-sources/schema-next",
+            "vendor-sources/schema-rust-next",
+            "vendor-sources/triad-runtime",
+          ]
+          EOF
+
+          cat >> $out/Cargo.toml <<'EOF'
+          [patch."https://github.com/LiGoldragon/nota-next.git?branch=main"]
+          nota-next = { path = "vendor-sources/nota-next" }
+          nota-next-derive = { path = "vendor-sources/nota-next/derive" }
+
+          [patch."https://github.com/LiGoldragon/schema-next.git?branch=main"]
           schema-next = { path = "vendor-sources/schema-next" }
 
-          [patch."https://github.com/LiGoldragon/schema-rust-next.git"]
+          [patch."https://github.com/LiGoldragon/schema-rust-next.git?branch=main"]
           schema-rust-next = { path = "vendor-sources/schema-rust-next" }
 
-          [patch."https://github.com/LiGoldragon/triad-runtime.git"]
+          [patch."https://github.com/LiGoldragon/triad-runtime.git?branch=main"]
           triad-runtime = { path = "vendor-sources/triad-runtime" }
           EOF
 
