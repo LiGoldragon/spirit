@@ -1,4 +1,5 @@
 use spirit_next::{Configuration, DaemonCommand, DaemonCommandError};
+use triad_runtime::ArgumentError;
 
 struct TemporaryConfiguration {
     directory: tempfile::TempDir,
@@ -53,10 +54,14 @@ fn daemon_command_rejects_missing_or_extra_arguments() {
 
     assert!(matches!(
         missing.configuration(),
-        Err(DaemonCommandError::ArgumentCount { count: 0 })
+        Err(DaemonCommandError::Argument(ArgumentError::ArgumentCount {
+            count: 0
+        }))
     ));
     assert!(matches!(
         extra.configuration(),
-        Err(DaemonCommandError::ArgumentCount { count: 2 })
+        Err(DaemonCommandError::Argument(ArgumentError::ArgumentCount {
+            count: 2
+        }))
     ));
 }

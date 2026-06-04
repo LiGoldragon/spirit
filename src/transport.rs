@@ -1,45 +1,24 @@
 use std::{
-    fmt,
     io::{Read, Write},
     os::unix::net::UnixStream,
     path::Path,
 };
 
+use thiserror::Error;
+use triad_runtime::{FrameBody, FrameError, LengthPrefixedCodec};
+
 use crate::{Input, InputRoute, Output, OutputRoute, SignalFrameError};
 
-const LENGTH_PREFIX_BYTE_COUNT: usize = 4;
-
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum TransportError {
-    Io(std::io::Error),
-    SignalFrame(SignalFrameError),
-    FrameTooLarge { found: usize },
-}
+    #[error("transport IO error: {0}")]
+    Io(#[from] std::io::Error),
 
-impl fmt::Display for TransportError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Io(error) => write!(formatter, "transport IO error: {error}"),
-            Self::SignalFrame(error) => write!(formatter, "signal frame error: {error}"),
-            Self::FrameTooLarge { found } => {
-                write!(formatter, "frame too large for u32 prefix: {found} bytes")
-            }
-        }
-    }
-}
+    #[error("signal frame error: {0}")]
+    SignalFrame(#[from] SignalFrameError),
 
-impl std::error::Error for TransportError {}
-
-impl From<std::io::Error> for TransportError {
-    fn from(value: std::io::Error) -> Self {
-        Self::Io(value)
-    }
-}
-
-impl From<SignalFrameError> for TransportError {
-    fn from(value: SignalFrameError) -> Self {
-        Self::SignalFrame(value)
-    }
+    #[error("transport frame error: {0}")]
+    Frame(#[from] FrameError),
 }
 
 pub struct SignalTransport<Stream> {
@@ -82,20 +61,14 @@ where
     }
 
     fn write_frame(&mut self, frame: Vec<u8>) -> Result<(), TransportError> {
-        let length = u32::try_from(frame.len())
-            .map_err(|_| TransportError::FrameTooLarge { found: frame.len() })?;
-        self.stream.write_all(&length.to_be_bytes())?;
-        self.stream.write_all(&frame)?;
+        LengthPrefixedCodec::default().write_body(&mut self.stream, &FrameBody::new(frame))?;
         self.stream.flush()?;
         Ok(())
     }
 
     fn read_frame(&mut self) -> Result<Vec<u8>, TransportError> {
-        let mut length_bytes = [0_u8; LENGTH_PREFIX_BYTE_COUNT];
-        self.stream.read_exact(&mut length_bytes)?;
-        let length = u32::from_be_bytes(length_bytes) as usize;
-        let mut frame = vec![0_u8; length];
-        self.stream.read_exact(&mut frame)?;
-        Ok(frame)
+        Ok(LengthPrefixedCodec::default()
+            .read_body(&mut self.stream)?
+            .into_bytes())
     }
 }

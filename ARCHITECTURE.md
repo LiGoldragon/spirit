@@ -19,7 +19,7 @@ schema/lib.schema
   -> OUT_DIR/lib.asschema.rkyv
   -> schema-rust-next::RustEmitter with opt-in NOTA surface
   -> checked-in generated module at src/schema/lib.rs
-  -> engine composer + nexus mail keeper + durable redb store + transport
+  -> engine composer + nexus mail keeper + sema-engine backed store + transport
 ```
 
 The generated module has one binary floor and one optional text surface.
@@ -73,8 +73,8 @@ key-value pairs or parenthesized root signatures.
 
 The three runtime centers are concrete objects: `SignalActor` (admission),
 `Nexus` (mail keeper + translator, owns the store + ledger), and `Store` (the
-durable `.sema` redb database). `Engine` composes them and owns no SEMA state
-of its own.
+durable SEMA plane over `sema-engine`). `Engine` composes them and owns no
+SEMA state of its own.
 
 The generated engine traits carry lifecycle hooks. `Engine::start` calls
 `NexusEngine::on_start`, which starts its owned SEMA store through
@@ -147,8 +147,9 @@ and directly through the generated `Input::decode_signal_frame` method. Those
 tests prove that NOTA is accepted only by the CLI text surface, never as daemon
 wire input.
 
-The hand-written transport module owns only length-prefix socket I/O. It does
-not own route enums, short-header matching, or rkyv archive encode/decode.
+The hand-written transport module owns only the component-specific bridge
+between generated signal frames and `triad-runtime::LengthPrefixedCodec`. It
+does not own route enums, short-header matching, or rkyv archive encode/decode.
 
 ### Nexus
 
@@ -198,37 +199,39 @@ communication boundary.
 ### SEMA
 
 `Store` is the SEMA writer. SEMA means database work: the SEMA plane writes
-durable state to the component database file (records 1007/1008). The store is
-a real **redb** database written to a `*.sema` file:
+durable state to the component database file (records 1007/1008). The store
+uses `sema-engine` over a `*.sema` file:
 
-- `Store::open(path)` creates or opens the `.sema` file and ensures the
-  `records` and `ledger` tables.
+- `Store::open(path)` creates or opens the `.sema` file through
+  `sema_engine::Engine` and registers the identified `records` family.
 - `SemaEngine::apply(sema::Sema<sema::WriteInput>) ->
-  sema::Sema<sema::WriteOutput>` is the mutation surface. A `Record` is a redb
-  write transaction that persists the rkyv-archived `Entry`
-  in the `records` table (identifier -> archive) and advances the persisted
-  `next-identifier` and `commit-sequence` counters in the `ledger` table. A
-  `Remove` is a redb write transaction that deletes the record and advances
-  the persisted `commit-sequence` when a record was present.
+  sema::Sema<sema::WriteOutput>` is the mutation surface. A `Record` becomes
+  `Engine::assert_identified`, so sema-engine allocates the numeric
+  `RecordIdentifier`, persists the `Entry`, and advances the durable
+  `CommitSequence`. A `Remove` becomes `Engine::retract_identified`, deleting
+  the identified record and advancing the same durable sequence when a record
+  was present.
 - `SemaEngine::observe(sema::Sema<sema::ReadInput>) ->
-  sema::Sema<sema::ReadOutput>` is the read surface. `Observe(Query)` is a redb
-  read transaction scanning the `records` table and returning every matching
-  entry, `Lookup(RecordIdentifier)` returns one identified record when present,
-  and `Count(Query)` returns the number of matching records without mutating
-  state. The `&self` receiver lets parallel readers share the store reference;
-  `tests/runtime_triad.rs` has a scoped-thread witness for this shape.
+  sema::Sema<sema::ReadOutput>` is the read surface. `Observe(Query)` reads
+  identified records through sema-engine and applies Spirit's schema-specific
+  topic/kind/privacy predicate, `Lookup(RecordIdentifier)` uses
+  `IdentifiedQueryPlan::identifier`, and `Count(Query)` returns the number of
+  matching records without mutating state. The `&self` receiver lets parallel
+  readers share the store reference; `tests/runtime_triad.rs` has a
+  scoped-thread witness for this shape.
 - Entries carry `Topics`, a generated vector alias, plus generated
-`Privacy`. Privacy is a directional `Magnitude`: `Zero` is open/public, and
-higher magnitudes narrow the intended audience. Queries carry
-`TopicMatch::{Partial,Full}`, an optional `Kind`, and generated
-`PrivacySelection`: `Partial` accepts any requested topic, `Full` requires
-every requested topic, `None` in the kind position searches by topic and
-privacy, and default privacy selection is exact `Zero`. The same query noun
-drives both `Observe` and `Count`, while `Lookup` uses the generated
-`RecordIdentifier` alias.
-- redb's transaction model gives crash-consistency: a store reopened from the
-  same `.sema` path resumes its committed records AND its commit ledger, so the
-  next write after a restart continues the sequence rather than restarting at 1.
+  `Privacy`. Privacy is a directional `Magnitude`: `Zero` is open/public, and
+  higher magnitudes narrow the intended audience. Queries carry
+  `TopicMatch::{Partial,Full}`, an optional `Kind`, and generated
+  `PrivacySelection`: `Partial` accepts any requested topic, `Full` requires
+  every requested topic, `None` in the kind position searches by topic and
+  privacy, and default privacy selection is exact `Zero`. The same query noun
+  drives both `Observe` and `Count`, while `Lookup` uses the generated
+  `RecordIdentifier` alias.
+- sema-engine's transaction model gives crash-consistency: a store reopened
+  from the same `.sema` path resumes its committed records AND its commit
+  sequence/identifier counters, so the next write after a restart continues
+  the sequence rather than restarting at 1.
 
 SEMA replies carry a generated `DatabaseMarker` with `CommitSequence` and
 `StateDigest`. `CommitSequence` is the persisted durable write counter.
@@ -238,11 +241,10 @@ reduced to the schema's `Integer` width — an empty store digests to zero.
 Signal outputs include the state marker that Nexus uses to close processed
 mail.
 
-The redb file lifecycle is owned by `Store` directly (synchronous redb API);
-the daemon opens one `Store` for the process and shares it behind the `Nexus`
-mutex. The kameo / `sema-engine` substrate is the destination for a
-production component; this pilot uses redb directly to keep the proof
-self-contained.
+The database lifecycle is owned by sema-engine. The daemon opens one `Store`
+for the process and shares it behind the `Nexus` mutex; `Store` owns the
+schema-specific SEMA mapping, while sema-engine owns the database handle,
+identified table, durable counters, and commit log.
 
 ### Reuse
 
@@ -300,9 +302,10 @@ attaches behavior to those nouns or to state-owning runtime objects:
 - `nexus::Action::CommandSemaWrite` carries generated `sema::WriteInput`, and
   `nexus::Action::CommandSemaRead` carries generated `sema::ReadInput`.
 - `sema::Sema<sema::WriteInput>` is applied by `Store` through generated
-  `SemaEngine::apply`, writing the durable `.sema` redb database.
+  `SemaEngine::apply`, writing the durable `.sema` database through
+  sema-engine.
 - `sema::Sema<sema::ReadInput>` is observed by `Store` through generated
-  `SemaEngine::observe`, using a redb read transaction.
+  `SemaEngine::observe`, reading identified records through sema-engine.
 - `sema::Sema<sema::WriteOutput>` or `sema::Sema<sema::ReadOutput>` becomes
   `nexus::Work::SemaWriteCompleted` or `nexus::Work::SemaReadCompleted`, then generated
   `signal::Signal<signal::Output>` carrying a `DatabaseMarker`.
@@ -434,10 +437,10 @@ socket rejection tests.
   not represented in this pilot repo.
 - `MessageSent` and `MessageProcessed` are generated by the Rust emitter's
   support surface rather than authored in a shared core schema. The `Nexus`
-  decision object and redb `Store` are hand-written runtime behaviour over the
+  decision object and SEMA `Store` are hand-written runtime behaviour over the
   schema-emitted nouns; they are not boundary types and stay hand-written.
-- `Store` shares one redb handle behind a mutex rather than a kameo
-  single-writer actor; the `sema-engine` substrate is the production
-  destination. The pilot uses redb directly to keep the proof self-contained.
+- `Store` still lives inside the `Nexus` mutex rather than a kameo
+  single-writer actor. The database boundary is now sema-engine; the remaining
+  question is runner/actor ownership, not raw storage access.
 - The next slice should make the mail support schema-authored, move the durable
   marker toward a shared `schema-core` type, and start schema diff/upgrade.

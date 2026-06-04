@@ -214,15 +214,15 @@ Load-bearing constraints:
   generated `Output::RecordRemoved`. Privacy is a directional generated
   `Magnitude`: `Zero` is open/public, and higher values narrow the intended
   audience.
-- SEMA is durable (records 1007/1008, bead `primary-q2au`). `Store` is a real
-  redb database written to a `*.sema` file: each `Record` is a redb write
-  transaction persisting the rkyv-archived `Entry`, each `Remove` is a redb
-  write transaction deleting an entry and advancing the commit sequence,
-  `Observe`, `Lookup`, and `Count` are redb read transactions over the generated
-  `SemaReadInput` root, and the commit sequence + next-identifier counter
-  persist in the database so a store reopened from the same `.sema` path
-  resumes where it left off. The file extension is `.sema` (not `.redb`) so the
-  name states the runtime plane, not the implementation library.
+- SEMA is durable (records 1007/1008, bead `primary-q2au`). `Store` maps
+  generated SEMA roots onto sema-engine identified-record operations over a
+  `*.sema` file: each `Record` calls `Engine::assert_identified`, each
+  `Remove` calls `Engine::retract_identified`, and `Observe`, `Lookup`, and
+  `Count` read through `Engine::match_identified`. sema-engine owns the
+  database handle, numeric record identifier allocation, durable
+  `CommitSequence`, and commit log; Spirit owns only the schema-specific SEMA
+  mapping and query predicate. The file extension is `.sema` (not `.redb`) so
+  the name states the runtime plane, not the implementation library.
 - Production-candidate handover is tested as a copy of a real `.sema` file.
   The candidate daemon must read state seeded by the production-like daemon,
   resume the copied commit ledger, and write only to the copied database; a

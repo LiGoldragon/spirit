@@ -1,4 +1,6 @@
-use std::{fmt, fs, path::Path};
+use std::{fs, path::Path};
+
+use thiserror::Error;
 
 /// Daemon configuration loaded from a binary rkyv file.
 ///
@@ -81,25 +83,17 @@ impl Configuration {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ConfigurationError {
+    #[error("failed to read binary configuration: {0}")]
     Read(std::io::Error),
+
+    #[error("failed to write binary configuration: {0}")]
     Write(std::io::Error),
+
+    #[error("failed to encode binary configuration")]
     ArchiveEncode,
+
+    #[error("failed to decode binary configuration")]
     ArchiveDecode,
 }
-
-impl fmt::Display for ConfigurationError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Read(error) => write!(formatter, "failed to read binary configuration: {error}"),
-            Self::Write(error) => {
-                write!(formatter, "failed to write binary configuration: {error}")
-            }
-            Self::ArchiveEncode => formatter.write_str("failed to encode binary configuration"),
-            Self::ArchiveDecode => formatter.write_str("failed to decode binary configuration"),
-        }
-    }
-}
-
-impl std::error::Error for ConfigurationError {}

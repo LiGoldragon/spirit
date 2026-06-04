@@ -364,7 +364,7 @@ fn sema_store_persists_records_across_reopen_of_the_same_sema_file() {
             other => panic!("expected Recorded, got {other:?}"),
         };
         assert_eq!(store.len(), 2);
-        // store drops here, releasing the redb file handle.
+        // store drops here, releasing the sema-engine file handle.
     }
 
     // Reopen from the SAME path — a fresh process would do exactly this.

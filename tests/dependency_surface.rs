@@ -1,4 +1,4 @@
-use std::{path::PathBuf, process::Command};
+use std::{fs, path::PathBuf, process::Command};
 
 struct WorkspaceManifest {
     path: PathBuf,
@@ -25,6 +25,10 @@ impl WorkspaceManifest {
         );
         String::from_utf8(output.stdout).expect("cargo tree stdout is UTF-8")
     }
+
+    fn cargo_toml(&self) -> String {
+        fs::read_to_string(self.path.join("Cargo.toml")).expect("Cargo.toml is readable")
+    }
 }
 
 #[test]
@@ -35,6 +39,22 @@ fn binary_only_surface_has_no_nota_next_runtime_dependency() {
     assert!(
         !tree.contains("nota-next") && !tree.contains("nota_next"),
         "binary-only runtime dependency tree must not contain nota-next:\n{tree}"
+    );
+}
+
+#[test]
+fn spirit_has_no_direct_redb_dependency_or_redb_two_runtime_tree() {
+    let manifest = WorkspaceManifest::from_environment();
+    let cargo = manifest.cargo_toml();
+    let tree = manifest.cargo_tree(&["--edges", "normal", "--no-default-features"]);
+
+    assert!(
+        !cargo.contains("\nredb ="),
+        "Spirit must not depend on redb directly; storage goes through sema-engine"
+    );
+    assert!(
+        !tree.contains("redb v2."),
+        "normal runtime tree must not contain redb 2.x:\n{tree}"
     );
 }
 

@@ -1,9 +1,12 @@
 use std::{
-    env, fs,
+    fs,
     os::unix::net::{UnixListener, UnixStream},
     path::Path,
     sync::Arc,
 };
+
+use thiserror::Error;
+use triad_runtime::{ArgumentError, ComponentArgument, ComponentCommand};
 
 use crate::{
     ActorStartFailure, ActorStopFailure, Configuration, ConfigurationError, Engine, StoreError,
@@ -14,101 +17,44 @@ use crate::{
 #[cfg(feature = "testing-trace")]
 use crate::TraceLog;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum DaemonError {
-    Io(std::io::Error),
-    Transport(TransportError),
-    Store(StoreError),
-    ActorStart(ActorStartFailure),
-    ActorStop(ActorStopFailure),
+    #[error("daemon IO error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("daemon transport error: {0}")]
+    Transport(#[from] TransportError),
+
+    #[error("daemon sema store error: {0}")]
+    Store(#[from] StoreError),
+
+    #[error("daemon actor start error: {0}")]
+    ActorStart(#[from] ActorStartFailure),
+
+    #[error("daemon actor stop error: {0}")]
+    ActorStop(#[from] ActorStopFailure),
 }
 
-impl std::fmt::Display for DaemonError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Io(error) => write!(formatter, "daemon IO error: {error}"),
-            Self::Transport(error) => write!(formatter, "daemon transport error: {error}"),
-            Self::Store(error) => write!(formatter, "daemon sema store error: {error}"),
-            Self::ActorStart(error) => write!(formatter, "daemon actor start error: {error}"),
-            Self::ActorStop(error) => write!(formatter, "daemon actor stop error: {error}"),
-        }
-    }
-}
-
-impl std::error::Error for DaemonError {}
-
-impl From<std::io::Error> for DaemonError {
-    fn from(value: std::io::Error) -> Self {
-        Self::Io(value)
-    }
-}
-
-impl From<TransportError> for DaemonError {
-    fn from(value: TransportError) -> Self {
-        Self::Transport(value)
-    }
-}
-
-impl From<StoreError> for DaemonError {
-    fn from(value: StoreError) -> Self {
-        Self::Store(value)
-    }
-}
-
-impl From<ActorStartFailure> for DaemonError {
-    fn from(value: ActorStartFailure) -> Self {
-        Self::ActorStart(value)
-    }
-}
-
-impl From<ActorStopFailure> for DaemonError {
-    fn from(value: ActorStopFailure) -> Self {
-        Self::ActorStop(value)
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum DaemonCommandError {
-    ArgumentCount { count: usize },
-    Configuration(ConfigurationError),
-    Daemon(DaemonError),
-}
+    #[error("daemon argument error: {0}")]
+    Argument(#[from] ArgumentError),
 
-impl std::fmt::Display for DaemonCommandError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::ArgumentCount { count } => write!(
-                formatter,
-                "expected exactly one binary configuration path, received {count}"
-            ),
-            Self::Configuration(error) => write!(formatter, "{error}"),
-            Self::Daemon(error) => write!(formatter, "{error}"),
-        }
-    }
-}
+    #[error("{0}")]
+    Configuration(#[from] ConfigurationError),
 
-impl std::error::Error for DaemonCommandError {}
-
-impl From<ConfigurationError> for DaemonCommandError {
-    fn from(value: ConfigurationError) -> Self {
-        Self::Configuration(value)
-    }
-}
-
-impl From<DaemonError> for DaemonCommandError {
-    fn from(value: DaemonError) -> Self {
-        Self::Daemon(value)
-    }
+    #[error("{0}")]
+    Daemon(#[from] DaemonError),
 }
 
 pub struct DaemonCommand {
-    arguments: Vec<String>,
+    command: ComponentCommand,
 }
 
 impl DaemonCommand {
     pub fn from_environment() -> Self {
         Self {
-            arguments: env::args().skip(1).collect(),
+            command: ComponentCommand::from_environment(),
         }
     }
 
@@ -118,25 +64,23 @@ impl DaemonCommand {
         Argument: Into<String>,
     {
         Self {
-            arguments: arguments.into_iter().map(Into::into).collect(),
+            command: ComponentCommand::from_arguments(arguments),
         }
     }
 
     pub fn configuration(&self) -> Result<Configuration, DaemonCommandError> {
-        Configuration::from_binary_path(self.single_argument()?).map_err(Into::into)
+        match self.command.signal_file_argument()? {
+            ComponentArgument::SignalFile(file) => {
+                Configuration::from_binary_path(file.as_path()).map_err(Into::into)
+            }
+            ComponentArgument::InlineNota(_) | ComponentArgument::NotaFile(_) => {
+                Err(ArgumentError::ExpectedSignalFile.into())
+            }
+        }
     }
 
     pub fn run(&self) -> Result<(), DaemonCommandError> {
         Daemon::new(self.configuration()?).run().map_err(Into::into)
-    }
-
-    fn single_argument(&self) -> Result<&str, DaemonCommandError> {
-        match self.arguments.as_slice() {
-            [argument] => Ok(argument),
-            _ => Err(DaemonCommandError::ArgumentCount {
-                count: self.arguments.len(),
-            }),
-        }
     }
 }
 

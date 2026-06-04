@@ -1,32 +1,15 @@
-use std::io::{Cursor, Write};
+use std::io::Cursor;
 
 use spirit_next::{Input, SignalTransport};
-
-struct LengthPrefixedFrame<'payload> {
-    payload: &'payload [u8],
-}
-
-impl<'payload> LengthPrefixedFrame<'payload> {
-    fn new(payload: &'payload [u8]) -> Self {
-        Self { payload }
-    }
-
-    fn to_bytes(&self) -> Vec<u8> {
-        let length = u32::try_from(self.payload.len()).expect("test payload fits u32");
-        let mut bytes = Vec::with_capacity(4 + self.payload.len());
-        bytes
-            .write_all(&length.to_be_bytes())
-            .expect("write length prefix");
-        bytes.write_all(self.payload).expect("write payload");
-        bytes
-    }
-}
+use triad_runtime::{FrameBody, LengthPrefixedCodec};
 
 #[test]
 fn transport_rejects_length_prefixed_raw_nota_text() {
     let nota =
         b"(Record ([[socket-negative]] Decision [text must not be daemon wire] Maximum Zero))";
-    let bytes = LengthPrefixedFrame::new(nota).to_bytes();
+    let bytes = LengthPrefixedCodec::default()
+        .encode_body(&FrameBody::new(nota.to_vec()))
+        .expect("length-prefixed frame");
     let mut transport = SignalTransport::new(Cursor::new(bytes));
 
     assert!(
@@ -37,7 +20,9 @@ fn transport_rejects_length_prefixed_raw_nota_text() {
 
 #[test]
 fn transport_rejects_length_prefixed_garbage_bytes() {
-    let bytes = LengthPrefixedFrame::new(&[0_u8; 16]).to_bytes();
+    let bytes = LengthPrefixedCodec::default()
+        .encode_body(&FrameBody::new([0_u8; 16]))
+        .expect("length-prefixed frame");
     let mut transport = SignalTransport::new(Cursor::new(bytes));
 
     assert!(

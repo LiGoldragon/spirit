@@ -292,7 +292,7 @@ fn daemon_persists_sema_file_across_a_restart() {
             }
             other => panic!("expected RecordAccepted from first daemon, got {other:?}"),
         }
-        // _daemon drops here: process killed, redb file handle released.
+        // _daemon drops here: process killed, sema-engine file handle released.
     }
 
     assert!(

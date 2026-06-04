@@ -1,6 +1,14 @@
-use std::{fmt, fs, path::PathBuf};
+use std::{
+    fmt,
+    path::{Path, PathBuf},
+};
 
-use redb::{Database, ReadableTable, ReadableTableMetadata, TableDefinition};
+use sema_engine::{
+    Engine as SemaDatabase, EngineOpen, IdentifiedAssertion, IdentifiedQueryPlan,
+    IdentifiedRetraction, IdentifiedTableDescriptor, IdentifiedTableReference,
+    RecordIdentifier as EngineRecordIdentifier, SchemaVersion, TableName,
+};
+use thiserror::Error;
 
 use crate::{
     ActorStartFailure, ActorStopFailure, CountedRecords, DatabaseMarker, Entry, ErrorReport,
@@ -12,29 +20,32 @@ use crate::{
 #[cfg(feature = "testing-trace")]
 use crate::{ObjectName, SemaObjectName, TraceEvent, TraceLog};
 
-/// redb table of durable records: identifier -> rkyv-archived `Entry`.
-const RECORDS: TableDefinition<u64, &[u8]> = TableDefinition::new("records");
-/// redb table of the SEMA commit ledger: a single-key counter pair.
-const LEDGER: TableDefinition<&str, u64> = TableDefinition::new("ledger");
-/// Ledger key holding the identifier issued to the next durable write.
-const NEXT_IDENTIFIER_KEY: &str = "next-identifier";
-/// Ledger key holding the count of durable commits applied so far.
-const COMMIT_SEQUENCE_KEY: &str = "commit-sequence";
+const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(1);
+const ENTRIES_TABLE: TableName = TableName::new("records");
 
-/// The SEMA durable store: a real redb database written to a `*.sema`
-/// file.
+/// The SEMA durable store: a sema-engine identified table written to a
+/// `*.sema` file.
 ///
-/// SEMA means database work — writing to the durable state file (records
-/// 1007/1008). Each `Record` operation is a redb write transaction; each
-/// `Observe` is a redb read transaction. The commit sequence and the
-/// next-identifier counter persist in the database itself, so a store
-/// reopened from the same `.sema` path resumes exactly where it left off.
-#[derive(Debug)]
+/// SEMA means database work. `Store` maps generated SEMA roots onto
+/// sema-engine operations; sema-engine owns the database handle, numeric
+/// identifier allocation, durable commit sequence, and typed rkyv table
+/// access. Query predicate semantics stay here because they are
+/// Spirit-specific SEMA behavior, not generic daemon plumbing.
 pub struct Store {
-    database: Database,
+    database: SemaDatabase,
+    entries: IdentifiedTableReference<Entry>,
     path: PathBuf,
     #[cfg(feature = "testing-trace")]
     trace_log: TraceLog,
+}
+
+impl fmt::Debug for Store {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("Store")
+            .field("path", &self.path)
+            .finish_non_exhaustive()
+    }
 }
 
 impl SemaEngine for Store {
@@ -151,26 +162,22 @@ impl SemaEngine for Store {
 impl Store {
     /// Open or create the durable SEMA database at `path`.
     ///
-    /// A fresh file is created with empty ledger counters; an existing
-    /// file resumes its persisted commit sequence and identifier counter.
+    /// A fresh file is created with empty engine counters; an existing
+    /// file resumes its persisted commit sequence and record identifier
+    /// counter through sema-engine.
     pub fn open(path: impl Into<PathBuf>) -> Result<Self, StoreError> {
         let path = path.into();
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-        let database = if path.exists() {
-            Database::open(&path)?
-        } else {
-            Database::create(&path)?
-        };
-        let store = Self {
+        let mut database =
+            SemaDatabase::open(EngineOpen::new(path.clone(), SPIRIT_SCHEMA_VERSION))?;
+        let entries =
+            database.register_identified_table(IdentifiedTableDescriptor::new(ENTRIES_TABLE))?;
+        Ok(Self {
             database,
+            entries,
             path,
             #[cfg(feature = "testing-trace")]
             trace_log: TraceLog::default(),
-        };
-        store.ensure_tables()?;
-        Ok(store)
+        })
     }
 
     #[cfg(feature = "testing-trace")]
@@ -187,109 +194,53 @@ impl Store {
         self
     }
 
-    pub fn path(&self) -> &std::path::Path {
+    pub fn path(&self) -> &Path {
         &self.path
     }
 
-    fn ensure_tables(&self) -> Result<(), StoreError> {
-        let transaction = self.database.begin_write()?;
-        {
-            transaction.open_table(RECORDS)?;
-            let mut ledger = transaction.open_table(LEDGER)?;
-            if ledger.get(NEXT_IDENTIFIER_KEY)?.is_none() {
-                ledger.insert(NEXT_IDENTIFIER_KEY, 1_u64)?;
-            }
-            if ledger.get(COMMIT_SEQUENCE_KEY)?.is_none() {
-                ledger.insert(COMMIT_SEQUENCE_KEY, 0_u64)?;
-            }
-        }
-        transaction.commit()?;
-        Ok(())
-    }
-
     fn record(&self, entry: Entry) -> Result<u64, StoreError> {
-        let archive =
-            rkyv::to_bytes::<rkyv::rancor::Error>(&entry).map_err(|_| StoreError::ArchiveEncode)?;
-        let transaction = self.database.begin_write()?;
-        let identifier;
-        {
-            let mut ledger = transaction.open_table(LEDGER)?;
-            identifier = ledger
-                .get(NEXT_IDENTIFIER_KEY)?
-                .map(|value| value.value())
-                .unwrap_or(1);
-            let commit_sequence = ledger
-                .get(COMMIT_SEQUENCE_KEY)?
-                .map(|value| value.value())
-                .unwrap_or(0);
-            ledger.insert(NEXT_IDENTIFIER_KEY, identifier + 1)?;
-            ledger.insert(COMMIT_SEQUENCE_KEY, commit_sequence + 1)?;
-            let mut records = transaction.open_table(RECORDS)?;
-            records.insert(identifier, &archive[..])?;
-        }
-        transaction.commit()?;
-        Ok(identifier)
+        Ok(self
+            .database
+            .assert_identified(IdentifiedAssertion::new(self.entries, entry))?
+            .identifier()
+            .value())
     }
 
     fn observe(&self, query: &Query) -> Result<Vec<Entry>, StoreError> {
-        let transaction = self.database.begin_read()?;
-        let records = transaction.open_table(RECORDS)?;
-        let mut matches = Vec::new();
-        for row in records.iter()? {
-            let (_, archive) = row?;
-            let entry = rkyv::from_bytes::<Entry, rkyv::rancor::Error>(archive.value())
-                .map_err(|_| StoreError::ArchiveDecode)?;
-            if entry.matches(query) {
-                matches.push(entry);
-            }
-        }
-        Ok(matches)
+        Ok(self
+            .records()?
+            .into_iter()
+            .map(|record| record.into_value())
+            .filter(|entry| entry.matches(query))
+            .collect())
     }
 
     fn lookup(&self, identifier: u64) -> Result<Option<Entry>, StoreError> {
-        let transaction = self.database.begin_read()?;
-        let records = transaction.open_table(RECORDS)?;
-        records
-            .get(identifier)?
-            .map(|archive| {
-                rkyv::from_bytes::<Entry, rkyv::rancor::Error>(archive.value())
-                    .map_err(|_| StoreError::ArchiveDecode)
-            })
-            .transpose()
+        Ok(self
+            .database
+            .match_identified(IdentifiedQueryPlan::identifier(
+                self.entries,
+                EngineRecordIdentifier::new(identifier),
+            ))?
+            .into_records()
+            .into_iter()
+            .next()
+            .map(|record| record.into_value()))
     }
 
     fn count(&self, query: &Query) -> Result<u64, StoreError> {
-        let transaction = self.database.begin_read()?;
-        let records = transaction.open_table(RECORDS)?;
-        let mut count = 0_u64;
-        for row in records.iter()? {
-            let (_, archive) = row?;
-            let entry = rkyv::from_bytes::<Entry, rkyv::rancor::Error>(archive.value())
-                .map_err(|_| StoreError::ArchiveDecode)?;
-            if entry.matches(query) {
-                count += 1;
-            }
-        }
-        Ok(count)
+        Ok(self.observe(query)?.len() as u64)
     }
 
     fn remove(&self, identifier: u64) -> Result<bool, StoreError> {
-        let transaction = self.database.begin_write()?;
-        let removed;
-        {
-            let mut records = transaction.open_table(RECORDS)?;
-            removed = records.remove(identifier)?.is_some();
-            if removed {
-                let mut ledger = transaction.open_table(LEDGER)?;
-                let commit_sequence = ledger
-                    .get(COMMIT_SEQUENCE_KEY)?
-                    .map(|value| value.value())
-                    .unwrap_or(0);
-                ledger.insert(COMMIT_SEQUENCE_KEY, commit_sequence + 1)?;
-            }
+        match self.database.retract_identified(IdentifiedRetraction::new(
+            self.entries,
+            EngineRecordIdentifier::new(identifier),
+        )) {
+            Ok(_receipt) => Ok(true),
+            Err(sema_engine::Error::RecordNotFound { .. }) => Ok(false),
+            Err(error) => Err(StoreError::Database(error)),
         }
-        transaction.commit()?;
-        Ok(removed)
     }
 
     pub fn len(&self) -> usize {
@@ -301,9 +252,7 @@ impl Store {
     }
 
     fn committed_record_count(&self) -> Result<usize, StoreError> {
-        let transaction = self.database.begin_read()?;
-        let records = transaction.open_table(RECORDS)?;
-        Ok(records.len()? as usize)
+        Ok(self.records()?.len())
     }
 
     /// The SEMA commit marker: the persisted commit sequence plus a real
@@ -316,12 +265,7 @@ impl Store {
     }
 
     fn commit_sequence(&self) -> Result<u64, StoreError> {
-        let transaction = self.database.begin_read()?;
-        let ledger = transaction.open_table(LEDGER)?;
-        Ok(ledger
-            .get(COMMIT_SEQUENCE_KEY)?
-            .map(|value| value.value())
-            .unwrap_or(0))
+        Ok(self.database.current_commit_sequence()?.value())
     }
 
     /// A content-addressed digest of committed state: blake3 over each
@@ -330,88 +274,40 @@ impl Store {
     /// store (no committed records) digests to zero, so a marker taken
     /// before any write reads `(0, 0)`.
     fn state_digest(&self) -> Result<u64, StoreError> {
-        let transaction = self.database.begin_read()?;
-        let records = transaction.open_table(RECORDS)?;
-        if records.is_empty()? {
+        let records = self.records()?;
+        if records.is_empty() {
             return Ok(0);
         }
-        let ledger = transaction.open_table(LEDGER)?;
-        let commit_sequence = ledger
-            .get(COMMIT_SEQUENCE_KEY)?
-            .map(|value| value.value())
-            .unwrap_or(0);
+        let commit_sequence = self.commit_sequence()?;
         let mut hasher = blake3::Hasher::new();
         hasher.update(&commit_sequence.to_le_bytes());
-        for row in records.iter()? {
-            let (identifier, archive) = row?;
-            hasher.update(&identifier.value().to_le_bytes());
-            hasher.update(archive.value());
+        for record in records {
+            let archive = rkyv::to_bytes::<rkyv::rancor::Error>(record.value())
+                .map_err(|_| StoreError::ArchiveEncode)?;
+            hasher.update(&record.identifier().value().to_le_bytes());
+            hasher.update(&archive);
         }
         let digest = hasher.finalize();
         let mut head = [0_u8; 8];
         head.copy_from_slice(&digest.as_bytes()[..8]);
         Ok(u64::from_le_bytes(head))
     }
+
+    fn records(&self) -> Result<Vec<sema_engine::IdentifiedRecord<Entry>>, StoreError> {
+        Ok(self
+            .database
+            .match_identified(IdentifiedQueryPlan::all(self.entries))?
+            .into_records())
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum StoreError {
-    Io(std::io::Error),
-    /// Any redb-level failure (open, transaction, table, storage, commit).
-    /// Boxed because redb's error types are large; the boxed `redb::Error`
-    /// preserves the specific failure for `Display` and matching.
-    Database(Box<redb::Error>),
+    #[error("sema database engine error: {0}")]
+    Database(#[from] sema_engine::Error),
+
+    #[error("failed to encode record rkyv archive")]
     ArchiveEncode,
-    ArchiveDecode,
-}
-
-impl fmt::Display for StoreError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Io(error) => write!(formatter, "sema store IO error: {error}"),
-            Self::Database(error) => write!(formatter, "sema database error: {error}"),
-            Self::ArchiveEncode => formatter.write_str("failed to encode record rkyv archive"),
-            Self::ArchiveDecode => formatter.write_str("failed to decode record rkyv archive"),
-        }
-    }
-}
-
-impl std::error::Error for StoreError {}
-
-impl From<std::io::Error> for StoreError {
-    fn from(value: std::io::Error) -> Self {
-        Self::Io(value)
-    }
-}
-
-impl From<redb::DatabaseError> for StoreError {
-    fn from(value: redb::DatabaseError) -> Self {
-        Self::Database(Box::new(value.into()))
-    }
-}
-
-impl From<redb::TransactionError> for StoreError {
-    fn from(value: redb::TransactionError) -> Self {
-        Self::Database(Box::new(value.into()))
-    }
-}
-
-impl From<redb::TableError> for StoreError {
-    fn from(value: redb::TableError) -> Self {
-        Self::Database(Box::new(value.into()))
-    }
-}
-
-impl From<redb::StorageError> for StoreError {
-    fn from(value: redb::StorageError) -> Self {
-        Self::Database(Box::new(value.into()))
-    }
-}
-
-impl From<redb::CommitError> for StoreError {
-    fn from(value: redb::CommitError) -> Self {
-        Self::Database(Box::new(value.into()))
-    }
 }
 
 impl Entry {

@@ -1,9 +1,11 @@
-use std::{env, fs, path::Path};
+use std::{env, fs, path::PathBuf};
 
-use spirit_next::{Input, SignalTransport};
+use spirit_next::{Input, SignalTransport, TransportError, schema::lib::NotaDecodeError};
+use thiserror::Error;
+use triad_runtime::{ArgumentError, ComponentArgument, ComponentCommand};
 
 #[cfg(feature = "testing-trace")]
-use spirit_next::TraceClient;
+use spirit_next::{TraceClient, TraceError};
 #[cfg(feature = "testing-trace")]
 use std::time::Duration;
 
@@ -15,19 +17,18 @@ fn main() {
 }
 
 struct SpiritNextCli {
-    arguments: Vec<String>,
+    command: ComponentCommand,
 }
 
 impl SpiritNextCli {
     fn from_environment() -> Self {
         Self {
-            arguments: env::args().skip(1).collect(),
+            command: ComponentCommand::from_environment(),
         }
     }
 
-    fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let argument = self.single_argument()?;
-        let source = self.read_single_argument(argument)?;
+    fn run(&self) -> Result<(), SpiritNextCliError> {
+        let source = self.source()?;
         let input = source.parse::<Input>()?;
         let socket_path = env::var("SPIRIT_NEXT_SOCKET")
             .unwrap_or_else(|_| String::from("/tmp/spirit-next.sock"));
@@ -41,20 +42,42 @@ impl SpiritNextCli {
         Ok(())
     }
 
-    fn single_argument(&self) -> Result<&str, Box<dyn std::error::Error>> {
-        match self.arguments.as_slice() {
-            [argument] => Ok(argument),
-            _ => Err("expected exactly one NOTA argument or path".into()),
+    fn source(&self) -> Result<String, SpiritNextCliError> {
+        match self.command.nota_argument()? {
+            ComponentArgument::InlineNota(argument) => Ok(argument.into_string()),
+            ComponentArgument::NotaFile(file) => {
+                let path = file.into_path();
+                fs::read_to_string(&path)
+                    .map_err(|source| SpiritNextCliError::ReadNotaFile { path, source })
+            }
+            ComponentArgument::SignalFile(file) => {
+                let path = file.into_path();
+                fs::read_to_string(&path)
+                    .map_err(|source| SpiritNextCliError::ReadNotaFile { path, source })
+            }
         }
     }
+}
 
-    fn read_single_argument(&self, argument: &str) -> Result<String, Box<dyn std::error::Error>> {
-        if argument.trim_start().starts_with('(') {
-            Ok(argument.to_owned())
-        } else if Path::new(argument).exists() {
-            Ok(fs::read_to_string(argument)?)
-        } else {
-            Err("inline operation must be a parenthesized NOTA value".into())
-        }
-    }
+#[derive(Debug, Error)]
+enum SpiritNextCliError {
+    #[error("component argument error: {0}")]
+    Argument(#[from] ArgumentError),
+
+    #[error("failed to read NOTA file {}: {source}", path.display())]
+    ReadNotaFile {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("invalid NOTA input: {0}")]
+    NotaDecode(#[from] NotaDecodeError),
+
+    #[error("transport error: {0}")]
+    Transport(#[from] TransportError),
+
+    #[cfg(feature = "testing-trace")]
+    #[error("trace error: {0}")]
+    Trace(#[from] TraceError),
 }
