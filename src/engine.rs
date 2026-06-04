@@ -6,7 +6,7 @@ use crate::{
     MessageSentHook, NexusAction, NexusEngine, NexusWork, OriginRoute, Output, ProcessedMail,
     Query, SentMail, SignalEngine, SignalRejection, TopicMatch, Topics, ValidationError,
     nexus::Nexus,
-    schema::lib::{nexus as nexus_plane, signal as signal_plane},
+    schema::{nexus as nexus_schema, signal as signal_schema},
     store::Store,
 };
 
@@ -40,7 +40,7 @@ pub struct SignalActor {
 
 #[derive(Debug)]
 pub struct SignalAccepted {
-    input: signal_plane::Signal<Input>,
+    input: signal_schema::signal::Signal<Input>,
     sent: MessageSent,
 }
 
@@ -101,7 +101,8 @@ impl Engine {
     pub fn stop(&mut self) -> Result<(), ActorStopFailure> {
         SignalEngine::on_stop(&mut self.signal_actor)?;
         let mut nexus = self.nexus.lock().expect("nexus lock");
-        NexusEngine::on_stop(&mut *nexus)
+        NexusEngine::on_stop(&mut *nexus)?;
+        Ok(())
     }
 
     /// Run one request through Signal admission, the NexusEngine
@@ -111,7 +112,7 @@ impl Engine {
     /// identifier, and validates) before any deeper layer sees it. The
     /// sent hook fires at the Signal→Nexus handoff; the processed hook
     /// fires after the NexusEngine returns its reply.
-    pub fn handle(&self, input: Input) -> signal_plane::Signal<Output> {
+    pub fn handle(&self, input: Input) -> signal_schema::signal::Signal<Output> {
         let accepted = match self.signal_actor.admit(input) {
             Ok(accepted) => accepted,
             Err(rejected) => {
@@ -206,6 +207,9 @@ impl SignalActor {
 }
 
 impl SignalEngine for SignalActor {
+    type NexusInput = nexus_schema::nexus::Nexus<NexusWork>;
+    type NexusOutput = nexus_schema::nexus::Nexus<NexusAction>;
+
     fn on_start(&mut self) -> Result<(), ActorStartFailure> {
         #[cfg(feature = "testing-trace")]
         self.trace_signal_activation(SignalObjectName::Started);
@@ -224,12 +228,18 @@ impl SignalEngine for SignalActor {
             .record(TraceEvent::new(ObjectName::Signal(object_name)));
     }
 
-    fn triage_inner(&self, input: signal_plane::Signal<Input>) -> nexus_plane::Nexus<NexusWork> {
+    fn triage_inner(
+        &self,
+        input: signal_schema::signal::Signal<Input>,
+    ) -> nexus_schema::nexus::Nexus<NexusWork> {
         let origin_route = input.origin_route();
-        NexusWork::signal_arrived(input.into_root()).with_origin_route(origin_route)
+        NexusWork::signal_arrived(input.into_root()).with_origin_route(origin_route.into())
     }
 
-    fn reply_inner(&self, output: nexus_plane::Nexus<NexusAction>) -> signal_plane::Signal<Output> {
+    fn reply_inner(
+        &self,
+        output: nexus_schema::nexus::Nexus<NexusAction>,
+    ) -> signal_schema::signal::Signal<Output> {
         output.into_signal_output()
     }
 }
@@ -258,9 +268,12 @@ impl SignalAccepted {
         self,
         signal_engine: &Signal,
         nexus: &mut Nexus,
-    ) -> signal_plane::Signal<Output>
+    ) -> signal_schema::signal::Signal<Output>
     where
-        Signal: SignalEngine,
+        Signal: SignalEngine<
+                NexusInput = nexus_schema::nexus::Nexus<NexusWork>,
+                NexusOutput = nexus_schema::nexus::Nexus<NexusAction>,
+            >,
     {
         self.sent
             .push_to(&mut nexus.mail_ledger().hook())
@@ -270,9 +283,13 @@ impl SignalAccepted {
         let origin_route = nexus_input.origin_route();
         let nexus_output = NexusEngine::execute(nexus, nexus_input);
         let signal_output = signal_engine.reply(nexus_output);
-        MessageProcessed::new(identifier, origin_route, signal_output.root().clone())
-            .push_to(&mut nexus.mail_ledger().hook())
-            .expect("spirit mail ledger is infallible");
+        MessageProcessed::new(
+            identifier,
+            origin_route.into(),
+            signal_output.root().clone(),
+        )
+        .push_to(&mut nexus.mail_ledger().hook())
+        .expect("spirit mail ledger is infallible");
         signal_output
     }
 }
@@ -463,16 +480,16 @@ impl ValidationError {
     }
 }
 
-impl nexus_plane::Nexus<NexusAction> {
-    pub fn into_signal_output(self) -> signal_plane::Signal<Output> {
+impl nexus_schema::nexus::Nexus<NexusAction> {
+    pub fn into_signal_output(self) -> signal_schema::signal::Signal<Output> {
         let origin_route = self.origin_route();
         match self.into_root() {
-            NexusAction::ReplyToSignal(output) => output.with_origin_route(origin_route),
+            NexusAction::ReplyToSignal(output) => output.with_origin_route(origin_route.into()),
             _ => Output::error(ErrorReport {
                 error_message: String::from("nexus returned non-signal action"),
                 database_marker: DatabaseMarker::zero(),
             })
-            .with_origin_route(origin_route),
+            .with_origin_route(origin_route.into()),
         }
     }
 }
@@ -481,7 +498,7 @@ impl SignalRejected {
     pub fn into_signal_output(
         self,
         database_marker: DatabaseMarker,
-    ) -> signal_plane::Signal<Output> {
+    ) -> signal_schema::signal::Signal<Output> {
         self.validation_error
             .into_signal_output(database_marker)
             .with_origin_route(self.origin_route)

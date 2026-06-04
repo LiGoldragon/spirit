@@ -8,19 +8,19 @@ a real CLI and daemon pair.
 ## Layers
 
 ```text
-schema/lib.schema
+schema/{signal,nexus,sema}.schema
   -> build.rs
-  -> schema_rust_next::build::GenerationPlan::component_runtime_compatibility
+  -> schema_rust_next::build::GenerationPlan with three ModuleEmission targets
   -> schema_rust_next::build::GenerationDriver
   -> schema-next lowering and macro registry inside the shared driver
   -> schema-next::AsschemaArtifact
-  -> schema/lib.asschema checked-in review artifact
+  -> schema/{signal,nexus,sema}.asschema checked-in review artifacts
   -> schema-rust-next::RustEmitter with opt-in NOTA surface inside the driver
-  -> checked-in generated module at src/schema/lib.rs
+  -> checked-in generated modules at src/schema/{signal,nexus,sema}.rs
   -> engine composer + nexus mail keeper + sema-engine backed store + transport
 ```
 
-The generated module has one binary floor and one optional text surface.
+Each generated module has one binary floor and one optional text surface.
 `rkyv::Archive` / `Serialize` / `Deserialize` are always emitted because every
 component speaks binary frames. `nota_next::NotaDecode` / `NotaEncode`, root
 `FromStr`, root `Display`, and `to_nota` helpers are emitted behind the
@@ -35,26 +35,26 @@ runtime. Normal Nix packages build a lean binary daemon plus NOTA CLI adapter.
 Trace packages build the same pair with `testing-trace`; the daemon can emit
 rkyv `TraceEvent` frames to a configured trace socket, and the CLI can listen
 on that socket and render decoded trace events after the ordinary Signal
-reply. Spirit owns the schema-generated typed `TraceEvent` and actor hook
-emission. `triad-runtime` owns the reusable trace log, length-prefixed binary
-frame, Unix trace socket listener, and generic client-side trace collector. A
-trace event is a transparent generated newtype over `ObjectName`, and that
+reply. Spirit owns the typed aggregate `TraceEvent` over plane-local generated
+object names and actor hook emission. `triad-runtime` owns the reusable trace
+log, length-prefixed binary frame, Unix trace socket listener, and generic
+client-side trace collector. A trace event carries an `ObjectName`, and that
 object name is supplied by the generated trait wrapper
 (`SignalObjectName::Triaged`, `NexusObjectName::Entered`,
 `SemaObjectName::WriteApplied`, `SemaObjectName::ReadObserved`, and siblings),
 not a free string or cloned payload snapshot. The CLI renders the decoded
-`TraceEvent` through its generated NOTA surface via the shared typed trace
-client, producing one object such as `(Sema WriteApplied)` rather than a
-one-field wrapper around it. The trace path is a runtime proof surface, not deployment grep: the
+`TraceEvent` through its typed NOTA surface via the shared typed trace client,
+producing one object such as `(Sema WriteApplied)` rather than a one-field
+wrapper around it. The trace path is a runtime proof surface, not deployment grep: the
 process-boundary test starts a real daemon, sends real CLI requests, decodes
 each displayed NOTA trace line back into `TraceEvent`, and asserts the
 Signal/Nexus/SEMA event sequence that returns over the trace socket.
 
-The current `schema/lib.schema` intentionally keeps braces strict as NOTA
-key-value maps. The namespace contains pairs such as `Topic String`,
+The current plane schemas intentionally keep braces strict as NOTA key-value
+maps. The Signal namespace contains pairs such as `Topic String`,
 `RecordSet (Vec Entry)`, and
-`Entry { Topics * Kind * Description * Magnitude * Privacy * }`; it
-does not contain declarations that repeat their own name inside the value.
+`Entry { Topics * Kind * Description * Magnitude * Privacy * }`; it does not
+contain declarations that repeat their own name inside the value.
 Inside a struct map, `Topics *` derives the `topics` field from the existing
 `Topics` type, and explicit bindings such as `kind (Optional Kind)` stay only
 where the field name differs from the referenced type. Bare reference
@@ -258,22 +258,23 @@ The paths are single-colon namespaces, mirroring Rust crate/module paths with
 
 The same root shape applies to the Spirit language planes in this pilot:
 Signal (`Input`/`Output`), Nexus (`NexusWork`/`NexusAction`), and split SEMA
-write/read roots (`SemaWriteInput`/`SemaWriteOutput`,
-`SemaReadInput`/`SemaReadOutput`). Each plane has imports/exports and a
-namespace available to it; the implementation difference is which actor object
-owns the method after the generated type exists.
+write/read roots (`WriteInput`/`WriteOutput`, `ReadInput`/`ReadOutput`). Each
+plane has imports, roots, and a namespace available to it; the implementation
+difference is which actor object owns the method after the generated type
+exists.
 
-The current `schema/lib.schema` spelling is the strict brace key-value syntax.
-The known root positions provide the Signal input and output enum names, so the
-root enum bodies are bare square-bracket values. Namespace declarations are
-key-value pairs: a brace value declares a struct map, a square-bracket value
-declares an enum variant list, and an atom or parenthesized reference declares
-an alias. Data-carrying enum payloads are declared through namespace bindings
-such as `Record Entry` and `RecordAccepted SemaReceipt`; those bindings lower
-to direct payload aliases. Parentheses remain the composite/reference and
-macro-call argument shape at reference positions. That authored syntax lowers
-to the same `Asschema` roots and namespace before `src/schema/lib.rs` is
-regenerated.
+The current `schema/{signal,nexus,sema}.schema` spelling is the strict brace
+key-value syntax. The known root positions provide each plane's input and
+output enum names, so the root enum bodies are bare square-bracket values.
+Namespace declarations are key-value pairs: a brace value declares a struct
+map, a square-bracket value declares an enum variant list, and an atom or
+parenthesized reference declares an alias. Data-carrying enum payloads are
+declared through namespace bindings such as `Record Entry`,
+`RecordAccepted SemaReceipt`, and `CommandSemaWrite SemaWriteInput`; those
+bindings lower to direct payload aliases. Parentheses remain the
+composite/reference and macro-call argument shape at reference positions. That
+authored syntax lowers to one checked-in `Asschema` artifact and generated Rust
+module per plane.
 
 The generated Rust exposes plane namespaces over those bootstrap backing names:
 `signal::Input`, `nexus::Work`, `sema::WriteInput`, and `sema::ReadInput`
@@ -282,8 +283,9 @@ namespace-local names, for example `sema::Sema<sema::WriteInput>`, so the
 envelope carries the plane and payload names stay short.
 
 When code needs to branch across planes, it matches generated
-`schema::Plane::{Signal,Nexus,Sema}`. Those variants carry the actual plane
-envelopes, so the match surface and the message body stay one object.
+plane-specific envelopes and actions. There is no generic `schema::Plane`
+wrapper in the split runtime; cross-plane movement is explicit through typed
+Signal, Nexus, and SEMA envelopes.
 
 ## Implementation methods
 
@@ -343,7 +345,7 @@ builds, and re-exports the generic runtime objects.
 `triad-runtime` decides whether to record in memory, write a rkyv frame to the
 trace socket, or stay disabled when explicitly requested.
 
-When a data shape changes, edit `schema/lib.schema` first, then regenerate
+When a data shape changes, edit the owning plane schema first, then regenerate
 through `build.rs`, then update the methods that act on the regenerated types.
 Do not hand-write parallel type mirrors.
 
@@ -371,17 +373,17 @@ emitter: edit a substrate repo, run the consumer check here, and prove the
 generated Rust still compiles and crosses the CLI/daemon rkyv boundary.
 
 `build.rs` delegates the build-time schema pipeline to
-`schema_rust_next::build`. The plan is explicitly
-`component_runtime_compatibility`, because this bootstrap Spirit schema is
-still the unsplit all-in-one `schema/lib.schema`. The shared driver reads the
-authored schema into `SchemaSource`, round-trips it through
+`schema_rust_next::build`. The plan emits three modules:
+`schema/signal.schema` with `SignalRuntime`, `schema/nexus.schema` with
+`NexusRuntime`, and `schema/sema.schema` with `SemaRuntime`. The shared driver
+reads each authored schema into `SchemaSource`, round-trips it through
 `SchemaSourceArtifact` as an internal codec witness, lowers it to `Asschema`,
 materializes fresh `.asschema` NOTA, and emits Rust with the opt-in
 `nota-text` surface. It compares generated `.asschema` and Rust output against
-`schema/lib.asschema` and `src/schema/lib.rs`, or rewrites them when
-`SPIRIT_UPDATE_SCHEMA_ARTIFACTS` is set. Runtime code imports
-`src/schema/lib.rs` directly; it does not include generated Rust from
-`OUT_DIR`.
+`schema/{signal,nexus,sema}.asschema` and
+`src/schema/{signal,nexus,sema}.rs`, or rewrites them when
+`SPIRIT_UPDATE_SCHEMA_ARTIFACTS` is set. Runtime code imports the checked-in
+plane modules directly; it does not include generated Rust from `OUT_DIR`.
 
 The same schema-emitted data types can therefore be compiled as binary-only
 daemon nouns or as dual NOTA+rkyv CLI nouns without hand-written parallel
@@ -389,9 +391,10 @@ mirrors. Cargo feature unification means a single Cargo invocation cannot
 prove "CLI has NOTA, daemon lacks NOTA"; Nix builds the daemon and CLI as
 separate package derivations and joins their binaries for integration tests.
 
-The schema-rust output path is already crate-relative (`src/schema/lib.rs`).
-`build.rs` uses that path directly; it does not reinterpret a generated
-`schema/lib.rs` path relative to `src/`.
+The schema-rust output paths are already crate-relative
+(`src/schema/signal.rs`, `src/schema/nexus.rs`, and `src/schema/sema.rs`).
+`build.rs` uses those paths directly; it does not reinterpret generated paths
+relative to `src/`.
 
 Runtime-chain tests assert on schema-emitted objects, not test-local shadow
 languages. Pattern A uses generated `MailLedgerEvent`, `NexusWork`,
@@ -419,8 +422,8 @@ normal runtime through `Engine::handle`, and asserts the schema-generated typed
 event sequence instead of grepping for trait names.
 
 The next larger migration candidate is the workspace split proven in the
-designer worktree: separate working-signal, owner-signal, engine, daemon, and
-CLI crates, with owner-signal carrying configuration operations and a
+designer worktree: separate working-signal, meta-signal, engine, daemon, and
+CLI crates, with meta-signal carrying policy/configuration operations and a
 runtime-level numerator enum over accepted signal interfaces. Main currently
 keeps the single crate so the Nix proof harness remains intact; the integrated
 pieces from that prototype are the zero-NOTA dependency guard and raw-NOTA
@@ -433,7 +436,7 @@ socket rejection tests.
   and commit ledger are durable.
 - Schema diff/upgrade is absent (the generated `UpgradeFrom`/`AcceptPrevious`
   traits exist but nothing implements them yet).
-- The repo-triad split (`spirit`, `signal-spirit`, `owner-signal-spirit`) is
+- The repo-triad split (`spirit`, `signal-spirit`, `meta-signal-spirit`) is
   not represented in this pilot repo.
 - `MessageSent` and `MessageProcessed` are generated by the Rust emitter's
   support surface rather than authored in a shared core schema. The `Nexus`

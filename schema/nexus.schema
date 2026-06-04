@@ -1,0 +1,36 @@
+{
+  SignalInput spirit:signal:Input
+  SignalOutput spirit:signal:Output
+  SemaReadInput spirit:sema:ReadInput
+  SemaReadOutput spirit:sema:ReadOutput
+  SemaWriteInput spirit:sema:WriteInput
+  SemaWriteOutput spirit:sema:WriteOutput
+  Records spirit:signal:Records
+  RecordCount spirit:signal:RecordCount
+  StashHandle spirit:signal:StashHandle
+  DatabaseMarker spirit:signal:DatabaseMarker
+}
+[SignalArrived SemaWriteCompleted SemaReadCompleted EffectCompleted]
+[CommandSemaWrite CommandSemaRead ReplyToSignal CommandEffect Continue]
+{
+  SignalArrived SignalInput
+  SemaWriteCompleted SemaWriteOutput
+  SemaReadCompleted SemaReadOutput
+  EffectCompleted NexusEffectResult
+
+  CommandSemaWrite SemaWriteInput
+  CommandSemaRead SemaReadInput
+  ReplyToSignal SignalOutput
+  CommandEffect NexusEffectCommand
+  Continue NexusWork
+
+  NexusWork [SignalArrived SemaWriteCompleted SemaReadCompleted EffectCompleted]
+  NexusAction [CommandSemaWrite CommandSemaRead ReplyToSignal CommandEffect Continue]
+
+  NexusEffectCommand [Stash]
+  Stash StashRequest
+  NexusEffectResult [Stashed]
+  Stashed StashResult
+  StashRequest { Records * DatabaseMarker * }
+  StashResult { StashHandle * RecordCount * DatabaseMarker * }
+}

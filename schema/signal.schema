@@ -8,14 +8,14 @@
   Import { SourcePath * LocalPath * }
   Export { LocalPath * PublicPath * }
   SignalReuse { Import * Export * }
-  NexusReuse { Import * Export * }
-  SemaReuse { Import * Export * }
+
   Record Entry
   Observe Query
   Lookup RecordIdentifier
   Count Query
   Remove RecordIdentifier
   LookupStash StashHandle
+
   RecordAccepted SemaReceipt
   RecordsObserved ObservedRecords
   RecordsStashed StashedObservation
@@ -24,36 +24,7 @@
   RecordRemoved RemoveReceipt
   Error ErrorReport
   Rejected SignalRejection
-  NexusWork [SignalArrived SemaWriteCompleted SemaReadCompleted EffectCompleted]
-  SignalArrived Input
-  SemaWriteCompleted SemaWriteOutput
-  SemaReadCompleted SemaReadOutput
-  EffectCompleted NexusEffectResult
-  NexusAction [CommandSemaWrite CommandSemaRead ReplyToSignal CommandEffect Continue]
-  CommandSemaWrite SemaWriteInput
-  CommandSemaRead SemaReadInput
-  ReplyToSignal Output
-  CommandEffect NexusEffectCommand
-  Continue NexusWork
-  NexusEffectCommand [Stash]
-  Stash StashRequest
-  NexusEffectResult [Stashed]
-  Stashed StashResult
-  StashHandle Integer
-  StashRequest { Records * DatabaseMarker * }
-  StashResult { StashHandle * RecordCount * DatabaseMarker * }
-  StashedObservation { StashHandle * RecordCount * DatabaseMarker * }
-  Records (Vec Entry)
-  SemaWriteInput [Record Remove]
-  SemaReadInput [Observe Lookup Count]
-  SemaWriteOutput [Recorded Removed Missed]
-  Recorded SemaReceipt
-  Removed RemoveReceipt
-  Missed ErrorReport
-  SemaReadOutput [Observed Found Counted Missed]
-  Observed ObservedRecords
-  Found FoundRecord
-  Counted CountedRecords
+
   Topic String
   Topics (Vec Topic)
   Description String
@@ -61,23 +32,27 @@
   RecordIdentifier Integer
   CommitSequence Integer
   StateDigest Integer
+  RecordCount Integer
+  StashHandle Integer
+  MailIdentifier Integer
+  ShortHeader Integer
+
   DatabaseMarker { CommitSequence * StateDigest * }
   SemaReceipt { RecordIdentifier * DatabaseMarker * }
   RemoveReceipt { RecordIdentifier * DatabaseMarker * }
   ObservedRecords { RecordSet * DatabaseMarker * }
   FoundRecord { RecordIdentifier * Entry * DatabaseMarker * }
-  RecordCount Integer
   CountedRecords { RecordCount * DatabaseMarker * }
   ErrorReport { ErrorMessage * DatabaseMarker * }
   SignalRejection { ValidationError * DatabaseMarker * }
+  StashedObservation { StashHandle * RecordCount * DatabaseMarker * }
   ValidationError [EmptyTopic EmptyDescription EmptyQueryTopic StashHandleNotFound]
-  MailIdentifier Integer
-  ShortHeader Integer
   SentMail { MailIdentifier * OriginRoute * ShortHeader * }
   ProcessedMail { MailIdentifier * OriginRoute * DatabaseMarker * }
   MailLedgerEvent [Sent Processed]
   Sent SentMail
   Processed ProcessedMail
+
   TopicMatch [Partial Full]
   Partial Topics
   Full Topics
@@ -86,8 +61,10 @@
   Exact Privacy
   AtMost Privacy
   AtLeast Privacy
+
   Entry { Topics * Kind * Description * Magnitude * Privacy * }
   Query { TopicMatch * kind (Optional Kind) privacy_selection PrivacySelection }
+  Records (Vec Entry)
   RecordSet (Vec Entry)
   Kind [Decision Principle Correction Clarification Constraint]
   Magnitude [Zero Minimum VeryLow Low Medium High VeryHigh Maximum]

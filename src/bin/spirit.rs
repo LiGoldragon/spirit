@@ -1,6 +1,7 @@
 use std::{env, fs, path::PathBuf};
 
-use spirit::{Input, SignalTransport, TransportError, schema::lib::NotaDecodeError};
+use nota_next::NotaDecodeError;
+use spirit::{Input, SignalTransport, TransportError};
 use thiserror::Error;
 use triad_runtime::{ArgumentError, ComponentArgument, ComponentCommand};
 

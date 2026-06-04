@@ -18,20 +18,22 @@ Load-bearing constraints:
   source comment. Tests run `cargo tree --edges normal --no-default-features`
   and assert `nota-next` is absent, while the `nota-text` surface must contain
   `nota-next`.
-- Rust data types are generated from the crate-local `schema/lib.schema`
-  entrypoint and materialized as checked-in source under `src/schema/`.
+- Rust data types are generated from the crate-local
+  `schema/{signal,nexus,sema}.schema` plane schemas and materialized as
+  checked-in source under `src/schema/`.
 - The macro-free assembled form is materialized as checked-in
-  `schema/lib.asschema` text. Build code compares it against the fresh lowering
-  of `schema/lib.schema`, then emits Rust through the shared
-  `schema_rust_next::build` driver.
+  `schema/{signal,nexus,sema}.asschema` text. Build code compares those
+  artifacts against fresh lowering of the authored plane schemas, then emits
+  Rust through the shared `schema_rust_next::build` driver.
 - Authored schema source is also a typed artifact before assembly.
-  The shared generation driver reads `schema/lib.schema` into `SchemaSource`,
+  The shared generation driver reads each plane schema into `SchemaSource`,
   round-trips canonical source text through `SchemaSourceArtifact`, lowers the
   recovered typed source into `Asschema`, and compares the generated
-  `.asschema` and Rust artifacts with the checked-in files. The source
-  language therefore has an in/out codec on the Spirit stack instead of being a
-  one-way parser.
-- `schema/lib.schema` preserves NOTA brace semantics: braces are key-value
+  `.asschema` and Rust artifacts with the checked-in files. The source language
+  therefore has an in/out codec on the Spirit stack instead of being a one-way
+  parser.
+- `schema/signal.schema`, `schema/nexus.schema`, and `schema/sema.schema`
+  preserve NOTA brace semantics: braces are key-value
   maps, not collections of one-object declarations. A namespace entry is a
   pair such as `Topic String`,
   `Entry { Topics * Kind * Description * Magnitude * Privacy * }`, or
@@ -48,18 +50,20 @@ Load-bearing constraints:
   direct enum payloads, not wrapper structs. Explicit brace-body singleton
   declarations remain the source form for real tuple newtypes. The generated
   `Asschema` and emitted Rust consume only the strict authored surface.
-- The generated file path from schema-rust is crate-relative
-  `src/schema/lib.rs`; build code uses that path directly instead of treating
-  `schema/lib.rs` as relative to `src/`.
+- The generated file paths from schema-rust are crate-relative paths such as
+  `src/schema/signal.rs`, `src/schema/nexus.rs`, and `src/schema/sema.rs`;
+  build code uses those paths directly instead of treating them as relative to
+  `src/`.
 - Schema lowering goes through `schema-next` before Rust emission; build and
   runtime tests prove the generated `Asschema` data and emitted Rust, not a
   macro trace side channel. The build freshness path materializes
   `AsschemaArtifact` as legal `.asschema` NOTA, compares it with checked-in
-  `schema/lib.asschema`, and compares emitted Rust with `src/schema/lib.rs`.
+  plane artifacts, and compares emitted Rust with the checked-in plane modules.
   The checked-in generated Rust is produced from typed assembled-schema data
   rather than a private parser side channel.
 - `build.rs` is a freshness witness for the generated source. It regenerates
-  in memory and fails if `src/schema/lib.rs` is missing or stale.
+  in memory and fails if any checked-in plane artifact or generated source file
+  is missing or stale.
 - Old design-convenience APIs do not remain beside the working interface
   (Spirit record 1339). Once the schema-derived trait path exists, parallel
   bypass/convenience surfaces are removed rather than carried for comfort.
@@ -69,25 +73,26 @@ Load-bearing constraints:
   runner surface belong on data-bearing library nouns. Domain behavior stays
   in non-default implementations of the generated Signal, Nexus, and SEMA
   engine traits, not in daemon main or local orchestration conveniences.
-- The schema declares the runtime triad surfaces:
-  `Input`/`Output` for Signal, `NexusWork`/`NexusAction` for Nexus decision flow,
-  `SemaWriteInput`/`SemaWriteOutput` for database mutations, and
-  `SemaReadInput`/`SemaReadOutput` for database reads.
+- The three plane schemas declare the runtime triad surfaces:
+  `schema/signal.schema` owns `Input`/`Output` for Signal,
+  `schema/nexus.schema` owns `NexusWork`/`NexusAction` for Nexus decision flow,
+  and `schema/sema.schema` owns `WriteInput`/`WriteOutput` for database
+  mutations plus `ReadInput`/`ReadOutput` for database reads.
 - Generated plane namespaces expose the same shapes as `signal::Input` /
   `signal::Output`, `nexus::Work` / `nexus::Action`,
   `sema::WriteInput`, `sema::WriteOutput`, `sema::ReadInput`, and
-  `sema::ReadOutput`. The flat names are bootstrap backing names; runtime
-  trait signatures and tests use the plane namespaces so the plane carries
-  the ancestry instead of every payload name.
-- Cross-plane branching uses generated `schema::Plane::{Signal,Nexus,Sema}`.
-  Each variant carries the actual plane envelope; there is no parallel
-  `Kind` tag that must be paired with a separate message body.
+  `sema::ReadOutput`. Runtime trait signatures and tests use the plane
+  namespaces so the plane carries the ancestry instead of every payload name.
+- Cross-plane movement uses typed per-plane envelopes and explicit conversion
+  between route newtypes. The split modules do not revive a generic
+  `schema::Plane` wrapper; Signal, Nexus, and SEMA remain distinct Rust modules
+  and distinct generated traits.
 - Each language plane has input/output and reusable import/export vocabulary.
   Import/export paths mirror Rust module namespaces with a single colon rather
   than double colon, for example `signal:sema:Magnitude`.
-- Signal, Nexus, and SEMA use the same authored schema shape: imports/exports,
-  roots, and namespace. Their generated Rust differs by trait support and
-  runtime ownership, not by a separate notation.
+- Signal, Nexus, and SEMA use the same authored schema shape: imports, roots,
+  and namespace. Their generated Rust differs by emission target and runtime
+  ownership, not by a separate notation.
 - Nexus is the execution plane between Signal and SEMA. Signal triage produces
   a generated `nexus::Nexus<nexus::Work>` envelope directly; that envelope is
   the only Signal-to-Nexus runtime handoff.
@@ -106,7 +111,7 @@ Load-bearing constraints:
   triaging into Nexus.
 - Signal rejection is also schema-emitted. Invalid Signal input returns
   `Output::Rejected(SignalRejection { validation_error, database_marker })`
-  where `ValidationError` is generated from `schema/lib.schema`; the runtime
+  where `ValidationError` is generated from `schema/signal.schema`; the runtime
   does not use a hand-written rejection enum at the wire boundary.
 - Nexus decides from generated `NexusWork` facts and emits generated
   `NexusAction` commands. Signal arrivals become command actions such as
@@ -119,13 +124,15 @@ Load-bearing constraints:
   `triad-runtime::Runner` owns the continuation budget and repeated dispatch.
   Hand-written `Nexus` implements one decision step, SEMA write/read hooks,
   the effect hook, and the typed budget-exhausted reply.
-- `schema-rust-next` emits `SignalEngine`, `NexusEngine`, and `SemaEngine`
-  when the schema declares the corresponding input/output pairs. `SignalActor`
-  implements `SignalEngine` as the lightweight triage/reply boundary; `Nexus`
-  implements mutable `NexusEngine` as the computation and decision plane;
-  `Store` implements `SemaEngine` as the durable state plane with split
-  `apply(&mut self, WriteInput)` and `observe(&self, ReadInput)` surfaces;
-  tests call those trait surfaces with generated schema root objects.
+- `schema-rust-next` emits `SignalEngine` from the Signal runtime target,
+  `NexusEngine` and the generated runner adapter from the Nexus runtime target,
+  and `SemaEngine` from the SEMA runtime target. `SignalActor` implements
+  `SignalEngine` as the lightweight triage/reply boundary; `Nexus` implements
+  mutable `NexusEngine` as the computation and decision plane; `Store`
+  implements `SemaEngine` as the durable state plane with split
+  `apply(&mut self, sema::Sema<sema::WriteInput>)` and
+  `observe(&self, sema::Sema<sema::ReadInput>)` surfaces. Tests call those
+  trait surfaces with generated schema root objects.
 - The generated engine traits also provide the minimal lifecycle address.
   `Engine::start` runs the generated hooks from inner durable state outward
   (SEMA, then Nexus, then Signal), and `Engine::stop` runs them from the

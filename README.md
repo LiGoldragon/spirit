@@ -5,10 +5,10 @@ Runnable schema-derived Spirit pilot.
 `spirit` proves the first practical version of the new architecture:
 
 ```text
-schema/lib.schema
-  -> schema-next Asschema
-  -> checked-in schema/lib.asschema
-  -> schema-rust-next checked-in generated Rust at src/schema/lib.rs
+schema/{signal,nexus,sema}.schema
+  -> schema-next Asschema per plane
+  -> checked-in schema/{signal,nexus,sema}.asschema
+  -> schema-rust-next checked-in generated Rust at src/schema/{signal,nexus,sema}.rs
   -> CLI NOTA input
   -> generated Signal frame (short header + rkyv)
   -> daemon SignalActor
@@ -22,9 +22,10 @@ schema/lib.schema
 This is not production Spirit. It is the public pilot repo for making the
 schema-created interface real at a process boundary.
 
-`build.rs` lowers `schema/lib.schema`, checks that the reviewable
-`schema/lib.asschema` artifact is fresh, emits Rust from that checked-in
-artifact, and fails the build if `src/schema/lib.rs` is stale. The runtime
+`build.rs` lowers `schema/{signal,nexus,sema}.schema`, checks that the reviewable
+`schema/{signal,nexus,sema}.asschema` artifacts are fresh, emits Rust from those
+checked-in artifacts, and fails the build if any generated `src/schema/*.rs`
+plane module is stale. The runtime
 imports the checked-in module directly; `OUT_DIR` only holds fresh comparison
 witnesses and the binary `.asschema.rkyv` cache.
 

@@ -219,13 +219,17 @@
           '';
           generated-schema-source-checked-in = pkgs.runCommand "spirit-generated-schema-source-checked-in" { } ''
             # Positive freshness proof runs through the cargo build/test
-            # checks: build.rs decodes schema/lib.schema as SchemaSource,
-            # round-trips canonical source, compares schema/lib.asschema,
-            # emits Rust from the checked-in Asschema, and compares NOTA vs
-            # rkyv emission. This check only keeps retired side-channel
-            # source paths absent.
-            test -f ${src}/src/schema/lib.rs
-            test -f ${src}/schema/lib.asschema
+            # checks: build.rs decodes each plane schema as SchemaSource,
+            # round-trips canonical source, compares each checked-in
+            # .asschema artifact, emits Rust from the checked-in Asschema
+            # planes, and compares NOTA vs rkyv emission. This check only
+            # keeps retired side-channel source paths absent.
+            test -f ${src}/src/schema/signal.rs
+            test -f ${src}/src/schema/nexus.rs
+            test -f ${src}/src/schema/sema.rs
+            test -f ${src}/schema/signal.asschema
+            test -f ${src}/schema/nexus.asschema
+            test -f ${src}/schema/sema.asschema
             ! grep -R "lower_source(" ${src}/build.rs
             ! grep -R "lower_source_with_context" ${src}/build.rs
             ! grep -R "macros_applied" ${src}/build.rs

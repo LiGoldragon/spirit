@@ -1,6 +1,6 @@
 use std::{env, path::PathBuf};
 
-use schema_rust_next::build::{GenerationDriver, GenerationPlan};
+use schema_rust_next::build::{GenerationDriver, GenerationPlan, ModuleEmission};
 
 fn main() {
     SchemaBuild::from_environment().run();
@@ -18,12 +18,20 @@ impl SchemaBuild {
     }
 
     fn run(&self) {
-        println!("cargo:rerun-if-changed=schema/lib.schema");
-        println!("cargo:rerun-if-changed=schema/lib.asschema");
-        println!("cargo:rerun-if-changed=src/schema/lib.rs");
+        println!("cargo:rerun-if-changed=schema/signal.schema");
+        println!("cargo:rerun-if-changed=schema/signal.asschema");
+        println!("cargo:rerun-if-changed=src/schema/signal.rs");
+        println!("cargo:rerun-if-changed=schema/nexus.schema");
+        println!("cargo:rerun-if-changed=schema/nexus.asschema");
+        println!("cargo:rerun-if-changed=src/schema/nexus.rs");
+        println!("cargo:rerun-if-changed=schema/sema.schema");
+        println!("cargo:rerun-if-changed=schema/sema.asschema");
+        println!("cargo:rerun-if-changed=src/schema/sema.rs");
 
-        let plan =
-            GenerationPlan::component_runtime_compatibility(&self.crate_root, "spirit", "0.1.0");
+        let plan = GenerationPlan::new(&self.crate_root, "spirit", "0.1.0")
+            .with_module(ModuleEmission::signal_runtime_module("signal"))
+            .with_module(ModuleEmission::nexus_runtime())
+            .with_module(ModuleEmission::sema_runtime());
         GenerationDriver::new(plan)
             .generate()
             .expect("generate spirit schema artifacts")

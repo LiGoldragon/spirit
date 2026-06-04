@@ -11,10 +11,10 @@ use sema_engine::{
 use thiserror::Error;
 
 use crate::{
-    ActorStartFailure, ActorStopFailure, CountedRecords, DatabaseMarker, Entry, ErrorReport,
-    FoundRecord, Magnitude, Privacy, PrivacySelection, Query, RemoveReceipt, SemaEngine,
-    SemaReadInput, SemaReadOutput, SemaReceipt, SemaWriteInput, SemaWriteOutput,
-    schema::lib::sema as sema_plane,
+    CountedRecords, DatabaseMarker, Entry, ErrorReport, FoundRecord, Magnitude, Privacy,
+    PrivacySelection, Query, RemoveReceipt, SemaActorStartFailure, SemaActorStopFailure,
+    SemaEngine, SemaReadInput, SemaReadOutput, SemaReceipt, SemaWriteInput, SemaWriteOutput,
+    schema::sema as sema_schema,
 };
 
 #[cfg(feature = "testing-trace")]
@@ -49,13 +49,13 @@ impl fmt::Debug for Store {
 }
 
 impl SemaEngine for Store {
-    fn on_start(&mut self) -> Result<(), ActorStartFailure> {
+    fn on_start(&mut self) -> Result<(), SemaActorStartFailure> {
         #[cfg(feature = "testing-trace")]
         self.trace_sema_activation(SemaObjectName::Started);
         Ok(())
     }
 
-    fn on_stop(&mut self) -> Result<(), ActorStopFailure> {
+    fn on_stop(&mut self) -> Result<(), SemaActorStopFailure> {
         #[cfg(feature = "testing-trace")]
         self.trace_sema_activation(SemaObjectName::Stopped);
         Ok(())
@@ -69,8 +69,8 @@ impl SemaEngine for Store {
 
     fn apply_inner(
         &mut self,
-        command: sema_plane::Sema<sema_plane::WriteInput>,
-    ) -> sema_plane::Sema<sema_plane::WriteOutput> {
+        command: sema_schema::sema::Sema<sema_schema::sema::WriteInput>,
+    ) -> sema_schema::sema::Sema<sema_schema::sema::WriteOutput> {
         let origin_route = command.origin_route();
         let output = match command.into_root() {
             SemaWriteInput::Record(record) => match self.record(record) {
@@ -106,8 +106,8 @@ impl SemaEngine for Store {
 
     fn observe_inner(
         &self,
-        query: sema_plane::Sema<sema_plane::ReadInput>,
-    ) -> sema_plane::Sema<sema_plane::ReadOutput> {
+        query: sema_schema::sema::Sema<sema_schema::sema::ReadInput>,
+    ) -> sema_schema::sema::Sema<sema_schema::sema::ReadOutput> {
         let origin_route = query.origin_route();
         let output = match query.into_root() {
             SemaReadInput::Observe(observe) => match self.observe(&observe) {

@@ -1,0 +1,33 @@
+{
+  Entry spirit:signal:Entry
+  Query spirit:signal:Query
+  RecordIdentifier spirit:signal:RecordIdentifier
+  SemaReceipt spirit:signal:SemaReceipt
+  RemoveReceipt spirit:signal:RemoveReceipt
+  ObservedRecords spirit:signal:ObservedRecords
+  FoundRecord spirit:signal:FoundRecord
+  CountedRecords spirit:signal:CountedRecords
+  ErrorReport spirit:signal:ErrorReport
+}
+[WriteInput ReadInput]
+[WriteOutput ReadOutput]
+{
+  WriteInput [Record Remove]
+  Record Entry
+  Remove RecordIdentifier
+
+  ReadInput [Observe Lookup Count]
+  Observe Query
+  Lookup RecordIdentifier
+  Count Query
+
+  WriteOutput [Recorded Removed Missed]
+  Recorded SemaReceipt
+  Removed RemoveReceipt
+  Missed ErrorReport
+
+  ReadOutput [Observed Found Counted Missed]
+  Observed ObservedRecords
+  Found FoundRecord
+  Counted CountedRecords
+}

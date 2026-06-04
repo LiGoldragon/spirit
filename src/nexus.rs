@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use crate::{
-    ActorStartFailure, ActorStopFailure, DatabaseMarker, ErrorReport, Input, MailLedger,
-    NexusAction, NexusEffectCommand, NexusEffectResult, NexusEngine, NexusWork, OriginRoute,
-    Output, Records, SemaEngine, SemaReadInput, SemaReadOutput, SemaWriteInput, SemaWriteOutput,
+    DatabaseMarker, ErrorReport, Input, MailLedger, NexusAction, NexusActorStartFailure,
+    NexusActorStopFailure, NexusEffectCommand, NexusEffectResult, NexusEngine, NexusWork, Output,
+    Records, SemaEngine, SemaReadInput, SemaReadOutput, SemaWriteInput, SemaWriteOutput,
     SignalRejection, StashHandle, StashRequest, StashResult, StashedObservation, ValidationError,
-    schema::lib::nexus as nexus_plane, store::Store,
+    schema::nexus as nexus_schema, store::Store,
 };
 
 #[cfg(feature = "testing-trace")]
@@ -151,17 +151,18 @@ impl Nexus {
 /// decision step, storage write/read dispatch, effect dispatch, and the
 /// typed budget-exhausted reply.
 impl NexusEngine for Nexus {
-    fn on_start(&mut self) -> Result<(), ActorStartFailure> {
+    fn on_start(&mut self) -> Result<(), NexusActorStartFailure> {
         SemaEngine::on_start(&mut self.store)?;
         #[cfg(feature = "testing-trace")]
         self.trace_nexus_activation(NexusObjectName::Started);
         Ok(())
     }
 
-    fn on_stop(&mut self) -> Result<(), ActorStopFailure> {
+    fn on_stop(&mut self) -> Result<(), NexusActorStopFailure> {
         #[cfg(feature = "testing-trace")]
         self.trace_nexus_activation(NexusObjectName::Stopped);
-        SemaEngine::on_stop(&mut self.store)
+        SemaEngine::on_stop(&mut self.store)?;
+        Ok(())
     }
 
     #[cfg(feature = "testing-trace")]
@@ -172,8 +173,8 @@ impl NexusEngine for Nexus {
 
     fn decide(
         &mut self,
-        input: nexus_plane::Nexus<nexus_plane::Work>,
-    ) -> nexus_plane::Nexus<nexus_plane::Action> {
+        input: nexus_schema::nexus::Nexus<nexus_schema::nexus::Work>,
+    ) -> nexus_schema::nexus::Nexus<nexus_schema::nexus::Action> {
         let origin_route = input.origin_route();
         self.step_decide(input.into_root())
             .with_origin_route(origin_route)
@@ -181,14 +182,22 @@ impl NexusEngine for Nexus {
 
     fn apply_sema_write(
         &mut self,
-        origin_route: OriginRoute,
+        origin_route: nexus_schema::OriginRoute,
         input: SemaWriteInput,
     ) -> SemaWriteOutput {
-        SemaEngine::apply(&mut self.store, input.with_origin_route(origin_route)).into_root()
+        SemaEngine::apply(
+            &mut self.store,
+            input.with_origin_route(origin_route.into()),
+        )
+        .into_root()
     }
 
-    fn observe_sema_read(&self, origin_route: OriginRoute, input: SemaReadInput) -> SemaReadOutput {
-        SemaEngine::observe(&self.store, input.with_origin_route(origin_route)).into_root()
+    fn observe_sema_read(
+        &self,
+        origin_route: nexus_schema::OriginRoute,
+        input: SemaReadInput,
+    ) -> SemaReadOutput {
+        SemaEngine::observe(&self.store, input.with_origin_route(origin_route.into())).into_root()
     }
 
     fn run_effect(&mut self, input: NexusEffectCommand) -> NexusEffectResult {

@@ -37,20 +37,6 @@ pub struct SignalReuse {
     pub export: Export,
 }
 
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct NexusReuse {
-    pub import: Import,
-    pub export: Export,
-}
-
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct SemaReuse {
-    pub import: Import,
-    pub export: Export,
-}
-
 pub type Record = Entry;
 
 pub type Observe = Query;
@@ -79,130 +65,6 @@ pub type Error = ErrorReport;
 
 pub type Rejected = SignalRejection;
 
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub enum NexusWork {
-    SignalArrived(SignalArrived),
-    SemaWriteCompleted(SemaWriteCompleted),
-    SemaReadCompleted(SemaReadCompleted),
-    EffectCompleted(EffectCompleted),
-}
-
-pub type SignalArrived = Input;
-
-pub type SemaWriteCompleted = SemaWriteOutput;
-
-pub type SemaReadCompleted = SemaReadOutput;
-
-pub type EffectCompleted = NexusEffectResult;
-
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub enum NexusAction {
-    CommandSemaWrite(CommandSemaWrite),
-    CommandSemaRead(CommandSemaRead),
-    ReplyToSignal(ReplyToSignal),
-    CommandEffect(CommandEffect),
-    Continue(Continue),
-}
-
-pub type CommandSemaWrite = SemaWriteInput;
-
-pub type CommandSemaRead = SemaReadInput;
-
-pub type ReplyToSignal = Output;
-
-pub type CommandEffect = NexusEffectCommand;
-
-pub type Continue = NexusWork;
-
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub enum NexusEffectCommand {
-    Stash(Stash),
-}
-
-pub type Stash = StashRequest;
-
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub enum NexusEffectResult {
-    Stashed(Stashed),
-}
-
-pub type Stashed = StashResult;
-
-pub type StashHandle = Integer;
-
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct StashRequest {
-    pub records: Records,
-    pub database_marker: DatabaseMarker,
-}
-
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct StashResult {
-    pub stash_handle: StashHandle,
-    pub record_count: RecordCount,
-    pub database_marker: DatabaseMarker,
-}
-
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct StashedObservation {
-    pub stash_handle: StashHandle,
-    pub record_count: RecordCount,
-    pub database_marker: DatabaseMarker,
-}
-
-pub type Records = Vec<Entry>;
-
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub enum SemaWriteInput {
-    Record(Record),
-    Remove(Remove),
-}
-
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub enum SemaReadInput {
-    Observe(Observe),
-    Lookup(Lookup),
-    Count(Count),
-}
-
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub enum SemaWriteOutput {
-    Recorded(Recorded),
-    Removed(Removed),
-    Missed(Missed),
-}
-
-pub type Recorded = SemaReceipt;
-
-pub type Removed = RemoveReceipt;
-
-pub type Missed = ErrorReport;
-
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub enum SemaReadOutput {
-    Observed(Observed),
-    Found(Found),
-    Counted(Counted),
-    Missed(Missed),
-}
-
-pub type Observed = ObservedRecords;
-
-pub type Found = FoundRecord;
-
-pub type Counted = CountedRecords;
-
 pub type Topic = String;
 
 pub type Topics = Vec<Topic>;
@@ -216,6 +78,14 @@ pub type RecordIdentifier = Integer;
 pub type CommitSequence = Integer;
 
 pub type StateDigest = Integer;
+
+pub type RecordCount = Integer;
+
+pub type StashHandle = Integer;
+
+pub type MailIdentifier = Integer;
+
+pub type ShortHeader = Integer;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -253,8 +123,6 @@ pub struct FoundRecord {
     pub database_marker: DatabaseMarker,
 }
 
-pub type RecordCount = Integer;
-
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct CountedRecords {
@@ -278,16 +146,20 @@ pub struct SignalRejection {
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct StashedObservation {
+    pub stash_handle: StashHandle,
+    pub record_count: RecordCount,
+    pub database_marker: DatabaseMarker,
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum ValidationError {
     EmptyTopic,
     EmptyDescription,
     EmptyQueryTopic,
     StashHandleNotFound,
 }
-
-pub type MailIdentifier = Integer;
-
-pub type ShortHeader = Integer;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -362,6 +234,8 @@ pub struct Query {
     pub privacy_selection: PrivacySelection,
 }
 
+pub type Records = Vec<Entry>;
+
 pub type RecordSet = Vec<Entry>;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -409,114 +283,6 @@ pub enum Output {
     RecordRemoved(RecordRemoved),
     Error(Error),
     Rejected(Rejected),
-}
-
-impl NexusWork {
-    pub fn signal_arrived(payload: SignalArrived) -> Self {
-        Self::SignalArrived(payload)
-    }
-
-    pub fn sema_write_completed(payload: SemaWriteCompleted) -> Self {
-        Self::SemaWriteCompleted(payload)
-    }
-
-    pub fn sema_read_completed(payload: SemaReadCompleted) -> Self {
-        Self::SemaReadCompleted(payload)
-    }
-
-    pub fn effect_completed(payload: EffectCompleted) -> Self {
-        Self::EffectCompleted(payload)
-    }
-}
-
-impl NexusAction {
-    pub fn command_sema_write(payload: CommandSemaWrite) -> Self {
-        Self::CommandSemaWrite(payload)
-    }
-
-    pub fn command_sema_read(payload: CommandSemaRead) -> Self {
-        Self::CommandSemaRead(payload)
-    }
-
-    pub fn reply_to_signal(payload: ReplyToSignal) -> Self {
-        Self::ReplyToSignal(payload)
-    }
-
-    pub fn command_effect(payload: CommandEffect) -> Self {
-        Self::CommandEffect(payload)
-    }
-
-    pub fn r#continue(payload: Continue) -> Self {
-        Self::Continue(payload)
-    }
-}
-
-impl NexusEffectCommand {
-    pub fn stash(payload: Stash) -> Self {
-        Self::Stash(payload)
-    }
-}
-
-impl NexusEffectResult {
-    pub fn stashed(payload: Stashed) -> Self {
-        Self::Stashed(payload)
-    }
-}
-
-impl SemaWriteInput {
-    pub fn record(payload: Record) -> Self {
-        Self::Record(payload)
-    }
-
-    pub fn remove(payload: Remove) -> Self {
-        Self::Remove(payload)
-    }
-}
-
-impl SemaReadInput {
-    pub fn observe(payload: Observe) -> Self {
-        Self::Observe(payload)
-    }
-
-    pub fn lookup(payload: Lookup) -> Self {
-        Self::Lookup(payload)
-    }
-
-    pub fn count(payload: Count) -> Self {
-        Self::Count(payload)
-    }
-}
-
-impl SemaWriteOutput {
-    pub fn recorded(payload: Recorded) -> Self {
-        Self::Recorded(payload)
-    }
-
-    pub fn removed(payload: Removed) -> Self {
-        Self::Removed(payload)
-    }
-
-    pub fn missed(payload: Missed) -> Self {
-        Self::Missed(payload)
-    }
-}
-
-impl SemaReadOutput {
-    pub fn observed(payload: Observed) -> Self {
-        Self::Observed(payload)
-    }
-
-    pub fn found(payload: Found) -> Self {
-        Self::Found(payload)
-    }
-
-    pub fn counted(payload: Counted) -> Self {
-        Self::Counted(payload)
-    }
-
-    pub fn missed(payload: Missed) -> Self {
-        Self::Missed(payload)
-    }
 }
 
 impl MailLedgerEvent {
@@ -647,149 +413,6 @@ impl SignalReuse {
 }
 
 #[cfg(feature = "nota-text")]
-impl NexusReuse {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl SemaReuse {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl NexusWork {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl NexusAction {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl NexusEffectCommand {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl NexusEffectResult {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl StashRequest {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl StashResult {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl StashedObservation {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl SemaWriteInput {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl SemaReadInput {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl SemaWriteOutput {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
-impl SemaReadOutput {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[cfg(feature = "nota-text")]
 impl DatabaseMarker {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -868,6 +491,17 @@ impl ErrorReport {
 
 #[cfg(feature = "nota-text")]
 impl SignalRejection {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl StashedObservation {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -1239,120 +873,6 @@ impl Output {
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum NexusWorkRoute {
-    SignalArrived,
-    SemaWriteCompleted,
-    SemaReadCompleted,
-    EffectCompleted,
-}
-
-impl NexusWork {
-    pub fn route(&self) -> NexusWorkRoute {
-        match self {
-            Self::SignalArrived(_) => NexusWorkRoute::SignalArrived,
-            Self::SemaWriteCompleted(_) => NexusWorkRoute::SemaWriteCompleted,
-            Self::SemaReadCompleted(_) => NexusWorkRoute::SemaReadCompleted,
-            Self::EffectCompleted(_) => NexusWorkRoute::EffectCompleted,
-        }
-    }
-}
-
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum NexusActionRoute {
-    CommandSemaWrite,
-    CommandSemaRead,
-    ReplyToSignal,
-    CommandEffect,
-    Continue,
-}
-
-impl NexusAction {
-    pub fn route(&self) -> NexusActionRoute {
-        match self {
-            Self::CommandSemaWrite(_) => NexusActionRoute::CommandSemaWrite,
-            Self::CommandSemaRead(_) => NexusActionRoute::CommandSemaRead,
-            Self::ReplyToSignal(_) => NexusActionRoute::ReplyToSignal,
-            Self::CommandEffect(_) => NexusActionRoute::CommandEffect,
-            Self::Continue(_) => NexusActionRoute::Continue,
-        }
-    }
-}
-
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SemaWriteInputRoute {
-    Record,
-    Remove,
-}
-
-impl SemaWriteInput {
-    pub fn route(&self) -> SemaWriteInputRoute {
-        match self {
-            Self::Record(_) => SemaWriteInputRoute::Record,
-            Self::Remove(_) => SemaWriteInputRoute::Remove,
-        }
-    }
-}
-
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SemaReadInputRoute {
-    Observe,
-    Lookup,
-    Count,
-}
-
-impl SemaReadInput {
-    pub fn route(&self) -> SemaReadInputRoute {
-        match self {
-            Self::Observe(_) => SemaReadInputRoute::Observe,
-            Self::Lookup(_) => SemaReadInputRoute::Lookup,
-            Self::Count(_) => SemaReadInputRoute::Count,
-        }
-    }
-}
-
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SemaWriteOutputRoute {
-    Recorded,
-    Removed,
-    Missed,
-}
-
-impl SemaWriteOutput {
-    pub fn route(&self) -> SemaWriteOutputRoute {
-        match self {
-            Self::Recorded(_) => SemaWriteOutputRoute::Recorded,
-            Self::Removed(_) => SemaWriteOutputRoute::Removed,
-            Self::Missed(_) => SemaWriteOutputRoute::Missed,
-        }
-    }
-}
-
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SemaReadOutputRoute {
-    Observed,
-    Found,
-    Counted,
-    Missed,
-}
-
-impl SemaReadOutput {
-    pub fn route(&self) -> SemaReadOutputRoute {
-        match self {
-            Self::Observed(_) => SemaReadOutputRoute::Observed,
-            Self::Found(_) => SemaReadOutputRoute::Found,
-            Self::Counted(_) => SemaReadOutputRoute::Counted,
-            Self::Missed(_) => SemaReadOutputRoute::Missed,
-        }
-    }
-}
-
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SignalObjectName {
     Input(InputRoute),
     Output(OutputRoute),
@@ -1397,89 +917,8 @@ impl SignalObjectName {
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum NexusObjectName {
-    Work(NexusWorkRoute),
-    Action(NexusActionRoute),
-    Started,
-    Stopped,
-    Entered,
-    Decided,
-}
-
-impl NexusObjectName {
-    pub fn name(self) -> &'static str {
-        match self {
-            Self::Work(route) => match route {
-                NexusWorkRoute::SignalArrived => "NexusWorkSignalArrived",
-                NexusWorkRoute::SemaWriteCompleted => "NexusWorkSemaWriteCompleted",
-                NexusWorkRoute::SemaReadCompleted => "NexusWorkSemaReadCompleted",
-                NexusWorkRoute::EffectCompleted => "NexusWorkEffectCompleted",
-            },
-            Self::Action(route) => match route {
-                NexusActionRoute::CommandSemaWrite => "NexusActionCommandSemaWrite",
-                NexusActionRoute::CommandSemaRead => "NexusActionCommandSemaRead",
-                NexusActionRoute::ReplyToSignal => "NexusActionReplyToSignal",
-                NexusActionRoute::CommandEffect => "NexusActionCommandEffect",
-                NexusActionRoute::Continue => "NexusActionContinue",
-            },
-            Self::Started => "NexusStarted",
-            Self::Stopped => "NexusStopped",
-            Self::Entered => "NexusEntered",
-            Self::Decided => "NexusDecided",
-        }
-    }
-}
-
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SemaObjectName {
-    WriteInput(SemaWriteInputRoute),
-    ReadInput(SemaReadInputRoute),
-    WriteOutput(SemaWriteOutputRoute),
-    ReadOutput(SemaReadOutputRoute),
-    Started,
-    Stopped,
-    WriteApplied,
-    ReadObserved,
-}
-
-impl SemaObjectName {
-    pub fn name(self) -> &'static str {
-        match self {
-            Self::WriteInput(route) => match route {
-                SemaWriteInputRoute::Record => "SemaWriteInputRecord",
-                SemaWriteInputRoute::Remove => "SemaWriteInputRemove",
-            },
-            Self::ReadInput(route) => match route {
-                SemaReadInputRoute::Observe => "SemaReadInputObserve",
-                SemaReadInputRoute::Lookup => "SemaReadInputLookup",
-                SemaReadInputRoute::Count => "SemaReadInputCount",
-            },
-            Self::WriteOutput(route) => match route {
-                SemaWriteOutputRoute::Recorded => "SemaWriteOutputRecorded",
-                SemaWriteOutputRoute::Removed => "SemaWriteOutputRemoved",
-                SemaWriteOutputRoute::Missed => "SemaWriteOutputMissed",
-            },
-            Self::ReadOutput(route) => match route {
-                SemaReadOutputRoute::Observed => "SemaReadOutputObserved",
-                SemaReadOutputRoute::Found => "SemaReadOutputFound",
-                SemaReadOutputRoute::Counted => "SemaReadOutputCounted",
-                SemaReadOutputRoute::Missed => "SemaReadOutputMissed",
-            },
-            Self::Started => "SemaStarted",
-            Self::Stopped => "SemaStopped",
-            Self::WriteApplied => "SemaWriteApplied",
-            Self::ReadObserved => "SemaReadObserved",
-        }
-    }
-}
-
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ObjectName {
     Signal(SignalObjectName),
-    Nexus(NexusObjectName),
-    Sema(SemaObjectName),
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -1490,8 +929,6 @@ impl ObjectName {
     pub fn name(self) -> &'static str {
         match self {
             Self::Signal(object_name) => object_name.name(),
-            Self::Nexus(object_name) => object_name.name(),
-            Self::Sema(object_name) => object_name.name(),
         }
     }
 }
@@ -1538,32 +975,6 @@ impl OriginRoute {
     }
 }
 
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum MessageRoot {
-    Input,
-    Output,
-}
-
-pub mod schema {
-    #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-    pub enum Plane<SignalRoot, NexusRoot, SemaRoot> {
-        Signal(super::Signal<SignalRoot>),
-        Nexus(super::Nexus<NexusRoot>),
-        Sema(super::Sema<SemaRoot>),
-    }
-
-    impl<SignalRoot, NexusRoot, SemaRoot> Plane<SignalRoot, NexusRoot, SemaRoot> {
-        pub fn origin_route(&self) -> super::OriginRoute {
-            match self {
-                Self::Signal(message) => message.origin_route(),
-                Self::Nexus(message) => message.origin_route(),
-                Self::Sema(message) => message.origin_route(),
-            }
-        }
-    }
-}
-
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Signal<Root> {
     pub origin_route: OriginRoute,
@@ -1592,60 +1003,11 @@ impl<Root> Signal<Root> {
     }
 }
 
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Nexus<Root> {
-    pub origin_route: OriginRoute,
-    pub root: Root,
-}
-
-impl<Root> Nexus<Root> {
-    pub fn new(origin_route: OriginRoute, root: Root) -> Self {
-        Self { origin_route, root }
-    }
-
-    pub fn origin_route(&self) -> OriginRoute {
-        self.origin_route
-    }
-
-    pub fn root(&self) -> &Root {
-        &self.root
-    }
-
-    pub fn into_root(self) -> Root {
-        self.root
-    }
-
-    pub fn map_root<NextRoot>(self, map: impl FnOnce(Root) -> NextRoot) -> Nexus<NextRoot> {
-        Nexus::new(self.origin_route, map(self.root))
-    }
-}
-
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Sema<Root> {
-    pub origin_route: OriginRoute,
-    pub root: Root,
-}
-
-impl<Root> Sema<Root> {
-    pub fn new(origin_route: OriginRoute, root: Root) -> Self {
-        Self { origin_route, root }
-    }
-
-    pub fn origin_route(&self) -> OriginRoute {
-        self.origin_route
-    }
-
-    pub fn root(&self) -> &Root {
-        &self.root
-    }
-
-    pub fn into_root(self) -> Root {
-        self.root
-    }
-
-    pub fn map_root<NextRoot>(self, map: impl FnOnce(Root) -> NextRoot) -> Sema<NextRoot> {
-        Sema::new(self.origin_route, map(self.root))
-    }
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MessageRoot {
+    Input,
+    Output,
 }
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -1750,60 +1112,11 @@ impl signal::Signal<Output> {
     }
 }
 
+#[allow(clippy::module_inception)]
 pub mod signal {
     pub type Input = super::Input;
     pub type Output = super::Output;
     pub type Signal<Root> = super::Signal<Root>;
-}
-
-pub mod nexus {
-    pub type Work = super::NexusWork;
-    pub type Action = super::NexusAction;
-    pub type Nexus<Root> = super::Nexus<Root>;
-}
-
-pub mod sema {
-    pub type WriteInput = super::SemaWriteInput;
-    pub type WriteOutput = super::SemaWriteOutput;
-    pub type ReadInput = super::SemaReadInput;
-    pub type ReadOutput = super::SemaReadOutput;
-    pub type Sema<Root> = super::Sema<Root>;
-}
-
-impl NexusWork {
-    pub fn with_origin_route(self, origin_route: OriginRoute) -> nexus::Nexus<Self> {
-        nexus::Nexus::new(origin_route, self)
-    }
-}
-
-impl NexusAction {
-    pub fn with_origin_route(self, origin_route: OriginRoute) -> nexus::Nexus<Self> {
-        nexus::Nexus::new(origin_route, self)
-    }
-}
-
-impl SemaWriteInput {
-    pub fn with_origin_route(self, origin_route: OriginRoute) -> sema::Sema<Self> {
-        sema::Sema::new(origin_route, self)
-    }
-}
-
-impl SemaWriteOutput {
-    pub fn with_origin_route(self, origin_route: OriginRoute) -> sema::Sema<Self> {
-        sema::Sema::new(origin_route, self)
-    }
-}
-
-impl SemaReadInput {
-    pub fn with_origin_route(self, origin_route: OriginRoute) -> sema::Sema<Self> {
-        sema::Sema::new(origin_route, self)
-    }
-}
-
-impl SemaReadOutput {
-    pub fn with_origin_route(self, origin_route: OriginRoute) -> sema::Sema<Self> {
-        sema::Sema::new(origin_route, self)
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1840,21 +1153,10 @@ impl std::fmt::Display for ActorStopFailure {
 
 impl std::error::Error for ActorStopFailure {}
 
-pub type NexusRunnerNextStep = triad_runtime::NextStep<ReplyToSignal, CommandSemaWrite, CommandSemaRead, CommandEffect, NexusWork>;
-
-impl NexusAction {
-    pub fn into_runner_next_step(self) -> NexusRunnerNextStep {
-        match self {
-            Self::CommandSemaWrite(input) => triad_runtime::NextStep::SemaWrite(input),
-            Self::CommandSemaRead(input) => triad_runtime::NextStep::SemaRead(input),
-            Self::ReplyToSignal(output) => triad_runtime::NextStep::Reply(output),
-            Self::CommandEffect(effect) => triad_runtime::NextStep::RunEffect(effect),
-            Self::Continue(work) => triad_runtime::NextStep::Continue(work),
-        }
-    }
-}
-
 pub trait SignalEngine {
+    type NexusInput;
+    type NexusOutput;
+
     fn on_start(&mut self) -> Result<(), ActorStartFailure> {
         Ok(())
     }
@@ -1876,140 +1178,19 @@ pub trait SignalEngine {
         self.trace_signal_activation(SignalObjectName::Replied);
     }
 
-    fn triage_inner(&self, input: signal::Signal<signal::Input>) -> nexus::Nexus<nexus::Work>;
-    fn reply_inner(&self, output: nexus::Nexus<nexus::Action>) -> signal::Signal<signal::Output>;
+    fn triage_inner(&self, input: signal::Signal<signal::Input>) -> Self::NexusInput;
+    fn reply_inner(&self, output: Self::NexusOutput) -> signal::Signal<signal::Output>;
 
-    fn triage(&self, input: signal::Signal<signal::Input>) -> nexus::Nexus<nexus::Work> {
+    fn triage(&self, input: signal::Signal<signal::Input>) -> Self::NexusInput {
         let output = self.triage_inner(input);
         self.trace_signal_triaged();
         output
     }
 
-    fn reply(&self, output: nexus::Nexus<nexus::Action>) -> signal::Signal<signal::Output> {
+    fn reply(&self, output: Self::NexusOutput) -> signal::Signal<signal::Output> {
         let signal_output = self.reply_inner(output);
         self.trace_signal_replied();
         signal_output
-    }
-}
-
-pub trait NexusEngine {
-    fn on_start(&mut self) -> Result<(), ActorStartFailure> {
-        Ok(())
-    }
-    fn on_stop(&mut self) -> Result<(), ActorStopFailure> {
-        Ok(())
-    }
-
-    fn trace_nexus_activation(&self, _object_name: NexusObjectName) {}
-    fn trace_nexus_entered(&self) {
-        self.trace_nexus_activation(NexusObjectName::Entered);
-    }
-    fn trace_nexus_decided(&self) {
-        self.trace_nexus_activation(NexusObjectName::Decided);
-    }
-
-    fn continuation_limit(&self) -> triad_runtime::ContinuationLimit {
-        triad_runtime::ContinuationLimit::default()
-    }
-
-    fn apply_sema_write(&mut self, origin_route: OriginRoute, input: CommandSemaWrite) -> SemaWriteCompleted;
-    fn observe_sema_read(&self, origin_route: OriginRoute, input: CommandSemaRead) -> SemaReadCompleted;
-    fn run_effect(&mut self, input: CommandEffect) -> EffectCompleted;
-    fn budget_exhausted_reply(&self, exhausted: triad_runtime::ContinuationExhausted) -> ReplyToSignal;
-
-    fn decide(&mut self, input: nexus::Nexus<nexus::Work>) -> nexus::Nexus<nexus::Action>;
-
-    fn execute(&mut self, input: nexus::Nexus<nexus::Work>) -> nexus::Nexus<nexus::Action>
-    where
-        Self: Sized,
-    {
-        self.trace_nexus_entered();
-        let origin_route = input.origin_route();
-        let first_work = input.into_root();
-        let runner = triad_runtime::Runner::new(self.continuation_limit());
-        let mut runner_adapter = NexusRunnerAdapter::new(self, origin_route);
-        let reply = runner.drive(&mut runner_adapter, first_work);
-        let output = NexusAction::reply_to_signal(reply).with_origin_route(origin_route);
-        self.trace_nexus_decided();
-        output
-    }
-}
-
-struct NexusRunnerAdapter<'engine, Engine> {
-    engine: &'engine mut Engine,
-    origin_route: OriginRoute,
-}
-
-impl<'engine, Engine> NexusRunnerAdapter<'engine, Engine> {
-    fn new(engine: &'engine mut Engine, origin_route: OriginRoute) -> Self {
-        Self { engine, origin_route }
-    }
-}
-
-impl<'engine, Engine> triad_runtime::RunnerEngines for NexusRunnerAdapter<'engine, Engine>
-where
-    Engine: NexusEngine,
-{
-    type Reply = ReplyToSignal;
-    type SemaWrite = CommandSemaWrite;
-    type SemaRead = CommandSemaRead;
-    type Effect = CommandEffect;
-    type Work = NexusWork;
-
-    fn decide_next_step(&mut self, work: Self::Work) -> triad_runtime::runner::RunnerNextStep<Self> {
-        let action = NexusEngine::decide(self.engine, work.with_origin_route(self.origin_route)).into_root();
-        action.into_runner_next_step()
-    }
-
-    fn apply_sema_write(&mut self, write: Self::SemaWrite) -> Self::Work {
-        let output: SemaWriteCompleted = NexusEngine::apply_sema_write(self.engine, self.origin_route, write);
-        NexusWork::sema_write_completed(output)
-    }
-
-    fn observe_sema_read(&self, read: Self::SemaRead) -> Self::Work {
-        let output: SemaReadCompleted = NexusEngine::observe_sema_read(self.engine, self.origin_route, read);
-        NexusWork::sema_read_completed(output)
-    }
-
-    fn run_effect(&mut self, effect: Self::Effect) -> Self::Work {
-        let output: EffectCompleted = NexusEngine::run_effect(self.engine, effect);
-        NexusWork::effect_completed(output)
-    }
-
-    fn budget_exhausted_reply(&self, exhausted: triad_runtime::ContinuationExhausted) -> Self::Reply {
-        NexusEngine::budget_exhausted_reply(self.engine, exhausted)
-    }
-}
-
-pub trait SemaEngine {
-    fn on_start(&mut self) -> Result<(), ActorStartFailure> {
-        Ok(())
-    }
-    fn on_stop(&mut self) -> Result<(), ActorStopFailure> {
-        Ok(())
-    }
-
-    fn trace_sema_activation(&self, _object_name: SemaObjectName) {}
-    fn trace_sema_write_applied(&self) {
-        self.trace_sema_activation(SemaObjectName::WriteApplied);
-    }
-    fn trace_sema_read_observed(&self) {
-        self.trace_sema_activation(SemaObjectName::ReadObserved);
-    }
-
-    fn apply_inner(&mut self, input: sema::Sema<sema::WriteInput>) -> sema::Sema<sema::WriteOutput>;
-    fn observe_inner(&self, input: sema::Sema<sema::ReadInput>) -> sema::Sema<sema::ReadOutput>;
-
-    fn apply(&mut self, input: sema::Sema<sema::WriteInput>) -> sema::Sema<sema::WriteOutput> {
-        let output = self.apply_inner(input);
-        self.trace_sema_write_applied();
-        output
-    }
-
-    fn observe(&self, input: sema::Sema<sema::ReadInput>) -> sema::Sema<sema::ReadOutput> {
-        let output = self.observe_inner(input);
-        self.trace_sema_read_observed();
-        output
     }
 }
 
