@@ -2,49 +2,15 @@ use std::collections::HashMap;
 
 use crate::{
     ActorStartFailure, ActorStopFailure, DatabaseMarker, ErrorReport, Input, MailLedger,
-    NexusAction, NexusEffectCommand, NexusEffectResult, NexusEngine, NexusWork, Output, Records,
-    SemaEngine, SemaReadInput, SemaReadOutput, SemaWriteInput, SemaWriteOutput, SignalRejection,
-    StashHandle, StashRequest, StashResult, StashedObservation, ValidationError,
+    NexusAction, NexusEffectCommand, NexusEffectResult, NexusEngine, NexusWork, OriginRoute,
+    Output, Records, SemaEngine, SemaReadInput, SemaReadOutput, SemaWriteInput, SemaWriteOutput,
+    SignalRejection, StashHandle, StashRequest, StashResult, StashedObservation, ValidationError,
     schema::lib::nexus as nexus_plane, store::Store,
 };
 
 #[cfg(feature = "testing-trace")]
 use crate::{NexusObjectName, ObjectName, TraceEvent, TraceLog};
-
-/// The continuation budget per Spirit 1469: a generated-runner policy that
-/// bounds how many times Nexus can recurse before the runner declares the
-/// loop unsound.
-///
-/// Per operator 287 §"Generated Runner": *A loop that never reaches
-/// `ReplyToSignal` is a runtime error, not a valid component behavior.*
-/// The budget travels with the runner, not the daemon's hand-written
-/// code, so every component shares the same bound.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ContinuationBudget(u32);
-
-impl ContinuationBudget {
-    /// The default budget for spirit: 32 iterations is plenty for
-    /// observe -> stash -> reply (3 iterations) plus headroom.
-    pub fn default_for_pilot() -> Self {
-        Self(32)
-    }
-
-    pub fn from_iteration_count(count: u32) -> Self {
-        Self(count)
-    }
-
-    pub fn remaining(self) -> u32 {
-        self.0
-    }
-
-    pub fn spend_one(self) -> Option<Self> {
-        if self.0 == 0 {
-            None
-        } else {
-            Some(Self(self.0 - 1))
-        }
-    }
-}
+use triad_runtime::ContinuationExhausted;
 
 /// The stash table — the durable handle store backing the Stash effect.
 ///
@@ -106,9 +72,10 @@ impl StashTable {
 /// Per Spirit 1438 + 1439 (and operator 287 §"Recursive Computation"):
 /// Nexus consumes typed `NexusWork` (facts: SignalArrived, completion
 /// events) and emits typed `NexusAction` (actions: replies, SEMA
-/// commands, effects, recursive continuations). The runner loop drives
-/// the consume → decide → act → re-consume cycle until a Signal reply
-/// or the continuation budget runs out.
+/// commands, effects, recursive continuations). Generated `NexusEngine`
+/// glue and `triad-runtime::Runner` drive the consume → decide → act →
+/// re-consume cycle until a Signal reply or the continuation budget runs
+/// out.
 ///
 /// The pilot effect set is `Stash` only — the Observe → Stash → Reply
 /// recursion proves the recursive-Nexus shape on a single real flow.
@@ -179,26 +146,10 @@ impl Nexus {
     }
 }
 
-/// The recursive-Nexus runner loop, hand-piloted per operator 287
-/// §"Generated Runner". A future schema-rust-next slice should emit this
-/// loop directly from the schema; today the runner lives here so the
-/// pattern can be proven on real code.
-///
-/// The decision plane is the hand-implemented `Nexus::decide` (NexusWork
-/// → NexusAction). The runner cycles:
-///
-/// - `NexusAction::ReplyToSignal(reply)` → exit (the only wire exit).
-/// - `NexusAction::CommandSemaWrite(command)` → SemaEngine::apply →
-///   re-enter as `NexusWork::SemaWriteCompleted(reply)`.
-/// - `NexusAction::CommandSemaRead(command)` → SemaEngine::observe →
-///   re-enter as `NexusWork::SemaReadCompleted(reply)`.
-/// - `NexusAction::CommandEffect(command)` → `apply_effect` →
-///   re-enter as `NexusWork::EffectCompleted(result)`.
-/// - `NexusAction::Continue(input)` → re-enter directly with the
-///   nested work.
-///
-/// The continuation budget bounds the loop; running out is a typed
-/// error reply (per Spirit 1469 + operator 287).
+/// Generated `NexusEngine::execute` owns the recursive runner loop.
+/// This implementation supplies the component behavior hooks: one
+/// decision step, storage write/read dispatch, effect dispatch, and the
+/// typed budget-exhausted reply.
 impl NexusEngine for Nexus {
     fn on_start(&mut self) -> Result<(), ActorStartFailure> {
         SemaEngine::on_start(&mut self.store)?;
@@ -224,53 +175,42 @@ impl NexusEngine for Nexus {
         input: nexus_plane::Nexus<nexus_plane::Work>,
     ) -> nexus_plane::Nexus<nexus_plane::Action> {
         let origin_route = input.origin_route();
-        let mut work = input.into_root();
-        let mut budget = ContinuationBudget::default_for_pilot();
+        self.step_decide(input.into_root())
+            .with_origin_route(origin_route)
+    }
 
-        loop {
-            // Step the engine: NexusWork → NexusAction.
-            let action = self.step_decide(work);
+    fn apply_sema_write(
+        &mut self,
+        origin_route: OriginRoute,
+        input: SemaWriteInput,
+    ) -> SemaWriteOutput {
+        SemaEngine::apply(&mut self.store, input.with_origin_route(origin_route)).into_root()
+    }
 
-            match action {
-                NexusAction::ReplyToSignal(reply) => {
-                    return NexusAction::reply_to_signal(reply).with_origin_route(origin_route);
-                }
-                NexusAction::CommandSemaWrite(command) => {
-                    let sema_output =
-                        SemaEngine::apply(&mut self.store, command.with_origin_route(origin_route));
-                    work = NexusWork::sema_write_completed(sema_output.into_root());
-                }
-                NexusAction::CommandSemaRead(command) => {
-                    let sema_output =
-                        SemaEngine::observe(&self.store, command.with_origin_route(origin_route));
-                    work = NexusWork::sema_read_completed(sema_output.into_root());
-                }
-                NexusAction::CommandEffect(command) => {
-                    let result = self.apply_effect(command);
-                    work = NexusWork::effect_completed(result);
-                }
-                NexusAction::Continue(next_work) => {
-                    work = next_work;
-                }
-            }
+    fn observe_sema_read(&self, origin_route: OriginRoute, input: SemaReadInput) -> SemaReadOutput {
+        SemaEngine::observe(&self.store, input.with_origin_route(origin_route)).into_root()
+    }
 
-            match budget.spend_one() {
-                Some(remaining) => budget = remaining,
-                None => {
-                    return NexusAction::reply_to_signal(Output::error(ErrorReport {
-                        error_message: String::from("nexus continuation budget exhausted"),
-                        database_marker: self.database_marker(),
-                    }))
-                    .with_origin_route(origin_route);
-                }
-            }
-        }
+    fn run_effect(&mut self, input: NexusEffectCommand) -> NexusEffectResult {
+        self.apply_effect(input)
+    }
+
+    fn budget_exhausted_reply(&self, exhausted: ContinuationExhausted) -> Output {
+        Output::error(ErrorReport {
+            error_message: format!(
+                "nexus continuation budget exhausted after {} steps (limit {})",
+                exhausted.completed_step_count(),
+                exhausted.limit().count()
+            ),
+            database_marker: self.database_marker(),
+        })
     }
 }
 
 impl Nexus {
     /// One step of the decision plane: consume a NexusWork, emit a
-    /// NexusAction. The runner loop above drives multiple steps.
+    /// NexusAction. Generated `NexusEngine::execute` drives multiple
+    /// steps through `triad-runtime::Runner`.
     ///
     /// The Observe-with-Stash flow lives here: a SemaRead completion
     /// with non-empty results becomes a `CommandEffect(Stash(...))`

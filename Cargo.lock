@@ -497,7 +497,7 @@ dependencies = [
 [[package]]
 name = "schema-next"
 version = "0.1.1"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#3f7813cfc7eecb45d372db57650d3558d1362f18"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#b14d14f7eca58ca2c7104730ce71a7e523e0eb3d"
 dependencies = [
  "nota-next",
  "redb 2.6.3",
@@ -516,8 +516,8 @@ dependencies = [
 
 [[package]]
 name = "schema-rust-next"
-version = "0.1.3"
-source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#e25cc3eee37db3cd22341e368c8de69fa77ae27e"
+version = "0.1.4"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#915abeaef31b94cd85abfa8023226d86c64fa2cd"
 dependencies = [
  "schema-next",
  "thiserror",
@@ -743,8 +743,8 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "triad-runtime"
-version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#6daf29543aed6c26ed4e2d0bbab675bd7b19de36"
+version = "0.2.0"
+source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#e40d1e960be0da3ee942286b98ab778f996dad6d"
 dependencies = [
  "thiserror",
 ]

@@ -113,6 +113,12 @@ Load-bearing constraints:
   `CommandSemaWrite` or `CommandSemaRead`; SEMA completions re-enter as
   `SemaWriteCompleted` or `SemaReadCompleted`; Nexus-local effects re-enter
   as `EffectCompleted`; only `ReplyToSignal` exits back to Signal.
+- The recursive runner loop is generated/shared runtime behavior, not local
+  Nexus boilerplate. `schema-rust-next` emits the `NexusAction` to
+  `triad_runtime::NextStep` projection plus the data-bearing runner adapter;
+  `triad-runtime::Runner` owns the continuation budget and repeated dispatch.
+  Hand-written `Nexus` implements one decision step, SEMA write/read hooks,
+  the effect hook, and the typed budget-exhausted reply.
 - `schema-rust-next` emits `SignalEngine`, `NexusEngine`, and `SemaEngine`
   when the schema declares the corresponding input/output pairs. `SignalActor`
   implements `SignalEngine` as the lightweight triage/reply boundary; `Nexus`

@@ -38,7 +38,7 @@ pub mod schema {
 pub use config::{Configuration, ConfigurationError};
 pub use daemon::{Daemon, DaemonCommand, DaemonCommandError, DaemonError};
 pub use engine::{Engine, MailLedger, MailLedgerHook, SignalAccepted, SignalActor};
-pub use nexus::{ContinuationBudget, Nexus, StashTable};
+pub use nexus::{Nexus, StashTable};
 pub use schema::lib::{
     ActorStartFailure, ActorStopFailure, AtLeast, AtMost, CommandEffect, CommandSemaRead,
     CommandSemaWrite, CommitSequence, Continue, Count, Counted, CountedRecords, DatabaseMarker,

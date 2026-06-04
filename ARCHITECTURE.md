@@ -179,13 +179,17 @@ Per Spirit record 1339, the one working path is the schema-plane trait path:
 Signal emits a generated Nexus envelope, Nexus executes it, and SEMA is reached
 only through generated split write/read roots.
 
-Nexus owns the central decision loop. `NexusWork` is the fact stream Nexus
-decides from: Signal arrivals, SEMA completions, effect completions, and
-recursive work. `NexusAction` is the command stream Nexus emits next:
+Generated `NexusEngine::execute` owns the central runner loop through
+`triad-runtime::Runner`; the hand-written `Nexus` object owns one decision
+step and the component hooks. `NexusWork` is the fact stream Nexus decides
+from: Signal arrivals, SEMA completions, effect completions, and recursive
+work. `NexusAction` is the command stream Nexus emits next:
 `CommandSemaWrite`, `CommandSemaRead`, `CommandEffect`, `Continue`, or
-`ReplyToSignal`. `NexusEngine::execute` runs that loop until a Signal reply is
-ready. The processed ledger event is generated `MessageProcessed<Output>`, so
-the same `OriginRoute` is carried from Signal admission through Nexus, SEMA,
+`ReplyToSignal`. The generated runner adapter projects those actions into
+`triad_runtime::NextStep`, calls the `NexusEngine` storage/effect hooks, and
+stops with a typed budget-exhausted reply if recursion does not reach Signal.
+The processed ledger event is generated `MessageProcessed<Output>`, so the
+same `OriginRoute` is carried from Signal admission through Nexus, SEMA,
 effects, and back to the Signal reply.
 
 Nexus is the home for non-default decision algorithms. Frecency ranking,

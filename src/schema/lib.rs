@@ -1840,6 +1840,20 @@ impl std::fmt::Display for ActorStopFailure {
 
 impl std::error::Error for ActorStopFailure {}
 
+pub type NexusRunnerNextStep = triad_runtime::NextStep<ReplyToSignal, CommandSemaWrite, CommandSemaRead, CommandEffect, NexusWork>;
+
+impl NexusAction {
+    pub fn into_runner_next_step(self) -> NexusRunnerNextStep {
+        match self {
+            Self::CommandSemaWrite(input) => triad_runtime::NextStep::SemaWrite(input),
+            Self::CommandSemaRead(input) => triad_runtime::NextStep::SemaRead(input),
+            Self::ReplyToSignal(output) => triad_runtime::NextStep::Reply(output),
+            Self::CommandEffect(effect) => triad_runtime::NextStep::RunEffect(effect),
+            Self::Continue(work) => triad_runtime::NextStep::Continue(work),
+        }
+    }
+}
+
 pub trait SignalEngine {
     fn on_start(&mut self) -> Result<(), ActorStartFailure> {
         Ok(())
@@ -1894,13 +1908,76 @@ pub trait NexusEngine {
         self.trace_nexus_activation(NexusObjectName::Decided);
     }
 
+    fn continuation_limit(&self) -> triad_runtime::ContinuationLimit {
+        triad_runtime::ContinuationLimit::default()
+    }
+
+    fn apply_sema_write(&mut self, origin_route: OriginRoute, input: CommandSemaWrite) -> SemaWriteCompleted;
+    fn observe_sema_read(&self, origin_route: OriginRoute, input: CommandSemaRead) -> SemaReadCompleted;
+    fn run_effect(&mut self, input: CommandEffect) -> EffectCompleted;
+    fn budget_exhausted_reply(&self, exhausted: triad_runtime::ContinuationExhausted) -> ReplyToSignal;
+
     fn decide(&mut self, input: nexus::Nexus<nexus::Work>) -> nexus::Nexus<nexus::Action>;
 
-    fn execute(&mut self, input: nexus::Nexus<nexus::Work>) -> nexus::Nexus<nexus::Action> {
+    fn execute(&mut self, input: nexus::Nexus<nexus::Work>) -> nexus::Nexus<nexus::Action>
+    where
+        Self: Sized,
+    {
         self.trace_nexus_entered();
-        let output = self.decide(input);
+        let origin_route = input.origin_route();
+        let first_work = input.into_root();
+        let runner = triad_runtime::Runner::new(self.continuation_limit());
+        let mut runner_adapter = NexusRunnerAdapter::new(self, origin_route);
+        let reply = runner.drive(&mut runner_adapter, first_work);
+        let output = NexusAction::reply_to_signal(reply).with_origin_route(origin_route);
         self.trace_nexus_decided();
         output
+    }
+}
+
+struct NexusRunnerAdapter<'engine, Engine> {
+    engine: &'engine mut Engine,
+    origin_route: OriginRoute,
+}
+
+impl<'engine, Engine> NexusRunnerAdapter<'engine, Engine> {
+    fn new(engine: &'engine mut Engine, origin_route: OriginRoute) -> Self {
+        Self { engine, origin_route }
+    }
+}
+
+impl<'engine, Engine> triad_runtime::RunnerEngines for NexusRunnerAdapter<'engine, Engine>
+where
+    Engine: NexusEngine,
+{
+    type Reply = ReplyToSignal;
+    type SemaWrite = CommandSemaWrite;
+    type SemaRead = CommandSemaRead;
+    type Effect = CommandEffect;
+    type Work = NexusWork;
+
+    fn decide_next_step(&mut self, work: Self::Work) -> triad_runtime::runner::RunnerNextStep<Self> {
+        let action = NexusEngine::decide(self.engine, work.with_origin_route(self.origin_route)).into_root();
+        action.into_runner_next_step()
+    }
+
+    fn apply_sema_write(&mut self, write: Self::SemaWrite) -> Self::Work {
+        let output: SemaWriteCompleted = NexusEngine::apply_sema_write(self.engine, self.origin_route, write);
+        NexusWork::sema_write_completed(output)
+    }
+
+    fn observe_sema_read(&self, read: Self::SemaRead) -> Self::Work {
+        let output: SemaReadCompleted = NexusEngine::observe_sema_read(self.engine, self.origin_route, read);
+        NexusWork::sema_read_completed(output)
+    }
+
+    fn run_effect(&mut self, effect: Self::Effect) -> Self::Work {
+        let output: EffectCompleted = NexusEngine::run_effect(self.engine, effect);
+        NexusWork::effect_completed(output)
+    }
+
+    fn budget_exhausted_reply(&self, exhausted: triad_runtime::ContinuationExhausted) -> Self::Reply {
+        NexusEngine::budget_exhausted_reply(self.engine, exhausted)
     }
 }
 
