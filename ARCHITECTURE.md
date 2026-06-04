@@ -1,8 +1,8 @@
-# ARCHITECTURE — spirit-next
+# ARCHITECTURE — spirit
 
 ## Purpose
 
-`spirit-next` is the running proof that schema can create an interface used by
+`spirit` is the running proof that schema can create an interface used by
 a real CLI and daemon pair.
 
 ## Layers
@@ -362,7 +362,7 @@ release input/tag so upgrade tests compare current code against a previous
 artifact rather than an alias of current main.
 
 `scripts/check-local-schema-stack` runs the central local override test for
-this pilot. It rebuilds `spirit-next` with local checkouts of `nota-next`,
+this pilot. It rebuilds `spirit` with local checkouts of `nota-next`,
 `schema-next`, and `schema-rust-next` by overriding Nix source inputs. This is
 the intended loop while improving the NOTA parser, schema lowering, or Rust
 emitter: edit a substrate repo, run the consumer check here, and prove the

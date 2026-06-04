@@ -1,4 +1,4 @@
-//! `spirit-next` runtime.
+//! `spirit` runtime.
 //!
 //! This crate is a running schema-derived Spirit pilot. The public wire
 //! types are checked-in generated source from `schema/lib.schema` through
@@ -12,7 +12,7 @@
 //! inner payload names cannot be applied to the SEMA engine:
 //!
 //! ```compile_fail
-//! use spirit_next::{SemaEngine, Store, nexus_plane};
+//! use spirit::{SemaEngine, Store, nexus_plane};
 //!
 //! let mut store: Store = todo!();
 //! let message: nexus_plane::Nexus<nexus_plane::Work> = todo!();

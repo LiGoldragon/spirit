@@ -34,7 +34,7 @@ impl SchemaBuild {
     }
 
     fn generated_schema_file(&self) -> GeneratedFile {
-        let package = SchemaPackage::new(&self.crate_root, "spirit-next", "0.1.0");
+        let package = SchemaPackage::new(&self.crate_root, "spirit", "0.1.0");
         let source = package.load_lib().expect("read schema/lib.schema");
         let source_artifact =
             SchemaSourceArtifact::new(source.to_schema_source().expect("decode schema source"));
@@ -54,7 +54,7 @@ impl SchemaBuild {
         let asschema = recovered_source
             .source()
             .lower(&SchemaEngine::default(), source.identity().clone())
-            .expect("lower spirit-next schema source");
+            .expect("lower spirit schema source");
         let artifact = AsschemaArtifact::new(asschema);
         let artifact_files = GeneratedAsschemaArtifactFiles::new(&self.output_directory);
         artifact
@@ -76,7 +76,7 @@ impl SchemaBuild {
     fn assert_generated_schema_path(&self, generated: &GeneratedFile) {
         if generated.path.as_str() != "src/schema/lib.rs" {
             panic!(
-                "spirit-next schema must emit src/schema/lib.rs, found {}",
+                "spirit schema must emit src/schema/lib.rs, found {}",
                 generated.path
             );
         }
@@ -92,7 +92,7 @@ impl SchemaBuild {
         });
         let expected = checked_in.expected_source();
         if actual != expected {
-            if env::var_os("SPIRIT_NEXT_UPDATE_SCHEMA_ARTIFACTS").is_some() {
+            if env::var_os("SPIRIT_UPDATE_SCHEMA_ARTIFACTS").is_some() {
                 fs::write(checked_in.path(), expected).unwrap_or_else(|error| {
                     panic!(
                         "failed to update checked-in generated schema source at {}: {error}",
@@ -134,7 +134,7 @@ impl CheckedInAsschemaArtifact {
         let generated = fs::read_to_string(artifact_files.nota_path())
             .expect("read generated asschema artifact");
         if checked_in != generated {
-            if env::var_os("SPIRIT_NEXT_UPDATE_SCHEMA_ARTIFACTS").is_some() {
+            if env::var_os("SPIRIT_UPDATE_SCHEMA_ARTIFACTS").is_some() {
                 fs::write(self.path(), generated).unwrap_or_else(|error| {
                     panic!(
                         "failed to update checked-in assembled schema artifact at {}: {error}",

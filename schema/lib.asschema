@@ -1,4 +1,4 @@
-(spirit-next:lib [0.1.0])
+(spirit:lib [0.1.0])
 []
 []
 [(Record (Some (Plain Record))) (Observe (Some (Plain Observe))) (Lookup (Some (Plain Lookup))) (Count (Some (Plain Count))) (Remove (Some (Plain Remove))) (LookupStash (Some (Plain LookupStash)))]

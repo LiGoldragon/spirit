@@ -1,6 +1,6 @@
 use std::io::Cursor;
 
-use spirit_next::{Input, SignalTransport};
+use spirit::{Input, SignalTransport};
 use triad_runtime::{FrameBody, LengthPrefixedCodec};
 
 #[test]

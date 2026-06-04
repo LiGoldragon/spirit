@@ -1,4 +1,4 @@
-use spirit_next::{
+use spirit::{
     DatabaseMarker, Engine, Entry, Kind, Magnitude, NexusObjectName, ObjectName, Output,
     PrivacySelection, SemaObjectName, SignalObjectName, TopicMatch, TraceEvent, TraceLog,
     ValidationError,
@@ -20,7 +20,7 @@ impl SemaFile {
 
     fn engine_with_trace(&self, trace_log: TraceLog) -> Engine {
         Engine::new_with_trace(
-            spirit_next::Store::open(&self.path).expect("open sema store"),
+            spirit::Store::open(&self.path).expect("open sema store"),
             trace_log,
         )
     }
@@ -42,13 +42,13 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
     let trace_log = TraceLog::recording();
     let engine = sema.engine_with_trace(trace_log.clone());
 
-    let recorded = engine.handle(spirit_next::Input::Record(entry("trace witness")));
+    let recorded = engine.handle(spirit::Input::Record(entry("trace witness")));
     let record_marker = match recorded.root() {
         Output::RecordAccepted(receipt) => receipt.database_marker.clone(),
         other => panic!("expected RecordAccepted, got {other:?}"),
     };
 
-    let observed = engine.handle(spirit_next::Input::Observe(spirit_next::Query {
+    let observed = engine.handle(spirit::Input::Observe(spirit::Query {
         topic_match: TopicMatch::full(vec![String::from("trace")]),
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
@@ -152,9 +152,9 @@ fn testing_trace_records_lifecycle_hooks_from_generated_engine_traits() {
 #[test]
 fn testing_trace_builds_record_activations_by_default() {
     let sema = SemaFile::new();
-    let engine = Engine::new(spirit_next::Store::open(&sema.path).expect("open sema store"));
+    let engine = Engine::new(spirit::Store::open(&sema.path).expect("open sema store"));
 
-    let output = engine.handle(spirit_next::Input::Record(entry("default trace witness")));
+    let output = engine.handle(spirit::Input::Record(entry("default trace witness")));
     assert!(matches!(output.root(), Output::RecordAccepted(_)));
 
     assert_activation_names(
@@ -179,12 +179,12 @@ fn testing_trace_records_signal_rejection_without_nexus_or_sema_activations() {
     let mut invalid_entry = entry("invalid trace witness");
     invalid_entry.topics = vec![];
 
-    let output = engine.handle(spirit_next::Input::Record(invalid_entry));
+    let output = engine.handle(spirit::Input::Record(invalid_entry));
 
     assert_eq!(engine.record_count(), 0);
     assert_eq!(
         output.root(),
-        &Output::Rejected(spirit_next::SignalRejection {
+        &Output::Rejected(spirit::SignalRejection {
             validation_error: ValidationError::EmptyTopic,
             database_marker: DatabaseMarker {
                 commit_sequence: 0,

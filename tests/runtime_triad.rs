@@ -1,4 +1,4 @@
-use spirit_next::{
+use spirit::{
     DatabaseMarker, Engine, Entry, ErrorReport, Input, Kind, Magnitude, MailLedgerEvent,
     MessageIdentifier, MessageSent, MessageSentHook, Nexus, NexusAction, NexusEngine, NexusWork,
     OriginRoute, Output, PrivacySelection, ProcessedMail, Query, RecordIdentifier, SemaEngine,
@@ -7,7 +7,7 @@ use spirit_next::{
     sema,
 };
 #[cfg(feature = "nota-text")]
-use spirit_next::{Export, Import};
+use spirit::{Export, Import};
 use tempfile::TempDir;
 
 struct SemaFile {
@@ -121,7 +121,7 @@ fn input_count(query: Query) -> Input {
     Input::count(query)
 }
 
-fn input_lookup_stash(stash_handle: spirit_next::StashHandle) -> Input {
+fn input_lookup_stash(stash_handle: spirit::StashHandle) -> Input {
     Input::lookup_stash(stash_handle)
 }
 

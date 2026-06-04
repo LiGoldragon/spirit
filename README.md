@@ -1,8 +1,8 @@
-# spirit-next
+# spirit
 
 Runnable schema-derived Spirit pilot.
 
-`spirit-next` proves the first practical version of the new architecture:
+`spirit` proves the first practical version of the new architecture:
 
 ```text
 schema/lib.schema
@@ -30,26 +30,26 @@ witnesses and the binary `.asschema.rkyv` cache.
 
 ## Run
 
-Start a daemon with a single NOTA argument containing the socket path. A two
-field positional record can provide both socket and database paths:
+Start a daemon with one argument: the path to a binary rkyv `Configuration`
+file. The configuration carries the Unix socket path and `.sema` database path.
+The daemon does not parse NOTA at startup; tests and launchers create the
+binary file with `Configuration::write_binary_file`.
 
 ```sh
-spirit-next-daemon "[/tmp/spirit-next.sock]"
-# or
-spirit-next-daemon "([/tmp/spirit-next.sock] [/tmp/spirit-next.sema])"
+spirit-daemon /tmp/spirit.config.rkyv
 ```
 
 Call it from the CLI:
 
 ```sh
-SPIRIT_NEXT_SOCKET=/tmp/spirit-next.sock \
-  spirit-next "(Record ([[schema]] Constraint [schema creates the interface] Maximum))"
+SPIRIT_SOCKET=/tmp/spirit.sock \
+  spirit "(Record ([[schema]] Constraint [schema creates the interface] Maximum))"
 
-SPIRIT_NEXT_SOCKET=/tmp/spirit-next.sock \
-  spirit-next "(Observe ((Full [[schema]]) (Some Constraint)))"
+SPIRIT_SOCKET=/tmp/spirit.sock \
+  spirit "(Observe ((Full [[schema]]) (Some Constraint)))"
 
-SPIRIT_NEXT_SOCKET=/tmp/spirit-next.sock \
-  spirit-next "(Remove 1)"
+SPIRIT_SOCKET=/tmp/spirit.sock \
+  spirit "(Remove 1)"
 ```
 
 The CLI accepts NOTA. The daemon socket carries length-prefixed rkyv bytes
@@ -62,7 +62,7 @@ optional: `(Some Decision)` filters by kind and `None` searches only by topic.
 
 ## Runtime triad
 
-`spirit-next` is the implementation target for the refined runtime triad:
+`spirit` is the implementation target for the refined runtime triad:
 
 - Signal is generated `Input`/`Output` plus the generated route/header/rkyv
   frame methods.
@@ -72,7 +72,7 @@ optional: `(Some Decision)` filters by kind and `None` searches only by topic.
   output.
 - SEMA is split by generated traits: `Store::apply` takes mutable write input,
   while `Store::observe` takes shared read input. Both operate over the durable
-  `.sema` redb database file.
+  `.sema` component database through `sema-engine`.
 
 ## Local schema stack check
 

@@ -264,7 +264,7 @@ impl SignalAccepted {
     {
         self.sent
             .push_to(&mut nexus.mail_ledger().hook())
-            .expect("spirit-next mail ledger is infallible");
+            .expect("spirit mail ledger is infallible");
         let identifier = self.identifier();
         let nexus_input = signal_engine.triage(self.input);
         let origin_route = nexus_input.origin_route();
@@ -272,7 +272,7 @@ impl SignalAccepted {
         let signal_output = signal_engine.reply(nexus_output);
         MessageProcessed::new(identifier, origin_route, signal_output.root().clone())
             .push_to(&mut nexus.mail_ledger().hook())
-            .expect("spirit-next mail ledger is infallible");
+            .expect("spirit mail ledger is infallible");
         signal_output
     }
 }

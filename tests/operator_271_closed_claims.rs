@@ -172,7 +172,7 @@ fn lib_asschema_lifts_exported_variant_objects_into_typed_records() {
 }
 
 /// Claim 4 — The schema-emitted Rust source surface mirrors the honest
-/// schema. `src/schema/lib.rs` is the generated module the spirit-next
+/// schema. `src/schema/lib.rs` is the generated module the spirit
 /// crate compiles against; it MUST declare the same enums with the same
 /// variants. This is the projection-side witness for claim 4.
 #[test]

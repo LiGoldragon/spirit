@@ -1,4 +1,4 @@
-use spirit_next::{
+use spirit::{
     DatabaseMarker, Entry, Input, InputRoute, Kind, Magnitude, MessageIdentifier, MessageRoot,
     OriginRoute, Output, OutputRoute, Record, Rejected, SemaReceipt, SignalFrameError,
     SignalRejection, ValidationError,

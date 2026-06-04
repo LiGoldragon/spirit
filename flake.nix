@@ -1,5 +1,5 @@
 {
-  description = "spirit-next — runnable schema-derived Spirit pilot";
+  description = "spirit — runnable schema-derived Spirit pilot";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -64,7 +64,7 @@
           filter = sourceFilter;
           name = "source";
         };
-        src = pkgs.runCommand "spirit-next-source-with-local-schema-patches" {
+        src = pkgs.runCommand "spirit-source-with-local-schema-patches" {
           notaNextSource = nota-next-source;
           schemaNextSource = schema-next-source;
           schemaRustNextSource = schema-rust-next-source;
@@ -116,35 +116,35 @@
         });
         daemonPackage = craneLib.buildPackage (commonArguments // {
           cargoArtifacts = binaryCargoArtifacts;
-          cargoExtraArgs = "--no-default-features --bin spirit-next-daemon";
+          cargoExtraArgs = "--no-default-features --bin spirit-daemon";
         });
         cliPackage = craneLib.buildPackage (commonArguments // {
           cargoArtifacts = notaTextCargoArtifacts;
-          cargoExtraArgs = "--features nota-text --bin spirit-next";
+          cargoExtraArgs = "--features nota-text --bin spirit";
         });
         traceDaemonPackage = craneLib.buildPackage (commonArguments // {
           cargoArtifacts = testingTraceCargoArtifacts;
-          cargoExtraArgs = "--features testing-trace --bin spirit-next-daemon";
+          cargoExtraArgs = "--features testing-trace --bin spirit-daemon";
         });
         traceCliPackage = craneLib.buildPackage (commonArguments // {
           cargoArtifacts = notaTextTestingTraceCargoArtifacts;
-          cargoExtraArgs = "--features nota-text,testing-trace --bin spirit-next";
+          cargoExtraArgs = "--features nota-text,testing-trace --bin spirit";
         });
-        combinedPackage = pkgs.runCommand "spirit-next" { } ''
+        combinedPackage = pkgs.runCommand "spirit" { } ''
           mkdir -p "$out/bin"
-          ln -s "${cliPackage}/bin/spirit-next" "$out/bin/spirit-next"
-          ln -s "${daemonPackage}/bin/spirit-next-daemon" "$out/bin/spirit-next-daemon"
+          ln -s "${cliPackage}/bin/spirit" "$out/bin/spirit"
+          ln -s "${daemonPackage}/bin/spirit-daemon" "$out/bin/spirit-daemon"
         '';
-        traceCombinedPackage = pkgs.runCommand "spirit-next-trace" { } ''
+        traceCombinedPackage = pkgs.runCommand "spirit-trace" { } ''
           mkdir -p "$out/bin"
-          ln -s "${traceCliPackage}/bin/spirit-next" "$out/bin/spirit-next"
-          ln -s "${traceDaemonPackage}/bin/spirit-next-daemon" "$out/bin/spirit-next-daemon"
+          ln -s "${traceCliPackage}/bin/spirit" "$out/bin/spirit"
+          ln -s "${traceDaemonPackage}/bin/spirit-daemon" "$out/bin/spirit-daemon"
         '';
         nixIntegrationRunner = pkgs.writeShellApplication {
-          name = "spirit-next-nix-integration-tests";
+          name = "spirit-nix-integration-tests";
           runtimeInputs = [ pkgs.nix toolchain ];
           text = ''
-            repo_root="''${SPIRIT_NEXT_REPO_ROOT:-$PWD}"
+            repo_root="''${SPIRIT_REPO_ROOT:-$PWD}"
             exec "$repo_root/scripts/run-nix-integration-tests" "$@"
           '';
         };
@@ -158,8 +158,8 @@
         packages."trace-daemon" = traceDaemonPackage;
         apps.nix-integration-tests = {
           type = "app";
-          program = "${nixIntegrationRunner}/bin/spirit-next-nix-integration-tests";
-          meta.description = "Run Nix-built spirit-next integration tests";
+          program = "${nixIntegrationRunner}/bin/spirit-nix-integration-tests";
+          meta.description = "Run Nix-built spirit integration tests";
         };
         checks = {
           build = craneLib.cargoBuild (commonArguments // {
@@ -186,14 +186,14 @@
             cargoArtifacts = notaTextTestingTraceCargoArtifacts;
             cargoExtraArgs = "--features nota-text,testing-trace --test process_boundary cli_receives_testing_trace_events_from_daemon_trace_socket -- --exact";
           });
-          no-old-signal-macro = pkgs.runCommand "spirit-next-no-old-signal-macro" { } ''
+          no-old-signal-macro = pkgs.runCommand "spirit-no-old-signal-macro" { } ''
             if grep -R "signal_channel!" ${src}/build.rs ${src}/schema ${src}/src ${src}/tests; then
-              echo "spirit-next must not use the old signal_channel macro" >&2
+              echo "spirit must not use the old signal_channel macro" >&2
               exit 1
             fi
             touch $out
           '';
-          generated-schema-source-checked-in = pkgs.runCommand "spirit-next-generated-schema-source-checked-in" { } ''
+          generated-schema-source-checked-in = pkgs.runCommand "spirit-generated-schema-source-checked-in" { } ''
             # Positive freshness proof runs through the cargo build/test
             # checks: build.rs decodes schema/lib.schema as SchemaSource,
             # round-trips canonical source, compares schema/lib.asschema,
@@ -211,16 +211,16 @@
             ! grep -R "include!(concat!(env!(\"OUT_DIR\")" ${src}/src ${src}/build.rs
             touch $out
           '';
-          nota-surface-is-opt-in = pkgs.runCommand "spirit-next-nota-surface-is-opt-in" { } ''
+          nota-surface-is-opt-in = pkgs.runCommand "spirit-nota-surface-is-opt-in" { } ''
             # Positive proof lives in tests/dependency_surface.rs, which
             # runs cargo tree for the binary-only and nota-text surfaces.
             # This check is only the negative guard for daemon-side text
             # decoder leakage.
-            ! grep -R "nota_next" ${src}/src/config.rs ${src}/src/daemon.rs ${src}/src/bin/spirit-next-daemon.rs
-            ! grep -R "NotaSource" ${src}/src/config.rs ${src}/src/daemon.rs ${src}/src/bin/spirit-next-daemon.rs
+            ! grep -R "nota_next" ${src}/src/config.rs ${src}/src/daemon.rs ${src}/src/bin/spirit-daemon.rs
+            ! grep -R "NotaSource" ${src}/src/config.rs ${src}/src/daemon.rs ${src}/src/bin/spirit-daemon.rs
             touch $out
           '';
-          binary-boundary-test = pkgs.runCommand "spirit-next-binary-boundary-test" { } ''
+          binary-boundary-test = pkgs.runCommand "spirit-binary-boundary-test" { } ''
             # Positive proof lives in socket_negative.rs and
             # process_boundary.rs, which cross the real frame decoder and
             # Unix socket. This check only keeps transport from growing a
@@ -229,7 +229,7 @@
             ! grep -R "rkyv::from_bytes" ${src}/src/transport.rs
             touch $out
           '';
-          retired-triad-surfaces-absent = pkgs.runCommand "spirit-next-retired-triad-surfaces-absent" { } ''
+          retired-triad-surfaces-absent = pkgs.runCommand "spirit-retired-triad-surfaces-absent" { } ''
             ! grep -R "pub struct Mail<Phase>" ${src}/src ${src}/tests
             ! grep -R "pub struct BeingProcessed" ${src}/src ${src}/tests
             ! grep -R "pub struct Processed" ${src}/src ${src}/tests
@@ -245,7 +245,7 @@
             ! grep -R "sema::Output" ${src}/src ${src}/tests
             touch $out
           '';
-          no-production-free-functions = pkgs.runCommand "spirit-next-no-production-free-functions" { } ''
+          no-production-free-functions = pkgs.runCommand "spirit-no-production-free-functions" { } ''
             if grep -R -n -E '^(pub(\([^)]*\))? )?fn ' ${src}/build.rs ${src}/src \
               | grep -v -E ':(fn main\()'; then
               echo "production Rust must not use module-level free functions except main" >&2
@@ -253,7 +253,7 @@
             fi
             touch $out
           '';
-          no-production-unit-structs = pkgs.runCommand "spirit-next-no-production-unit-structs" { } ''
+          no-production-unit-structs = pkgs.runCommand "spirit-no-production-unit-structs" { } ''
             if grep -R -n -E '^struct [A-Za-z][A-Za-z0-9_]*;' ${src}/src; then
               echo "production Rust must not use unit structs as namespace/method holders" >&2
               exit 1
@@ -283,7 +283,7 @@
           });
         };
         devShells.default = pkgs.mkShell {
-          name = "spirit-next";
+          name = "spirit";
           packages = [ pkgs.jujutsu pkgs.pkg-config toolchain ];
         };
       });

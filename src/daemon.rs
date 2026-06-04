@@ -107,7 +107,7 @@ impl Daemon {
                 Ok(stream) => {
                     let engine = Arc::clone(&engine);
                     if let Err(error) = self.handle_stream(stream, &engine) {
-                        eprintln!("spirit-next-daemon: {error}");
+                        eprintln!("spirit-daemon: {error}");
                     }
                 }
                 Err(error) => return Err(DaemonError::Io(error)),

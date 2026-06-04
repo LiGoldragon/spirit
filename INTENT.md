@@ -1,6 +1,6 @@
-# INTENT — spirit-next
+# INTENT — spirit
 
-`spirit-next` exists to prove a running Spirit-like component can be built
+`spirit` exists to prove a running Spirit-like component can be built
 from schema-derived interfaces.
 
 It is intentionally separate from production `spirit`/`persona-spirit` so
@@ -157,7 +157,7 @@ Load-bearing constraints:
   trace-enabled daemon can write rkyv-encoded `TraceEvent` frames to a typed
   Unix trace socket named in binary `Configuration`; a trace-enabled CLI uses
   the shared `triad-runtime` generic trace client to bind that socket through
-  `SPIRIT_NEXT_TRACE_SOCKET`, send the normal binary request on the normal
+  `SPIRIT_TRACE_SOCKET`, send the normal binary request on the normal
   socket, decode trace frames as typed `TraceEvent` values, and print
   generated NOTA trace lines only at the display edge after the normal Signal
   reply. The normal daemon/CLI packages do not enable this surface.

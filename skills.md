@@ -1,4 +1,4 @@
-# Skills — spirit-next
+# Skills — spirit
 
 Read the workspace Rust and component skills before editing this repo:
 

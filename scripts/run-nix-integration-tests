@@ -3,10 +3,10 @@
 # schema-stack checkouts (record 1006 forcing function).
 #
 # This script:
-#   1. Builds the spirit-next default package via Nix using
+#   1. Builds the spirit default package via Nix using
 #      `path:` overrides for the schema-stack inputs, the same way
 #      `scripts/check-local-schema-stack` does.
-#   2. Exports `SPIRIT_NEXT_NIX_BUILD_RESULT` so the cargo tests in
+#   2. Exports `SPIRIT_NIX_BUILD_RESULT` so the cargo tests in
 #      `tests/nix_integration.rs` reuse the Nix-built binaries
 #      instead of invoking `nix build` themselves.
 #   3. Runs `cargo test --test nix_integration -- --ignored`.
@@ -47,7 +47,7 @@ if [[ -z "$build_result" ]]; then
 fi
 
 printf 'using Nix-built binaries at %s\n' "$build_result"
-export SPIRIT_NEXT_NIX_BUILD_RESULT="$build_result"
+export SPIRIT_NIX_BUILD_RESULT="$build_result"
 export NOTA_NEXT_PATH="$nota_next_path"
 export SCHEMA_NEXT_PATH="$schema_next_path"
 export SCHEMA_RUST_NEXT_PATH="$schema_rust_next_path"

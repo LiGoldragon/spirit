@@ -1,25 +1,25 @@
 [package]
-name         = "spirit-next"
+name         = "spirit"
 version      = "0.1.0"
 edition      = "2024"
 rust-version = "1.85"
 license      = "MIT OR Apache-2.0"
-repository   = "https://github.com/LiGoldragon/spirit-next"
+repository   = "https://github.com/LiGoldragon/spirit"
 description  = "Runnable schema-derived Spirit pilot: NOTA CLI, rkyv socket, generated schema types."
 publish      = false
 
 [lib]
-name = "spirit_next"
+name = "spirit"
 path = "src/lib.rs"
 
 [[bin]]
-name = "spirit-next"
-path = "src/bin/spirit-next.rs"
+name = "spirit"
+path = "src/bin/spirit.rs"
 required-features = ["nota-text"]
 
 [[bin]]
-name = "spirit-next-daemon"
-path = "src/bin/spirit-next-daemon.rs"
+name = "spirit-daemon"
+path = "src/bin/spirit-daemon.rs"
 
 [[test]]
 name = "nix_integration"

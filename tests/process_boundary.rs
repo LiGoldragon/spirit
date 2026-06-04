@@ -8,8 +8,8 @@ use std::{
 };
 
 #[cfg(feature = "testing-trace")]
-use spirit_next::TraceEvent;
-use spirit_next::{Configuration, Output};
+use spirit::TraceEvent;
+use spirit::{Configuration, Output};
 use tempfile::TempDir;
 
 struct DaemonProcess {
@@ -29,7 +29,7 @@ impl DaemonProcess {
         Configuration::new(socket_path, database_path)
             .write_binary_file(&configuration_path)
             .expect("write binary daemon configuration");
-        let child = Command::new(env!("CARGO_BIN_EXE_spirit-next-daemon"))
+        let child = Command::new(env!("CARGO_BIN_EXE_spirit-daemon"))
             .arg(configuration_path)
             .spawn()
             .expect("spawn daemon");
@@ -48,7 +48,7 @@ impl DaemonProcess {
         Configuration::new_with_trace(socket_path, database_path, trace_socket_path)
             .write_binary_file(&configuration_path)
             .expect("write binary daemon configuration with trace socket");
-        let child = Command::new(env!("CARGO_BIN_EXE_spirit-next-daemon"))
+        let child = Command::new(env!("CARGO_BIN_EXE_spirit-daemon"))
             .arg(configuration_path)
             .spawn()
             .expect("spawn daemon");
@@ -59,8 +59,8 @@ impl DaemonProcess {
 }
 
 fn run_cli(socket_path: &Path, nota_argument: &str) -> Output {
-    let output = Command::new(env!("CARGO_BIN_EXE_spirit-next"))
-        .env("SPIRIT_NEXT_SOCKET", socket_path)
+    let output = Command::new(env!("CARGO_BIN_EXE_spirit"))
+        .env("SPIRIT_SOCKET", socket_path)
         .arg(nota_argument)
         .output()
         .expect("run cli");
@@ -140,9 +140,9 @@ fn run_cli_with_trace(
     trace_socket_path: &Path,
     nota_argument: &str,
 ) -> TraceCliOutput {
-    let output = Command::new(env!("CARGO_BIN_EXE_spirit-next"))
-        .env("SPIRIT_NEXT_SOCKET", socket_path)
-        .env("SPIRIT_NEXT_TRACE_SOCKET", trace_socket_path)
+    let output = Command::new(env!("CARGO_BIN_EXE_spirit"))
+        .env("SPIRIT_SOCKET", socket_path)
+        .env("SPIRIT_TRACE_SOCKET", trace_socket_path)
         .arg(nota_argument)
         .output()
         .expect("run cli with trace");
@@ -157,8 +157,8 @@ fn run_cli_with_trace(
 #[test]
 fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
     let temp = TempDir::new().expect("tempdir");
-    let socket_path = temp.path().join("spirit-next.sock");
-    let database_path = temp.path().join("spirit-next.sema");
+    let socket_path = temp.path().join("spirit.sock");
+    let database_path = temp.path().join("spirit.sema");
 
     let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
 
@@ -221,8 +221,8 @@ fn cli_renders_alias_payload_outputs_without_wrapper_repetition() {
 
     let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
 
-    let rejected = Command::new(env!("CARGO_BIN_EXE_spirit-next"))
-        .env("SPIRIT_NEXT_SOCKET", &socket_path)
+    let rejected = Command::new(env!("CARGO_BIN_EXE_spirit"))
+        .env("SPIRIT_SOCKET", &socket_path)
         .arg("(Record ([] Constraint [alias payload rejection] Maximum Zero))")
         .output()
         .expect("run cli");
@@ -245,8 +245,8 @@ fn cli_renders_alias_payload_outputs_without_wrapper_repetition() {
         "parsed rejection should be direct Output::Rejected payload"
     );
 
-    let recorded = Command::new(env!("CARGO_BIN_EXE_spirit-next"))
-        .env("SPIRIT_NEXT_SOCKET", &socket_path)
+    let recorded = Command::new(env!("CARGO_BIN_EXE_spirit"))
+        .env("SPIRIT_SOCKET", &socket_path)
         .arg("(Record ([[alias-payload]] Constraint [direct accepted payload] Maximum Zero))")
         .output()
         .expect("run cli");
@@ -448,9 +448,9 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
 #[test]
 fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
     let temp = TempDir::new().expect("tempdir");
-    let socket_path = temp.path().join("spirit-next.sock");
-    let trace_socket_path = temp.path().join("spirit-next-trace.sock");
-    let database_path = temp.path().join("spirit-next.sema");
+    let socket_path = temp.path().join("spirit.sock");
+    let trace_socket_path = temp.path().join("spirit-trace.sock");
+    let database_path = temp.path().join("spirit.sema");
 
     let _daemon = DaemonProcess::spawn_with_trace(&socket_path, &database_path, &trace_socket_path);
 

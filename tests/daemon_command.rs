@@ -1,4 +1,4 @@
-use spirit_next::{Configuration, DaemonCommand, DaemonCommandError};
+use spirit::{Configuration, DaemonCommand, DaemonCommandError};
 use triad_runtime::ArgumentError;
 
 struct TemporaryConfiguration {

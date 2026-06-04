@@ -23,7 +23,7 @@ use crate::{NexusObjectName, ObjectName, TraceEvent, TraceLog};
 pub struct ContinuationBudget(u32);
 
 impl ContinuationBudget {
-    /// The default budget for spirit-next: 32 iterations is plenty for
+    /// The default budget for spirit: 32 iterations is plenty for
     /// observe -> stash -> reply (3 iterations) plus headroom.
     pub fn default_for_pilot() -> Self {
         Self(32)

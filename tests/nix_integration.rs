@@ -1,10 +1,10 @@
-//! Nix-driven integration tests for the spirit-next schema-driven stack.
+//! Nix-driven integration tests for the spirit schema-driven stack.
 //!
 //! These tests are the cycle-3-prep forcing function for record 1006
 //! (Maximum, 2026-05-27): tests must PROVE not pretend; the canonical
 //! shape is schema files driving Nix-built binaries that the test
 //! launches and exchanges real rkyv signal frames with over a real
-//! Unix socket. Every component — `spirit-next` (CLI), `spirit-next-
+//! Unix socket. Every component — `spirit` (CLI), `spirit-
 //! daemon` (daemon, holds the SignalActor + Engine + Store triad) — is
 //! the SAME schema-emitted code path the runtime uses.
 //!
@@ -16,7 +16,7 @@
 //! a human would see. Each test:
 //!
 //!   1. Locates the Nix-built binaries (via `nix build` invoked by the
-//!      test, or via `SPIRIT_NEXT_NIX_BUILD_RESULT` if pre-built).
+//!      test, or via `SPIRIT_NIX_BUILD_RESULT` if pre-built).
 //!   2. Spawns the daemon binary against a temp Unix socket.
 //!   3. Invokes the CLI binary against that socket, passing inline
 //!      NOTA arguments — the SAME single-NOTA-argument contract
@@ -41,7 +41,7 @@
 //! nix run .#nix-integration-tests
 //! ```
 //!
-//! The script seeds `SPIRIT_NEXT_NIX_BUILD_RESULT` with a pre-built
+//! The script seeds `SPIRIT_NIX_BUILD_RESULT` with a pre-built
 //! binary directory so the test bypasses its own `nix build`.
 //!
 //! ## What each test proves
@@ -76,8 +76,8 @@
 //!   invocations without restart.
 //!
 //! - `nix_build_default_package_emits_both_binaries`
-//!   — sanity-check the Nix build produces both `bin/spirit-next` and
-//!   `bin/spirit-next-daemon`, proving the schema-driven build pipeline
+//!   — sanity-check the Nix build produces both `bin/spirit` and
+//!   `bin/spirit-daemon`, proving the schema-driven build pipeline
 //!   reaches the binary stage.
 //!
 //! - `nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant`
@@ -98,7 +98,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use spirit_next::{
+use spirit::{
     Configuration, DatabaseMarker, Entry, ErrorReport, Kind, Magnitude, Output, OutputRoute,
     SemaReceipt, SignalRejection, ValidationError,
 };
@@ -108,11 +108,11 @@ use tempfile::TempDir;
 // Nix-build harness: locate the schema-driven binaries.
 // ---------------------------------------------------------------------------
 
-/// Outcome of locating Nix-built spirit-next binaries.
+/// Outcome of locating Nix-built spirit binaries.
 ///
 /// Tests call `NixBuiltBinaries::ensure()` which either reuses
-/// `SPIRIT_NEXT_NIX_BUILD_RESULT` (a pre-built `result/` directory
-/// containing `bin/spirit-next` + `bin/spirit-next-daemon`) or invokes
+/// `SPIRIT_NIX_BUILD_RESULT` (a pre-built `result/` directory
+/// containing `bin/spirit` + `bin/spirit-daemon`) or invokes
 /// `nix build` against the workspace flake — the SAME build the
 /// schema-driven check derivation runs.
 #[derive(Debug, Clone)]
@@ -135,15 +135,15 @@ fn nix_built_binaries() -> &'static NixBuiltBinaries {
 
 impl NixBuiltBinaries {
     fn locate_or_build() -> Self {
-        if let Ok(directory) = env::var("SPIRIT_NEXT_NIX_BUILD_RESULT") {
+        if let Ok(directory) = env::var("SPIRIT_NIX_BUILD_RESULT") {
             return Self::from_directory(&PathBuf::from(directory));
         }
         Self::from_directory(&Self::nix_build())
     }
 
     fn from_directory(directory: &Path) -> Self {
-        let spirit_cli = directory.join("bin").join("spirit-next");
-        let spirit_daemon = directory.join("bin").join("spirit-next-daemon");
+        let spirit_cli = directory.join("bin").join("spirit");
+        let spirit_daemon = directory.join("bin").join("spirit-daemon");
         assert!(
             spirit_cli.exists(),
             "expected Nix-built CLI binary at {}",
@@ -241,9 +241,9 @@ struct DaemonProcess {
 impl DaemonProcess {
     fn spawn(binaries: &NixBuiltBinaries) -> Self {
         let temp_directory = TempDir::new().expect("create tempdir");
-        let socket_path = temp_directory.path().join("spirit-next.sock");
-        let database_path = temp_directory.path().join("spirit-next.sema");
-        let configuration_path = temp_directory.path().join("spirit-next.config.rkyv");
+        let socket_path = temp_directory.path().join("spirit.sock");
+        let database_path = temp_directory.path().join("spirit.sema");
+        let configuration_path = temp_directory.path().join("spirit.config.rkyv");
         Configuration::new(&socket_path, &database_path)
             .write_binary_file(&configuration_path)
             .expect("write binary daemon configuration");
@@ -296,12 +296,12 @@ impl Drop for DaemonProcess {
 fn run_cli_for_output(binaries: &NixBuiltBinaries, socket: &Path, nota_argument: &str) -> Output {
     let output = Command::new(&binaries.spirit_cli)
         .arg(nota_argument)
-        .env("SPIRIT_NEXT_SOCKET", socket)
+        .env("SPIRIT_SOCKET", socket)
         .output()
         .expect("run CLI");
     assert!(
         output.status.success(),
-        "spirit-next CLI failed (status {}): stderr={}; stdout={}",
+        "spirit CLI failed (status {}): stderr={}; stdout={}",
         output.status,
         String::from_utf8_lossy(&output.stderr),
         String::from_utf8_lossy(&output.stdout)
@@ -666,7 +666,7 @@ fn nix_built_daemon_alias_state_across_separate_cli_processes() {
     // Independent processes — exec a fresh CLI binary each time.
     let mut child_a = Command::new(&binaries.spirit_cli)
         .arg("(Record ([[nix-integration]] Decision [process a record] Maximum Zero))")
-        .env("SPIRIT_NEXT_SOCKET", daemon.socket())
+        .env("SPIRIT_SOCKET", daemon.socket())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
