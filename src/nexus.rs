@@ -14,16 +14,18 @@ use crate::{
             WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
         },
         signal::{
-            DatabaseMarker, Entry, ErrorReport, Input, Kind, Magnitude, Output, Records,
-            SignalRejection, StashHandle, StashedObservation, Statement, ValidationError,
+            DatabaseMarker, Entry, ErrorReport, Input, IntentEvent, IntentRecorded,
+            IntentSubscription, Kind, Magnitude, Output, Records, SemaReceipt, SignalRejection,
+            StashHandle, StashedObservation, Statement, ValidationError,
         },
     },
-    store::Store,
+    store::{Store, StoreError},
 };
 
 #[cfg(feature = "testing-trace")]
 use crate::{ObjectName, TraceEvent, TraceLog, schema::nexus::NexusObjectName};
-use triad_runtime::ContinuationExhausted;
+use signal_frame::SubscriptionTokenInner;
+use triad_runtime::{ContinuationExhausted, SubscriptionTokenIssuer};
 
 /// The stash table — the durable handle store backing the Stash effect.
 ///
@@ -108,6 +110,7 @@ pub struct Nexus {
     mail_ledger: MailLedger,
     stash_table: StashTable,
     classification_policy: ClassificationPolicy,
+    subscription_token_issuer: SubscriptionTokenIssuer,
     #[cfg(feature = "testing-trace")]
     trace_log: TraceLog,
 }
@@ -159,6 +162,7 @@ impl Nexus {
                 mail_ledger: MailLedger::default(),
                 stash_table: StashTable::default(),
                 classification_policy: ClassificationPolicy::default(),
+                subscription_token_issuer: SubscriptionTokenIssuer::default(),
             }
         }
     }
@@ -170,6 +174,7 @@ impl Nexus {
             mail_ledger: MailLedger::default(),
             stash_table: StashTable::default(),
             classification_policy: ClassificationPolicy::default(),
+            subscription_token_issuer: SubscriptionTokenIssuer::default(),
             trace_log,
         }
     }
@@ -194,6 +199,21 @@ impl Nexus {
         self.store.database_marker()
     }
 
+    pub fn intent_recorded_event(
+        &self,
+        receipt: &SemaReceipt,
+    ) -> Result<Option<IntentEvent>, StoreError> {
+        Ok(self
+            .store
+            .entry_by_identifier(receipt.record_identifier)?
+            .map(|entry| {
+                IntentEvent::intent_recorded(IntentRecorded {
+                    entry,
+                    sema_receipt: receipt.clone(),
+                })
+            }))
+    }
+
     /// Apply a Nexus-local effect, producing the matching effect result
     /// that the runner re-enters as `NexusWork::EffectCompleted`.
     fn apply_effect(&mut self, command: NexusEffectCommand) -> NexusEffectResult {
@@ -208,6 +228,13 @@ impl Nexus {
             }) => {
                 let result = self.stash_table.put(records, database_marker);
                 NexusEffectResult::stashed(result)
+            }
+            NexusEffectCommand::OpenIntentSubscription(_query) => {
+                let token: SubscriptionTokenInner = self.subscription_token_issuer.issue();
+                NexusEffectResult::intent_subscription_opened(IntentSubscription {
+                    subscription_token: token.value(),
+                    database_marker: self.database_marker(),
+                })
             }
         }
     }
@@ -338,6 +365,9 @@ impl Nexus {
                     database_marker: self.database_marker(),
                 })),
             },
+            Input::SubscribeIntent(query) => {
+                NexusAction::command_effect(NexusEffectCommand::open_intent_subscription(query))
+            }
         }
     }
 
@@ -393,6 +423,9 @@ impl Nexus {
                 record_count,
                 database_marker,
             })),
+            NexusEffectResult::IntentSubscriptionOpened(subscription) => {
+                NexusAction::reply_to_signal(Output::subscription_started(subscription))
+            }
         }
     }
 }

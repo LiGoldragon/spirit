@@ -1,6 +1,6 @@
 {}
-[State Record Observe Lookup Count Remove ChangeCertainty LookupStash]
-[RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged Error Rejected]
+[State Record Observe Lookup Count Remove ChangeCertainty LookupStash (SubscribeIntent SubscribeIntent opens IntentEventStream)]
+[RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged SubscriptionStarted (Event IntentEvent) Error Rejected]
 {
   SourcePath String
   LocalPath String
@@ -17,6 +17,7 @@
   Remove RecordIdentifier
   ChangeCertainty CertaintyChange
   LookupStash StashHandle
+  SubscribeIntent Query
 
   RecordAccepted SemaReceipt
   RecordsObserved ObservedRecords
@@ -25,6 +26,7 @@
   RecordsCounted CountedRecords
   RecordRemoved RemoveReceipt
   CertaintyChanged CertaintyChangeReceipt
+  SubscriptionStarted IntentSubscription
   Error ErrorReport
   Rejected SignalRejection
 
@@ -38,6 +40,7 @@
   StateDigest Integer
   RecordCount Integer
   StashHandle Integer
+  SubscriptionToken Integer
   MailIdentifier Integer
   ShortHeader Integer
 
@@ -50,6 +53,10 @@
   ErrorReport { ErrorMessage * DatabaseMarker * }
   SignalRejection { ValidationError * DatabaseMarker * }
   StashedObservation { StashHandle * RecordCount * DatabaseMarker * }
+  IntentSubscription { SubscriptionToken * DatabaseMarker * }
+  IntentRecorded { Entry * SemaReceipt * }
+  IntentEvent [(IntentRecorded IntentRecorded belongs IntentEventStream)]
+  IntentEventStream (Stream { token SubscriptionToken opened SubscriptionStarted event IntentEvent close SubscriptionToken })
   ValidationError [EmptyTopic EmptyDescription EmptyQueryTopic StashHandleNotFound]
   SentMail { MailIdentifier * OriginRoute * ShortHeader * }
   ProcessedMail { MailIdentifier * OriginRoute * DatabaseMarker * }

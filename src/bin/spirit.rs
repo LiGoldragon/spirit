@@ -1,12 +1,12 @@
-use std::{env, fs, path::PathBuf};
+use std::{env, fs, io::ErrorKind, os::unix::net::UnixStream, path::PathBuf};
 
 use nota_next::{Delimiter, Document, NotaBlock, NotaDecodeError};
 use spirit::{
     SignalTransport, TransportError,
-    schema::signal::{Input, Statement},
+    schema::signal::{Input, Output, Statement},
 };
 use thiserror::Error;
-use triad_runtime::{ArgumentError, ComponentArgument, ComponentCommand};
+use triad_runtime::{ArgumentError, ComponentArgument, ComponentCommand, FrameError};
 
 #[cfg(feature = "testing-trace")]
 use spirit::{TraceClient, TraceError};
@@ -39,11 +39,33 @@ impl SpiritCli {
         #[cfg(feature = "testing-trace")]
         let trace_client =
             TraceClient::from_environment("SPIRIT_TRACE_SOCKET", Duration::from_millis(200))?;
-        let (_route, output) = SignalTransport::connect(socket_path)?.exchange(&input)?;
+        let opens_subscription = matches!(&input, Input::SubscribeIntent(_));
+        let mut transport = SignalTransport::connect(socket_path)?;
+        let (_route, output) = transport.exchange(&input)?;
         println!("{output}");
+        if opens_subscription {
+            self.print_subscription_events(&mut transport)?;
+        }
         #[cfg(feature = "testing-trace")]
         trace_client.print_events(&mut std::io::stdout())?;
         Ok(())
+    }
+
+    fn print_subscription_events(
+        &self,
+        transport: &mut SignalTransport<UnixStream>,
+    ) -> Result<(), SpiritCliError> {
+        loop {
+            match transport.read_subscription_event() {
+                Ok(event) => println!("{}", Output::event(event)),
+                Err(TransportError::Frame(FrameError::Io(error)))
+                    if error.kind() == ErrorKind::UnexpectedEof =>
+                {
+                    return Ok(());
+                }
+                Err(error) => return Err(error.into()),
+            }
+        }
     }
 
     fn source(&self) -> Result<SpiritInputSource, SpiritCliError> {

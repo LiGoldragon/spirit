@@ -24,6 +24,10 @@ impl TemporaryConfiguration {
         self.directory.path().join("spirit.sema")
     }
 
+    fn meta_socket_path(&self) -> std::path::PathBuf {
+        self.directory.path().join("meta-spirit.sock")
+    }
+
     fn write_configuration(&self) -> Configuration {
         let configuration = Configuration::new(self.socket_path(), self.database_path());
         configuration
@@ -31,6 +35,31 @@ impl TemporaryConfiguration {
             .expect("write binary configuration");
         configuration
     }
+}
+
+#[test]
+fn daemon_configuration_carries_optional_meta_socket_slot() {
+    let temporary_configuration = TemporaryConfiguration::new();
+    let meta_socket_path = temporary_configuration.meta_socket_path();
+    let configuration = Configuration::new(
+        temporary_configuration.socket_path(),
+        temporary_configuration.database_path(),
+    )
+    .with_meta_socket_path(&meta_socket_path);
+    configuration
+        .write_binary_file(temporary_configuration.configuration_path())
+        .expect("write binary configuration");
+    let command = DaemonCommand::from_arguments([temporary_configuration
+        .configuration_path()
+        .to_string_lossy()
+        .into_owned()]);
+
+    let read_configuration = command.configuration().expect("read configuration");
+
+    assert_eq!(
+        read_configuration.meta_socket_path(),
+        Some(meta_socket_path.as_path())
+    );
 }
 
 #[test]

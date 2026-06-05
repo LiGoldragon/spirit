@@ -33,6 +33,7 @@ pub mod engine;
 pub mod nexus;
 mod plane;
 pub mod store;
+pub mod subscription;
 #[cfg(feature = "testing-trace")]
 pub mod trace;
 pub mod trace_event;

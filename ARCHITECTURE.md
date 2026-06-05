@@ -161,6 +161,14 @@ configuration file; production configuration should later become another
 typed binary signal surface differentiated by the root message enumerator,
 not a NOTA side channel.
 
+The binary configuration already carries the daemon's meta slot as an optional
+`meta_socket_path`. The current slice does not bind a meta listener or author
+the meta signal contract; it reserves the typed configuration slot so policy
+and configuration authority have a component-owned home distinct from the
+ordinary working socket. A later meta-signal slice can bind that path through
+`triad_runtime::MultiListenerDaemon` or an equivalent runtime shell without
+changing the ordinary signal contract.
+
 `Configuration` may also carry a trace socket path. That field is still binary
 rkyv configuration; it does not add a NOTA startup path to the daemon. Only a
 daemon compiled with `testing-trace` uses it. The daemon writes trace frames as
@@ -175,6 +183,24 @@ wire input.
 The hand-written transport module owns only the component-specific bridge
 between generated signal frames and `triad-runtime::LengthPrefixedCodec`. It
 does not own route enums, short-header matching, or rkyv archive encode/decode.
+
+`SubscribeIntent(Query)` is the first streaming Signal operation. The authored
+signal schema marks it as opening `IntentEventStream`; generated Rust therefore
+exposes the stream-capable `Frame`/`FrameBody` aliases and
+`IntentEvent::into_subscription_frame`. The CLI still sends exactly one NOTA
+input. For ordinary inputs it prints one output and exits; for
+`SubscribeIntent` it prints `SubscriptionStarted` and keeps reading
+length-prefixed `signal-frame` subscription-event frames, rendering each as
+generated `Output::Event(IntentEvent)` at the human edge.
+
+The daemon handles a subscribe request by writing the ordinary
+`SubscriptionStarted` reply, registering the cloned server-side socket writer
+under the Nexus-minted `SubscriptionToken`, and returning to the accept loop.
+This keeps the single listener non-blocking for other requests while the
+retained writer remains available for pushed events. `SubscriptionHub` owns the
+live `SubscriptionRegistry`, stream-event publisher, and retained writers;
+daemon code only registers subscriptions and asks the hub to publish typed
+events.
 
 ### Nexus
 
@@ -253,6 +279,16 @@ branch. The effect implementation applies the fallback classification policy
 through the same write root used by ordinary `Record` input. This ports one
 deployed `persona-spirit` behavior without reviving the old actor tree in the
 daemon.
+
+`SubscribeIntent` follows the same Nexus visibility rule. Signal admits the
+query, Nexus emits `CommandEffect(OpenIntentSubscription(Query))`, the effect
+uses `triad-runtime::SubscriptionTokenIssuer` to mint a token, and Nexus
+returns `IntentSubscriptionOpened(IntentSubscription)` before replying to
+Signal as `Output::SubscriptionStarted`. The daemon does not mint hidden
+subscription identity; it only attaches the already-declared and already-minted
+token to a live socket writer. Successful `Record` writes are projected back
+through `Engine::intent_recorded_event`/`Nexus::intent_recorded_event`, so the
+daemon never opens SEMA directly to publish events.
 
 `ChangeCertainty` is the first production conditional-write parity slice.
 Signal admits the generated `CertaintyChange` payload. Nexus emits the

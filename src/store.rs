@@ -144,7 +144,7 @@ impl SemaEngine for Store {
             },
             SemaReadInput::Lookup(lookup) => {
                 let record_identifier = lookup;
-                match self.lookup(record_identifier) {
+                match self.entry_by_identifier(record_identifier) {
                     Ok(Some(entry)) => SemaReadOutput::found(FoundRecord {
                         record_identifier,
                         entry,
@@ -231,7 +231,7 @@ impl Store {
             .collect())
     }
 
-    fn lookup(&self, identifier: u64) -> Result<Option<Entry>, StoreError> {
+    pub fn entry_by_identifier(&self, identifier: u64) -> Result<Option<Entry>, StoreError> {
         Ok(self
             .database
             .match_identified(IdentifiedQueryPlan::identifier(
@@ -264,7 +264,7 @@ impl Store {
         change: CertaintyChange,
     ) -> Result<Option<CertaintyChangeReceipt>, StoreError> {
         let record_identifier = change.record_identifier;
-        let Some(mut entry) = self.lookup(record_identifier)? else {
+        let Some(mut entry) = self.entry_by_identifier(record_identifier)? else {
             return Ok(None);
         };
         entry.magnitude = change.certainty.clone();

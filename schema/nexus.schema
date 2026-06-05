@@ -10,6 +10,9 @@
   DatabaseMarker spirit:signal:DatabaseMarker
   Statement spirit:signal:Statement
   Entry spirit:signal:Entry
+  Query spirit:signal:Query
+  SubscriptionToken spirit:signal:SubscriptionToken
+  IntentSubscription spirit:signal:IntentSubscription
   RecordIdentifier spirit:signal:RecordIdentifier
   CertaintyChange spirit:signal:CertaintyChange
 }
@@ -33,12 +36,14 @@
   NexusWork [(SignalArrived SignalArrived) (SemaWriteCompleted SemaWriteCompleted) (SemaReadCompleted SemaReadCompleted) (EffectCompleted EffectCompleted)]
   NexusAction [(CommandSemaWrite CommandSemaWrite) (CommandSemaRead CommandSemaRead) (ReplyToSignal ReplyToSignal) (CommandEffect CommandEffect) (Continue Continue)]
 
-  NexusEffectCommand [(Stash Stash) (ClassifyState ClassifyState)]
+  NexusEffectCommand [(Stash Stash) (ClassifyState ClassifyState) (OpenIntentSubscription OpenIntentSubscription)]
   Stash StashRequest
   ClassifyState Statement
-  NexusEffectResult [(Stashed Stashed) (StateClassified StateClassified)]
+  OpenIntentSubscription Query
+  NexusEffectResult [(Stashed Stashed) (StateClassified StateClassified) (IntentSubscriptionOpened IntentSubscriptionOpened)]
   Stashed StashResult
   StateClassified Entry
+  IntentSubscriptionOpened IntentSubscription
   StashRequest { Records * DatabaseMarker * }
   StashResult { StashHandle * RecordCount * DatabaseMarker * }
 }

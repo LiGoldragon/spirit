@@ -1,8 +1,10 @@
 use std::{
     fs,
+    io::{BufRead, BufReader},
     path::Path,
-    process::{Child, Command},
+    process::{Child, ChildStdout, Command, Stdio},
     str::FromStr,
+    sync::mpsc::{self, Receiver},
     thread,
     time::{Duration, Instant},
 };
@@ -11,7 +13,7 @@ use std::{
 use spirit::TraceEvent;
 use spirit::{
     Configuration,
-    schema::signal::{Kind, Magnitude, Output},
+    schema::signal::{IntentEvent, Kind, Magnitude, Output},
 };
 use tempfile::TempDir;
 
@@ -19,10 +21,26 @@ struct DaemonProcess {
     child: Child,
 }
 
+struct SubscriberProcess {
+    child: Child,
+    lines: Receiver<String>,
+    reader_thread: Option<thread::JoinHandle<()>>,
+}
+
 impl Drop for DaemonProcess {
     fn drop(&mut self) {
         let _ = self.child.kill();
         let _ = self.child.wait();
+    }
+}
+
+impl Drop for SubscriberProcess {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+        if let Some(reader_thread) = self.reader_thread.take() {
+            let _ = reader_thread.join();
+        }
     }
 }
 
@@ -58,6 +76,66 @@ impl DaemonProcess {
         let process = Self { child };
         wait_for_socket(socket_path);
         process
+    }
+}
+
+impl SubscriberProcess {
+    fn spawn(socket_path: &Path, nota_argument: &str) -> Self {
+        let mut child = Command::new(env!("CARGO_BIN_EXE_spirit"))
+            .env("SPIRIT_SOCKET", socket_path)
+            .arg(nota_argument)
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("spawn subscriber cli");
+        let stdout = child.stdout.take().expect("subscriber stdout");
+        let output = SubscriberOutput::new(stdout);
+        Self {
+            child,
+            lines: output.lines,
+            reader_thread: Some(output.reader_thread),
+        }
+    }
+
+    fn next_output(&self, timeout: Duration) -> Output {
+        let line = self
+            .lines
+            .recv_timeout(timeout)
+            .expect("subscriber output before timeout");
+        Output::from_str(line.trim()).unwrap_or_else(|error| {
+            panic!("schema-emitted Output::FromStr on subscriber stdout {line:?}: {error}")
+        })
+    }
+
+    fn assert_no_output(&self, timeout: Duration) {
+        match self.lines.recv_timeout(timeout) {
+            Ok(line) => panic!("subscriber should not receive output, got {line:?}"),
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                panic!("subscriber exited before timeout")
+            }
+        }
+    }
+}
+
+struct SubscriberOutput {
+    lines: Receiver<String>,
+    reader_thread: thread::JoinHandle<()>,
+}
+
+impl SubscriberOutput {
+    fn new(stdout: ChildStdout) -> Self {
+        let (sender, lines) = mpsc::channel();
+        let reader_thread = thread::spawn(move || {
+            for line in BufReader::new(stdout).lines().map_while(Result::ok) {
+                if sender.send(line).is_err() {
+                    break;
+                }
+            }
+        });
+        Self {
+            lines,
+            reader_thread,
+        }
     }
 }
 
@@ -214,6 +292,55 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
         matches!(rejected, Output::Rejected(_)),
         "empty topic is rejected before SEMA, got {rejected:?}"
     );
+}
+
+#[test]
+fn cli_subscription_receives_matching_intent_events_without_blocking_daemon() {
+    let temp = TempDir::new().expect("tempdir");
+    let socket_path = temp.path().join("subscription.sock");
+    let database_path = temp.path().join("subscription.sema");
+
+    let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
+    let subscriber = SubscriberProcess::spawn(
+        &socket_path,
+        "(SubscribeIntent ((Full [[streaming]]) (Some Decision) (Exact Zero)))",
+    );
+
+    match subscriber.next_output(Duration::from_secs(2)) {
+        Output::SubscriptionStarted(subscription) => {
+            assert_eq!(subscription.subscription_token, 1);
+            assert_eq!(subscription.database_marker.commit_sequence, 0);
+        }
+        other => panic!("expected SubscriptionStarted, got {other:?}"),
+    }
+
+    let nonmatching = run_cli(
+        &socket_path,
+        "(Record ([[other]] Decision [this should not be pushed] Maximum Zero))",
+    );
+    assert!(
+        matches!(nonmatching, Output::RecordAccepted(_)),
+        "ordinary record request should complete while subscription is open, got {nonmatching:?}"
+    );
+    subscriber.assert_no_output(Duration::from_millis(200));
+
+    let matching = run_cli(
+        &socket_path,
+        "(Record ([[streaming]] Decision [subscriber receives this] Maximum Zero))",
+    );
+    let Output::RecordAccepted(receipt) = matching else {
+        panic!("expected matching RecordAccepted, got {matching:?}");
+    };
+
+    match subscriber.next_output(Duration::from_secs(2)) {
+        Output::Event(IntentEvent::IntentRecorded(recorded)) => {
+            assert_eq!(recorded.entry.topics, vec![String::from("streaming")]);
+            assert_eq!(recorded.entry.kind, Kind::Decision);
+            assert_eq!(recorded.entry.description, "subscriber receives this");
+            assert_eq!(recorded.sema_receipt, receipt);
+        }
+        other => panic!("expected IntentRecorded event, got {other:?}"),
+    }
 }
 
 #[test]

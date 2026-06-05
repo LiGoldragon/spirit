@@ -53,6 +53,8 @@ pub type ChangeCertainty = CertaintyChange;
 
 pub type LookupStash = StashHandle;
 
+pub type SubscribeIntent = Query;
+
 pub type RecordAccepted = SemaReceipt;
 
 pub type RecordsObserved = ObservedRecords;
@@ -66,6 +68,8 @@ pub type RecordsCounted = CountedRecords;
 pub type RecordRemoved = RemoveReceipt;
 
 pub type CertaintyChanged = CertaintyChangeReceipt;
+
+pub type SubscriptionStarted = IntentSubscription;
 
 pub type Error = ErrorReport;
 
@@ -90,6 +94,8 @@ pub type StateDigest = Integer;
 pub type RecordCount = Integer;
 
 pub type StashHandle = Integer;
+
+pub type SubscriptionToken = Integer;
 
 pub type MailIdentifier = Integer;
 
@@ -158,6 +164,26 @@ pub struct StashedObservation {
     pub stash_handle: StashHandle,
     pub record_count: RecordCount,
     pub database_marker: DatabaseMarker,
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct IntentSubscription {
+    pub subscription_token: SubscriptionToken,
+    pub database_marker: DatabaseMarker,
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct IntentRecorded {
+    pub entry: Entry,
+    pub sema_receipt: SemaReceipt,
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum IntentEvent {
+    IntentRecorded(IntentRecorded),
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -301,6 +327,7 @@ pub enum Input {
     Remove(Remove),
     ChangeCertainty(ChangeCertainty),
     LookupStash(LookupStash),
+    SubscribeIntent(SubscribeIntent),
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -313,6 +340,8 @@ pub enum Output {
     RecordsCounted(RecordsCounted),
     RecordRemoved(RecordRemoved),
     CertaintyChanged(CertaintyChanged),
+    SubscriptionStarted(SubscriptionStarted),
+    Event(IntentEvent),
     Error(Error),
     Rejected(Rejected),
 }
@@ -334,6 +363,12 @@ impl Statement {
 impl From<StatementText> for Statement {
     fn from(payload: StatementText) -> Self {
         Self::new(payload)
+    }
+}
+
+impl IntentEvent {
+    pub fn intent_recorded(payload: IntentRecorded) -> Self {
+        Self::IntentRecorded(payload)
     }
 }
 
@@ -403,6 +438,10 @@ impl Input {
     pub fn lookup_stash(payload: LookupStash) -> Self {
         Self::LookupStash(payload)
     }
+
+    pub fn subscribe_intent(payload: SubscribeIntent) -> Self {
+        Self::SubscribeIntent(payload)
+    }
 }
 
 impl Output {
@@ -434,12 +473,32 @@ impl Output {
         Self::CertaintyChanged(payload)
     }
 
+    pub fn subscription_started(payload: SubscriptionStarted) -> Self {
+        Self::SubscriptionStarted(payload)
+    }
+
+    pub fn event(payload: IntentEvent) -> Self {
+        Self::Event(payload)
+    }
+
     pub fn error(payload: Error) -> Self {
         Self::Error(payload)
     }
 
     pub fn rejected(payload: Rejected) -> Self {
         Self::Rejected(payload)
+    }
+}
+
+impl From<IntentRecorded> for IntentEvent {
+    fn from(payload: IntentRecorded) -> Self {
+        Self::IntentRecorded(payload)
+    }
+}
+
+impl From<IntentEvent> for Output {
+    fn from(payload: IntentEvent) -> Self {
+        Self::Event(payload)
     }
 }
 
@@ -566,6 +625,39 @@ impl SignalRejection {
 
 #[cfg(feature = "nota-text")]
 impl StashedObservation {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl IntentSubscription {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl IntentRecorded {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl IntentEvent {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -781,6 +873,7 @@ pub mod short_header {
     pub const INPUT_REMOVE: u64 = 0x0005000000000000;
     pub const INPUT_CHANGE_CERTAINTY: u64 = 0x0006000000000000;
     pub const INPUT_LOOKUP_STASH: u64 = 0x0007000000000000;
+    pub const INPUT_SUBSCRIBE_INTENT: u64 = 0x0008000000000000;
     pub const OUTPUT_RECORD_ACCEPTED: u64 = 0x0100000000000000;
     pub const OUTPUT_RECORDS_OBSERVED: u64 = 0x0101000000000000;
     pub const OUTPUT_RECORDS_STASHED: u64 = 0x0102000000000000;
@@ -788,8 +881,10 @@ pub mod short_header {
     pub const OUTPUT_RECORDS_COUNTED: u64 = 0x0104000000000000;
     pub const OUTPUT_RECORD_REMOVED: u64 = 0x0105000000000000;
     pub const OUTPUT_CERTAINTY_CHANGED: u64 = 0x0106000000000000;
-    pub const OUTPUT_ERROR: u64 = 0x0107000000000000;
-    pub const OUTPUT_REJECTED: u64 = 0x0108000000000000;
+    pub const OUTPUT_SUBSCRIPTION_STARTED: u64 = 0x0107000000000000;
+    pub const OUTPUT_EVENT: u64 = 0x0108000000000000;
+    pub const OUTPUT_ERROR: u64 = 0x0109000000000000;
+    pub const OUTPUT_REJECTED: u64 = 0x010A000000000000;
 }
 
 const SIGNAL_SHORT_HEADER_BYTE_COUNT: usize = 8;
@@ -828,6 +923,7 @@ pub enum InputRoute {
     Remove,
     ChangeCertainty,
     LookupStash,
+    SubscribeIntent,
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -840,6 +936,8 @@ pub enum OutputRoute {
     RecordsCounted,
     RecordRemoved,
     CertaintyChanged,
+    SubscriptionStarted,
+    Event,
     Error,
     Rejected,
 }
@@ -855,6 +953,7 @@ impl Input {
             Self::Remove(_) => InputRoute::Remove,
             Self::ChangeCertainty(_) => InputRoute::ChangeCertainty,
             Self::LookupStash(_) => InputRoute::LookupStash,
+            Self::SubscribeIntent(_) => InputRoute::SubscribeIntent,
         }
     }
 
@@ -868,6 +967,7 @@ impl Input {
             Self::Remove(_) => short_header::INPUT_REMOVE,
             Self::ChangeCertainty(_) => short_header::INPUT_CHANGE_CERTAINTY,
             Self::LookupStash(_) => short_header::INPUT_LOOKUP_STASH,
+            Self::SubscribeIntent(_) => short_header::INPUT_SUBSCRIBE_INTENT,
         }
     }
 
@@ -881,6 +981,7 @@ impl Input {
             short_header::INPUT_REMOVE => Ok(InputRoute::Remove),
             short_header::INPUT_CHANGE_CERTAINTY => Ok(InputRoute::ChangeCertainty),
             short_header::INPUT_LOOKUP_STASH => Ok(InputRoute::LookupStash),
+            short_header::INPUT_SUBSCRIBE_INTENT => Ok(InputRoute::SubscribeIntent),
             _ => Err(SignalFrameError::UnknownHeader { root_enum: "Input", header }),
         }
     }
@@ -922,6 +1023,8 @@ impl Output {
             Self::RecordsCounted(_) => OutputRoute::RecordsCounted,
             Self::RecordRemoved(_) => OutputRoute::RecordRemoved,
             Self::CertaintyChanged(_) => OutputRoute::CertaintyChanged,
+            Self::SubscriptionStarted(_) => OutputRoute::SubscriptionStarted,
+            Self::Event(_) => OutputRoute::Event,
             Self::Error(_) => OutputRoute::Error,
             Self::Rejected(_) => OutputRoute::Rejected,
         }
@@ -936,6 +1039,8 @@ impl Output {
             Self::RecordsCounted(_) => short_header::OUTPUT_RECORDS_COUNTED,
             Self::RecordRemoved(_) => short_header::OUTPUT_RECORD_REMOVED,
             Self::CertaintyChanged(_) => short_header::OUTPUT_CERTAINTY_CHANGED,
+            Self::SubscriptionStarted(_) => short_header::OUTPUT_SUBSCRIPTION_STARTED,
+            Self::Event(_) => short_header::OUTPUT_EVENT,
             Self::Error(_) => short_header::OUTPUT_ERROR,
             Self::Rejected(_) => short_header::OUTPUT_REJECTED,
         }
@@ -950,6 +1055,8 @@ impl Output {
             short_header::OUTPUT_RECORDS_COUNTED => Ok(OutputRoute::RecordsCounted),
             short_header::OUTPUT_RECORD_REMOVED => Ok(OutputRoute::RecordRemoved),
             short_header::OUTPUT_CERTAINTY_CHANGED => Ok(OutputRoute::CertaintyChanged),
+            short_header::OUTPUT_SUBSCRIPTION_STARTED => Ok(OutputRoute::SubscriptionStarted),
+            short_header::OUTPUT_EVENT => Ok(OutputRoute::Event),
             short_header::OUTPUT_ERROR => Ok(OutputRoute::Error),
             short_header::OUTPUT_REJECTED => Ok(OutputRoute::Rejected),
             _ => Err(SignalFrameError::UnknownHeader { root_enum: "Output", header }),
@@ -980,6 +1087,62 @@ impl Output {
             return Err(SignalFrameError::HeaderMismatch { expected, found: header });
         }
         Ok((route, value))
+    }
+}
+
+impl signal_frame::RequestPayload for Input {}
+impl signal_frame::LogVariant for Input {
+    fn log_variant(&self) -> u64 {
+        self.short_header()
+    }
+}
+pub type Frame = signal_frame::StreamingFrame<Input, Output, IntentEvent>;
+pub type FrameBody = signal_frame::StreamingFrameBody<Input, Output, IntentEvent>;
+pub type Request = signal_frame::Request<Input>;
+pub type ReplyEnvelope = signal_frame::Reply<Output>;
+pub type RequestBuilder = signal_frame::RequestBuilder<Input>;
+impl Input {
+    pub fn into_frame(self, exchange: signal_frame::ExchangeIdentifier) -> Frame {
+        let short_header = signal_frame::ShortHeader::new(self.short_header());
+        let request = signal_frame::Request::from_payload(self);
+        Frame::with_short_header(
+            short_header,
+            FrameBody::Request {
+                exchange,
+                request,
+            },
+        )
+    }
+}
+impl Output {
+    pub fn into_reply_frame(self, exchange: signal_frame::ExchangeIdentifier) -> Frame {
+        let short_header = signal_frame::ShortHeader::new(self.short_header());
+        let reply = signal_frame::Reply::committed(
+            signal_frame::NonEmpty::single(signal_frame::SubReply::Ok(self)),
+        );
+        Frame::with_short_header(
+            short_header,
+            FrameBody::Reply {
+                exchange,
+                reply,
+            },
+        )
+    }
+}
+impl IntentEvent {
+    pub fn into_subscription_frame(
+        self,
+        event_identifier: signal_frame::StreamEventIdentifier,
+        token: signal_frame::SubscriptionTokenInner,
+    ) -> Frame {
+        Frame::with_short_header(
+            signal_frame::ShortHeader::new(short_header::OUTPUT_EVENT),
+            FrameBody::SubscriptionEvent {
+                event_identifier,
+                token,
+                event: self,
+            },
+        )
     }
 }
 
@@ -1017,6 +1180,7 @@ impl SignalObjectName {
                     InputRoute::Remove => "SignalInputRemove",
                     InputRoute::ChangeCertainty => "SignalInputChangeCertainty",
                     InputRoute::LookupStash => "SignalInputLookupStash",
+                    InputRoute::SubscribeIntent => "SignalInputSubscribeIntent",
                 }
             }
             Self::Output(route) => {
@@ -1028,6 +1192,8 @@ impl SignalObjectName {
                     OutputRoute::RecordsCounted => "SignalOutputRecordsCounted",
                     OutputRoute::RecordRemoved => "SignalOutputRecordRemoved",
                     OutputRoute::CertaintyChanged => "SignalOutputCertaintyChanged",
+                    OutputRoute::SubscriptionStarted => "SignalOutputSubscriptionStarted",
+                    OutputRoute::Event => "SignalOutputEvent",
                     OutputRoute::Error => "SignalOutputError",
                     OutputRoute::Rejected => "SignalOutputRejected",
                 }
@@ -1264,46 +1430,47 @@ pub enum ActorStartFailure {
     ResourceBusy(String),
     ConfigurationInvalid(String),
 }
-
 impl std::fmt::Display for ActorStartFailure {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::ResourceBusy(message) => write!(formatter, "actor resource busy: {message}"),
-            Self::ConfigurationInvalid(message) => write!(formatter, "actor configuration invalid: {message}"),
+            Self::ResourceBusy(message) => {
+                write!(formatter, "actor resource busy: {message}")
+            }
+            Self::ConfigurationInvalid(message) => {
+                write!(formatter, "actor configuration invalid: {message}")
+            }
         }
     }
 }
-
 impl std::error::Error for ActorStartFailure {}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ActorStopFailure {
     ResourceLocked(String),
     ChildStillRunning(String),
 }
-
 impl std::fmt::Display for ActorStopFailure {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::ResourceLocked(message) => write!(formatter, "actor resource locked: {message}"),
-            Self::ChildStillRunning(message) => write!(formatter, "actor child still running: {message}"),
+            Self::ResourceLocked(message) => {
+                write!(formatter, "actor resource locked: {message}")
+            }
+            Self::ChildStillRunning(message) => {
+                write!(formatter, "actor child still running: {message}")
+            }
         }
     }
 }
-
 impl std::error::Error for ActorStopFailure {}
 
 pub trait SignalEngine {
     type NexusInput;
     type NexusOutput;
-
     fn on_start(&mut self) -> Result<(), ActorStartFailure> {
         Ok(())
     }
     fn on_stop(&mut self) -> Result<(), ActorStopFailure> {
         Ok(())
     }
-
     fn trace_signal_activation(&self, _object_name: SignalObjectName) {}
     fn trace_signal_admitted(&self) {
         self.trace_signal_activation(SignalObjectName::Admitted);
@@ -1317,16 +1484,13 @@ pub trait SignalEngine {
     fn trace_signal_replied(&self) {
         self.trace_signal_activation(SignalObjectName::Replied);
     }
-
     fn triage_inner(&self, input: signal::Signal<signal::Input>) -> Self::NexusInput;
     fn reply_inner(&self, output: Self::NexusOutput) -> signal::Signal<signal::Output>;
-
     fn triage(&self, input: signal::Signal<signal::Input>) -> Self::NexusInput {
         let output = self.triage_inner(input);
         self.trace_signal_triaged();
         output
     }
-
     fn reply(&self, output: Self::NexusOutput) -> signal::Signal<signal::Output> {
         let signal_output = self.reply_inner(output);
         self.trace_signal_replied();

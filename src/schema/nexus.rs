@@ -16,6 +16,9 @@ pub use spirit::schema::signal::StashHandle as StashHandle;
 pub use spirit::schema::signal::DatabaseMarker as DatabaseMarker;
 pub use spirit::schema::signal::Statement as Statement;
 pub use spirit::schema::signal::Entry as Entry;
+pub use spirit::schema::signal::Query as Query;
+pub use spirit::schema::signal::SubscriptionToken as SubscriptionToken;
+pub use spirit::schema::signal::IntentSubscription as IntentSubscription;
 pub use spirit::schema::signal::RecordIdentifier as RecordIdentifier;
 pub use spirit::schema::signal::CertaintyChange as CertaintyChange;
 
@@ -78,22 +81,28 @@ pub enum NexusAction {
 pub enum NexusEffectCommand {
     Stash(Stash),
     ClassifyState(ClassifyState),
+    OpenIntentSubscription(OpenIntentSubscription),
 }
 
 pub type Stash = StashRequest;
 
 pub type ClassifyState = Statement;
 
+pub type OpenIntentSubscription = Query;
+
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum NexusEffectResult {
     Stashed(Stashed),
     StateClassified(StateClassified),
+    IntentSubscriptionOpened(IntentSubscriptionOpened),
 }
 
 pub type Stashed = StashResult;
 
 pub type StateClassified = Entry;
+
+pub type IntentSubscriptionOpened = IntentSubscription;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -191,6 +200,10 @@ impl NexusEffectCommand {
     pub fn classify_state(payload: ClassifyState) -> Self {
         Self::ClassifyState(payload)
     }
+
+    pub fn open_intent_subscription(payload: OpenIntentSubscription) -> Self {
+        Self::OpenIntentSubscription(payload)
+    }
 }
 
 impl NexusEffectResult {
@@ -200,6 +213,10 @@ impl NexusEffectResult {
 
     pub fn state_classified(payload: StateClassified) -> Self {
         Self::StateClassified(payload)
+    }
+
+    pub fn intent_subscription_opened(payload: IntentSubscriptionOpened) -> Self {
+        Self::IntentSubscriptionOpened(payload)
     }
 }
 
@@ -765,44 +782,51 @@ pub enum ActorStartFailure {
     ResourceBusy(String),
     ConfigurationInvalid(String),
 }
-
 impl std::fmt::Display for ActorStartFailure {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::ResourceBusy(message) => write!(formatter, "actor resource busy: {message}"),
-            Self::ConfigurationInvalid(message) => write!(formatter, "actor configuration invalid: {message}"),
+            Self::ResourceBusy(message) => {
+                write!(formatter, "actor resource busy: {message}")
+            }
+            Self::ConfigurationInvalid(message) => {
+                write!(formatter, "actor configuration invalid: {message}")
+            }
         }
     }
 }
-
 impl std::error::Error for ActorStartFailure {}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ActorStopFailure {
     ResourceLocked(String),
     ChildStillRunning(String),
 }
-
 impl std::fmt::Display for ActorStopFailure {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::ResourceLocked(message) => write!(formatter, "actor resource locked: {message}"),
-            Self::ChildStillRunning(message) => write!(formatter, "actor child still running: {message}"),
+            Self::ResourceLocked(message) => {
+                write!(formatter, "actor resource locked: {message}")
+            }
+            Self::ChildStillRunning(message) => {
+                write!(formatter, "actor child still running: {message}")
+            }
         }
     }
 }
-
 impl std::error::Error for ActorStopFailure {}
 
-pub type NexusRunnerNextStep = triad_runtime::NextStep<ReplyToSignal, CommandSemaWrite, CommandSemaRead, CommandEffect, NexusWork>;
-
+pub type NexusRunnerNextStep = triad_runtime::NextStep<
+    ReplyToSignal,
+    CommandSemaWrite,
+    CommandSemaRead,
+    CommandEffect,
+    NexusWork,
+>;
 impl triad_runtime::NexusAction for NexusAction {
     type Reply = ReplyToSignal;
     type SemaWrite = CommandSemaWrite;
     type SemaRead = CommandSemaRead;
     type Effect = CommandEffect;
     type Work = NexusWork;
-
     fn into_next_step(self) -> NexusRunnerNextStep {
         match self {
             Self::CommandSemaWrite(input) => triad_runtime::NextStep::SemaWrite(input),
@@ -821,7 +845,6 @@ pub trait NexusEngine {
     fn on_stop(&mut self) -> Result<(), ActorStopFailure> {
         Ok(())
     }
-
     fn trace_nexus_activation(&self, _object_name: NexusObjectName) {}
     fn trace_nexus_entered(&self) {
         self.trace_nexus_activation(NexusObjectName::Entered);
@@ -829,19 +852,32 @@ pub trait NexusEngine {
     fn trace_nexus_decided(&self) {
         self.trace_nexus_activation(NexusObjectName::Decided);
     }
-
     fn continuation_limit(&self) -> triad_runtime::ContinuationLimit {
         triad_runtime::ContinuationLimit::default()
     }
-
-    fn apply_sema_write(&mut self, origin_route: OriginRoute, input: CommandSemaWrite) -> SemaWriteCompleted;
-    fn observe_sema_read(&self, origin_route: OriginRoute, input: CommandSemaRead) -> SemaReadCompleted;
+    fn apply_sema_write(
+        &mut self,
+        origin_route: OriginRoute,
+        input: CommandSemaWrite,
+    ) -> SemaWriteCompleted;
+    fn observe_sema_read(
+        &self,
+        origin_route: OriginRoute,
+        input: CommandSemaRead,
+    ) -> SemaReadCompleted;
     fn run_effect(&mut self, input: CommandEffect) -> EffectCompleted;
-    fn budget_exhausted_reply(&self, exhausted: triad_runtime::ContinuationExhausted) -> ReplyToSignal;
-
-    fn decide(&mut self, input: nexus::Nexus<nexus::Work>) -> nexus::Nexus<nexus::Action>;
-
-    fn execute(&mut self, input: nexus::Nexus<nexus::Work>) -> nexus::Nexus<nexus::Action>
+    fn budget_exhausted_reply(
+        &self,
+        exhausted: triad_runtime::ContinuationExhausted,
+    ) -> ReplyToSignal;
+    fn decide(
+        &mut self,
+        input: nexus::Nexus<nexus::Work>,
+    ) -> nexus::Nexus<nexus::Action>;
+    fn execute(
+        &mut self,
+        input: nexus::Nexus<nexus::Work>,
+    ) -> nexus::Nexus<nexus::Action>
     where
         Self: Sized,
     {
@@ -861,14 +897,13 @@ struct NexusRunnerAdapter<'engine, Engine> {
     engine: &'engine mut Engine,
     origin_route: OriginRoute,
 }
-
 impl<'engine, Engine> NexusRunnerAdapter<'engine, Engine> {
     fn new(engine: &'engine mut Engine, origin_route: OriginRoute) -> Self {
         Self { engine, origin_route }
     }
 }
-
-impl<'engine, Engine> triad_runtime::RunnerEngines for NexusRunnerAdapter<'engine, Engine>
+impl<'engine, Engine> triad_runtime::RunnerEngines
+for NexusRunnerAdapter<'engine, Engine>
 where
     Engine: NexusEngine,
 {
@@ -877,28 +912,41 @@ where
     type SemaRead = CommandSemaRead;
     type Effect = CommandEffect;
     type Work = NexusWork;
-
-    fn decide_next_step(&mut self, work: Self::Work) -> triad_runtime::runner::RunnerNextStep<Self> {
-        let action = NexusEngine::decide(self.engine, work.with_origin_route(self.origin_route)).into_root();
+    fn decide_next_step(
+        &mut self,
+        work: Self::Work,
+    ) -> triad_runtime::runner::RunnerNextStep<Self> {
+        let action = NexusEngine::decide(
+                self.engine,
+                work.with_origin_route(self.origin_route),
+            )
+            .into_root();
         triad_runtime::NexusAction::into_next_step(action)
     }
-
     fn apply_sema_write(&mut self, write: Self::SemaWrite) -> Self::Work {
-        let output: SemaWriteCompleted = NexusEngine::apply_sema_write(self.engine, self.origin_route, write);
+        let output: SemaWriteCompleted = NexusEngine::apply_sema_write(
+            self.engine,
+            self.origin_route,
+            write,
+        );
         NexusWork::sema_write_completed(output)
     }
-
     fn observe_sema_read(&self, read: Self::SemaRead) -> Self::Work {
-        let output: SemaReadCompleted = NexusEngine::observe_sema_read(self.engine, self.origin_route, read);
+        let output: SemaReadCompleted = NexusEngine::observe_sema_read(
+            self.engine,
+            self.origin_route,
+            read,
+        );
         NexusWork::sema_read_completed(output)
     }
-
     fn run_effect(&mut self, effect: Self::Effect) -> Self::Work {
         let output: EffectCompleted = NexusEngine::run_effect(self.engine, effect);
         NexusWork::effect_completed(output)
     }
-
-    fn budget_exhausted_reply(&self, exhausted: triad_runtime::ContinuationExhausted) -> Self::Reply {
+    fn budget_exhausted_reply(
+        &self,
+        exhausted: triad_runtime::ContinuationExhausted,
+    ) -> Self::Reply {
         NexusEngine::budget_exhausted_reply(self.engine, exhausted)
     }
 }

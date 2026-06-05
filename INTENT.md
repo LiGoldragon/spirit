@@ -21,6 +21,17 @@ Load-bearing constraints:
 
 *Signal admission is explicit.* `SignalActor::admit` mints the origin route, validates generated `Input`, and creates `SignalAccepted`. Invalid input returns `Output::Rejected(SignalRejection { validation_error, database_marker })` where `ValidationError` is generated from schema; the runtime does not use a hand-written rejection enum.
 
+*Intent streaming is the first subscription pilot.* Per Spirit record `ubgg`
+(Medium certainty), the first streaming proof is agent-facing intent
+subscription through the Spirit CLI: `Input::SubscribeIntent(Query)` opens
+`IntentEventStream`, returns `Output::SubscriptionStarted(IntentSubscription)`,
+and keeps the client attached for daemon-pushed `Output::Event(IntentEvent)`
+frames. The stream filters with the same generated `Query` noun as ordinary
+observation, and pushed `IntentRecorded` events carry the recorded `Entry` plus
+the `SemaReceipt`. The low-level subscription frame is generated from schema
+and built through `signal-frame`/`triad-runtime`; Spirit owns only the
+component filter and delivery policy.
+
 *State is the first production-surface compatibility operation.* Generated
 `Input::State(Statement)` carries raw psyche text. Signal only admits and
 validates the non-empty statement. Nexus exposes classification as the
@@ -75,6 +86,14 @@ generated signal-frame bridge for one accepted stream.
 *SEMA is durable.* `Store` maps generated SEMA roots onto `sema-engine` identified-record operations over a `.sema` file. Each `Record` calls `Engine::assert_identified`, each `ChangeCertainty` calls `Engine::mutate_identified`, each `Remove` calls `Engine::retract_identified`, and `Observe`/`Lookup`/`Count` read through `Engine::match_identified`. SEMA replies carry generated `DatabaseMarker` values so Signal replies report the state commit sequence and digest.
 
 *The daemon's single argument is a path to a binary rkyv `Configuration` object.* Text-facing launchers may create that file, but the daemon startup path only decodes binary state.
+
+*The daemon configuration carries the meta slot.* Per Spirit record `pb1g`
+(High certainty), every component needs a meta slot because configuration and
+policy authority must not live on the ordinary working signal. Spirit therefore
+carries an optional binary `meta_socket_path` in `Configuration` even before
+the meta signal contract/listener is authored. If no separate
+`meta-signal-spirit` repo exists for a later slice, the meta signal surface
+belongs inside this daemon repo instead of being omitted.
 
 *Trace is optional runtime instrumentation.* The `testing-trace` surface observes Signal/Nexus/SEMA calls through generated trait hooks without affecting production binary behavior. Trace events carry schema-generated typed `ObjectName`, not free strings. Spirit owns the typed `TraceEvent` over plane-local object names; `triad-runtime` owns the reusable log, frame mechanics, and client-side collection.
 

@@ -10,6 +10,7 @@ use thiserror::Error;
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, Eq, PartialEq)]
 pub struct Configuration {
     socket_path: ConfigurationPath,
+    meta_socket_path: Option<ConfigurationPath>,
     database_path: ConfigurationPath,
     trace_socket_path: Option<ConfigurationPath>,
 }
@@ -31,6 +32,7 @@ impl Configuration {
     pub fn new(socket_path: impl AsRef<Path>, database_path: impl AsRef<Path>) -> Self {
         Self {
             socket_path: ConfigurationPath::new(socket_path),
+            meta_socket_path: None,
             database_path: ConfigurationPath::new(database_path),
             trace_socket_path: None,
         }
@@ -43,13 +45,25 @@ impl Configuration {
     ) -> Self {
         Self {
             socket_path: ConfigurationPath::new(socket_path),
+            meta_socket_path: None,
             database_path: ConfigurationPath::new(database_path),
             trace_socket_path: Some(ConfigurationPath::new(trace_socket_path)),
         }
     }
 
+    pub fn with_meta_socket_path(mut self, meta_socket_path: impl AsRef<Path>) -> Self {
+        self.meta_socket_path = Some(ConfigurationPath::new(meta_socket_path));
+        self
+    }
+
     pub fn socket_path(&self) -> &Path {
         self.socket_path.as_path()
+    }
+
+    pub fn meta_socket_path(&self) -> Option<&Path> {
+        self.meta_socket_path
+            .as_ref()
+            .map(ConfigurationPath::as_path)
     }
 
     pub fn database_path(&self) -> &Path {

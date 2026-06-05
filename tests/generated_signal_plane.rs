@@ -1,7 +1,12 @@
+use signal_frame::{
+    ExchangeLane, LaneSequence, SessionEpoch, StreamEventIdentifier, StreamingFrameBody,
+    SubscriptionTokenInner,
+};
 use spirit::schema::signal::{
-    CertaintyChange, CertaintyChangeReceipt, DatabaseMarker, Entry, Input, InputRoute, Kind,
-    Magnitude, MessageIdentifier, MessageRoot, OriginRoute, Output, OutputRoute, Record, Rejected,
-    SemaReceipt, SignalFrameError, SignalRejection, Statement, ValidationError,
+    CertaintyChange, CertaintyChangeReceipt, DatabaseMarker, Entry, Input, InputRoute, IntentEvent,
+    IntentRecorded, Kind, Magnitude, MessageIdentifier, MessageRoot, OriginRoute, Output,
+    OutputRoute, Record, Rejected, SemaReceipt, SignalFrameError, SignalRejection, Statement,
+    ValidationError,
 };
 
 fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
@@ -90,6 +95,48 @@ fn generated_certainty_changed_output_owns_route_header_and_rkyv_frame() {
 
     assert_eq!(route, OutputRoute::CertaintyChanged);
     assert_eq!(decoded, output);
+}
+
+#[test]
+fn generated_streaming_surface_owns_subscription_event_frames() {
+    let event = IntentEvent::intent_recorded(IntentRecorded {
+        entry: Entry {
+            topics: vec![String::from("stream")],
+            kind: Kind::Decision,
+            description: String::from("schema emits streaming frames"),
+            magnitude: Magnitude::High,
+            privacy: Magnitude::Zero,
+        },
+        sema_receipt: SemaReceipt {
+            record_identifier: 7,
+            database_marker: marker(3, 97),
+        },
+    });
+
+    let frame = event.clone().into_subscription_frame(
+        StreamEventIdentifier::new(
+            SessionEpoch::new(1),
+            ExchangeLane::Acceptor,
+            LaneSequence::first(),
+        ),
+        SubscriptionTokenInner::new(44),
+    );
+    let bytes = frame.encode_length_prefixed().expect("encode frame");
+    let decoded = spirit::schema::signal::Frame::decode_length_prefixed(&bytes)
+        .expect("decode streaming frame");
+
+    match decoded.into_body() {
+        StreamingFrameBody::SubscriptionEvent {
+            event_identifier,
+            token,
+            event: decoded_event,
+        } => {
+            assert_eq!(event_identifier.sequence, LaneSequence::first());
+            assert_eq!(token, SubscriptionTokenInner::new(44));
+            assert_eq!(decoded_event, event);
+        }
+        other => panic!("expected generated subscription event frame, got {other:?}"),
+    }
 }
 
 #[cfg(feature = "nota-text")]

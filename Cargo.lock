@@ -507,7 +507,7 @@ dependencies = [
 [[package]]
 name = "schema-rust-next"
 version = "0.1.13"
-source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#fd84aae25cad15f79d9945b0ba2cd3d5ef5dd72a"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#e332b5e20a655a6d4d4d9ca2c4882ef27dd5bf09"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -671,6 +671,7 @@ dependencies = [
  "schema-next",
  "schema-rust-next",
  "sema-engine",
+ "signal-frame",
  "tempfile",
  "thiserror",
  "triad-runtime",
@@ -738,7 +739,7 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 [[package]]
 name = "triad-runtime"
 version = "0.2.1"
-source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#de332266ff795f651619cecfb83f97bf3a9a5ea8"
+source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#9708fc3377338c5f65865d7667d37eda1762bb08"
 dependencies = [
  "signal-frame",
  "thiserror",

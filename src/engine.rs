@@ -6,12 +6,13 @@ use crate::{
         nexus::{self as nexus_schema, NexusAction, NexusEngine, NexusWork},
         signal::{
             self as signal_schema, ActorStartFailure, ActorStopFailure, DatabaseMarker, Entry,
-            ErrorReport, Input, Integer, MailLedgerEvent, MessageIdentifier, MessageProcessed,
-            MessageProcessedHook, MessageSent, MessageSentHook, OriginRoute, Output, ProcessedMail,
-            Query, SentMail, SignalEngine, SignalRejection, TopicMatch, Topics, ValidationError,
+            ErrorReport, Input, Integer, IntentEvent, MailLedgerEvent, MessageIdentifier,
+            MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook, OriginRoute,
+            Output, ProcessedMail, Query, SemaReceipt, SentMail, SignalEngine, SignalRejection,
+            TopicMatch, Topics, ValidationError,
         },
     },
-    store::Store,
+    store::{Store, StoreError},
 };
 
 #[cfg(feature = "testing-trace")]
@@ -162,6 +163,16 @@ impl Engine {
 
     pub fn database_marker(&self) -> DatabaseMarker {
         self.nexus.lock().expect("nexus lock").database_marker()
+    }
+
+    pub fn intent_recorded_event(
+        &self,
+        receipt: &SemaReceipt,
+    ) -> Result<Option<IntentEvent>, StoreError> {
+        self.nexus
+            .lock()
+            .expect("nexus lock")
+            .intent_recorded_event(receipt)
     }
 }
 
@@ -361,6 +372,7 @@ impl Input {
             Self::Lookup(_) | Self::Remove(_) | Self::ChangeCertainty(_) | Self::LookupStash(_) => {
                 Ok(())
             }
+            Self::SubscribeIntent(query) => query.validate(),
             Self::Count(count) => count.validate(),
         }
     }
@@ -473,8 +485,18 @@ impl Output {
             Self::RecordsCounted(records) => records.database_marker.clone(),
             Self::RecordRemoved(receipt) => receipt.database_marker.clone(),
             Self::CertaintyChanged(receipt) => receipt.database_marker.clone(),
+            Self::SubscriptionStarted(subscription) => subscription.database_marker.clone(),
+            Self::Event(event) => event.database_marker(),
             Self::Error(report) => report.database_marker.clone(),
             Self::Rejected(rejection) => rejection.database_marker.clone(),
+        }
+    }
+}
+
+impl crate::schema::signal::IntentEvent {
+    pub fn database_marker(&self) -> DatabaseMarker {
+        match self {
+            Self::IntentRecorded(recorded) => recorded.sema_receipt.database_marker.clone(),
         }
     }
 }

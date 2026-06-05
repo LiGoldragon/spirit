@@ -5,9 +5,12 @@ use std::{
 };
 
 use thiserror::Error;
-use triad_runtime::{FrameBody, FrameError, LengthPrefixedCodec};
+use triad_runtime::{FrameBody as LengthPrefixedFrameBody, FrameError, LengthPrefixedCodec};
 
-use crate::schema::signal::{Input, InputRoute, Output, OutputRoute, SignalFrameError};
+use crate::schema::signal::{
+    Frame as StreamingFrame, FrameBody as StreamingFrameBody, Input, InputRoute, IntentEvent,
+    Output, OutputRoute, SignalFrameError,
+};
 
 #[derive(Debug, Error)]
 pub enum TransportError {
@@ -17,8 +20,14 @@ pub enum TransportError {
     #[error("signal frame error: {0}")]
     SignalFrame(#[from] SignalFrameError),
 
+    #[error("streaming signal frame error: {0}")]
+    StreamingFrame(#[from] signal_frame::FrameError),
+
     #[error("transport frame error: {0}")]
     Frame(#[from] FrameError),
+
+    #[error("expected subscription event frame")]
+    ExpectedSubscriptionEvent,
 }
 
 pub struct SignalTransport<Stream> {
@@ -60,8 +69,23 @@ where
         Ok(Output::decode_signal_frame(&self.read_frame()?)?)
     }
 
+    pub fn read_streaming_frame(&mut self) -> Result<StreamingFrame, TransportError> {
+        Ok(StreamingFrame::decode(&self.read_frame()?)?)
+    }
+
+    pub fn read_subscription_event(&mut self) -> Result<IntentEvent, TransportError> {
+        match self.read_streaming_frame()?.into_body() {
+            StreamingFrameBody::SubscriptionEvent { event, .. } => Ok(event),
+            StreamingFrameBody::HandshakeRequest(_)
+            | StreamingFrameBody::HandshakeReply(_)
+            | StreamingFrameBody::Request { .. }
+            | StreamingFrameBody::Reply { .. } => Err(TransportError::ExpectedSubscriptionEvent),
+        }
+    }
+
     fn write_frame(&mut self, frame: Vec<u8>) -> Result<(), TransportError> {
-        LengthPrefixedCodec::default().write_body(&mut self.stream, &FrameBody::new(frame))?;
+        LengthPrefixedCodec::default()
+            .write_body(&mut self.stream, &LengthPrefixedFrameBody::new(frame))?;
         self.stream.flush()?;
         Ok(())
     }

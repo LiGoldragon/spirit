@@ -721,33 +721,36 @@ pub enum ActorStartFailure {
     ResourceBusy(String),
     ConfigurationInvalid(String),
 }
-
 impl std::fmt::Display for ActorStartFailure {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::ResourceBusy(message) => write!(formatter, "actor resource busy: {message}"),
-            Self::ConfigurationInvalid(message) => write!(formatter, "actor configuration invalid: {message}"),
+            Self::ResourceBusy(message) => {
+                write!(formatter, "actor resource busy: {message}")
+            }
+            Self::ConfigurationInvalid(message) => {
+                write!(formatter, "actor configuration invalid: {message}")
+            }
         }
     }
 }
-
 impl std::error::Error for ActorStartFailure {}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ActorStopFailure {
     ResourceLocked(String),
     ChildStillRunning(String),
 }
-
 impl std::fmt::Display for ActorStopFailure {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::ResourceLocked(message) => write!(formatter, "actor resource locked: {message}"),
-            Self::ChildStillRunning(message) => write!(formatter, "actor child still running: {message}"),
+            Self::ResourceLocked(message) => {
+                write!(formatter, "actor resource locked: {message}")
+            }
+            Self::ChildStillRunning(message) => {
+                write!(formatter, "actor child still running: {message}")
+            }
         }
     }
 }
-
 impl std::error::Error for ActorStopFailure {}
 
 pub trait SemaEngine {
@@ -757,7 +760,6 @@ pub trait SemaEngine {
     fn on_stop(&mut self) -> Result<(), ActorStopFailure> {
         Ok(())
     }
-
     fn trace_sema_activation(&self, _object_name: SemaObjectName) {}
     fn trace_sema_write_applied(&self) {
         self.trace_sema_activation(SemaObjectName::WriteApplied);
@@ -765,17 +767,26 @@ pub trait SemaEngine {
     fn trace_sema_read_observed(&self) {
         self.trace_sema_activation(SemaObjectName::ReadObserved);
     }
-
-    fn apply_inner(&mut self, input: sema::Sema<sema::WriteInput>) -> sema::Sema<sema::WriteOutput>;
-    fn observe_inner(&self, input: sema::Sema<sema::ReadInput>) -> sema::Sema<sema::ReadOutput>;
-
-    fn apply(&mut self, input: sema::Sema<sema::WriteInput>) -> sema::Sema<sema::WriteOutput> {
+    fn apply_inner(
+        &mut self,
+        input: sema::Sema<sema::WriteInput>,
+    ) -> sema::Sema<sema::WriteOutput>;
+    fn observe_inner(
+        &self,
+        input: sema::Sema<sema::ReadInput>,
+    ) -> sema::Sema<sema::ReadOutput>;
+    fn apply(
+        &mut self,
+        input: sema::Sema<sema::WriteInput>,
+    ) -> sema::Sema<sema::WriteOutput> {
         let output = self.apply_inner(input);
         self.trace_sema_write_applied();
         output
     }
-
-    fn observe(&self, input: sema::Sema<sema::ReadInput>) -> sema::Sema<sema::ReadOutput> {
+    fn observe(
+        &self,
+        input: sema::Sema<sema::ReadInput>,
+    ) -> sema::Sema<sema::ReadOutput> {
         let output = self.observe_inner(input);
         self.trace_sema_read_observed();
         output
