@@ -727,6 +727,14 @@ impl NexusAction {
     }
 }
 
+impl triad_runtime::NexusWork for NexusWork {}
+
+impl triad_runtime::SemaWriteInput for CommandSemaWrite {}
+
+impl triad_runtime::NexusEffectCommand for CommandEffect {}
+
+impl triad_runtime::NexusEffectResult for EffectCompleted {}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ActorStartFailure {
     ResourceBusy(String),
@@ -763,8 +771,14 @@ impl std::error::Error for ActorStopFailure {}
 
 pub type NexusRunnerNextStep = triad_runtime::NextStep<ReplyToSignal, CommandSemaWrite, CommandSemaRead, CommandEffect, NexusWork>;
 
-impl NexusAction {
-    pub fn into_runner_next_step(self) -> NexusRunnerNextStep {
+impl triad_runtime::NexusAction for NexusAction {
+    type Reply = ReplyToSignal;
+    type SemaWrite = CommandSemaWrite;
+    type SemaRead = CommandSemaRead;
+    type Effect = CommandEffect;
+    type Work = NexusWork;
+
+    fn into_next_step(self) -> NexusRunnerNextStep {
         match self {
             Self::CommandSemaWrite(input) => triad_runtime::NextStep::SemaWrite(input),
             Self::CommandSemaRead(input) => triad_runtime::NextStep::SemaRead(input),
@@ -841,7 +855,7 @@ where
 
     fn decide_next_step(&mut self, work: Self::Work) -> triad_runtime::runner::RunnerNextStep<Self> {
         let action = NexusEngine::decide(self.engine, work.with_origin_route(self.origin_route)).into_root();
-        action.into_runner_next_step()
+        triad_runtime::NexusAction::into_next_step(action)
     }
 
     fn apply_sema_write(&mut self, write: Self::SemaWrite) -> Self::Work {

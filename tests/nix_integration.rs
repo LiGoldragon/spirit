@@ -99,8 +99,11 @@ use std::{
 };
 
 use spirit::{
-    Configuration, DatabaseMarker, Entry, ErrorReport, Kind, Magnitude, Output, OutputRoute,
-    SemaReceipt, SignalRejection, ValidationError,
+    Configuration,
+    schema::signal::{
+        DatabaseMarker, Entry, ErrorReport, Kind, Magnitude, Output, OutputRoute, SemaReceipt,
+        SignalRejection, ValidationError,
+    },
 };
 use tempfile::TempDir;
 

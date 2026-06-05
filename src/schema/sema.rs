@@ -677,6 +677,14 @@ impl ReadOutput {
     }
 }
 
+impl triad_runtime::SemaWriteInput for WriteInput {}
+
+impl triad_runtime::SemaWriteOutput for WriteOutput {}
+
+impl triad_runtime::SemaReadInput for ReadInput {}
+
+impl triad_runtime::SemaReadOutput for ReadOutput {}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ActorStartFailure {
     ResourceBusy(String),

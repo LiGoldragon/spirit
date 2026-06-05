@@ -341,6 +341,16 @@ The generated Rust exposes plane namespaces over those bootstrap backing names:
 (plus matching output roots). Public execution signatures use the
 namespace-local names, for example `sema::Sema<sema::WriteInput>`, so the
 envelope carries the plane and payload names stay short.
+Those generated roots implement shared `triad-runtime` role traits. The
+runner can depend on roles such as `NexusWork`, `NexusAction`,
+`SemaWriteInput`, and `SemaReadInput` without reusing Spirit's concrete enum
+names as if they were the universal type for every component.
+
+The crate root does not flatten those generated nouns. External code that
+needs schema types imports `spirit::schema::signal::Input`,
+`spirit::schema::nexus::NexusAction`, or `spirit::schema::sema::WriteInput`.
+The crate root exports hand-written runtime composition objects and transport
+support only.
 
 When code needs to branch across planes, it matches generated
 plane-specific envelopes and actions. There is no generic `schema::Plane`
@@ -363,8 +373,9 @@ attaches behavior to those nouns or to state-owning runtime objects:
   the Nexus object.
 - `nexus::Nexus<nexus::Work>` becomes generated
   `nexus::Nexus<nexus::Action>`.
-- `nexus::Action::CommandSemaWrite` carries generated `sema::WriteInput`, and
-  `nexus::Action::CommandSemaRead` carries generated `sema::ReadInput`.
+- `nexus::Action::CommandSemaWrite` carries the Nexus-plane
+  `CommandSemaWrite` feature enum (`Record`, `Remove`, `ChangeCertainty`);
+  `nexus::Action::CommandSemaRead` carries the generated `sema::ReadInput`.
 - `sema::Sema<sema::WriteInput>` is applied by `Store` through generated
   `SemaEngine::apply`, writing the durable `.sema` database through
   sema-engine.

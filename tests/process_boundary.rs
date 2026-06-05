@@ -9,7 +9,10 @@ use std::{
 
 #[cfg(feature = "testing-trace")]
 use spirit::TraceEvent;
-use spirit::{Configuration, Magnitude, Output};
+use spirit::{
+    Configuration,
+    schema::signal::{Kind, Magnitude, Output},
+};
 use tempfile::TempDir;
 
 struct DaemonProcess {
@@ -250,10 +253,10 @@ fn cli_and_daemon_classify_state_into_provisional_record() {
                 records.record_set[0].topics,
                 vec![String::from("unclassified")]
             );
-            assert_eq!(records.record_set[0].kind, spirit::Kind::Clarification);
+            assert_eq!(records.record_set[0].kind, Kind::Clarification);
             assert_eq!(records.record_set[0].description, "daemon raw intent");
-            assert_eq!(records.record_set[0].magnitude, spirit::Magnitude::Minimum);
-            assert_eq!(records.record_set[0].privacy, spirit::Magnitude::Zero);
+            assert_eq!(records.record_set[0].magnitude, Magnitude::Minimum);
+            assert_eq!(records.record_set[0].privacy, Magnitude::Zero);
         }
         other => panic!("expected LookupStash to return classified State record, got {other:?}"),
     }

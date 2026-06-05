@@ -7,7 +7,7 @@ use std::{
 use thiserror::Error;
 use triad_runtime::{FrameBody, FrameError, LengthPrefixedCodec};
 
-use crate::{Input, InputRoute, Output, OutputRoute, SignalFrameError};
+use crate::schema::signal::{Input, InputRoute, Output, OutputRoute, SignalFrameError};
 
 #[derive(Debug, Error)]
 pub enum TransportError {

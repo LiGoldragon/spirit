@@ -1,17 +1,21 @@
 use std::{convert::Infallible, sync::Mutex};
 
 use crate::{
-    ActorStartFailure, ActorStopFailure, DatabaseMarker, Entry, ErrorReport, Input, Integer,
-    MailLedgerEvent, MessageIdentifier, MessageProcessed, MessageProcessedHook, MessageSent,
-    MessageSentHook, NexusAction, NexusEngine, NexusWork, OriginRoute, Output, ProcessedMail,
-    Query, SentMail, SignalEngine, SignalRejection, TopicMatch, Topics, ValidationError,
     nexus::Nexus,
-    schema::{nexus as nexus_schema, signal as signal_schema},
+    schema::{
+        nexus::{self as nexus_schema, NexusAction, NexusEngine, NexusWork},
+        signal::{
+            self as signal_schema, ActorStartFailure, ActorStopFailure, DatabaseMarker, Entry,
+            ErrorReport, Input, Integer, MailLedgerEvent, MessageIdentifier, MessageProcessed,
+            MessageProcessedHook, MessageSent, MessageSentHook, OriginRoute, Output, ProcessedMail,
+            Query, SentMail, SignalEngine, SignalRejection, TopicMatch, Topics, ValidationError,
+        },
+    },
     store::Store,
 };
 
 #[cfg(feature = "testing-trace")]
-use crate::{ObjectName, SignalObjectName, TraceEvent, TraceLog};
+use crate::{ObjectName, TraceEvent, TraceLog, schema::signal::SignalObjectName};
 
 const ORIGIN_ROUTE_BASE: Integer = 1_000_000;
 
@@ -86,7 +90,7 @@ impl Engine {
     }
 
     #[cfg(feature = "testing-trace")]
-    pub fn trace_events(&self) -> Vec<crate::TraceEvent> {
+    pub fn trace_events(&self) -> Vec<TraceEvent> {
         self.trace_log.events()
     }
 
@@ -362,7 +366,7 @@ impl Input {
     }
 }
 
-impl crate::Statement {
+impl crate::schema::signal::Statement {
     pub fn validate(&self) -> Result<(), ValidationError> {
         if self.payload().trim().is_empty() {
             return Err(ValidationError::EmptyDescription);

@@ -45,9 +45,17 @@ schema verbs/objects before Rust implements them, so the daemon's feature
 surface stays visible in `schema/nexus.schema` instead of hidden in ad-hoc
 implementation code.
 Per intent record `k4d9`, that schema visibility does not imply broad
-crate-root export: the generated plane module is the schema API surface, while
-the daemon crate root is only an ergonomic barrel and should not flatten every
-internal Nexus noun unless a real consumer-facing API needs it.
+crate-root export: the generated plane modules are the schema API surface.
+Generated Signal/Nexus/SEMA nouns stay public through
+`spirit::schema::{signal,nexus,sema}`; the daemon crate root exports only
+hand-written runtime composition objects such as `Engine`, `Nexus`, `Store`,
+`Daemon`, `SignalTransport`, and trace/runtime errors.
+
+*Reusable triad role names are shared traits, not component enum names.*
+Spirit's generated roots implement `triad-runtime` role traits such as
+`NexusWork`, `NexusAction`, `SemaWriteInput`, and `SemaReadInput`. A reusable
+role name can then be spoken by the runner without pretending Spirit's
+component-specific variants are the universal shape for every component.
 
 *The daemon listener shell is shared runtime, not Spirit boilerplate.* `Daemon`
 constructs a data-bearing `SpiritDaemonRuntime` around `Engine`, then hands it

@@ -507,7 +507,7 @@ dependencies = [
 [[package]]
 name = "schema-rust-next"
 version = "0.1.13"
-source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#2437413fce39eeed060a713e1763b7f4fe445ded"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#c0a331a1d5242c3dce50e7c9b250e6bde4869acc"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -739,7 +739,7 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 [[package]]
 name = "triad-runtime"
 version = "0.2.1"
-source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#ce681957373cf571fe43073ebc8d1c5d3f065f02"
+source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#28d03c32eff69aa9d001cbd3052de6169ed42022"
 dependencies = [
  "thiserror",
 ]

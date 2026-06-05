@@ -1,4 +1,4 @@
-use spirit::{
+use spirit::schema::signal::{
     CertaintyChange, CertaintyChangeReceipt, DatabaseMarker, Entry, Input, InputRoute, Kind,
     Magnitude, MessageIdentifier, MessageRoot, OriginRoute, Output, OutputRoute, Record, Rejected,
     SemaReceipt, SignalFrameError, SignalRejection, Statement, ValidationError,

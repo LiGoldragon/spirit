@@ -1,7 +1,10 @@
 use std::{env, fs, path::PathBuf};
 
 use nota_next::{Delimiter, Document, NotaBlock, NotaDecodeError};
-use spirit::{Input, SignalTransport, Statement, TransportError};
+use spirit::{
+    SignalTransport, TransportError,
+    schema::signal::{Input, Statement},
+};
 use thiserror::Error;
 use triad_runtime::{ArgumentError, ComponentArgument, ComponentCommand};
 

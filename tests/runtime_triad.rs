@@ -1,13 +1,21 @@
-use spirit::{
-    CertaintyChange, CommandSemaWrite, DatabaseMarker, Engine, Entry, ErrorReport, Input, Kind,
-    Magnitude, MailLedgerEvent, MessageIdentifier, MessageSent, MessageSentHook, Nexus,
-    NexusAction, NexusEffectCommand, NexusEngine, NexusWork, OriginRoute, Output, PrivacySelection,
-    ProcessedMail, Query, RecordIdentifier, SemaEngine, SemaReadInput, SemaReadOutput, SemaReceipt,
-    SemaWriteInput, SemaWriteOutput, SentMail, SignalActor, SignalEngine, SignalRejection,
-    Statement, Store, TopicMatch, ValidationError, sema,
-};
 #[cfg(feature = "nota-text")]
-use spirit::{Export, Import};
+use spirit::schema::signal::{Export, Import};
+use spirit::{
+    Engine, Nexus, SignalActor, Store,
+    schema::{
+        nexus::{CommandSemaWrite, NexusAction, NexusEffectCommand, NexusEngine, NexusWork},
+        sema::{
+            self, ReadInput as SemaReadInput, ReadOutput as SemaReadOutput, SemaEngine,
+            WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
+        },
+        signal::{
+            CertaintyChange, DatabaseMarker, Entry, ErrorReport, Input, Kind, Magnitude,
+            MailLedgerEvent, MessageIdentifier, MessageSent, MessageSentHook, OriginRoute, Output,
+            PrivacySelection, ProcessedMail, Query, RecordIdentifier, SemaReceipt, SentMail,
+            SignalEngine, SignalRejection, StashHandle, Statement, TopicMatch, ValidationError,
+        },
+    },
+};
 use tempfile::TempDir;
 
 struct SemaFile {
@@ -140,7 +148,7 @@ fn input_change_certainty(record_identifier: RecordIdentifier, certainty: Magnit
     })
 }
 
-fn input_lookup_stash(stash_handle: spirit::StashHandle) -> Input {
+fn input_lookup_stash(stash_handle: StashHandle) -> Input {
     Input::lookup_stash(stash_handle)
 }
 
@@ -176,6 +184,37 @@ fn sema_lookup(record_identifier: RecordIdentifier) -> SemaReadInput {
 
 fn sema_count(query: Query) -> SemaReadInput {
     SemaReadInput::count(query)
+}
+
+#[test]
+fn generated_plane_roots_implement_shared_triad_runtime_roles() {
+    fn assert_nexus_work<Work: triad_runtime::NexusWork>() {}
+    fn assert_nexus_effect_command<Effect: triad_runtime::NexusEffectCommand>() {}
+    fn assert_nexus_effect_result<Result: triad_runtime::NexusEffectResult>() {}
+    fn assert_sema_write_input<Input: triad_runtime::SemaWriteInput>() {}
+    fn assert_sema_write_output<Output: triad_runtime::SemaWriteOutput>() {}
+    fn assert_sema_read_input<Input: triad_runtime::SemaReadInput>() {}
+    fn assert_sema_read_output<Output: triad_runtime::SemaReadOutput>() {}
+    fn assert_nexus_action<
+        Action: triad_runtime::NexusAction<
+                Reply = Output,
+                SemaWrite = CommandSemaWrite,
+                SemaRead = SemaReadInput,
+                Effect = NexusEffectCommand,
+                Work = NexusWork,
+            >,
+    >() {
+    }
+
+    assert_nexus_work::<NexusWork>();
+    assert_nexus_effect_command::<NexusEffectCommand>();
+    assert_nexus_effect_result::<spirit::schema::nexus::NexusEffectResult>();
+    assert_sema_write_input::<CommandSemaWrite>();
+    assert_sema_write_input::<SemaWriteInput>();
+    assert_sema_write_output::<SemaWriteOutput>();
+    assert_sema_read_input::<SemaReadInput>();
+    assert_sema_read_output::<SemaReadOutput>();
+    assert_nexus_action::<NexusAction>();
 }
 
 #[test]

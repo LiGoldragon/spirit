@@ -1,16 +1,28 @@
 use std::collections::HashMap;
 
 use crate::{
-    CommandSemaWrite, DatabaseMarker, Entry, ErrorReport, Input, Kind, Magnitude, MailLedger,
-    NexusAction, NexusActorStartFailure, NexusActorStopFailure, NexusEffectCommand,
-    NexusEffectResult, NexusEngine, NexusWork, Output, Records, SemaEngine, SemaReadInput,
-    SemaReadOutput, SemaWriteInput, SemaWriteOutput, SignalRejection, StashHandle, StashRequest,
-    StashResult, StashedObservation, Statement, ValidationError, schema::nexus as nexus_schema,
+    MailLedger,
+    schema::{
+        nexus::{
+            self as nexus_schema, ActorStartFailure as NexusActorStartFailure,
+            ActorStopFailure as NexusActorStopFailure, CommandSemaWrite, NexusAction,
+            NexusEffectCommand, NexusEffectResult, NexusEngine, NexusWork, StashRequest,
+            StashResult,
+        },
+        sema::{
+            ReadInput as SemaReadInput, ReadOutput as SemaReadOutput, SemaEngine,
+            WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
+        },
+        signal::{
+            DatabaseMarker, Entry, ErrorReport, Input, Kind, Magnitude, Output, Records,
+            SignalRejection, StashHandle, StashedObservation, Statement, ValidationError,
+        },
+    },
     store::Store,
 };
 
 #[cfg(feature = "testing-trace")]
-use crate::{NexusObjectName, ObjectName, TraceEvent, TraceLog};
+use crate::{ObjectName, TraceEvent, TraceLog, schema::nexus::NexusObjectName};
 use triad_runtime::ContinuationExhausted;
 
 /// The stash table — the durable handle store backing the Stash effect.
@@ -315,12 +327,12 @@ impl Nexus {
                 NexusAction::command_sema_write(CommandSemaWrite::change_certainty(change))
             }
             Input::LookupStash(handle) => match self.stash_table.lookup(&handle) {
-                Some((records, database_marker)) => {
-                    NexusAction::reply_to_signal(Output::records_observed(crate::ObservedRecords {
+                Some((records, database_marker)) => NexusAction::reply_to_signal(
+                    Output::records_observed(crate::schema::signal::ObservedRecords {
                         record_set: records,
                         database_marker,
-                    }))
-                }
+                    }),
+                ),
                 None => NexusAction::reply_to_signal(Output::rejected(SignalRejection {
                     validation_error: ValidationError::StashHandleNotFound,
                     database_marker: self.database_marker(),

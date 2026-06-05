@@ -10,15 +10,22 @@ use sema_engine::{
 };
 use thiserror::Error;
 
-use crate::{
-    CertaintyChange, CertaintyChangeReceipt, CountedRecords, DatabaseMarker, Entry, ErrorReport,
-    FoundRecord, Magnitude, Privacy, PrivacySelection, Query, RemoveReceipt, SemaActorStartFailure,
-    SemaActorStopFailure, SemaEngine, SemaReadInput, SemaReadOutput, SemaReceipt, SemaWriteInput,
-    SemaWriteOutput, schema::sema as sema_schema,
+use crate::schema::{
+    sema::{
+        self as sema_schema, ActorStartFailure as SemaActorStartFailure,
+        ActorStopFailure as SemaActorStopFailure, ReadInput as SemaReadInput,
+        ReadOutput as SemaReadOutput, SemaEngine, WriteInput as SemaWriteInput,
+        WriteOutput as SemaWriteOutput,
+    },
+    signal::{
+        CertaintyChange, CertaintyChangeReceipt, CountedRecords, DatabaseMarker, Entry,
+        ErrorReport, FoundRecord, Magnitude, ObservedRecords, Privacy, PrivacySelection, Query,
+        RemoveReceipt, SemaReceipt,
+    },
 };
 
 #[cfg(feature = "testing-trace")]
-use crate::{ObjectName, SemaObjectName, TraceEvent, TraceLog};
+use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
 
 const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(1);
 const ENTRIES_TABLE: TableName = TableName::new("records");
@@ -122,12 +129,10 @@ impl SemaEngine for Store {
         let origin_route = query.origin_route();
         let output = match query.into_root() {
             SemaReadInput::Observe(observe) => match self.observe(&observe) {
-                Ok(entries) if !entries.is_empty() => {
-                    SemaReadOutput::observed(crate::ObservedRecords {
-                        record_set: entries,
-                        database_marker: self.database_marker(),
-                    })
-                }
+                Ok(entries) if !entries.is_empty() => SemaReadOutput::observed(ObservedRecords {
+                    record_set: entries,
+                    database_marker: self.database_marker(),
+                }),
                 Ok(_) => SemaReadOutput::missed(ErrorReport {
                     error_message: String::from("no matching record"),
                     database_marker: self.database_marker(),

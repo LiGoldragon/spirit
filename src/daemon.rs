@@ -7,7 +7,8 @@ use triad_runtime::{
 };
 
 use crate::{
-    ActorStartFailure, ActorStopFailure, Configuration, ConfigurationError, Engine, StoreError,
+    Configuration, ConfigurationError, Engine, StoreError,
+    schema::signal::{ActorStartFailure, ActorStopFailure},
     store::Store,
     transport::{SignalTransport, TransportError},
 };
