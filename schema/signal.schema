@@ -49,15 +49,15 @@
   ValidationError [EmptyTopic EmptyDescription EmptyQueryTopic StashHandleNotFound]
   SentMail { MailIdentifier * OriginRoute * ShortHeader * }
   ProcessedMail { MailIdentifier * OriginRoute * DatabaseMarker * }
-  MailLedgerEvent [Sent Processed]
+  MailLedgerEvent [(Sent Sent) (Processed Processed)]
   Sent SentMail
   Processed ProcessedMail
 
-  TopicMatch [Partial Full]
+  TopicMatch [(Partial Partial) (Full Full)]
   Partial Topics
   Full Topics
   Privacy Magnitude
-  PrivacySelection [Any Exact AtMost AtLeast]
+  PrivacySelection [Any (Exact Exact) (AtMost AtMost) (AtLeast AtLeast)]
   Exact Privacy
   AtMost Privacy
   AtLeast Privacy

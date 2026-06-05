@@ -268,11 +268,14 @@ output enum names, so the root enum bodies are bare square-bracket values.
 Namespace declarations are key-value pairs: a brace value declares a struct
 map, a square-bracket value declares an enum variant list, and an atom or
 parenthesized reference declares an alias. Data-carrying enum payloads are
-declared through namespace bindings such as `Record Entry`,
-`RecordAccepted SemaReceipt`, and `CommandSemaWrite SemaWriteInput`; those
-bindings lower to direct payload aliases. Parentheses remain the
-composite/reference and macro-call argument shape at reference positions. That
-authored syntax lowers to one checked-in `Asschema` artifact and generated Rust
+declared explicitly in namespace enum bodies with parenthesized entries such
+as `(Record Record)`, `(RecordAccepted RecordAccepted)`, and
+`(CommandSemaWrite CommandSemaWrite)`. Namespace bindings such as
+`Record Entry`, `RecordAccepted SemaReceipt`, and
+`CommandSemaWrite SemaWriteInput` define the payload aliases those signatures
+reference. Parentheses remain the composite/reference and structural payload
+shape at reference positions. That authored syntax decodes to typed
+`SchemaSource`, lowers to semantic `Schema`, and emits one generated Rust
 module per plane.
 
 The generated Rust exposes plane namespaces over those bootstrap backing names:

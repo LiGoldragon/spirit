@@ -24,12 +24,12 @@
   CommandEffect NexusEffectCommand
   Continue NexusWork
 
-  NexusWork [SignalArrived SemaWriteCompleted SemaReadCompleted EffectCompleted]
-  NexusAction [CommandSemaWrite CommandSemaRead ReplyToSignal CommandEffect Continue]
+  NexusWork [(SignalArrived SignalArrived) (SemaWriteCompleted SemaWriteCompleted) (SemaReadCompleted SemaReadCompleted) (EffectCompleted EffectCompleted)]
+  NexusAction [(CommandSemaWrite CommandSemaWrite) (CommandSemaRead CommandSemaRead) (ReplyToSignal ReplyToSignal) (CommandEffect CommandEffect) (Continue Continue)]
 
-  NexusEffectCommand [Stash]
+  NexusEffectCommand [(Stash Stash)]
   Stash StashRequest
-  NexusEffectResult [Stashed]
+  NexusEffectResult [(Stashed Stashed)]
   Stashed StashResult
   StashRequest { Records * DatabaseMarker * }
   StashResult { StashHandle * RecordCount * DatabaseMarker * }

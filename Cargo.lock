@@ -412,15 +412,6 @@ dependencies = [
 
 [[package]]
 name = "redb"
-version = "2.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8eca1e9d98d5a7e9002d0013e18d5a9b000aee942eb134883a82f06ebffb6c01"
-dependencies = [
- "libc",
-]
-
-[[package]]
-name = "redb"
 version = "4.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e925444704b5f17d32bf42f5b6e2df050bceebc3dcd6e71cc73dafe8092e839"
@@ -497,10 +488,9 @@ dependencies = [
 [[package]]
 name = "schema-next"
 version = "0.1.4"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#bc59bcb89a9090b922703ccd7c52251fe7d347c0"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#5311f9ad0261b3506990f8d4dce0975f26b200e2"
 dependencies = [
  "nota-next",
- "redb 2.6.3",
  "rkyv",
 ]
 
@@ -516,10 +506,14 @@ dependencies = [
 
 [[package]]
 name = "schema-rust-next"
-version = "0.1.12"
-source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#99af362a02f77914b95a92e0eb8584e2f1ce2f25"
+version = "0.1.13"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#2437413fce39eeed060a713e1763b7f4fe445ded"
 dependencies = [
+ "prettyplease",
+ "proc-macro2",
+ "quote",
  "schema-next",
+ "syn",
  "thiserror",
 ]
 
@@ -528,7 +522,7 @@ name = "sema"
 version = "0.1.0"
 source = "git+https://github.com/LiGoldragon/sema.git#c453d8ca484c2c9ad75930a4f7b5e941859b6e00"
 dependencies = [
- "redb 4.1.0",
+ "redb",
  "rkyv",
  "thiserror",
 ]

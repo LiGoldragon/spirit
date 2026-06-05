@@ -12,21 +12,21 @@
 [WriteInput ReadInput]
 [WriteOutput ReadOutput]
 {
-  WriteInput [Record Remove]
+  WriteInput [(Record Record) (Remove Remove)]
   Record Entry
   Remove RecordIdentifier
 
-  ReadInput [Observe Lookup Count]
+  ReadInput [(Observe Observe) (Lookup Lookup) (Count Count)]
   Observe Query
   Lookup RecordIdentifier
   Count Query
 
-  WriteOutput [Recorded Removed Missed]
+  WriteOutput [(Recorded Recorded) (Removed Removed) (Missed Missed)]
   Recorded SemaReceipt
   Removed RemoveReceipt
   Missed ErrorReport
 
-  ReadOutput [Observed Found Counted Missed]
+  ReadOutput [(Observed Observed) (Found Found) (Counted Counted) (Missed Missed)]
   Observed ObservedRecords
   Found FoundRecord
   Counted CountedRecords

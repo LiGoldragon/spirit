@@ -6,7 +6,10 @@
 //!   The production-path plane schemas carry compact root-header object
 //!   names (`Record Observe Lookup ...`, `WriteInput ReadInput`) and define
 //!   those exported objects in the namespace (`Record Entry`, `Observe
-//!   Query`, ...). The retired `Record@Entry` short-suffix sugar is absent.
+//!   Query`, ...). Namespace enums that carry payloads spell the payload in
+//!   each variant signature (`(Record Record)`) rather than relying on
+//!   same-name recovery. The retired `Record@Entry` short-suffix sugar is
+//!   absent.
 //!   The authored schema source decodes into a typed `SchemaSource` value,
 //!   round-trips through rkyv, and the emitted Rust carries the alias shape.
 //!
@@ -157,7 +160,7 @@ fn split_schemas_carry_no_at_sigil_anywhere() {
 
 /// Claim 4 — The authored schemas are the durable schema values. Each
 /// one decodes into `SchemaSource` and archives through rkyv without an
-/// assembled checked-in artifact between source and emitted Rust.
+/// intermediate checked-in schema artifact between source and emitted Rust.
 #[test]
 fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     let signal_witness = SchemaSourceWitness::new("schema/signal.schema", SIGNAL_SCHEMA);
@@ -173,9 +176,17 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     signal_witness.must_contain("Observe Query", "4");
     signal_witness.must_contain("Lookup RecordIdentifier", "4");
     sema_witness.must_contain("[WriteInput ReadInput]", "4");
-    sema_witness.must_contain("WriteInput [Record Remove]", "4");
+    sema_witness.must_contain("WriteInput [(Record Record) (Remove Remove)]", "4");
     sema_witness.must_contain("Recorded SemaReceipt", "4");
+    sema_witness.must_contain(
+        "WriteOutput [(Recorded Recorded) (Removed Removed) (Missed Missed)]",
+        "4",
+    );
     nexus_witness.must_contain("CommandSemaWrite SemaWriteInput", "4");
+    nexus_witness.must_contain(
+        "NexusAction [(CommandSemaWrite CommandSemaWrite)",
+        "4",
+    );
 }
 
 /// Claim 4 — The schema-emitted Rust source surface mirrors the honest
