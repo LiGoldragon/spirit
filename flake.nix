@@ -13,12 +13,44 @@
       url = "github:LiGoldragon/nota-next";
       flake = false;
     };
+    nota-codec-source = {
+      url = "github:LiGoldragon/nota-codec";
+      flake = false;
+    };
+    nota-derive-source = {
+      url = "github:LiGoldragon/nota-derive";
+      flake = false;
+    };
+    schema-source = {
+      url = "github:LiGoldragon/schema";
+      flake = false;
+    };
     schema-next-source = {
       url = "github:LiGoldragon/schema-next";
       flake = false;
     };
     schema-rust-next-source = {
       url = "github:LiGoldragon/schema-rust-next";
+      flake = false;
+    };
+    sema-source = {
+      url = "github:LiGoldragon/sema";
+      flake = false;
+    };
+    sema-engine-source = {
+      url = "github:LiGoldragon/sema-engine";
+      flake = false;
+    };
+    signal-core-source = {
+      url = "github:LiGoldragon/signal-core";
+      flake = false;
+    };
+    signal-frame-source = {
+      url = "github:LiGoldragon/signal-frame";
+      flake = false;
+    };
+    signal-sema-source = {
+      url = "github:LiGoldragon/signal-sema";
       flake = false;
     };
     triad-runtime-source = {
@@ -29,8 +61,16 @@
 
   outputs = { self, nixpkgs, flake-utils, fenix, crane
     , nota-next-source
+    , nota-codec-source
+    , nota-derive-source
+    , schema-source
     , schema-next-source
     , schema-rust-next-source
+    , sema-source
+    , sema-engine-source
+    , signal-core-source
+    , signal-frame-source
+    , signal-sema-source
     , triad-runtime-source
   }:
     flake-utils.lib.eachDefaultSystem (system:
@@ -65,22 +105,46 @@
         };
         src = pkgs.runCommand "spirit-source-with-local-schema-patches" {
           notaNextSource = nota-next-source;
+          notaCodecSource = nota-codec-source;
+          notaDeriveSource = nota-derive-source;
+          schemaSource = schema-source;
           schemaNextSource = schema-next-source;
           schemaRustNextSource = schema-rust-next-source;
+          semaSource = sema-source;
+          semaEngineSource = sema-engine-source;
+          signalCoreSource = signal-core-source;
+          signalFrameSource = signal-frame-source;
+          signalSemaSource = signal-sema-source;
           triadRuntimeSource = triad-runtime-source;
         } ''
           cp -R ${cleanSource} $out
           chmod -R u+w $out
           mkdir -p $out/vendor-sources
           cp -R "$notaNextSource" $out/vendor-sources/nota-next
+          cp -R "$notaCodecSource" $out/vendor-sources/nota-codec
+          cp -R "$notaDeriveSource" $out/vendor-sources/nota-derive
+          cp -R "$schemaSource" $out/vendor-sources/schema
           cp -R "$schemaNextSource" $out/vendor-sources/schema-next
           cp -R "$schemaRustNextSource" $out/vendor-sources/schema-rust-next
+          cp -R "$semaSource" $out/vendor-sources/sema
+          cp -R "$semaEngineSource" $out/vendor-sources/sema-engine
+          cp -R "$signalCoreSource" $out/vendor-sources/signal-core
+          cp -R "$signalFrameSource" $out/vendor-sources/signal-frame
+          cp -R "$signalSemaSource" $out/vendor-sources/signal-sema
           cp -R "$triadRuntimeSource" $out/vendor-sources/triad-runtime
 
           substituteInPlace $out/Cargo.toml \
             --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota-next = { path = "vendor-sources/nota-next", optional = true }' \
+            --replace-fail 'sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main" }' 'sema-engine = { path = "vendor-sources/sema-engine" }' \
             --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "vendor-sources/triad-runtime" }' \
-            --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust-next = { path = "vendor-sources/schema-rust-next" }'
+            --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust-next = { path = "vendor-sources/schema-rust-next" }' \
+            --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "vendor-sources/schema-next" }'
+
+          substituteInPlace $out/vendor-sources/nota-codec/Cargo.toml \
+            --replace-fail 'nota-derive = { git = "https://github.com/LiGoldragon/nota-derive.git", branch = "main" }' 'nota-derive = { path = "../nota-derive" }'
+
+          substituteInPlace $out/vendor-sources/schema/Cargo.toml \
+            --replace-fail 'nota-codec = { git = "https://github.com/LiGoldragon/nota-codec.git", branch = "main" }' 'nota-codec = { path = "../nota-codec" }'
 
           substituteInPlace $out/vendor-sources/schema-rust-next/Cargo.toml \
             --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "../schema-next" }' \
@@ -89,21 +153,65 @@
           substituteInPlace $out/vendor-sources/schema-next/Cargo.toml \
             --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next = { path = "../nota-next" }'
 
+          substituteInPlace $out/vendor-sources/sema-engine/Cargo.toml \
+            --replace-fail 'sema = { git = "https://github.com/LiGoldragon/sema.git" }' 'sema = { path = "../sema" }' \
+            --replace-fail 'signal-core = { git = "https://github.com/LiGoldragon/signal-core.git" }' 'signal-core = { path = "../signal-core" }' \
+            --replace-fail 'signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main" }' 'signal-sema = { path = "../signal-sema" }'
+
+          substituteInPlace $out/vendor-sources/signal-core/Cargo.toml \
+            --replace-fail 'nota-codec = { git = "https://github.com/LiGoldragon/nota-codec.git", branch = "main" }' 'nota-codec = { path = "../nota-codec" }'
+
+          substituteInPlace $out/vendor-sources/signal-frame/Cargo.toml \
+            --replace-fail 'nota-codec = { git = "https://github.com/LiGoldragon/nota-codec.git", branch = "main" }' 'nota-codec = { path = "../nota-codec" }'
+
+          substituteInPlace $out/vendor-sources/signal-frame/macros/Cargo.toml \
+            --replace-fail 'nota-codec  = { git = "https://github.com/LiGoldragon/nota-codec.git", branch = "main" }' 'nota-codec  = { path = "../../nota-codec" }' \
+            --replace-fail 'schema      = { git = "https://github.com/LiGoldragon/schema.git", branch = "main" }' 'schema      = { path = "../../schema" }'
+
+          substituteInPlace $out/vendor-sources/signal-frame/schema-rust/Cargo.toml \
+            --replace-fail 'schema      = { git = "https://github.com/LiGoldragon/schema.git", branch = "main" }' 'schema      = { path = "../../schema" }'
+
+          substituteInPlace $out/vendor-sources/signal-sema/Cargo.toml \
+            --replace-fail 'nota-codec = { git = "https://github.com/LiGoldragon/nota-codec.git", branch = "main" }' 'nota-codec = { path = "../nota-codec" }'
+
+          substituteInPlace $out/vendor-sources/triad-runtime/Cargo.toml \
+            --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }' 'signal-frame = { path = "../signal-frame" }'
+
           mkdir -p $out/.cargo
           cat >> $out/.cargo/config.toml <<'EOF'
           paths = [
+            "vendor-sources/nota-codec",
+            "vendor-sources/nota-derive",
             "vendor-sources/nota-next",
             "vendor-sources/nota-next/derive",
+            "vendor-sources/schema",
             "vendor-sources/schema-next",
             "vendor-sources/schema-rust-next",
+            "vendor-sources/sema",
+            "vendor-sources/sema-engine",
+            "vendor-sources/signal-core",
+            "vendor-sources/signal-core/macros",
+            "vendor-sources/signal-frame",
+            "vendor-sources/signal-frame/macros",
+            "vendor-sources/signal-frame/schema-rust",
+            "vendor-sources/signal-sema",
             "vendor-sources/triad-runtime",
           ]
           EOF
 
           cat >> $out/Cargo.toml <<'EOF'
+          [patch."https://github.com/LiGoldragon/nota-codec.git?branch=main"]
+          nota-codec = { path = "vendor-sources/nota-codec" }
+
+          [patch."https://github.com/LiGoldragon/nota-derive.git?branch=main"]
+          nota-derive = { path = "vendor-sources/nota-derive" }
+
           [patch."https://github.com/LiGoldragon/nota-next.git?branch=main"]
           nota-next = { path = "vendor-sources/nota-next" }
           nota-next-derive = { path = "vendor-sources/nota-next/derive" }
+
+          [patch."https://github.com/LiGoldragon/schema.git?branch=main"]
+          schema = { path = "vendor-sources/schema" }
 
           [patch."https://github.com/LiGoldragon/schema-next.git?branch=main"]
           schema-next = { path = "vendor-sources/schema-next" }
@@ -111,13 +219,39 @@
           [patch."https://github.com/LiGoldragon/schema-rust-next.git?branch=main"]
           schema-rust-next = { path = "vendor-sources/schema-rust-next" }
 
+          [patch."https://github.com/LiGoldragon/sema.git"]
+          sema = { path = "vendor-sources/sema" }
+
+          [patch."https://github.com/LiGoldragon/sema-engine.git?branch=main"]
+          sema-engine = { path = "vendor-sources/sema-engine" }
+
+          [patch."https://github.com/LiGoldragon/signal-core.git"]
+          signal-core = { path = "vendor-sources/signal-core" }
+          signal-core-macros = { path = "vendor-sources/signal-core/macros" }
+
+          [patch."https://github.com/LiGoldragon/signal-frame.git?branch=main"]
+          signal-frame = { path = "vendor-sources/signal-frame" }
+          signal-frame-macros = { path = "vendor-sources/signal-frame/macros" }
+          schema-rust = { path = "vendor-sources/signal-frame/schema-rust" }
+
+          [patch."https://github.com/LiGoldragon/signal-sema.git?branch=main"]
+          signal-sema = { path = "vendor-sources/signal-sema" }
+
           [patch."https://github.com/LiGoldragon/triad-runtime.git?branch=main"]
           triad-runtime = { path = "vendor-sources/triad-runtime" }
           EOF
 
+          sed -i '\|^source = "git+https://github.com/LiGoldragon/nota-codec.git?branch=main#|d' $out/Cargo.lock
+          sed -i '\|^source = "git+https://github.com/LiGoldragon/nota-derive.git?branch=main#|d' $out/Cargo.lock
           sed -i '\|^source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#|d' $out/Cargo.lock
+          sed -i '\|^source = "git+https://github.com/LiGoldragon/schema.git?branch=main#|d' $out/Cargo.lock
           sed -i '\|^source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#|d' $out/Cargo.lock
           sed -i '\|^source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#|d' $out/Cargo.lock
+          sed -i '\|^source = "git+https://github.com/LiGoldragon/sema.git#|d' $out/Cargo.lock
+          sed -i '\|^source = "git+https://github.com/LiGoldragon/sema-engine.git?branch=main#|d' $out/Cargo.lock
+          sed -i '\|^source = "git+https://github.com/LiGoldragon/signal-core.git#|d' $out/Cargo.lock
+          sed -i '\|^source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#|d' $out/Cargo.lock
+          sed -i '\|^source = "git+https://github.com/LiGoldragon/signal-sema.git?branch=main#|d' $out/Cargo.lock
           sed -i '\|^source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#|d' $out/Cargo.lock
         '';
         cargoVendorDirectory = craneLib.vendorCargoDeps { inherit src; };

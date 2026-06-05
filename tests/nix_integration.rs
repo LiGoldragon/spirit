@@ -64,7 +64,8 @@
 //!
 //! - `nix_built_daemon_observes_recorded_entries_back_through_query`
 //!   — a Record followed by an Observe Query returns the schema-emitted
-//!   `RecordsObserved` variant with the entry payload echoed.
+//!   `RecordsStashed` variant, then `LookupStash` returns the full
+//!   `RecordsObserved` payload.
 //!
 //! - `nix_built_daemon_returns_missed_when_no_matching_record_exists`
 //!   — Observe against an empty store returns the schema-emitted
@@ -82,7 +83,7 @@
 //!
 //! - `nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant`
 //!   — for each schema-emitted `Output` variant (`RecordAccepted`,
-//!   `RecordsObserved`, `Error`, `Rejected`), drive the CLI to produce
+//!   `RecordsStashed`, `Error`, `Rejected`), drive the CLI to produce
 //!   that variant and parse the stdout back through the schema-emitted
 //!   `Output::FromStr` — proving the NOTA wire form on the wire and
 //!   the FromStr surface stay in sync.
@@ -216,12 +217,42 @@ fn nix_input_overrides() -> Vec<(&'static str, String)> {
             workspace_default("nota-next", "NOTA_NEXT_PATH"),
         ),
         (
+            "nota-codec-source",
+            workspace_default("nota-codec", "NOTA_CODEC_PATH"),
+        ),
+        (
+            "nota-derive-source",
+            workspace_default("nota-derive", "NOTA_DERIVE_PATH"),
+        ),
+        ("schema-source", workspace_default("schema", "SCHEMA_PATH")),
+        (
             "schema-next-source",
             workspace_default("schema-next", "SCHEMA_NEXT_PATH"),
         ),
         (
             "schema-rust-next-source",
             workspace_default("schema-rust-next", "SCHEMA_RUST_NEXT_PATH"),
+        ),
+        ("sema-source", workspace_default("sema", "SEMA_PATH")),
+        (
+            "sema-engine-source",
+            workspace_default("sema-engine", "SEMA_ENGINE_PATH"),
+        ),
+        (
+            "signal-core-source",
+            workspace_default("signal-core", "SIGNAL_CORE_PATH"),
+        ),
+        (
+            "signal-frame-source",
+            workspace_default("signal-frame", "SIGNAL_FRAME_PATH"),
+        ),
+        (
+            "signal-sema-source",
+            workspace_default("signal-sema", "SIGNAL_SEMA_PATH"),
+        ),
+        (
+            "triad-runtime-source",
+            workspace_default("triad-runtime", "TRIAD_RUNTIME_PATH"),
         ),
     ]
     .into_iter()
@@ -472,9 +503,10 @@ fn nix_built_daemon_persists_state_across_two_cli_invocations() {
 #[ignore = "invokes nix build; run via cargo test --test nix_integration -- --ignored"]
 fn nix_built_daemon_observes_recorded_entries_back_through_query() {
     // PATTERN: Record then Observe through the Nix-built binaries. The
-    // Observe path crosses Signal → Nexus → SEMA → Nexus → Signal end-
-    // to-end, producing the schema-emitted `RecordsObserved` variant
-    // with the original Entry echoed inside `RecordSet`.
+    // Observe path crosses Signal -> Nexus -> SEMA -> Nexus -> Signal
+    // end-to-end, producing the schema-emitted `RecordsStashed` variant.
+    // A follow-up LookupStash returns the original Entry inside
+    // `RecordsObserved`.
     let binaries = NixBuiltBinaries::ensure();
     let daemon = DaemonProcess::spawn(&binaries);
 
@@ -490,21 +522,34 @@ fn nix_built_daemon_observes_recorded_entries_back_through_query() {
         "(Observe ((Full [[nix-integration]]) (Some Decision) (Exact Zero)))",
     );
 
-    match observed {
+    let stash_handle = match observed {
+        Output::RecordsStashed(stashed) => {
+            assert_eq!(stashed.record_count, 1);
+            assert_eq!(
+                stashed.database_marker.commit_sequence, 1,
+                "Observe does not advance the schema-emitted CommitSequence"
+            );
+            stashed.stash_handle
+        }
+        other => panic!("expected schema-emitted RecordsStashed, got {other:?}"),
+    };
+
+    let resolved = run_cli_for_output(
+        &binaries,
+        daemon.socket(),
+        &format!("(LookupStash {stash_handle})"),
+    );
+
+    match resolved {
         Output::RecordsObserved(records) => {
-            // The schema-emitted RecordSet carries the typed Entry; we
-            // assert against schema-typed fixture (record 995).
             assert_eq!(
                 records.record_set,
                 vec![entry("observe round trip")],
-                "RecordsObserved must echo the schema-emitted Entry we recorded"
+                "LookupStash must echo the schema-emitted Entry we recorded"
             );
-            assert_eq!(
-                records.database_marker.commit_sequence, 1,
-                "Observe does not advance the schema-emitted CommitSequence"
-            );
+            assert_eq!(records.database_marker.commit_sequence, 1);
         }
-        other => panic!("expected schema-emitted RecordsObserved, got {other:?}"),
+        other => panic!("expected schema-emitted RecordsObserved from LookupStash, got {other:?}"),
     }
 }
 
@@ -694,10 +739,26 @@ fn nix_built_daemon_alias_state_across_separate_cli_processes() {
         daemon.socket(),
         "(Observe ((Full [[nix-integration]]) (Some Decision) (Exact Zero)))",
     );
-    assert!(
-        matches!(observed, Output::RecordsObserved(_)),
-        "the daemon must remember the record across separate CLI processes"
+    let stash_handle = match observed {
+        Output::RecordsStashed(stashed) => {
+            assert_eq!(stashed.record_count, 1);
+            stashed.stash_handle
+        }
+        other => panic!("expected RecordsStashed across separate CLI processes, got {other:?}"),
+    };
+    let resolved = run_cli_for_output(
+        &binaries,
+        daemon.socket(),
+        &format!("(LookupStash {stash_handle})"),
     );
+    match resolved {
+        Output::RecordsObserved(records) => assert_eq!(
+            records.record_set,
+            vec![entry("process a record")],
+            "the daemon must remember the record across separate CLI processes"
+        ),
+        other => panic!("expected RecordsObserved from LookupStash, got {other:?}"),
+    }
 }
 
 // ---------------------------------------------------------------------------

@@ -525,7 +525,16 @@ impl ReadOutput {
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub enum SemaObjectName {
     WriteInput(WriteInputRoute),
     ReadInput(ReadInputRoute),
@@ -536,32 +545,41 @@ pub enum SemaObjectName {
     WriteApplied,
     ReadObserved,
 }
-
 impl SemaObjectName {
     pub fn name(self) -> &'static str {
         match self {
-            Self::WriteInput(route) => match route {
-                WriteInputRoute::Record => "SemaWriteInputRecord",
-                WriteInputRoute::Remove => "SemaWriteInputRemove",
-                WriteInputRoute::ChangeCertainty => "SemaWriteInputChangeCertainty",
-            },
-            Self::ReadInput(route) => match route {
-                ReadInputRoute::Observe => "SemaReadInputObserve",
-                ReadInputRoute::Lookup => "SemaReadInputLookup",
-                ReadInputRoute::Count => "SemaReadInputCount",
-            },
-            Self::WriteOutput(route) => match route {
-                WriteOutputRoute::Recorded => "SemaWriteOutputRecorded",
-                WriteOutputRoute::Removed => "SemaWriteOutputRemoved",
-                WriteOutputRoute::CertaintyChanged => "SemaWriteOutputCertaintyChanged",
-                WriteOutputRoute::Missed => "SemaWriteOutputMissed",
-            },
-            Self::ReadOutput(route) => match route {
-                ReadOutputRoute::Observed => "SemaReadOutputObserved",
-                ReadOutputRoute::Found => "SemaReadOutputFound",
-                ReadOutputRoute::Counted => "SemaReadOutputCounted",
-                ReadOutputRoute::Missed => "SemaReadOutputMissed",
-            },
+            Self::WriteInput(route) => {
+                match route {
+                    WriteInputRoute::Record => "SemaWriteInputRecord",
+                    WriteInputRoute::Remove => "SemaWriteInputRemove",
+                    WriteInputRoute::ChangeCertainty => "SemaWriteInputChangeCertainty",
+                }
+            }
+            Self::ReadInput(route) => {
+                match route {
+                    ReadInputRoute::Observe => "SemaReadInputObserve",
+                    ReadInputRoute::Lookup => "SemaReadInputLookup",
+                    ReadInputRoute::Count => "SemaReadInputCount",
+                }
+            }
+            Self::WriteOutput(route) => {
+                match route {
+                    WriteOutputRoute::Recorded => "SemaWriteOutputRecorded",
+                    WriteOutputRoute::Removed => "SemaWriteOutputRemoved",
+                    WriteOutputRoute::CertaintyChanged => {
+                        "SemaWriteOutputCertaintyChanged"
+                    }
+                    WriteOutputRoute::Missed => "SemaWriteOutputMissed",
+                }
+            }
+            Self::ReadOutput(route) => {
+                match route {
+                    ReadOutputRoute::Observed => "SemaReadOutputObserved",
+                    ReadOutputRoute::Found => "SemaReadOutputFound",
+                    ReadOutputRoute::Counted => "SemaReadOutputCounted",
+                    ReadOutputRoute::Missed => "SemaReadOutputMissed",
+                }
+            }
             Self::Started => "SemaStarted",
             Self::Stopped => "SemaStopped",
             Self::WriteApplied => "SemaWriteApplied",
@@ -571,15 +589,31 @@ impl SemaObjectName {
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub enum ObjectName {
     Sema(SemaObjectName),
 }
-
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub struct TraceEvent(pub ObjectName);
-
 impl ObjectName {
     pub fn name(self) -> &'static str {
         match self {
@@ -587,16 +621,13 @@ impl ObjectName {
         }
     }
 }
-
 impl TraceEvent {
     pub fn new(object_name: ObjectName) -> Self {
         Self(object_name)
     }
-
     pub fn object_name(&self) -> ObjectName {
         self.0
     }
-
     pub fn name(&self) -> &'static str {
         self.0.name()
     }

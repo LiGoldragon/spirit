@@ -21,11 +21,19 @@ set -euo pipefail
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
 nota_next_path="${NOTA_NEXT_PATH:-/git/github.com/LiGoldragon/nota-next}"
+nota_codec_path="${NOTA_CODEC_PATH:-/git/github.com/LiGoldragon/nota-codec}"
+nota_derive_path="${NOTA_DERIVE_PATH:-/git/github.com/LiGoldragon/nota-derive}"
+schema_path="${SCHEMA_PATH:-/git/github.com/LiGoldragon/schema}"
 schema_next_path="${SCHEMA_NEXT_PATH:-/git/github.com/LiGoldragon/schema-next}"
 schema_rust_next_path="${SCHEMA_RUST_NEXT_PATH:-/git/github.com/LiGoldragon/schema-rust-next}"
+sema_path="${SEMA_PATH:-/git/github.com/LiGoldragon/sema}"
+sema_engine_path="${SEMA_ENGINE_PATH:-/git/github.com/LiGoldragon/sema-engine}"
+signal_core_path="${SIGNAL_CORE_PATH:-/git/github.com/LiGoldragon/signal-core}"
+signal_frame_path="${SIGNAL_FRAME_PATH:-/git/github.com/LiGoldragon/signal-frame}"
+signal_sema_path="${SIGNAL_SEMA_PATH:-/git/github.com/LiGoldragon/signal-sema}"
 triad_runtime_path="${TRIAD_RUNTIME_PATH:-/git/github.com/LiGoldragon/triad-runtime}"
 
-for path in "$nota_next_path" "$schema_next_path" "$schema_rust_next_path" "$triad_runtime_path"; do
+for path in "$nota_next_path" "$nota_codec_path" "$nota_derive_path" "$schema_path" "$schema_next_path" "$schema_rust_next_path" "$sema_path" "$sema_engine_path" "$signal_core_path" "$signal_frame_path" "$signal_sema_path" "$triad_runtime_path"; do
   if [[ ! -d "$path" ]]; then
     printf 'missing local dependency checkout: %s\n' "$path" >&2
     exit 2
@@ -34,8 +42,16 @@ done
 
 build_result="$(nix build \
   --override-input nota-next-source "path:$nota_next_path" \
+  --override-input nota-codec-source "path:$nota_codec_path" \
+  --override-input nota-derive-source "path:$nota_derive_path" \
+  --override-input schema-source "path:$schema_path" \
   --override-input schema-next-source "path:$schema_next_path" \
   --override-input schema-rust-next-source "path:$schema_rust_next_path" \
+  --override-input sema-source "path:$sema_path" \
+  --override-input sema-engine-source "path:$sema_engine_path" \
+  --override-input signal-core-source "path:$signal_core_path" \
+  --override-input signal-frame-source "path:$signal_frame_path" \
+  --override-input signal-sema-source "path:$signal_sema_path" \
   --override-input triad-runtime-source "path:$triad_runtime_path" \
   --print-out-paths \
   --no-link \
@@ -49,8 +65,16 @@ fi
 printf 'using Nix-built binaries at %s\n' "$build_result"
 export SPIRIT_NIX_BUILD_RESULT="$build_result"
 export NOTA_NEXT_PATH="$nota_next_path"
+export NOTA_CODEC_PATH="$nota_codec_path"
+export NOTA_DERIVE_PATH="$nota_derive_path"
+export SCHEMA_PATH="$schema_path"
 export SCHEMA_NEXT_PATH="$schema_next_path"
 export SCHEMA_RUST_NEXT_PATH="$schema_rust_next_path"
+export SEMA_PATH="$sema_path"
+export SEMA_ENGINE_PATH="$sema_engine_path"
+export SIGNAL_CORE_PATH="$signal_core_path"
+export SIGNAL_FRAME_PATH="$signal_frame_path"
+export SIGNAL_SEMA_PATH="$signal_sema_path"
 export TRIAD_RUNTIME_PATH="$triad_runtime_path"
 
 cd "$repo_root"

@@ -447,11 +447,15 @@ release input/tag so upgrade tests compare current code against a previous
 artifact rather than an alias of current main.
 
 `scripts/check-local-schema-stack` runs the central local override test for
-this pilot. It rebuilds `spirit` with local checkouts of `nota-next`,
-`schema-next`, and `schema-rust-next` by overriding Nix source inputs. This is
-the intended loop while improving the NOTA parser, schema lowering, or Rust
-emitter: edit a substrate repo, run the consumer check here, and prove the
-generated Rust still compiles and crosses the CLI/daemon rkyv boundary.
+this pilot. It rebuilds `spirit` with local checkouts of the whole Li
+dependency graph that can otherwise appear as Cargo git inputs: `nota-next`,
+`nota-codec`, `nota-derive`, `schema`, `schema-next`, `schema-rust-next`,
+`sema`, `sema-engine`, `signal-core`, `signal-frame`, `signal-sema`, and
+`triad-runtime`. The override set is intentionally complete so a Nix cache miss
+does not let Cargo fetch GitHub during the build. This is the intended loop
+while improving the NOTA parser, schema lowering, Rust emitter, SEMA engine, or
+triad runtime: edit a substrate repo, run the consumer check here, and prove
+the generated Rust still compiles and crosses the CLI/daemon rkyv boundary.
 
 `build.rs` delegates the build-time schema pipeline to
 `schema_rust_next::build`. The plan emits three modules:

@@ -600,7 +600,16 @@ impl NexusAction {
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub enum NexusObjectName {
     Work(NexusWorkRoute),
     Action(NexusActionRoute),
@@ -609,23 +618,26 @@ pub enum NexusObjectName {
     Entered,
     Decided,
 }
-
 impl NexusObjectName {
     pub fn name(self) -> &'static str {
         match self {
-            Self::Work(route) => match route {
-                NexusWorkRoute::SignalArrived => "NexusWorkSignalArrived",
-                NexusWorkRoute::SemaWriteCompleted => "NexusWorkSemaWriteCompleted",
-                NexusWorkRoute::SemaReadCompleted => "NexusWorkSemaReadCompleted",
-                NexusWorkRoute::EffectCompleted => "NexusWorkEffectCompleted",
-            },
-            Self::Action(route) => match route {
-                NexusActionRoute::CommandSemaWrite => "NexusActionCommandSemaWrite",
-                NexusActionRoute::CommandSemaRead => "NexusActionCommandSemaRead",
-                NexusActionRoute::ReplyToSignal => "NexusActionReplyToSignal",
-                NexusActionRoute::CommandEffect => "NexusActionCommandEffect",
-                NexusActionRoute::Continue => "NexusActionContinue",
-            },
+            Self::Work(route) => {
+                match route {
+                    NexusWorkRoute::SignalArrived => "NexusWorkSignalArrived",
+                    NexusWorkRoute::SemaWriteCompleted => "NexusWorkSemaWriteCompleted",
+                    NexusWorkRoute::SemaReadCompleted => "NexusWorkSemaReadCompleted",
+                    NexusWorkRoute::EffectCompleted => "NexusWorkEffectCompleted",
+                }
+            }
+            Self::Action(route) => {
+                match route {
+                    NexusActionRoute::CommandSemaWrite => "NexusActionCommandSemaWrite",
+                    NexusActionRoute::CommandSemaRead => "NexusActionCommandSemaRead",
+                    NexusActionRoute::ReplyToSignal => "NexusActionReplyToSignal",
+                    NexusActionRoute::CommandEffect => "NexusActionCommandEffect",
+                    NexusActionRoute::Continue => "NexusActionContinue",
+                }
+            }
             Self::Started => "NexusStarted",
             Self::Stopped => "NexusStopped",
             Self::Entered => "NexusEntered",
@@ -635,15 +647,31 @@ impl NexusObjectName {
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub enum ObjectName {
     Nexus(NexusObjectName),
 }
-
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub struct TraceEvent(pub ObjectName);
-
 impl ObjectName {
     pub fn name(self) -> &'static str {
         match self {
@@ -651,16 +679,13 @@ impl ObjectName {
         }
     }
 }
-
 impl TraceEvent {
     pub fn new(object_name: ObjectName) -> Self {
         Self(object_name)
     }
-
     pub fn object_name(&self) -> ObjectName {
         self.0
     }
-
     pub fn name(&self) -> &'static str {
         self.0.name()
     }
