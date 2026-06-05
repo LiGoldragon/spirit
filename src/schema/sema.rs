@@ -634,7 +634,16 @@ impl TraceEvent {
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub struct OriginRoute(pub Integer);
 #[cfg(feature = "nota-text")]
 impl OriginRoute {
@@ -652,25 +661,23 @@ pub struct Sema<Root> {
     pub origin_route: OriginRoute,
     pub root: Root,
 }
-
 impl<Root> Sema<Root> {
     pub fn new(origin_route: OriginRoute, root: Root) -> Self {
         Self { origin_route, root }
     }
-
     pub fn origin_route(&self) -> OriginRoute {
         self.origin_route
     }
-
     pub fn root(&self) -> &Root {
         &self.root
     }
-
     pub fn into_root(self) -> Root {
         self.root
     }
-
-    pub fn map_root<NextRoot>(self, map: impl FnOnce(Root) -> NextRoot) -> Sema<NextRoot> {
+    pub fn map_root<NextRoot>(
+        self,
+        map: impl FnOnce(Root) -> NextRoot,
+    ) -> Sema<NextRoot> {
         Sema::new(self.origin_route, map(self.root))
     }
 }

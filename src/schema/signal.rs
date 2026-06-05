@@ -1254,7 +1254,16 @@ impl TraceEvent {
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub struct MessageIdentifier(pub Integer);
 #[cfg(feature = "nota-text")]
 impl MessageIdentifier {
@@ -1268,7 +1277,16 @@ impl MessageIdentifier {
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub struct OriginRoute(pub Integer);
 #[cfg(feature = "nota-text")]
 impl OriginRoute {
@@ -1286,31 +1304,38 @@ pub struct Signal<Root> {
     pub origin_route: OriginRoute,
     pub root: Root,
 }
-
 impl<Root> Signal<Root> {
     pub fn new(origin_route: OriginRoute, root: Root) -> Self {
         Self { origin_route, root }
     }
-
     pub fn origin_route(&self) -> OriginRoute {
         self.origin_route
     }
-
     pub fn root(&self) -> &Root {
         &self.root
     }
-
     pub fn into_root(self) -> Root {
         self.root
     }
-
-    pub fn map_root<NextRoot>(self, map: impl FnOnce(Root) -> NextRoot) -> Signal<NextRoot> {
+    pub fn map_root<NextRoot>(
+        self,
+        map: impl FnOnce(Root) -> NextRoot,
+    ) -> Signal<NextRoot> {
         Signal::new(self.origin_route, map(self.root))
     }
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub enum MessageRoot {
     Input,
     Output,
@@ -1323,31 +1348,27 @@ pub struct MessageSent {
     pub root: MessageRoot,
     pub short_header: Integer,
 }
-
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct MessageProcessed<Reply> {
     pub identifier: MessageIdentifier,
     pub origin_route: OriginRoute,
     pub reply: Reply,
 }
-
 pub trait MessageSentHook {
     type Error;
-
     fn message_sent(&mut self, event: MessageSent) -> Result<(), Self::Error>;
 }
-
 pub trait MessageProcessedHook<Reply> {
     type Error;
-
-    fn message_processed(&mut self, event: MessageProcessed<Reply>) -> Result<(), Self::Error>;
+    fn message_processed(
+        &mut self,
+        event: MessageProcessed<Reply>,
+    ) -> Result<(), Self::Error>;
 }
-
 impl MessageSent {
     pub fn origin_route(&self) -> OriginRoute {
         self.origin_route
     }
-
     pub fn push_to<Hook>(&self, hook: &mut Hook) -> Result<(), Hook::Error>
     where
         Hook: MessageSentHook,
@@ -1355,24 +1376,27 @@ impl MessageSent {
         hook.message_sent(self.clone())
     }
 }
-
 impl<Reply> MessageProcessed<Reply> {
-    pub fn new(identifier: MessageIdentifier, origin_route: OriginRoute, reply: Reply) -> Self {
-        Self { identifier, origin_route, reply }
+    pub fn new(
+        identifier: MessageIdentifier,
+        origin_route: OriginRoute,
+        reply: Reply,
+    ) -> Self {
+        Self {
+            identifier,
+            origin_route,
+            reply,
+        }
     }
-
     pub fn identifier(&self) -> MessageIdentifier {
         self.identifier
     }
-
     pub fn origin_route(&self) -> OriginRoute {
         self.origin_route
     }
-
     pub fn into_reply(self) -> Reply {
         self.reply
     }
-
     pub fn push_to<Hook>(&self, hook: &mut Hook) -> Result<(), Hook::Error>
     where
         Hook: MessageProcessedHook<Reply>,
@@ -1381,14 +1405,11 @@ impl<Reply> MessageProcessed<Reply> {
         hook.message_processed(self.clone())
     }
 }
-
 impl Input {
     pub fn with_origin_route(self, origin_route: OriginRoute) -> Signal<Self> {
         Signal::new(origin_route, self)
     }
-
 }
-
 impl signal::Signal<Input> {
     pub fn message_sent(&self, identifier: MessageIdentifier) -> MessageSent {
         MessageSent {
@@ -1399,14 +1420,11 @@ impl signal::Signal<Input> {
         }
     }
 }
-
 impl Output {
     pub fn with_origin_route(self, origin_route: OriginRoute) -> Signal<Self> {
         Signal::new(origin_route, self)
     }
-
 }
-
 impl signal::Signal<Output> {
     pub fn message_sent(&self, identifier: MessageIdentifier) -> MessageSent {
         MessageSent {
