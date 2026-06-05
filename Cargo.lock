@@ -739,7 +739,7 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 [[package]]
 name = "triad-runtime"
 version = "0.2.1"
-source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#9708fc3377338c5f65865d7667d37eda1762bb08"
+source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#973e1d3a0c5887deac8dff9ae9abd129be679c5d"
 dependencies = [
  "signal-frame",
  "thiserror",
