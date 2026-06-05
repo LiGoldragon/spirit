@@ -12,9 +12,8 @@ schema/{signal,nexus,sema}.schema
   -> build.rs
   -> schema_rust_next::build::GenerationPlan with three ModuleEmission targets
   -> schema_rust_next::build::GenerationDriver
-  -> schema-next lowering and macro registry inside the shared driver
-  -> schema-next::AsschemaArtifact
-  -> schema/{signal,nexus,sema}.asschema checked-in review artifacts
+  -> schema-next::SchemaSource typed source objects inside the shared driver
+  -> rkyv-serializable schema-in-Rust values checked by the shared driver
   -> schema-rust-next::RustEmitter with opt-in NOTA surface inside the driver
   -> checked-in generated modules at src/schema/{signal,nexus,sema}.rs
   -> engine composer + nexus mail keeper + sema-engine backed store + transport
@@ -59,9 +58,9 @@ Inside a struct map, `Topics *` derives the `topics` field from the existing
 `Topics` type, and explicit bindings such as `kind (Optional Kind)` stay only
 where the field name differs from the referenced type. Bare reference
 declarations (`Topic String`, `RecordSet (Vec Entry)`, `Record Entry`) become
-exported aliases in asschema and generated Rust, so enum variants carry direct
-payloads instead of wrapper structs. Explicit brace-body singleton declarations
-are the newtype form.
+exported aliases in the typed schema value and generated Rust, so enum variants
+carry direct payloads instead of wrapper structs. Explicit brace-body singleton
+declarations are the newtype form.
 
 Enum bodies keep vector homogeneity by listing exported object names. Namespace
 bindings such as `Record Entry`, `RecordAccepted SemaReceipt`, and
@@ -377,13 +376,12 @@ generated Rust still compiles and crosses the CLI/daemon rkyv boundary.
 `schema/signal.schema` with `SignalRuntime`, `schema/nexus.schema` with
 `NexusRuntime`, and `schema/sema.schema` with `SemaRuntime`. The shared driver
 reads each authored schema into `SchemaSource`, round-trips it through
-`SchemaSourceArtifact` as an internal codec witness, lowers it to `Asschema`,
-materializes fresh `.asschema` NOTA, and emits Rust with the opt-in
-`nota-text` surface. It compares generated `.asschema` and Rust output against
-`schema/{signal,nexus,sema}.asschema` and
-`src/schema/{signal,nexus,sema}.rs`, or rewrites them when
-`SPIRIT_UPDATE_SCHEMA_ARTIFACTS` is set. Runtime code imports the checked-in
-plane modules directly; it does not include generated Rust from `OUT_DIR`.
+`SchemaSourceArtifact` as text and rkyv internal codec witnesses, lowers from
+that typed source value, and emits Rust with the opt-in `nota-text` surface. It
+compares generated Rust output against `src/schema/{signal,nexus,sema}.rs`, or
+rewrites those files when `SPIRIT_UPDATE_SCHEMA_ARTIFACTS` is set. Runtime code
+imports the checked-in plane modules directly; it does not include generated
+Rust from `OUT_DIR`.
 
 The same schema-emitted data types can therefore be compiled as binary-only
 daemon nouns or as dual NOTA+rkyv CLI nouns without hand-written parallel

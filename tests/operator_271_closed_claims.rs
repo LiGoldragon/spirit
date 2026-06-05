@@ -7,9 +7,8 @@
 //!   names (`Record Observe Lookup ...`, `WriteInput ReadInput`) and define
 //!   those exported objects in the namespace (`Record Entry`, `Observe
 //!   Query`, ...). The retired `Record@Entry` short-suffix sugar is absent.
-//!   The companion `.asschema` artifacts carry the lifted honest shape:
-//!   root variants point at exported alias nouns, and the namespace stores
-//!   the alias definitions.
+//!   The authored schema source decodes into a typed `SchemaSource` value,
+//!   round-trips through rkyv, and the emitted Rust carries the alias shape.
 //!
 //! Spirit-next is the production-pilot consumer of schema-emitted nouns,
 //! so its source schema is the production witness for claim 4: the schema
@@ -21,9 +20,8 @@
 const SIGNAL_SCHEMA: &str = include_str!("../schema/signal.schema");
 const NEXUS_SCHEMA: &str = include_str!("../schema/nexus.schema");
 const SEMA_SCHEMA: &str = include_str!("../schema/sema.schema");
-const SIGNAL_ASSCHEMA: &str = include_str!("../schema/signal.asschema");
-const NEXUS_ASSCHEMA: &str = include_str!("../schema/nexus.asschema");
-const SEMA_ASSCHEMA: &str = include_str!("../schema/sema.asschema");
+
+use schema_next::SchemaSourceArtifact;
 
 /// Helper noun for schema-source assertions. Owns the source string and
 /// the witness verbs.
@@ -49,6 +47,21 @@ impl<'source> SchemaSourceWitness<'source> {
         assert!(
             !self.source.contains(needle),
             "claim {claim}: {} must not contain {needle:?}",
+            self.name
+        );
+    }
+
+    fn must_round_trip_as_schema_source(&self) {
+        let artifact = SchemaSourceArtifact::from_schema_text(self.source)
+            .unwrap_or_else(|error| panic!("{} must decode as SchemaSource: {error}", self.name));
+        let binary = artifact
+            .to_binary_bytes()
+            .unwrap_or_else(|error| panic!("{} must archive as rkyv: {error}", self.name));
+        let recovered = SchemaSourceArtifact::from_binary_bytes(&binary)
+            .unwrap_or_else(|error| panic!("{} must decode from rkyv: {error}", self.name));
+        assert_eq!(
+            artifact, recovered,
+            "{} must preserve the typed SchemaSource value through rkyv",
             self.name
         );
     }
@@ -142,62 +155,27 @@ fn split_schemas_carry_no_at_sigil_anywhere() {
     sema_witness.must_not_contain("@", "4");
 }
 
-/// Claim 4 — The lifted `.asschema` artifacts carry the assembled
-/// shape with root variants pointing at exported alias nouns. The
-/// alias nouns then carry the payload shape without creating wrapper
-/// ceremony in generated Rust.
+/// Claim 4 — The authored schemas are the durable schema values. Each
+/// one decodes into `SchemaSource` and archives through rkyv without an
+/// assembled checked-in artifact between source and emitted Rust.
 #[test]
-fn split_asschema_lifts_exported_variant_objects_into_typed_records() {
-    let signal_witness = SchemaSourceWitness::new("schema/signal.asschema", SIGNAL_ASSCHEMA);
-    let nexus_witness = SchemaSourceWitness::new("schema/nexus.asschema", NEXUS_ASSCHEMA);
-    let sema_witness = SchemaSourceWitness::new("schema/sema.asschema", SEMA_ASSCHEMA);
+fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
+    let signal_witness = SchemaSourceWitness::new("schema/signal.schema", SIGNAL_SCHEMA);
+    let nexus_witness = SchemaSourceWitness::new("schema/nexus.schema", NEXUS_SCHEMA);
+    let sema_witness = SchemaSourceWitness::new("schema/sema.schema", SEMA_SCHEMA);
 
-    // Input variants lift to exported alias nouns, not directly to payload structs.
-    signal_witness.must_contain("(Record (Some (Plain Record)))", "4");
-    signal_witness.must_contain("(Observe (Some (Plain Observe)))", "4");
-    signal_witness.must_contain("(Lookup (Some (Plain Lookup)))", "4");
-    signal_witness.must_contain("(Count (Some (Plain Count)))", "4");
-    signal_witness.must_contain("(Remove (Some (Plain Remove)))", "4");
+    signal_witness.must_round_trip_as_schema_source();
+    nexus_witness.must_round_trip_as_schema_source();
+    sema_witness.must_round_trip_as_schema_source();
 
-    // Namespace declarations carry the payload shape as aliases.
-    signal_witness.must_contain("(Public Record (Alias (Record (Plain Entry))))", "4");
-    signal_witness.must_contain("(Public Observe (Alias (Observe (Plain Query))))", "4");
-    signal_witness.must_contain(
-        "(Public Lookup (Alias (Lookup (Plain RecordIdentifier))))",
-        "4",
-    );
-
-    // Output variants similarly lift to exported alias nouns.
-    signal_witness.must_contain("(RecordAccepted (Some (Plain RecordAccepted)))", "4");
-    signal_witness.must_contain("(RecordFound (Some (Plain RecordFound)))", "4");
-    signal_witness.must_contain("(RecordsCounted (Some (Plain RecordsCounted)))", "4");
-    signal_witness.must_contain("(RecordRemoved (Some (Plain RecordRemoved)))", "4");
-
-    // The split SEMA plane keeps the same honest exported-object shape.
-    sema_witness.must_contain("(WriteInput (Some (Plain WriteInput)))", "4");
-    sema_witness.must_contain("(ReadInput (Some (Plain ReadInput)))", "4");
-    sema_witness.must_contain(
-        "(Public WriteInput (Enum (WriteInput [(Record (Some (Plain Record))) (Remove (Some (Plain Remove)))])))",
-        "4",
-    );
-    sema_witness.must_contain(
-        "(Public Recorded (Alias (Recorded (Plain SemaReceipt))))",
-        "4",
-    );
-    nexus_witness.must_contain(
-        "(Public CommandSemaWrite (Alias (CommandSemaWrite (Plain SemaWriteInput))))",
-        "4",
-    );
-
-    // Unit variants land as `(VariantName None)`.
-    signal_witness.must_contain("(EmptyTopic None)", "4");
-    signal_witness.must_contain("(Decision None)", "4");
-    signal_witness.must_contain("(Minimum None)", "4");
-
-    // No retired sigil leaks into the artifact either.
-    signal_witness.must_not_contain("@", "4");
-    nexus_witness.must_not_contain("@", "4");
-    sema_witness.must_not_contain("@", "4");
+    signal_witness.must_contain("[Record Observe Lookup Count Remove LookupStash]", "4");
+    signal_witness.must_contain("Record Entry", "4");
+    signal_witness.must_contain("Observe Query", "4");
+    signal_witness.must_contain("Lookup RecordIdentifier", "4");
+    sema_witness.must_contain("[WriteInput ReadInput]", "4");
+    sema_witness.must_contain("WriteInput [Record Remove]", "4");
+    sema_witness.must_contain("Recorded SemaReceipt", "4");
+    nexus_witness.must_contain("CommandSemaWrite SemaWriteInput", "4");
 }
 
 /// Claim 4 — The schema-emitted Rust source surface mirrors the honest

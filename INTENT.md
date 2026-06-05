@@ -21,17 +21,13 @@ Load-bearing constraints:
 - Rust data types are generated from the crate-local
   `schema/{signal,nexus,sema}.schema` plane schemas and materialized as
   checked-in source under `src/schema/`.
-- The macro-free assembled form is materialized as checked-in
-  `schema/{signal,nexus,sema}.asschema` text. Build code compares those
-  artifacts against fresh lowering of the authored plane schemas, then emits
-  Rust through the shared `schema_rust_next::build` driver.
 - Authored schema source is also a typed artifact before assembly.
   The shared generation driver reads each plane schema into `SchemaSource`,
-  round-trips canonical source text through `SchemaSourceArtifact`, lowers the
-  recovered typed source into `Asschema`, and compares the generated
-  `.asschema` and Rust artifacts with the checked-in files. The source language
-  therefore has an in/out codec on the Spirit stack instead of being a one-way
-  parser.
+  round-trips canonical source text and rkyv archive bytes through
+  `SchemaSourceArtifact`, lowers from that typed source value, and compares
+  only the generated Rust artifacts with the checked-in files. The source
+  language therefore has an in/out codec on the Spirit stack instead of being
+  a one-way parser, and `.asschema` is no longer a checked component artifact.
 - `schema/signal.schema`, `schema/nexus.schema`, and `schema/sema.schema`
   preserve NOTA brace semantics: braces are key-value
   maps, not collections of one-object declarations. A namespace entry is a
@@ -55,15 +51,14 @@ Load-bearing constraints:
   build code uses those paths directly instead of treating them as relative to
   `src/`.
 - Schema lowering goes through `schema-next` before Rust emission; build and
-  runtime tests prove the generated `Asschema` data and emitted Rust, not a
-  macro trace side channel. The build freshness path materializes
-  `AsschemaArtifact` as legal `.asschema` NOTA, compares it with checked-in
-  plane artifacts, and compares emitted Rust with the checked-in plane modules.
-  The checked-in generated Rust is produced from typed assembled-schema data
-  rather than a private parser side channel.
+  runtime tests prove the typed `SchemaSource` path and emitted Rust, not a
+  macro trace side channel. The build freshness path validates the authored
+  source as a typed schema object and compares emitted Rust with the checked-in
+  plane modules. The checked-in generated Rust is produced from typed schema
+  data rather than a private parser side channel.
 - `build.rs` is a freshness witness for the generated source. It regenerates
-  in memory and fails if any checked-in plane artifact or generated source file
-  is missing or stale.
+  in memory and fails if any checked-in generated source file is missing or
+  stale.
 - Old design-convenience APIs do not remain beside the working interface
   (Spirit record 1339). Once the schema-derived trait path exists, parallel
   bypass/convenience surfaces are removed rather than carried for comfort.

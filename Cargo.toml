@@ -53,6 +53,7 @@ triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", bran
 schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }
 
 [dev-dependencies]
+schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }
 tempfile = "3"
 
 [lints.rust]
