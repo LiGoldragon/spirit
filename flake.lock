@@ -105,11 +105,11 @@
     "nota-next-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1780307995,
-        "narHash": "sha256-5Eoh95gujyrzt58vB8va2ZLXZpEB/5cOR+w24tzsY8E=",
+        "lastModified": 1780652010,
+        "narHash": "sha256-Pb8kIHvOVOWvZK9VcTL0wtpzYp/c/0gHFdN8dNL6WoA=",
         "owner": "LiGoldragon",
         "repo": "nota-next",
-        "rev": "b33b5b51ce10aa7f44027b7290bfe008c90e7ce5",
+        "rev": "fb600e327157df47a0d18a42c25821a7e06a30a9",
         "type": "github"
       },
       "original": {
@@ -158,11 +158,11 @@
     "schema-next-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1780576811,
-        "narHash": "sha256-SLH2uNaqTcMR2MvhzF2eApJXlZTVxGDvPRnYgx42wEQ=",
+        "lastModified": 1780668600,
+        "narHash": "sha256-OhyCtjEPp2UaCO8d0emoztMZXYeXTt0tv86eKnlP4ZA=",
         "owner": "LiGoldragon",
         "repo": "schema-next",
-        "rev": "3f7813cfc7eecb45d372db57650d3558d1362f18",
+        "rev": "30a88bee607ac1d590c24152483a994f14c27d07",
         "type": "github"
       },
       "original": {
@@ -174,11 +174,11 @@
     "schema-rust-next-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1780578660,
-        "narHash": "sha256-97f60AJ5y7yOv3eU8qPP5RFuPdQuT62zlX0ExXJjoCE=",
+        "lastModified": 1780678940,
+        "narHash": "sha256-QOpOiy5odDBWV/2Cm2NVe4fC2aa0Kd3GHoS7lN1MoCQ=",
         "owner": "LiGoldragon",
         "repo": "schema-rust-next",
-        "rev": "e25cc3eee37db3cd22341e368c8de69fa77ae27e",
+        "rev": "e332b5e20a655a6d4d4d9ca2c4882ef27dd5bf09",
         "type": "github"
       },
       "original": {
@@ -301,11 +301,11 @@
     "triad-runtime-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1780570050,
-        "narHash": "sha256-8F8HraBwmeraz6IUCqQ22AYbTO1FT/ixmfSENNvE3BA=",
+        "lastModified": 1780678911,
+        "narHash": "sha256-wHVW18P1le2ZkjBcFvK0Kt6fW8gvfc9OIPCm/bQ10GY=",
         "owner": "LiGoldragon",
         "repo": "triad-runtime",
-        "rev": "6daf29543aed6c26ed4e2d0bbab675bd7b19de36",
+        "rev": "973e1d3a0c5887deac8dff9ae9abd129be679c5d",
         "type": "github"
       },
       "original": {
