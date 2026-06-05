@@ -1,6 +1,13 @@
 # INTENT — spirit
 
 `spirit` proves a running Spirit-like component can be built from schema-derived interfaces. It is intentionally separate from production `spirit`/`persona-spirit` so operators can iterate without disturbing the deployed substrate.
+It is the current copyable three-plane exemplar for the next Spirit engine
+stack: a daemon crate with crate-local `schema/signal.schema`,
+`schema/nexus.schema`, and `schema/sema.schema`, shared build-driver
+generation, generated plane modules under `spirit::schema`, `sema-engine`
+storage, and `triad-runtime` runner/listener/runtime support. It must not be
+described as an all-in-one pilot whose shape future components should avoid.
+(Spirit record `y88n`, High certainty.)
 
 Load-bearing constraints:
 

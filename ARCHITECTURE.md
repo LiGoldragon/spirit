@@ -5,6 +5,16 @@
 `spirit` is the running proof that schema can create an interface used by
 a real CLI and daemon pair.
 
+It is also the current copyable exemplar for the schema-derived triad engine
+stack. The repo is intentionally one daemon crate, but it is not an all-in-one
+schema shape: the runtime planes are split into `schema/signal.schema`,
+`schema/nexus.schema`, and `schema/sema.schema`, generated through the shared
+driver into `src/schema/{signal,nexus,sema}.rs`, and consumed through
+`triad-runtime` plus `sema-engine`. Future component daemon repos should copy
+this plane/runtime shape while placing their external ordinary/meta signal
+contracts in separate contract repos where rebuild and policy boundaries
+require it.
+
 ## Layers
 
 ```text

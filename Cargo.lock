@@ -303,7 +303,7 @@ dependencies = [
 [[package]]
 name = "nota-derive"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/nota-derive.git?branch=main#cde0e8262f2f90afbdf26d9b1b3561376723d816"
+source = "git+https://github.com/LiGoldragon/nota-derive.git?branch=main#11347da1ff4425ff4e743c15a3e3ec322b54ea9a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -480,7 +480,7 @@ checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 [[package]]
 name = "schema"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/schema.git?branch=operator-full-schema-spirit-2026-05-26#2498e5b3afb664564ef84e55676fd2014cac6377"
+source = "git+https://github.com/LiGoldragon/schema.git?branch=main#bfe4ff40a1dca39cbc55f8cd5785a06ff2497abd"
 dependencies = [
  "nota-codec",
 ]
@@ -488,7 +488,7 @@ dependencies = [
 [[package]]
 name = "schema-next"
 version = "0.1.4"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#5311f9ad0261b3506990f8d4dce0975f26b200e2"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#30a88bee607ac1d590c24152483a994f14c27d07"
 dependencies = [
  "nota-next",
  "rkyv",
@@ -497,7 +497,7 @@ dependencies = [
 [[package]]
 name = "schema-rust"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=operator-full-schema-spirit-2026-05-26#4d3264ff8ca4fb619a84155a7eb1bf39d2d3b3ef"
+source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#6f5a77f11115c043b93d005086cda8cbec349cd4"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -507,7 +507,7 @@ dependencies = [
 [[package]]
 name = "schema-rust-next"
 version = "0.1.13"
-source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#c0a331a1d5242c3dce50e7c9b250e6bde4869acc"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#d8e0a37a3d504a977f92dee31d141216205b5430"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -617,7 +617,7 @@ dependencies = [
 [[package]]
 name = "signal-frame"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=operator-full-schema-spirit-2026-05-26#4d3264ff8ca4fb619a84155a7eb1bf39d2d3b3ef"
+source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#6f5a77f11115c043b93d005086cda8cbec349cd4"
 dependencies = [
  "nota-codec",
  "paste",
@@ -629,7 +629,7 @@ dependencies = [
 [[package]]
 name = "signal-frame-macros"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=operator-full-schema-spirit-2026-05-26#4d3264ff8ca4fb619a84155a7eb1bf39d2d3b3ef"
+source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#6f5a77f11115c043b93d005086cda8cbec349cd4"
 dependencies = [
  "nota-codec",
  "proc-macro2",
@@ -642,11 +642,10 @@ dependencies = [
 [[package]]
 name = "signal-sema"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/signal-sema.git?branch=main#ee61fefbc8cf57780b37a94496ab176f069fe506"
+source = "git+https://github.com/LiGoldragon/signal-sema.git?branch=main#c132e9a06431617055bad2a9bae7bbecdeacd4b0"
 dependencies = [
  "nota-codec",
  "rkyv",
- "signal-frame",
  "thiserror",
 ]
 
@@ -739,8 +738,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 [[package]]
 name = "triad-runtime"
 version = "0.2.1"
-source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#28d03c32eff69aa9d001cbd3052de6169ed42022"
+source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#de332266ff795f651619cecfb83f97bf3a9a5ea8"
 dependencies = [
+ "signal-frame",
  "thiserror",
 ]
 
