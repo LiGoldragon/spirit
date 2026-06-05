@@ -302,13 +302,6 @@ impl std::fmt::Display for Output {
     }
 }
 
-pub mod short_header {
-    pub const INPUT_WRITE_INPUT: u64 = 0x0000000000000000;
-    pub const INPUT_READ_INPUT: u64 = 0x0001000000000000;
-    pub const OUTPUT_WRITE_OUTPUT: u64 = 0x0100000000000000;
-    pub const OUTPUT_READ_OUTPUT: u64 = 0x0101000000000000;
-}
-
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WriteInputRoute {

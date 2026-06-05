@@ -403,18 +403,6 @@ impl std::fmt::Display for Output {
     }
 }
 
-pub mod short_header {
-    pub const INPUT_SIGNAL_ARRIVED: u64 = 0x0000000000000000;
-    pub const INPUT_SEMA_WRITE_COMPLETED: u64 = 0x0001000000000000;
-    pub const INPUT_SEMA_READ_COMPLETED: u64 = 0x0002000000000000;
-    pub const INPUT_EFFECT_COMPLETED: u64 = 0x0003000000000000;
-    pub const OUTPUT_COMMAND_SEMA_WRITE: u64 = 0x0100000000000000;
-    pub const OUTPUT_COMMAND_SEMA_READ: u64 = 0x0101000000000000;
-    pub const OUTPUT_REPLY_TO_SIGNAL: u64 = 0x0102000000000000;
-    pub const OUTPUT_COMMAND_EFFECT: u64 = 0x0103000000000000;
-    pub const OUTPUT_CONTINUE: u64 = 0x0104000000000000;
-}
-
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NexusWorkRoute {
