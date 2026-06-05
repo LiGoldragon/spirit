@@ -85,9 +85,16 @@ machinery remain future work.
 `DaemonCommand` is the current programmatic startup noun. The daemon binary
 `main` only creates `DaemonCommand::from_environment()` and runs it; the
 command loads the single binary configuration path and constructs `Daemon`.
-This is the small live step toward the generated component runner: startup
-behavior belongs to library nouns, while domain decisions belong to generated
-engine trait implementations.
+`Daemon` then constructs `SpiritDaemonRuntime` around the component `Engine`
+and gives it to `triad_runtime::SingleListenerDaemon`. The shared runtime
+prepares the Unix socket, binds the listener, starts the runtime, serves
+accepted streams, logs request-level errors without stopping the listener, and
+stops the runtime when the accept loop exits. Spirit's runtime object owns only
+engine construction and the one-stream generated signal-frame bridge.
+
+This is the live startup-runner slice: startup and listener behavior belongs to
+shared runtime nouns, while domain decisions belong to generated engine trait
+implementations.
 
 ## Borrowed prototype lessons
 
@@ -120,12 +127,16 @@ The daemon:
 
 1. starts from `DaemonCommand`, which accepts exactly one argument: a path to a
    binary rkyv `Configuration` object;
-2. opens the configured socket and `.sema` database path;
-3. reads a length-prefixed binary frame;
-4. asks generated `Input` to triage by short header and decode itself;
-5. dispatches through `Engine`;
-6. asks generated `Output` to frame itself as binary rkyv;
-7. writes it back.
+2. constructs `SpiritDaemonRuntime`, opening the configured `.sema` database
+   path through `Store`;
+3. hands that runtime and the configured socket path to
+   `triad_runtime::SingleListenerDaemon`;
+4. starts the generated engine lifecycle through `DaemonRuntime::start`;
+5. reads a length-prefixed binary frame from each accepted stream;
+6. asks generated `Input` to triage by short header and decode itself;
+7. dispatches through `Engine`;
+8. asks generated `Output` to frame itself as binary rkyv;
+9. writes it back.
 
 The daemon does not parse NOTA at startup and does not need `nota-next` for
 its binary-only build. A text launcher or test can write the binary

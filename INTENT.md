@@ -16,6 +16,14 @@ Load-bearing constraints:
 
 *Nexus is the recursive runner payload keeper.* Signal triage produces a generated `nexus::Nexus<nexus::Work>` envelope; `triad-runtime::Runner` owns the continuation budget and repeated dispatch. Hand-written `Nexus` implements one decision step, SEMA write/read hooks, and the effect hook.
 
+*The daemon listener shell is shared runtime, not Spirit boilerplate.* `Daemon`
+constructs a data-bearing `SpiritDaemonRuntime` around `Engine`, then hands it
+to `triad_runtime::SingleListenerDaemon`. The shared runtime creates parent
+directories, removes stale socket files, binds the Unix listener, starts and
+stops the runtime, and keeps the listener alive after per-request transport
+errors. Spirit owns only configuration decoding, engine construction, and the
+generated signal-frame bridge for one accepted stream.
+
 *SEMA is durable.* `Store` maps generated SEMA roots onto `sema-engine` identified-record operations over a `.sema` file. Each `Record` calls `Engine::assert_identified`, each `Remove` calls `Engine::retract_identified`, and `Observe`/`Lookup`/`Count` read through `Engine::match_identified`. SEMA replies carry generated `DatabaseMarker` values so Signal replies report the state commit sequence and digest.
 
 *The daemon's single argument is a path to a binary rkyv `Configuration` object.* Text-facing launchers may create that file, but the daemon startup path only decodes binary state.

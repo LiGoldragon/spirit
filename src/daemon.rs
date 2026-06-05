@@ -1,12 +1,10 @@
-use std::{
-    fs,
-    os::unix::net::{UnixListener, UnixStream},
-    path::Path,
-    sync::Arc,
-};
+use std::os::unix::net::UnixStream;
 
 use thiserror::Error;
-use triad_runtime::{ArgumentError, ComponentArgument, ComponentCommand};
+use triad_runtime::{
+    ArgumentError, ComponentArgument, ComponentCommand, DaemonRuntime, ListenerError,
+    RequestErrorLog, SingleListenerDaemon, SingleListenerDaemonError,
+};
 
 use crate::{
     ActorStartFailure, ActorStopFailure, Configuration, ConfigurationError, Engine, StoreError,
@@ -21,6 +19,9 @@ use crate::TraceLog;
 pub enum DaemonError {
     #[error("daemon IO error: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("daemon listener error: {0}")]
+    Listener(#[from] ListenerError),
 
     #[error("daemon transport error: {0}")]
     Transport(#[from] TransportError),
@@ -94,29 +95,17 @@ impl Daemon {
     }
 
     pub fn run(&self) -> Result<(), DaemonError> {
-        if let Some(parent) = self.configuration.socket_path().parent() {
-            fs::create_dir_all(parent)?;
-        }
-        self.remove_stale_socket()?;
-        let listener = UnixListener::bind(self.configuration.socket_path())?;
-        let mut engine = self.engine()?;
-        engine.start()?;
-        let engine = Arc::new(engine);
-        for stream in listener.incoming() {
-            match stream {
-                Ok(stream) => {
-                    let engine = Arc::clone(&engine);
-                    if let Err(error) = self.handle_stream(stream, &engine) {
-                        eprintln!("spirit-daemon: {error}");
-                    }
-                }
-                Err(error) => return Err(DaemonError::Io(error)),
-            }
-        }
-        Ok(())
+        let runtime = self.runtime()?;
+        SingleListenerDaemon::new(
+            self.configuration.socket_path(),
+            runtime,
+            RequestErrorLog::new("spirit-daemon"),
+        )
+        .run()
+        .map_err(Into::into)
     }
 
-    fn engine(&self) -> Result<Engine, DaemonError> {
+    fn runtime(&self) -> Result<SpiritDaemonRuntime, DaemonError> {
         #[cfg(feature = "testing-trace")]
         {
             let trace_log = self
@@ -126,43 +115,60 @@ impl Daemon {
                 .unwrap_or_default();
             let store =
                 Store::open_with_trace(self.configuration.database_path(), trace_log.clone())?;
-            Ok(Engine::new_with_trace(store, trace_log))
+            Ok(SpiritDaemonRuntime::new(Engine::new_with_trace(
+                store, trace_log,
+            )))
         }
         #[cfg(not(feature = "testing-trace"))]
         {
             let store = Store::open(self.configuration.database_path())?;
-            Ok(Engine::new(store))
+            Ok(SpiritDaemonRuntime::new(Engine::new(store)))
         }
     }
+}
 
-    fn handle_stream(&self, stream: UnixStream, engine: &Engine) -> Result<(), DaemonError> {
+struct SpiritDaemonRuntime {
+    engine: Engine,
+}
+
+impl SpiritDaemonRuntime {
+    fn new(engine: Engine) -> Self {
+        Self { engine }
+    }
+
+    fn handle_stream(&self, stream: UnixStream) -> Result<(), DaemonError> {
         let mut transport = SignalTransport::new(stream);
         let (_route, input) = transport.read_input()?;
-        let output = engine.handle(input);
+        let output = self.engine.handle(input);
         transport.write_output(output.root())?;
         Ok(())
     }
+}
 
-    fn remove_stale_socket(&self) -> Result<(), DaemonError> {
-        let path = SocketPath::new(self.configuration.socket_path());
-        path.remove_stale()
+impl DaemonRuntime for SpiritDaemonRuntime {
+    type RequestError = DaemonError;
+    type StartError = ActorStartFailure;
+    type StopError = ActorStopFailure;
+
+    fn start(&mut self) -> Result<(), Self::StartError> {
+        self.engine.start()
+    }
+
+    fn stop(&mut self) -> Result<(), Self::StopError> {
+        self.engine.stop()
+    }
+
+    fn handle_stream(&mut self, stream: UnixStream) -> Result<(), Self::RequestError> {
+        SpiritDaemonRuntime::handle_stream(self, stream)
     }
 }
 
-struct SocketPath<'path> {
-    path: &'path Path,
-}
-
-impl<'path> SocketPath<'path> {
-    fn new(path: &'path Path) -> Self {
-        Self { path }
-    }
-
-    fn remove_stale(&self) -> Result<(), DaemonError> {
-        match fs::remove_file(self.path) {
-            Ok(()) => Ok(()),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(error) => Err(DaemonError::Io(error)),
+impl From<SingleListenerDaemonError<ActorStartFailure, ActorStopFailure>> for DaemonError {
+    fn from(error: SingleListenerDaemonError<ActorStartFailure, ActorStopFailure>) -> Self {
+        match error {
+            SingleListenerDaemonError::Listener(error) => Self::Listener(error),
+            SingleListenerDaemonError::Start(error) => Self::ActorStart(error),
+            SingleListenerDaemonError::Stop(error) => Self::ActorStop(error),
         }
     }
 }

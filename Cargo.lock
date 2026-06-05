@@ -738,8 +738,8 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "triad-runtime"
-version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#e40d1e960be0da3ee942286b98ab778f996dad6d"
+version = "0.2.1"
+source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#ce681957373cf571fe43073ebc8d1c5d3f065f02"
 dependencies = [
  "thiserror",
 ]

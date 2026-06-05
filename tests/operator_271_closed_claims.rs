@@ -183,10 +183,7 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
         "4",
     );
     nexus_witness.must_contain("CommandSemaWrite SemaWriteInput", "4");
-    nexus_witness.must_contain(
-        "NexusAction [(CommandSemaWrite CommandSemaWrite)",
-        "4",
-    );
+    nexus_witness.must_contain("NexusAction [(CommandSemaWrite CommandSemaWrite)", "4");
 }
 
 /// Claim 4 — The schema-emitted Rust source surface mirrors the honest
