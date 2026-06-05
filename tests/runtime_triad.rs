@@ -3,7 +3,8 @@ use spirit::{
     MessageIdentifier, MessageSent, MessageSentHook, Nexus, NexusAction, NexusEngine, NexusWork,
     OriginRoute, Output, PrivacySelection, ProcessedMail, Query, RecordIdentifier, SemaEngine,
     SemaReadInput, SemaReadOutput, SemaReceipt, SemaWriteInput, SemaWriteOutput, SentMail,
-    SignalActor, SignalEngine, SignalRejection, Store, TopicMatch, ValidationError, sema,
+    SignalActor, SignalEngine, SignalRejection, Statement, Store, TopicMatch, ValidationError,
+    sema,
 };
 #[cfg(feature = "nota-text")]
 use spirit::{Export, Import};
@@ -116,6 +117,10 @@ fn input_record(entry: Entry) -> Input {
     Input::record(entry)
 }
 
+fn input_state(statement: &str) -> Input {
+    Input::state(Statement::new(String::from(statement)))
+}
+
 fn input_observe(query: Query) -> Input {
     Input::observe(query)
 }
@@ -182,9 +187,45 @@ fn nexus_runner_loop_routes_record_input_to_sema_write_command_then_back_to_repl
 }
 
 #[test]
+fn nexus_classifies_state_into_provisional_record_through_sema_write() {
+    let sema = SemaFile::new();
+    let mut nexus = Nexus::new(sema.open_store());
+    let nexus_input = nexus_signal_arrived(input_state("capture this statement"))
+        .with_origin_route(nexus_route(2));
+
+    let nexus_output = NexusEngine::execute(&mut nexus, nexus_input);
+
+    match nexus_output.root() {
+        NexusAction::ReplyToSignal(Output::RecordAccepted(receipt)) => {
+            assert_eq!(receipt.record_identifier, 1);
+            assert_eq!(receipt.database_marker.commit_sequence, 1);
+        }
+        other => panic!("expected State to classify into RecordAccepted, got {other:?}"),
+    }
+
+    let observed = SemaEngine::observe(
+        nexus.store(),
+        sema_read_message(
+            sema_observe(full_query(&["unclassified"], Some(Kind::Clarification))),
+            3,
+        ),
+    );
+    match observed.root() {
+        SemaReadOutput::Observed(records) => {
+            assert_eq!(records.record_set.len(), 1);
+            assert_eq!(records.record_set[0].description, "capture this statement");
+            assert_eq!(records.record_set[0].magnitude, Magnitude::Minimum);
+            assert_eq!(records.record_set[0].privacy, Magnitude::Zero);
+        }
+        other => panic!("expected classified State record to be observable, got {other:?}"),
+    }
+}
+
+#[test]
 fn signal_actor_pushes_accepted_message_through_sent_hook_before_nexus_holds_mail() {
     let signal_actor = SignalActor::default();
     let signal_entry = entry("signal pushes to nexus");
+    let expected_short_header = input_record(signal_entry.clone()).short_header();
     let accepted = signal_actor
         .admit(input_record(signal_entry.clone()))
         .expect("signal input admits");
@@ -192,7 +233,7 @@ fn signal_actor_pushes_accepted_message_through_sent_hook_before_nexus_holds_mai
     let expected_sent = MailLedgerEvent::Sent(SentMail {
         mail_identifier: 1,
         origin_route: route(1),
-        short_header: 0,
+        short_header: expected_short_header,
     });
 
     assert_eq!(accepted.message_sent().identifier, MessageIdentifier(1));

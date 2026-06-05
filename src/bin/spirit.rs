@@ -1,7 +1,7 @@
 use std::{env, fs, path::PathBuf};
 
-use nota_next::NotaDecodeError;
-use spirit::{Input, SignalTransport, TransportError};
+use nota_next::{Delimiter, Document, NotaBlock, NotaDecodeError};
+use spirit::{Input, SignalTransport, Statement, TransportError};
 use thiserror::Error;
 use triad_runtime::{ArgumentError, ComponentArgument, ComponentCommand};
 
@@ -30,7 +30,7 @@ impl SpiritCli {
 
     fn run(&self) -> Result<(), SpiritCliError> {
         let source = self.source()?;
-        let input = source.parse::<Input>()?;
+        let input = source.parse_input()?;
         let socket_path =
             env::var("SPIRIT_SOCKET").unwrap_or_else(|_| String::from("/tmp/spirit.sock"));
         #[cfg(feature = "testing-trace")]
@@ -43,20 +43,72 @@ impl SpiritCli {
         Ok(())
     }
 
-    fn source(&self) -> Result<String, SpiritCliError> {
+    fn source(&self) -> Result<SpiritInputSource, SpiritCliError> {
         match self.command.nota_argument()? {
-            ComponentArgument::InlineNota(argument) => Ok(argument.into_string()),
+            ComponentArgument::InlineNota(argument) => {
+                Ok(SpiritInputSource::new(argument.into_string()))
+            }
             ComponentArgument::NotaFile(file) => {
                 let path = file.into_path();
                 fs::read_to_string(&path)
+                    .map(SpiritInputSource::new)
                     .map_err(|source| SpiritCliError::ReadNotaFile { path, source })
             }
             ComponentArgument::SignalFile(file) => {
                 let path = file.into_path();
                 fs::read_to_string(&path)
+                    .map(SpiritInputSource::new)
                     .map_err(|source| SpiritCliError::ReadNotaFile { path, source })
             }
         }
+    }
+}
+
+struct SpiritInputSource {
+    text: String,
+}
+
+struct LegacyStateInput {
+    statement: Statement,
+}
+
+impl SpiritInputSource {
+    fn new(text: String) -> Self {
+        Self { text }
+    }
+
+    fn parse_input(&self) -> Result<Input, NotaDecodeError> {
+        self.text.parse::<Input>().or_else(|error| {
+            LegacyStateInput::from_source(&self.text)
+                .map(LegacyStateInput::into_input)
+                .ok_or(error)
+        })
+    }
+}
+
+impl LegacyStateInput {
+    fn from_source(source: &str) -> Option<Self> {
+        let document = Document::parse(source).ok()?;
+        let [root] = document.root_objects() else {
+            return None;
+        };
+        let [head, payload] = root.as_delimited(Delimiter::Parenthesis)? else {
+            return None;
+        };
+        if head.demote_to_string()? != "State" {
+            return None;
+        }
+        let [statement_text] = payload.as_delimited(Delimiter::Parenthesis)? else {
+            return None;
+        };
+        let statement_text = NotaBlock::new(statement_text).parse_string().ok()?;
+        Some(Self {
+            statement: Statement::new(statement_text),
+        })
+    }
+
+    fn into_input(self) -> Input {
+        Input::state(self.statement)
     }
 }
 

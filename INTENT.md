@@ -14,6 +14,15 @@ Load-bearing constraints:
 
 *Signal admission is explicit.* `SignalActor::admit` mints the origin route, validates generated `Input`, and creates `SignalAccepted`. Invalid input returns `Output::Rejected(SignalRejection { validation_error, database_marker })` where `ValidationError` is generated from schema; the runtime does not use a hand-written rejection enum.
 
+*State is the first production-surface compatibility operation.* Generated
+`Input::State(Statement)` carries raw psyche text. Signal only admits and
+validates the non-empty statement; Nexus classifies it into a provisional
+`Entry` using the production fallback policy (`unclassified`,
+`Clarification`, `Minimum`, `Zero`); SEMA persists it through the existing
+`Record` write root. The generated canonical NOTA shape is `(State [text])`.
+The CLI text edge also accepts deployed production shorthand `(State ([text]))`
+and normalizes it to the generated input before binary framing.
+
 *Nexus is the recursive runner payload keeper.* Signal triage produces a generated `nexus::Nexus<nexus::Work>` envelope; `triad-runtime::Runner` owns the continuation budget and repeated dispatch. Hand-written `Nexus` implements one decision step, SEMA write/read hooks, and the effect hook.
 
 *The daemon listener shell is shared runtime, not Spirit boilerplate.* `Daemon`

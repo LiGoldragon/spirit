@@ -351,11 +351,21 @@ impl MessageProcessedHook<Output> for MailLedgerHook<'_> {
 impl Input {
     pub fn validate(&self) -> Result<(), ValidationError> {
         match self {
+            Self::State(statement) => statement.validate(),
             Self::Record(record) => record.validate(),
             Self::Observe(observe) => observe.validate(),
             Self::Lookup(_) | Self::Remove(_) | Self::LookupStash(_) => Ok(()),
             Self::Count(count) => count.validate(),
         }
+    }
+}
+
+impl crate::Statement {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        if self.payload().trim().is_empty() {
+            return Err(ValidationError::EmptyDescription);
+        }
+        Ok(())
     }
 }
 

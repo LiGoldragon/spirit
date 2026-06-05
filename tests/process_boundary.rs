@@ -214,6 +214,52 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
 }
 
 #[test]
+fn cli_and_daemon_classify_state_into_provisional_record() {
+    let temp = TempDir::new().expect("tempdir");
+    let socket_path = temp.path().join("state.sock");
+    let database_path = temp.path().join("state.sema");
+
+    let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
+
+    let accepted = run_cli(&socket_path, "(State ([daemon raw intent]))");
+    match accepted {
+        Output::RecordAccepted(receipt) => {
+            assert_eq!(receipt.record_identifier, 1);
+            assert_eq!(receipt.database_marker.commit_sequence, 1);
+        }
+        other => panic!("expected State to classify into RecordAccepted, got {other:?}"),
+    }
+
+    let observed = run_cli(
+        &socket_path,
+        "(Observe ((Full [[unclassified]]) (Some Clarification) (Exact Zero)))",
+    );
+    let Output::RecordsStashed(stashed) = observed else {
+        panic!("expected classified State observation to be stashed, got {observed:?}");
+    };
+    assert_eq!(stashed.record_count, 1);
+
+    let looked_up = run_cli(
+        &socket_path,
+        &format!("(LookupStash {})", stashed.stash_handle),
+    );
+    match looked_up {
+        Output::RecordsObserved(records) => {
+            assert_eq!(records.record_set.len(), 1);
+            assert_eq!(
+                records.record_set[0].topics,
+                vec![String::from("unclassified")]
+            );
+            assert_eq!(records.record_set[0].kind, spirit::Kind::Clarification);
+            assert_eq!(records.record_set[0].description, "daemon raw intent");
+            assert_eq!(records.record_set[0].magnitude, spirit::Magnitude::Minimum);
+            assert_eq!(records.record_set[0].privacy, spirit::Magnitude::Zero);
+        }
+        other => panic!("expected LookupStash to return classified State record, got {other:?}"),
+    }
+}
+
+#[test]
 fn cli_renders_alias_payload_outputs_without_wrapper_repetition() {
     let temp = TempDir::new().expect("tempdir");
     let socket_path = temp.path().join("alias-payload.sock");

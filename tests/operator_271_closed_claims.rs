@@ -79,7 +79,11 @@ fn signal_schema_input_uses_exported_object_variant_names() {
     let witness = SchemaSourceWitness::new("schema/signal.schema", SIGNAL_SCHEMA);
 
     // The active production Input enum body — compact exported objects.
-    witness.must_contain("[Record Observe Lookup Count Remove LookupStash]", "4");
+    witness.must_contain(
+        "[State Record Observe Lookup Count Remove LookupStash]",
+        "4",
+    );
+    witness.must_contain("State Statement", "4");
     witness.must_contain("Record Entry", "4");
     witness.must_contain("Observe Query", "4");
     witness.must_contain("Lookup RecordIdentifier", "4");
@@ -171,7 +175,11 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     nexus_witness.must_round_trip_as_schema_source();
     sema_witness.must_round_trip_as_schema_source();
 
-    signal_witness.must_contain("[Record Observe Lookup Count Remove LookupStash]", "4");
+    signal_witness.must_contain(
+        "[State Record Observe Lookup Count Remove LookupStash]",
+        "4",
+    );
+    signal_witness.must_contain("State Statement", "4");
     signal_witness.must_contain("Record Entry", "4");
     signal_witness.must_contain("Observe Query", "4");
     signal_witness.must_contain("Lookup RecordIdentifier", "4");
@@ -199,6 +207,8 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
 
     // The schema-emitted Input enum carries exported alias nouns.
     signal_witness.must_contain("pub enum Input {", "4");
+    signal_witness.must_contain("pub type State = Statement;", "4");
+    signal_witness.must_contain("State(State)", "4");
     signal_witness.must_contain("pub type Record = Entry;", "4");
     signal_witness.must_contain("pub type Observe = Query;", "4");
     signal_witness.must_contain("pub type Lookup = RecordIdentifier;", "4");

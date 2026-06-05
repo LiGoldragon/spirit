@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use crate::{
-    DatabaseMarker, ErrorReport, Input, MailLedger, NexusAction, NexusActorStartFailure,
-    NexusActorStopFailure, NexusEffectCommand, NexusEffectResult, NexusEngine, NexusWork, Output,
-    Records, SemaEngine, SemaReadInput, SemaReadOutput, SemaWriteInput, SemaWriteOutput,
-    SignalRejection, StashHandle, StashRequest, StashResult, StashedObservation, ValidationError,
-    schema::nexus as nexus_schema, store::Store,
+    DatabaseMarker, Entry, ErrorReport, Input, Kind, Magnitude, MailLedger, NexusAction,
+    NexusActorStartFailure, NexusActorStopFailure, NexusEffectCommand, NexusEffectResult,
+    NexusEngine, NexusWork, Output, Records, SemaEngine, SemaReadInput, SemaReadOutput,
+    SemaWriteInput, SemaWriteOutput, SignalRejection, StashHandle, StashRequest, StashResult,
+    StashedObservation, Statement, ValidationError, schema::nexus as nexus_schema, store::Store,
 };
 
 #[cfg(feature = "testing-trace")]
@@ -22,6 +22,14 @@ use triad_runtime::ContinuationExhausted;
 pub struct StashTable {
     next_handle: u64,
     entries: HashMap<u64, StashEntry>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ClassificationPolicy {
+    fallback_topic: String,
+    fallback_kind: Kind,
+    fallback_magnitude: Magnitude,
+    fallback_privacy: Magnitude,
 }
 
 #[derive(Clone, Debug)]
@@ -84,8 +92,32 @@ pub struct Nexus {
     store: Store,
     mail_ledger: MailLedger,
     stash_table: StashTable,
+    classification_policy: ClassificationPolicy,
     #[cfg(feature = "testing-trace")]
     trace_log: TraceLog,
+}
+
+impl Default for ClassificationPolicy {
+    fn default() -> Self {
+        Self {
+            fallback_topic: String::from("unclassified"),
+            fallback_kind: Kind::Clarification,
+            fallback_magnitude: Magnitude::Minimum,
+            fallback_privacy: Magnitude::Zero,
+        }
+    }
+}
+
+impl ClassificationPolicy {
+    pub fn classify(&self, statement: Statement) -> Entry {
+        Entry {
+            topics: vec![self.fallback_topic.clone()],
+            kind: self.fallback_kind.clone(),
+            description: statement.into_payload(),
+            magnitude: self.fallback_magnitude.clone(),
+            privacy: self.fallback_privacy.clone(),
+        }
+    }
 }
 
 impl Nexus {
@@ -101,6 +133,7 @@ impl Nexus {
                 store,
                 mail_ledger: MailLedger::default(),
                 stash_table: StashTable::default(),
+                classification_policy: ClassificationPolicy::default(),
             }
         }
     }
@@ -111,6 +144,7 @@ impl Nexus {
             store: store.with_trace(trace_log.clone()),
             mail_ledger: MailLedger::default(),
             stash_table: StashTable::default(),
+            classification_policy: ClassificationPolicy::default(),
             trace_log,
         }
     }
@@ -125,6 +159,10 @@ impl Nexus {
 
     pub fn stash_table(&self) -> &StashTable {
         &self.stash_table
+    }
+
+    pub fn classification_policy(&self) -> &ClassificationPolicy {
+        &self.classification_policy
     }
 
     pub fn database_marker(&self) -> DatabaseMarker {
@@ -236,6 +274,9 @@ impl Nexus {
 
     fn decide_signal_arrival(&self, input: Input) -> NexusAction {
         match input {
+            Input::State(statement) => NexusAction::command_sema_write(SemaWriteInput::record(
+                self.classification_policy.classify(statement),
+            )),
             Input::Record(record) => {
                 NexusAction::command_sema_write(SemaWriteInput::record(record))
             }

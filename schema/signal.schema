@@ -1,5 +1,5 @@
 {}
-[Record Observe Lookup Count Remove LookupStash]
+[State Record Observe Lookup Count Remove LookupStash]
 [RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved Error Rejected]
 {
   SourcePath String
@@ -9,6 +9,7 @@
   Export { LocalPath * PublicPath * }
   SignalReuse { Import * Export * }
 
+  State Statement
   Record Entry
   Observe Query
   Lookup RecordIdentifier
@@ -28,6 +29,7 @@
   Topic String
   Topics (Vec Topic)
   Description String
+  StatementText String
   ErrorMessage String
   RecordIdentifier Integer
   CommitSequence Integer
@@ -63,6 +65,7 @@
   AtLeast Privacy
 
   Entry { Topics * Kind * Description * Magnitude * Privacy * }
+  Statement { StatementText * }
   Query { TopicMatch * kind (Optional Kind) privacy_selection PrivacySelection }
   Records (Vec Entry)
   RecordSet (Vec Entry)

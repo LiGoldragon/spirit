@@ -37,6 +37,8 @@ pub struct SignalReuse {
     pub export: Export,
 }
 
+pub type State = Statement;
+
 pub type Record = Entry;
 
 pub type Observe = Query;
@@ -70,6 +72,8 @@ pub type Topic = String;
 pub type Topics = Vec<Topic>;
 
 pub type Description = String;
+
+pub type StatementText = String;
 
 pub type ErrorMessage = String;
 
@@ -228,6 +232,10 @@ pub struct Entry {
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Statement(pub StatementText);
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Query {
     pub topic_match: TopicMatch,
     pub kind: Option<Kind>,
@@ -264,6 +272,7 @@ pub enum Magnitude {
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum Input {
+    State(State),
     Record(Record),
     Observe(Observe),
     Lookup(Lookup),
@@ -283,6 +292,26 @@ pub enum Output {
     RecordRemoved(RecordRemoved),
     Error(Error),
     Rejected(Rejected),
+}
+
+impl Statement {
+    pub fn new(payload: StatementText) -> Self {
+        Self(payload)
+    }
+
+    pub fn payload(&self) -> &StatementText {
+        &self.0
+    }
+
+    pub fn into_payload(self) -> StatementText {
+        self.0
+    }
+}
+
+impl From<StatementText> for Statement {
+    fn from(payload: StatementText) -> Self {
+        Self::new(payload)
+    }
 }
 
 impl MailLedgerEvent {
@@ -320,6 +349,10 @@ impl PrivacySelection {
 }
 
 impl Input {
+    pub fn state(payload: State) -> Self {
+        Self::State(payload)
+    }
+
     pub fn record(payload: Record) -> Self {
         Self::Record(payload)
     }
@@ -589,6 +622,17 @@ impl Entry {
 }
 
 #[cfg(feature = "nota-text")]
+impl Statement {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
 impl Query {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -676,12 +720,13 @@ impl std::fmt::Display for Output {
 }
 
 pub mod short_header {
-    pub const INPUT_RECORD: u64 = 0x0000000000000000;
-    pub const INPUT_OBSERVE: u64 = 0x0001000000000000;
-    pub const INPUT_LOOKUP: u64 = 0x0002000000000000;
-    pub const INPUT_COUNT: u64 = 0x0003000000000000;
-    pub const INPUT_REMOVE: u64 = 0x0004000000000000;
-    pub const INPUT_LOOKUP_STASH: u64 = 0x0005000000000000;
+    pub const INPUT_STATE: u64 = 0x0000000000000000;
+    pub const INPUT_RECORD: u64 = 0x0001000000000000;
+    pub const INPUT_OBSERVE: u64 = 0x0002000000000000;
+    pub const INPUT_LOOKUP: u64 = 0x0003000000000000;
+    pub const INPUT_COUNT: u64 = 0x0004000000000000;
+    pub const INPUT_REMOVE: u64 = 0x0005000000000000;
+    pub const INPUT_LOOKUP_STASH: u64 = 0x0006000000000000;
     pub const OUTPUT_RECORD_ACCEPTED: u64 = 0x0100000000000000;
     pub const OUTPUT_RECORDS_OBSERVED: u64 = 0x0101000000000000;
     pub const OUTPUT_RECORDS_STASHED: u64 = 0x0102000000000000;
@@ -720,6 +765,7 @@ impl std::error::Error for SignalFrameError {}
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum InputRoute {
+    State,
     Record,
     Observe,
     Lookup,
@@ -744,6 +790,7 @@ pub enum OutputRoute {
 impl Input {
     pub fn route(&self) -> InputRoute {
         match self {
+            Self::State(_) => InputRoute::State,
             Self::Record(_) => InputRoute::Record,
             Self::Observe(_) => InputRoute::Observe,
             Self::Lookup(_) => InputRoute::Lookup,
@@ -755,6 +802,7 @@ impl Input {
 
     pub fn short_header(&self) -> u64 {
         match self {
+            Self::State(_) => short_header::INPUT_STATE,
             Self::Record(_) => short_header::INPUT_RECORD,
             Self::Observe(_) => short_header::INPUT_OBSERVE,
             Self::Lookup(_) => short_header::INPUT_LOOKUP,
@@ -766,6 +814,7 @@ impl Input {
 
     pub fn route_from_short_header(header: u64) -> Result<InputRoute, SignalFrameError> {
         match header {
+            short_header::INPUT_STATE => Ok(InputRoute::State),
             short_header::INPUT_RECORD => Ok(InputRoute::Record),
             short_header::INPUT_OBSERVE => Ok(InputRoute::Observe),
             short_header::INPUT_LOOKUP => Ok(InputRoute::Lookup),
@@ -888,6 +937,7 @@ impl SignalObjectName {
     pub fn name(self) -> &'static str {
         match self {
             Self::Input(route) => match route {
+                InputRoute::State => "SignalInputState",
                 InputRoute::Record => "SignalInputRecord",
                 InputRoute::Observe => "SignalInputObserve",
                 InputRoute::Lookup => "SignalInputLookup",

@@ -123,6 +123,13 @@ The CLI:
 5. decodes generated `Output`;
 6. prints NOTA.
 
+The CLI parse path is generated-first. The only compatibility shim currently
+accepted at this edge is deployed production `State` shorthand:
+`(State ([text]))`. `SpiritInputSource` recognizes that exact structural shape
+with `nota-next` blocks, creates generated `Input::State(Statement)`, and then
+the normal binary signal path continues. The generated canonical form remains
+`(State [text])`; the daemon never receives either text spelling.
+
 The daemon:
 
 1. starts from `DaemonCommand`, which accepts exactly one argument: a path to a
@@ -170,8 +177,9 @@ a generated `nexus::Nexus<nexus::Work>`, runs `NexusEngine::execute`, emits
 Signal output.
 
 `Nexus` is a real runtime object over schema-emitted roots. It owns the durable
-SEMA `Store` handle and the `MailLedger`, and it implements the generated
-mutable `NexusEngine` trait:
+SEMA `Store` handle, the `MailLedger`, the `StashTable`, and the
+`ClassificationPolicy`, and it implements the generated mutable `NexusEngine`
+trait:
 
 ```text
 signal::Signal<Input>
@@ -207,6 +215,14 @@ co-occurrence decisions, semantic similarity, or future topic-discovery logic
 should extend `NexusEngine` behavior over generated root messages. SEMA owns
 the durable indexes and tables those algorithms read; Signal remains the
 communication boundary.
+
+`State` classification follows that rule. Signal admits the raw statement, but
+does not classify it and does not open storage. Nexus applies the fallback
+classification policy (`unclassified`, `Clarification`, `Minimum`, `Zero`) and
+emits `CommandSemaWrite(Record(...))`. SEMA then persists the generated
+`Entry` through the same write root used by ordinary `Record` input. This ports
+one deployed `persona-spirit` behavior without reviving the old actor tree in
+the daemon.
 
 ### SEMA
 

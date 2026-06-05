@@ -75,7 +75,8 @@ pub use schema::signal::{
     RecordRemoved, RecordSet, Records, RecordsCounted, RecordsObserved, RecordsStashed, Rejected,
     Remove, RemoveReceipt, SemaReceipt, Sent, SentMail, ShortHeader, SignalEngine,
     SignalFrameError, SignalObjectName, SignalRejection, SignalReuse, SourcePath, StashHandle,
-    StashedObservation, StateDigest, Topic, TopicMatch, Topics, ValidationError, signal,
+    StashedObservation, State, StateDigest, Statement, StatementText, Topic, TopicMatch, Topics,
+    ValidationError, signal,
 };
 pub use store::{Store, StoreError};
 #[cfg(feature = "testing-trace")]

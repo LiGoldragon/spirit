@@ -1,7 +1,7 @@
 use spirit::{
     DatabaseMarker, Entry, Input, InputRoute, Kind, Magnitude, MessageIdentifier, MessageRoot,
     OriginRoute, Output, OutputRoute, Record, Rejected, SemaReceipt, SignalFrameError,
-    SignalRejection, ValidationError,
+    SignalRejection, Statement, ValidationError,
 };
 
 fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
@@ -44,6 +44,33 @@ fn generated_output_surface_owns_route_header_and_rkyv_frame() {
 
     assert_eq!(route, OutputRoute::RecordAccepted);
     assert_eq!(decoded, output);
+}
+
+#[test]
+fn generated_state_input_surface_owns_route_header_and_rkyv_frame() {
+    let input = Input::state(Statement::new(String::from("capture this intent")));
+
+    assert_eq!(input.route(), InputRoute::State);
+
+    let frame = input.encode_signal_frame().expect("encode frame");
+    let (route, decoded) = Input::decode_signal_frame(&frame).expect("decode frame");
+
+    assert_eq!(route, InputRoute::State);
+    assert_eq!(decoded, input);
+}
+
+#[cfg(feature = "nota-text")]
+#[test]
+fn generated_state_input_round_trips_the_canonical_newtype_shape() {
+    let input = "(State [capture this intent])"
+        .parse::<Input>()
+        .expect("parse state input");
+
+    assert_eq!(
+        input,
+        Input::state(Statement::new(String::from("capture this intent")))
+    );
+    assert_eq!(input.to_string(), "(State [capture this intent])");
 }
 
 #[test]
