@@ -9,6 +9,8 @@
   RecordCount spirit:signal:RecordCount
   StashHandle spirit:signal:StashHandle
   DatabaseMarker spirit:signal:DatabaseMarker
+  Statement spirit:signal:Statement
+  Entry spirit:signal:Entry
 }
 [SignalArrived SemaWriteCompleted SemaReadCompleted EffectCompleted]
 [CommandSemaWrite CommandSemaRead ReplyToSignal CommandEffect Continue]
@@ -27,10 +29,12 @@
   NexusWork [(SignalArrived SignalArrived) (SemaWriteCompleted SemaWriteCompleted) (SemaReadCompleted SemaReadCompleted) (EffectCompleted EffectCompleted)]
   NexusAction [(CommandSemaWrite CommandSemaWrite) (CommandSemaRead CommandSemaRead) (ReplyToSignal ReplyToSignal) (CommandEffect CommandEffect) (Continue Continue)]
 
-  NexusEffectCommand [(Stash Stash)]
+  NexusEffectCommand [(Stash Stash) (ClassifyState ClassifyState)]
   Stash StashRequest
-  NexusEffectResult [(Stashed Stashed)]
+  ClassifyState Statement
+  NexusEffectResult [(Stashed Stashed) (StateClassified StateClassified)]
   Stashed StashResult
+  StateClassified Entry
   StashRequest { Records * DatabaseMarker * }
   StashResult { StashHandle * RecordCount * DatabaseMarker * }
 }

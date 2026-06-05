@@ -16,14 +16,28 @@ Load-bearing constraints:
 
 *State is the first production-surface compatibility operation.* Generated
 `Input::State(Statement)` carries raw psyche text. Signal only admits and
-validates the non-empty statement; Nexus classifies it into a provisional
-`Entry` using the production fallback policy (`unclassified`,
-`Clarification`, `Minimum`, `Zero`); SEMA persists it through the existing
+validates the non-empty statement. Nexus exposes classification as the
+schema-declared `ClassifyState` effect command and `StateClassified` effect
+result; the hand-written policy only implements that declared Nexus interface.
+The classified `Entry` uses the production fallback policy (`unclassified`,
+`Clarification`, `Minimum`, `Zero`) and SEMA persists it through the existing
 `Record` write root. The generated canonical NOTA shape is `(State [text])`.
 The CLI text edge also accepts deployed production shorthand `(State ([text]))`
 and normalizes it to the generated input before binary framing.
 
-*Nexus is the recursive runner payload keeper.* Signal triage produces a generated `nexus::Nexus<nexus::Work>` envelope; `triad-runtime::Runner` owns the continuation budget and repeated dispatch. Hand-written `Nexus` implements one decision step, SEMA write/read hooks, and the effect hook.
+*Nexus is the recursive runner payload keeper and the internal feature catalog.*
+Signal triage produces a generated `nexus::Nexus<nexus::Work>` envelope;
+`triad-runtime::Runner` owns the continuation budget and repeated dispatch.
+Hand-written `Nexus` implements one decision step, SEMA write/read hooks, and
+the effect hook. Per intent record `gvaz`, computations, result filters,
+conditional writes, and similar internal engine features must appear as Nexus
+schema verbs/objects before Rust implements them, so the daemon's feature
+surface stays visible in `schema/nexus.schema` instead of hidden in ad-hoc
+implementation code.
+Per intent record `k4d9`, that schema visibility does not imply broad
+crate-root export: the generated plane module is the schema API surface, while
+the daemon crate root is only an ergonomic barrel and should not flatten every
+internal Nexus noun unless a real consumer-facing API needs it.
 
 *The daemon listener shell is shared runtime, not Spirit boilerplate.* `Daemon`
 constructs a data-bearing `SpiritDaemonRuntime` around `Engine`, then hands it

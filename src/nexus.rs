@@ -85,8 +85,10 @@ impl StashTable {
 /// re-consume cycle until a Signal reply or the continuation budget runs
 /// out.
 ///
-/// The pilot effect set is `Stash` only — the Observe → Stash → Reply
-/// recursion proves the recursive-Nexus shape on a single real flow.
+/// The pilot effect set keeps internal features visible in schema:
+/// `Stash` exposes the Observe → Stash → Reply recursion, and
+/// `ClassifyState` exposes State classification before the resulting
+/// Entry is written through SEMA.
 #[derive(Debug)]
 pub struct Nexus {
     store: Store,
@@ -173,6 +175,10 @@ impl Nexus {
     /// that the runner re-enters as `NexusWork::EffectCompleted`.
     fn apply_effect(&mut self, command: NexusEffectCommand) -> NexusEffectResult {
         match command {
+            NexusEffectCommand::ClassifyState(statement) => {
+                let entry = self.classification_policy.classify(statement);
+                NexusEffectResult::state_classified(entry)
+            }
             NexusEffectCommand::Stash(StashRequest {
                 records,
                 database_marker,
@@ -263,6 +269,10 @@ impl Nexus {
     /// with non-empty results becomes a `CommandEffect(Stash(...))`
     /// recursion (NOT a direct Signal reply), and the EffectCompleted
     /// (Stashed) feedback becomes the slim `Output::RecordsStashed`.
+    /// State classification also lives here as a schema-declared
+    /// `CommandEffect(ClassifyState)` followed by
+    /// `EffectCompleted(StateClassified)` and the ordinary SEMA
+    /// `Record` write.
     fn step_decide(&self, work: NexusWork) -> NexusAction {
         match work {
             NexusWork::SignalArrived(input) => self.decide_signal_arrival(input),
@@ -274,9 +284,9 @@ impl Nexus {
 
     fn decide_signal_arrival(&self, input: Input) -> NexusAction {
         match input {
-            Input::State(statement) => NexusAction::command_sema_write(SemaWriteInput::record(
-                self.classification_policy.classify(statement),
-            )),
+            Input::State(statement) => {
+                NexusAction::command_effect(NexusEffectCommand::classify_state(statement))
+            }
             Input::Record(record) => {
                 NexusAction::command_sema_write(SemaWriteInput::record(record))
             }
@@ -340,6 +350,9 @@ impl Nexus {
 
     fn decide_effect_completion(&self, result: NexusEffectResult) -> NexusAction {
         match result {
+            NexusEffectResult::StateClassified(entry) => {
+                NexusAction::command_sema_write(SemaWriteInput::record(entry))
+            }
             NexusEffectResult::Stashed(StashResult {
                 stash_handle,
                 record_count,

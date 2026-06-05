@@ -1,10 +1,10 @@
 use spirit::{
     DatabaseMarker, Engine, Entry, ErrorReport, Input, Kind, Magnitude, MailLedgerEvent,
-    MessageIdentifier, MessageSent, MessageSentHook, Nexus, NexusAction, NexusEngine, NexusWork,
-    OriginRoute, Output, PrivacySelection, ProcessedMail, Query, RecordIdentifier, SemaEngine,
-    SemaReadInput, SemaReadOutput, SemaReceipt, SemaWriteInput, SemaWriteOutput, SentMail,
-    SignalActor, SignalEngine, SignalRejection, Statement, Store, TopicMatch, ValidationError,
-    sema,
+    MessageIdentifier, MessageSent, MessageSentHook, Nexus, NexusAction, NexusEffectCommand,
+    NexusEngine, NexusWork, OriginRoute, Output, PrivacySelection, ProcessedMail, Query,
+    RecordIdentifier, SemaEngine, SemaReadInput, SemaReadOutput, SemaReceipt, SemaWriteInput,
+    SemaWriteOutput, SentMail, SignalActor, SignalEngine, SignalRejection, Statement, Store,
+    TopicMatch, ValidationError, sema,
 };
 #[cfg(feature = "nota-text")]
 use spirit::{Export, Import};
@@ -219,6 +219,29 @@ fn nexus_classifies_state_into_provisional_record_through_sema_write() {
         }
         other => panic!("expected classified State record to be observable, got {other:?}"),
     }
+}
+
+#[test]
+fn nexus_state_classification_is_visible_as_schema_declared_effect_command() {
+    let sema = SemaFile::new();
+    let mut nexus = Nexus::new(sema.open_store());
+    let nexus_input = nexus_signal_arrived(input_state("visible classification"))
+        .with_origin_route(nexus_route(4));
+
+    let first_action = NexusEngine::decide(&mut nexus, nexus_input);
+
+    assert_eq!(first_action.origin_route(), nexus_route(4));
+    match first_action.root() {
+        NexusAction::CommandEffect(NexusEffectCommand::ClassifyState(statement)) => {
+            assert_eq!(statement.payload(), "visible classification");
+        }
+        other => panic!("expected State to become CommandEffect(ClassifyState), got {other:?}"),
+    }
+    assert_eq!(
+        nexus.store().len(),
+        0,
+        "the first Nexus decision exposes classification before durable SEMA write"
+    );
 }
 
 #[test]

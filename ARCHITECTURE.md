@@ -179,7 +179,16 @@ Signal output.
 `Nexus` is a real runtime object over schema-emitted roots. It owns the durable
 SEMA `Store` handle, the `MailLedger`, the `StashTable`, and the
 `ClassificationPolicy`, and it implements the generated mutable `NexusEngine`
-trait:
+trait. The schema is also the internal feature catalog: per intent record
+`gvaz`, any computation, result filter, conditional write, or similar engine
+feature is added first as a Nexus verb/object in `schema/nexus.schema`, then
+implemented by the hand-written runtime object.
+Per intent record `k4d9`, internal feature nouns being schema-visible does not
+mean they are flattened into the daemon crate root. The generated plane module
+(`spirit::schema::nexus`) is the public internal schema API; the crate root is
+only an ergonomic barrel and should not become a mixed namespace for every
+internal noun unless a real external consumer needs a deliberate top-level
+export.
 
 ```text
 signal::Signal<Input>
@@ -211,18 +220,23 @@ same `OriginRoute` is carried from Signal admission through Nexus, SEMA,
 effects, and back to the Signal reply.
 
 Nexus is the home for non-default decision algorithms. Frecency ranking,
-co-occurrence decisions, semantic similarity, or future topic-discovery logic
-should extend `NexusEngine` behavior over generated root messages. SEMA owns
-the durable indexes and tables those algorithms read; Signal remains the
+co-occurrence decisions, semantic similarity, future topic-discovery logic,
+computed result filters, and conditional writes should extend `NexusEngine`
+behavior through generated Nexus work/action/effect nouns. SEMA owns the
+durable indexes and tables those algorithms read; Signal remains the
 communication boundary.
 
 `State` classification follows that rule. Signal admits the raw statement, but
-does not classify it and does not open storage. Nexus applies the fallback
-classification policy (`unclassified`, `Clarification`, `Minimum`, `Zero`) and
-emits `CommandSemaWrite(Record(...))`. SEMA then persists the generated
-`Entry` through the same write root used by ordinary `Record` input. This ports
-one deployed `persona-spirit` behavior without reviving the old actor tree in
-the daemon.
+does not classify it and does not open storage. Nexus first emits
+`CommandEffect(ClassifyState(...))`, proving the classification feature is
+declared in `schema/nexus.schema` instead of hidden inside a direct write
+branch. The effect implementation applies the fallback classification policy
+(`unclassified`, `Clarification`, `Minimum`, `Zero`) and returns
+`EffectCompleted(StateClassified(...))`; the next Nexus decision emits
+`CommandSemaWrite(Record(...))`. SEMA then persists the generated `Entry`
+through the same write root used by ordinary `Record` input. This ports one
+deployed `persona-spirit` behavior without reviving the old actor tree in the
+daemon.
 
 ### SEMA
 

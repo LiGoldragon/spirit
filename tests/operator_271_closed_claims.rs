@@ -192,6 +192,16 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     );
     nexus_witness.must_contain("CommandSemaWrite SemaWriteInput", "4");
     nexus_witness.must_contain("NexusAction [(CommandSemaWrite CommandSemaWrite)", "4");
+    nexus_witness.must_contain(
+        "NexusEffectCommand [(Stash Stash) (ClassifyState ClassifyState)]",
+        "4",
+    );
+    nexus_witness.must_contain("ClassifyState Statement", "4");
+    nexus_witness.must_contain(
+        "NexusEffectResult [(Stashed Stashed) (StateClassified StateClassified)]",
+        "4",
+    );
+    nexus_witness.must_contain("StateClassified Entry", "4");
 }
 
 /// Claim 4 — The schema-emitted Rust source surface mirrors the honest
@@ -201,8 +211,10 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
 #[test]
 fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     let signal_rust = include_str!("../src/schema/signal.rs");
+    let nexus_rust = include_str!("../src/schema/nexus.rs");
     let sema_rust = include_str!("../src/schema/sema.rs");
     let signal_witness = SchemaSourceWitness::new("src/schema/signal.rs", signal_rust);
+    let nexus_witness = SchemaSourceWitness::new("src/schema/nexus.rs", nexus_rust);
     let sema_witness = SchemaSourceWitness::new("src/schema/sema.rs", sema_rust);
 
     // The schema-emitted Input enum carries exported alias nouns.
@@ -231,6 +243,13 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     signal_witness.must_contain("RecordRemoved(RecordRemoved)", "4");
     signal_witness.must_contain("Error(Error)", "4");
     signal_witness.must_contain("Rejected(Rejected)", "4");
+
+    // Nexus exposes internal features as schema-emitted effect nouns.
+    nexus_witness.must_contain("pub enum NexusEffectCommand {", "4");
+    nexus_witness.must_contain("pub type ClassifyState = Statement;", "4");
+    nexus_witness.must_contain("ClassifyState(ClassifyState)", "4");
+    nexus_witness.must_contain("pub type StateClassified = Entry;", "4");
+    nexus_witness.must_contain("StateClassified(StateClassified)", "4");
 
     // The split SEMA module carries plane-local roots and imported payload nouns.
     sema_witness.must_contain("pub enum WriteInput {", "4");

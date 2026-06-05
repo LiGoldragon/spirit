@@ -15,6 +15,8 @@ pub use spirit::schema::signal::Records as Records;
 pub use spirit::schema::signal::RecordCount as RecordCount;
 pub use spirit::schema::signal::StashHandle as StashHandle;
 pub use spirit::schema::signal::DatabaseMarker as DatabaseMarker;
+pub use spirit::schema::signal::Statement as Statement;
+pub use spirit::schema::signal::Entry as Entry;
 
 #[cfg(feature = "nota-text")]
 pub use nota_next::{
@@ -62,17 +64,23 @@ pub enum NexusAction {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum NexusEffectCommand {
     Stash(Stash),
+    ClassifyState(ClassifyState),
 }
 
 pub type Stash = StashRequest;
+
+pub type ClassifyState = Statement;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum NexusEffectResult {
     Stashed(Stashed),
+    StateClassified(StateClassified),
 }
 
 pub type Stashed = StashResult;
+
+pub type StateClassified = Entry;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -152,11 +160,19 @@ impl NexusEffectCommand {
     pub fn stash(payload: Stash) -> Self {
         Self::Stash(payload)
     }
+
+    pub fn classify_state(payload: ClassifyState) -> Self {
+        Self::ClassifyState(payload)
+    }
 }
 
 impl NexusEffectResult {
     pub fn stashed(payload: Stashed) -> Self {
         Self::Stashed(payload)
+    }
+
+    pub fn state_classified(payload: StateClassified) -> Self {
+        Self::StateClassified(payload)
     }
 }
 
