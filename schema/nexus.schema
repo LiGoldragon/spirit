@@ -3,7 +3,6 @@
   SignalOutput spirit:signal:Output
   SemaReadInput spirit:sema:ReadInput
   SemaReadOutput spirit:sema:ReadOutput
-  SemaWriteInput spirit:sema:WriteInput
   SemaWriteOutput spirit:sema:WriteOutput
   Records spirit:signal:Records
   RecordCount spirit:signal:RecordCount
@@ -11,6 +10,8 @@
   DatabaseMarker spirit:signal:DatabaseMarker
   Statement spirit:signal:Statement
   Entry spirit:signal:Entry
+  RecordIdentifier spirit:signal:RecordIdentifier
+  CertaintyChange spirit:signal:CertaintyChange
 }
 [SignalArrived SemaWriteCompleted SemaReadCompleted EffectCompleted]
 [CommandSemaWrite CommandSemaRead ReplyToSignal CommandEffect Continue]
@@ -20,7 +21,10 @@
   SemaReadCompleted SemaReadOutput
   EffectCompleted NexusEffectResult
 
-  CommandSemaWrite SemaWriteInput
+  CommandSemaWrite [(Record Record) (Remove Remove) (ChangeCertainty ChangeCertainty)]
+  Record Entry
+  Remove RecordIdentifier
+  ChangeCertainty CertaintyChange
   CommandSemaRead SemaReadInput
   ReplyToSignal SignalOutput
   CommandEffect NexusEffectCommand

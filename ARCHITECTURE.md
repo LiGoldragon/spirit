@@ -226,6 +226,12 @@ behavior through generated Nexus work/action/effect nouns. SEMA owns the
 durable indexes and tables those algorithms read; Signal remains the
 communication boundary.
 
+Nexus write commands are feature-specific. `CommandSemaWrite` is not a raw
+pass-through alias for the whole SEMA write enum; it is a Nexus-plane enum with
+visible `Record`, `Remove`, and `ChangeCertainty` objects. The generated runner
+still treats it as the fixed `SemaWrite` outcome, but the component schema
+keeps each internal write feature readable in `schema/nexus.schema`.
+
 `State` classification follows that rule. Signal admits the raw statement, but
 does not classify it and does not open storage. Nexus first emits
 `CommandEffect(ClassifyState(...))`, proving the classification feature is
@@ -237,6 +243,14 @@ branch. The effect implementation applies the fallback classification policy
 through the same write root used by ordinary `Record` input. This ports one
 deployed `persona-spirit` behavior without reviving the old actor tree in the
 daemon.
+
+`ChangeCertainty` is the first production conditional-write parity slice.
+Signal admits the generated `CertaintyChange` payload. Nexus emits the
+schema-declared `CommandSemaWrite(ChangeCertainty(...))`. SEMA looks up the
+identified record, mutates only the stored entry's `Magnitude` through the
+`Certainty` alias, writes it back through `Engine::mutate_identified`, and
+returns `CertaintyChangeReceipt` with the same `RecordIdentifier` and a new
+database marker.
 
 ### SEMA
 
@@ -250,9 +264,11 @@ uses `sema-engine` over a `*.sema` file:
   sema::Sema<sema::WriteOutput>` is the mutation surface. A `Record` becomes
   `Engine::assert_identified`, so sema-engine allocates the numeric
   `RecordIdentifier`, persists the `Entry`, and advances the durable
-  `CommitSequence`. A `Remove` becomes `Engine::retract_identified`, deleting
-  the identified record and advancing the same durable sequence when a record
-  was present.
+  `CommitSequence`. A `ChangeCertainty` becomes
+  `Engine::mutate_identified`, preserving the numeric identifier while
+  replacing the stored `Entry` value and advancing the durable sequence once.
+  A `Remove` becomes `Engine::retract_identified`, deleting the identified
+  record and advancing the same durable sequence when a record was present.
 - `SemaEngine::observe(sema::Sema<sema::ReadInput>) ->
   sema::Sema<sema::ReadOutput>` is the read surface. `Observe(Query)` reads
   identified records through sema-engine and applies Spirit's schema-specific
@@ -313,9 +329,10 @@ declared explicitly in namespace enum bodies with parenthesized entries such
 as `(Record Record)`, `(RecordAccepted RecordAccepted)`, and
 `(CommandSemaWrite CommandSemaWrite)`. Namespace bindings such as
 `Record Entry`, `RecordAccepted SemaReceipt`, and
-`CommandSemaWrite SemaWriteInput` define the payload aliases those signatures
-reference. Parentheses remain the composite/reference and structural payload
-shape at reference positions. That authored syntax decodes to typed
+`CommandSemaWrite [(Record Record) ...]` define the payload aliases and
+feature-specific commands those signatures reference. Parentheses remain the
+composite/reference and structural payload shape at reference positions. That
+authored syntax decodes to typed
 `SchemaSource`, lowers to semantic `Schema`, and emits one generated Rust
 module per plane.
 

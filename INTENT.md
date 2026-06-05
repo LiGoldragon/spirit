@@ -25,6 +25,16 @@ The classified `Entry` uses the production fallback policy (`unclassified`,
 The CLI text edge also accepts deployed production shorthand `(State ([text]))`
 and normalizes it to the generated input before binary framing.
 
+*ChangeCertainty is the first conditional-write parity operation.* Generated
+`Input::ChangeCertainty(CertaintyChange)` keeps the production-facing word
+`Certainty` as an alias of the current `Magnitude` scale. Nexus exposes the
+operation as a schema-declared `CommandSemaWrite(ChangeCertainty)` object
+instead of a hidden branch. SEMA applies it with
+`sema-engine::Engine::mutate_identified`, preserving the existing
+`RecordIdentifier`, mutating only the stored entry's certainty/magnitude, and
+returning `Output::CertaintyChanged(CertaintyChangeReceipt)` with the updated
+database marker.
+
 *Nexus is the recursive runner payload keeper and the internal feature catalog.*
 Signal triage produces a generated `nexus::Nexus<nexus::Work>` envelope;
 `triad-runtime::Runner` owns the continuation budget and repeated dispatch.
@@ -47,7 +57,7 @@ stops the runtime, and keeps the listener alive after per-request transport
 errors. Spirit owns only configuration decoding, engine construction, and the
 generated signal-frame bridge for one accepted stream.
 
-*SEMA is durable.* `Store` maps generated SEMA roots onto `sema-engine` identified-record operations over a `.sema` file. Each `Record` calls `Engine::assert_identified`, each `Remove` calls `Engine::retract_identified`, and `Observe`/`Lookup`/`Count` read through `Engine::match_identified`. SEMA replies carry generated `DatabaseMarker` values so Signal replies report the state commit sequence and digest.
+*SEMA is durable.* `Store` maps generated SEMA roots onto `sema-engine` identified-record operations over a `.sema` file. Each `Record` calls `Engine::assert_identified`, each `ChangeCertainty` calls `Engine::mutate_identified`, each `Remove` calls `Engine::retract_identified`, and `Observe`/`Lookup`/`Count` read through `Engine::match_identified`. SEMA replies carry generated `DatabaseMarker` values so Signal replies report the state commit sequence and digest.
 
 *The daemon's single argument is a path to a binary rkyv `Configuration` object.* Text-facing launchers may create that file, but the daemon startup path only decodes binary state.
 

@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
 use crate::{
-    DatabaseMarker, Entry, ErrorReport, Input, Kind, Magnitude, MailLedger, NexusAction,
-    NexusActorStartFailure, NexusActorStopFailure, NexusEffectCommand, NexusEffectResult,
-    NexusEngine, NexusWork, Output, Records, SemaEngine, SemaReadInput, SemaReadOutput,
-    SemaWriteInput, SemaWriteOutput, SignalRejection, StashHandle, StashRequest, StashResult,
-    StashedObservation, Statement, ValidationError, schema::nexus as nexus_schema, store::Store,
+    CommandSemaWrite, DatabaseMarker, Entry, ErrorReport, Input, Kind, Magnitude, MailLedger,
+    NexusAction, NexusActorStartFailure, NexusActorStopFailure, NexusEffectCommand,
+    NexusEffectResult, NexusEngine, NexusWork, Output, Records, SemaEngine, SemaReadInput,
+    SemaReadOutput, SemaWriteInput, SemaWriteOutput, SignalRejection, StashHandle, StashRequest,
+    StashResult, StashedObservation, Statement, ValidationError, schema::nexus as nexus_schema,
+    store::Store,
 };
 
 #[cfg(feature = "testing-trace")]
@@ -122,6 +123,16 @@ impl ClassificationPolicy {
     }
 }
 
+impl CommandSemaWrite {
+    fn into_sema_write_input(self) -> SemaWriteInput {
+        match self {
+            Self::Record(record) => SemaWriteInput::record(record),
+            Self::Remove(remove) => SemaWriteInput::remove(remove),
+            Self::ChangeCertainty(change) => SemaWriteInput::change_certainty(change),
+        }
+    }
+}
+
 impl Nexus {
     /// Build a Nexus over a durable SEMA store and a fresh mail ledger.
     pub fn new(store: Store) -> Self {
@@ -227,11 +238,13 @@ impl NexusEngine for Nexus {
     fn apply_sema_write(
         &mut self,
         origin_route: nexus_schema::OriginRoute,
-        input: SemaWriteInput,
+        input: CommandSemaWrite,
     ) -> SemaWriteOutput {
         SemaEngine::apply(
             &mut self.store,
-            input.with_origin_route(origin_route.into()),
+            input
+                .into_sema_write_input()
+                .with_origin_route(origin_route.into()),
         )
         .into_root()
     }
@@ -288,7 +301,7 @@ impl Nexus {
                 NexusAction::command_effect(NexusEffectCommand::classify_state(statement))
             }
             Input::Record(record) => {
-                NexusAction::command_sema_write(SemaWriteInput::record(record))
+                NexusAction::command_sema_write(CommandSemaWrite::record(record))
             }
             Input::Observe(observe) => {
                 NexusAction::command_sema_read(SemaReadInput::observe(observe))
@@ -296,7 +309,10 @@ impl Nexus {
             Input::Lookup(lookup) => NexusAction::command_sema_read(SemaReadInput::lookup(lookup)),
             Input::Count(count) => NexusAction::command_sema_read(SemaReadInput::count(count)),
             Input::Remove(remove) => {
-                NexusAction::command_sema_write(SemaWriteInput::remove(remove))
+                NexusAction::command_sema_write(CommandSemaWrite::remove(remove))
+            }
+            Input::ChangeCertainty(change) => {
+                NexusAction::command_sema_write(CommandSemaWrite::change_certainty(change))
             }
             Input::LookupStash(handle) => match self.stash_table.lookup(&handle) {
                 Some((records, database_marker)) => {
@@ -320,6 +336,9 @@ impl Nexus {
             }
             SemaWriteOutput::Removed(receipt) => {
                 NexusAction::reply_to_signal(Output::record_removed(receipt))
+            }
+            SemaWriteOutput::CertaintyChanged(receipt) => {
+                NexusAction::reply_to_signal(Output::certainty_changed(receipt))
             }
             SemaWriteOutput::Missed(report) => NexusAction::reply_to_signal(Output::error(report)),
         }
@@ -351,7 +370,7 @@ impl Nexus {
     fn decide_effect_completion(&self, result: NexusEffectResult) -> NexusAction {
         match result {
             NexusEffectResult::StateClassified(entry) => {
-                NexusAction::command_sema_write(SemaWriteInput::record(entry))
+                NexusAction::command_sema_write(CommandSemaWrite::record(entry))
             }
             NexusEffectResult::Stashed(StashResult {
                 stash_handle,

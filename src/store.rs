@@ -4,17 +4,17 @@ use std::{
 };
 
 use sema_engine::{
-    Engine as SemaDatabase, EngineOpen, IdentifiedAssertion, IdentifiedQueryPlan,
-    IdentifiedRetraction, IdentifiedTableDescriptor, IdentifiedTableReference,
+    Engine as SemaDatabase, EngineOpen, IdentifiedAssertion, IdentifiedMutation,
+    IdentifiedQueryPlan, IdentifiedRetraction, IdentifiedTableDescriptor, IdentifiedTableReference,
     RecordIdentifier as EngineRecordIdentifier, SchemaVersion, TableName,
 };
 use thiserror::Error;
 
 use crate::{
-    CountedRecords, DatabaseMarker, Entry, ErrorReport, FoundRecord, Magnitude, Privacy,
-    PrivacySelection, Query, RemoveReceipt, SemaActorStartFailure, SemaActorStopFailure,
-    SemaEngine, SemaReadInput, SemaReadOutput, SemaReceipt, SemaWriteInput, SemaWriteOutput,
-    schema::sema as sema_schema,
+    CertaintyChange, CertaintyChangeReceipt, CountedRecords, DatabaseMarker, Entry, ErrorReport,
+    FoundRecord, Magnitude, Privacy, PrivacySelection, Query, RemoveReceipt, SemaActorStartFailure,
+    SemaActorStopFailure, SemaEngine, SemaReadInput, SemaReadOutput, SemaReceipt, SemaWriteInput,
+    SemaWriteOutput, schema::sema as sema_schema,
 };
 
 #[cfg(feature = "testing-trace")]
@@ -100,6 +100,17 @@ impl SemaEngine for Store {
                     }),
                 }
             }
+            SemaWriteInput::ChangeCertainty(change) => match self.change_certainty(change) {
+                Ok(Some(receipt)) => SemaWriteOutput::certainty_changed(receipt),
+                Ok(None) => SemaWriteOutput::missed(ErrorReport {
+                    error_message: String::from("record not found"),
+                    database_marker: self.database_marker(),
+                }),
+                Err(error) => SemaWriteOutput::missed(ErrorReport {
+                    error_message: error.to_string(),
+                    database_marker: self.database_marker(),
+                }),
+            },
         };
         output.with_origin_route(origin_route)
     }
@@ -241,6 +252,27 @@ impl Store {
             Err(sema_engine::Error::RecordNotFound { .. }) => Ok(false),
             Err(error) => Err(StoreError::Database(error)),
         }
+    }
+
+    fn change_certainty(
+        &self,
+        change: CertaintyChange,
+    ) -> Result<Option<CertaintyChangeReceipt>, StoreError> {
+        let record_identifier = change.record_identifier;
+        let Some(mut entry) = self.lookup(record_identifier)? else {
+            return Ok(None);
+        };
+        entry.magnitude = change.certainty.clone();
+        self.database.mutate_identified(IdentifiedMutation::new(
+            self.entries,
+            EngineRecordIdentifier::new(record_identifier),
+            entry,
+        ))?;
+        Ok(Some(CertaintyChangeReceipt {
+            record_identifier,
+            certainty: change.certainty,
+            database_marker: self.database_marker(),
+        }))
     }
 
     pub fn len(&self) -> usize {

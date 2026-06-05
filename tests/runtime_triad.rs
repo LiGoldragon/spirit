@@ -1,10 +1,10 @@
 use spirit::{
-    DatabaseMarker, Engine, Entry, ErrorReport, Input, Kind, Magnitude, MailLedgerEvent,
-    MessageIdentifier, MessageSent, MessageSentHook, Nexus, NexusAction, NexusEffectCommand,
-    NexusEngine, NexusWork, OriginRoute, Output, PrivacySelection, ProcessedMail, Query,
-    RecordIdentifier, SemaEngine, SemaReadInput, SemaReadOutput, SemaReceipt, SemaWriteInput,
-    SemaWriteOutput, SentMail, SignalActor, SignalEngine, SignalRejection, Statement, Store,
-    TopicMatch, ValidationError, sema,
+    CertaintyChange, CommandSemaWrite, DatabaseMarker, Engine, Entry, ErrorReport, Input, Kind,
+    Magnitude, MailLedgerEvent, MessageIdentifier, MessageSent, MessageSentHook, Nexus,
+    NexusAction, NexusEffectCommand, NexusEngine, NexusWork, OriginRoute, Output, PrivacySelection,
+    ProcessedMail, Query, RecordIdentifier, SemaEngine, SemaReadInput, SemaReadOutput, SemaReceipt,
+    SemaWriteInput, SemaWriteOutput, SentMail, SignalActor, SignalEngine, SignalRejection,
+    Statement, Store, TopicMatch, ValidationError, sema,
 };
 #[cfg(feature = "nota-text")]
 use spirit::{Export, Import};
@@ -133,6 +133,13 @@ fn input_count(query: Query) -> Input {
     Input::count(query)
 }
 
+fn input_change_certainty(record_identifier: RecordIdentifier, certainty: Magnitude) -> Input {
+    Input::change_certainty(CertaintyChange {
+        record_identifier,
+        certainty,
+    })
+}
+
 fn input_lookup_stash(stash_handle: spirit::StashHandle) -> Input {
     Input::lookup_stash(stash_handle)
 }
@@ -147,6 +154,16 @@ fn sema_record(entry: Entry) -> SemaWriteInput {
 
 fn sema_remove(record_identifier: RecordIdentifier) -> SemaWriteInput {
     SemaWriteInput::remove(record_identifier)
+}
+
+fn sema_change_certainty(
+    record_identifier: RecordIdentifier,
+    certainty: Magnitude,
+) -> SemaWriteInput {
+    SemaWriteInput::change_certainty(CertaintyChange {
+        record_identifier,
+        certainty,
+    })
 }
 
 fn sema_observe(query: Query) -> SemaReadInput {
@@ -222,6 +239,27 @@ fn nexus_classifies_state_into_provisional_record_through_sema_write() {
 }
 
 #[test]
+fn nexus_change_certainty_is_visible_as_schema_declared_write_command() {
+    let sema = SemaFile::new();
+    let mut nexus = Nexus::new(sema.open_store());
+    let nexus_input = nexus_signal_arrived(input_change_certainty(1, Magnitude::Zero))
+        .with_origin_route(nexus_route(5));
+
+    let first_action = NexusEngine::decide(&mut nexus, nexus_input);
+
+    assert_eq!(first_action.origin_route(), nexus_route(5));
+    match first_action.root() {
+        NexusAction::CommandSemaWrite(CommandSemaWrite::ChangeCertainty(change)) => {
+            assert_eq!(change.record_identifier, 1);
+            assert_eq!(change.certainty, Magnitude::Zero);
+        }
+        other => panic!(
+            "expected ChangeCertainty to become CommandSemaWrite(ChangeCertainty), got {other:?}"
+        ),
+    }
+}
+
+#[test]
 fn nexus_state_classification_is_visible_as_schema_declared_effect_command() {
     let sema = SemaFile::new();
     let mut nexus = Nexus::new(sema.open_store());
@@ -242,6 +280,39 @@ fn nexus_state_classification_is_visible_as_schema_declared_effect_command() {
         0,
         "the first Nexus decision exposes classification before durable SEMA write"
     );
+}
+
+#[test]
+fn sema_engine_changes_certainty_without_changing_record_identifier() {
+    let sema = SemaFile::new();
+    let mut store = sema.open_store();
+    SemaEngine::apply(
+        &mut store,
+        sema_write_message(sema_record(entry("certainty target")), 1),
+    );
+
+    let changed = SemaEngine::apply(
+        &mut store,
+        sema_write_message(sema_change_certainty(1, Magnitude::Zero), 2),
+    );
+    match changed.root() {
+        SemaWriteOutput::CertaintyChanged(receipt) => {
+            assert_eq!(receipt.record_identifier, 1);
+            assert_eq!(receipt.certainty, Magnitude::Zero);
+            assert_eq!(receipt.database_marker.commit_sequence, 2);
+        }
+        other => panic!("expected CertaintyChanged receipt, got {other:?}"),
+    }
+
+    let found = SemaEngine::observe(&store, sema_read_message(sema_lookup(1), 3));
+    match found.root() {
+        SemaReadOutput::Found(record) => {
+            assert_eq!(record.record_identifier, 1);
+            assert_eq!(record.entry.description, "certainty target");
+            assert_eq!(record.entry.magnitude, Magnitude::Zero);
+        }
+        other => panic!("expected changed record lookup, got {other:?}"),
+    }
 }
 
 #[test]

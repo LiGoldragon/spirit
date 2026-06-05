@@ -1,6 +1,6 @@
 {}
-[State Record Observe Lookup Count Remove LookupStash]
-[RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved Error Rejected]
+[State Record Observe Lookup Count Remove ChangeCertainty LookupStash]
+[RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged Error Rejected]
 {
   SourcePath String
   LocalPath String
@@ -15,6 +15,7 @@
   Lookup RecordIdentifier
   Count Query
   Remove RecordIdentifier
+  ChangeCertainty CertaintyChange
   LookupStash StashHandle
 
   RecordAccepted SemaReceipt
@@ -23,6 +24,7 @@
   RecordFound FoundRecord
   RecordsCounted CountedRecords
   RecordRemoved RemoveReceipt
+  CertaintyChanged CertaintyChangeReceipt
   Error ErrorReport
   Rejected SignalRejection
 
@@ -59,6 +61,7 @@
   Partial Topics
   Full Topics
   Privacy Magnitude
+  Certainty Magnitude
   PrivacySelection [Any (Exact Exact) (AtMost AtMost) (AtLeast AtLeast)]
   Exact Privacy
   AtMost Privacy
@@ -66,6 +69,8 @@
 
   Entry { Topics * Kind * Description * Magnitude * Privacy * }
   Statement { StatementText * }
+  CertaintyChange { RecordIdentifier * Certainty * }
+  CertaintyChangeReceipt { RecordIdentifier * Certainty * DatabaseMarker * }
   Query { TopicMatch * kind (Optional Kind) privacy_selection PrivacySelection }
   Records (Vec Entry)
   RecordSet (Vec Entry)

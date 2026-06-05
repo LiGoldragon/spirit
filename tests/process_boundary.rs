@@ -9,7 +9,7 @@ use std::{
 
 #[cfg(feature = "testing-trace")]
 use spirit::TraceEvent;
-use spirit::{Configuration, Output};
+use spirit::{Configuration, Magnitude, Output};
 use tempfile::TempDir;
 
 struct DaemonProcess {
@@ -256,6 +256,47 @@ fn cli_and_daemon_classify_state_into_provisional_record() {
             assert_eq!(records.record_set[0].privacy, spirit::Magnitude::Zero);
         }
         other => panic!("expected LookupStash to return classified State record, got {other:?}"),
+    }
+}
+
+#[test]
+fn cli_and_daemon_change_certainty_without_changing_record_identifier() {
+    let temp = TempDir::new().expect("tempdir");
+    let socket_path = temp.path().join("change-certainty.sock");
+    let database_path = temp.path().join("change-certainty.sema");
+
+    let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
+
+    let accepted = run_cli(
+        &socket_path,
+        "(Record ([[schema]] Correction [certainty target] Maximum Zero))",
+    );
+    match accepted {
+        Output::RecordAccepted(receipt) => {
+            assert_eq!(receipt.record_identifier, 1);
+            assert_eq!(receipt.database_marker.commit_sequence, 1);
+        }
+        other => panic!("expected RecordAccepted before certainty change, got {other:?}"),
+    }
+
+    let changed = run_cli(&socket_path, "(ChangeCertainty (1 Zero))");
+    match changed {
+        Output::CertaintyChanged(receipt) => {
+            assert_eq!(receipt.record_identifier, 1);
+            assert_eq!(receipt.certainty, Magnitude::Zero);
+            assert_eq!(receipt.database_marker.commit_sequence, 2);
+        }
+        other => panic!("expected CertaintyChanged, got {other:?}"),
+    }
+
+    let found = run_cli(&socket_path, "(Lookup 1)");
+    match found {
+        Output::RecordFound(record) => {
+            assert_eq!(record.record_identifier, 1);
+            assert_eq!(record.entry.description, "certainty target");
+            assert_eq!(record.entry.magnitude, Magnitude::Zero);
+        }
+        other => panic!("expected changed record lookup, got {other:?}"),
     }
 }
 

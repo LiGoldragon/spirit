@@ -49,6 +49,8 @@ pub type Count = Query;
 
 pub type Remove = RecordIdentifier;
 
+pub type ChangeCertainty = CertaintyChange;
+
 pub type LookupStash = StashHandle;
 
 pub type RecordAccepted = SemaReceipt;
@@ -62,6 +64,8 @@ pub type RecordFound = FoundRecord;
 pub type RecordsCounted = CountedRecords;
 
 pub type RecordRemoved = RemoveReceipt;
+
+pub type CertaintyChanged = CertaintyChangeReceipt;
 
 pub type Error = ErrorReport;
 
@@ -205,6 +209,8 @@ pub type Full = Topics;
 
 pub type Privacy = Magnitude;
 
+pub type Certainty = Magnitude;
+
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum PrivacySelection {
@@ -233,6 +239,21 @@ pub struct Entry {
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Statement(pub StatementText);
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct CertaintyChange {
+    pub record_identifier: RecordIdentifier,
+    pub certainty: Certainty,
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct CertaintyChangeReceipt {
+    pub record_identifier: RecordIdentifier,
+    pub certainty: Certainty,
+    pub database_marker: DatabaseMarker,
+}
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -278,6 +299,7 @@ pub enum Input {
     Lookup(Lookup),
     Count(Count),
     Remove(Remove),
+    ChangeCertainty(ChangeCertainty),
     LookupStash(LookupStash),
 }
 
@@ -290,6 +312,7 @@ pub enum Output {
     RecordFound(RecordFound),
     RecordsCounted(RecordsCounted),
     RecordRemoved(RecordRemoved),
+    CertaintyChanged(CertaintyChanged),
     Error(Error),
     Rejected(Rejected),
 }
@@ -373,6 +396,10 @@ impl Input {
         Self::Remove(payload)
     }
 
+    pub fn change_certainty(payload: ChangeCertainty) -> Self {
+        Self::ChangeCertainty(payload)
+    }
+
     pub fn lookup_stash(payload: LookupStash) -> Self {
         Self::LookupStash(payload)
     }
@@ -401,6 +428,10 @@ impl Output {
 
     pub fn record_removed(payload: RecordRemoved) -> Self {
         Self::RecordRemoved(payload)
+    }
+
+    pub fn certainty_changed(payload: CertaintyChanged) -> Self {
+        Self::CertaintyChanged(payload)
     }
 
     pub fn error(payload: Error) -> Self {
@@ -633,6 +664,28 @@ impl Statement {
 }
 
 #[cfg(feature = "nota-text")]
+impl CertaintyChange {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl CertaintyChangeReceipt {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
 impl Query {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -726,15 +779,17 @@ pub mod short_header {
     pub const INPUT_LOOKUP: u64 = 0x0003000000000000;
     pub const INPUT_COUNT: u64 = 0x0004000000000000;
     pub const INPUT_REMOVE: u64 = 0x0005000000000000;
-    pub const INPUT_LOOKUP_STASH: u64 = 0x0006000000000000;
+    pub const INPUT_CHANGE_CERTAINTY: u64 = 0x0006000000000000;
+    pub const INPUT_LOOKUP_STASH: u64 = 0x0007000000000000;
     pub const OUTPUT_RECORD_ACCEPTED: u64 = 0x0100000000000000;
     pub const OUTPUT_RECORDS_OBSERVED: u64 = 0x0101000000000000;
     pub const OUTPUT_RECORDS_STASHED: u64 = 0x0102000000000000;
     pub const OUTPUT_RECORD_FOUND: u64 = 0x0103000000000000;
     pub const OUTPUT_RECORDS_COUNTED: u64 = 0x0104000000000000;
     pub const OUTPUT_RECORD_REMOVED: u64 = 0x0105000000000000;
-    pub const OUTPUT_ERROR: u64 = 0x0106000000000000;
-    pub const OUTPUT_REJECTED: u64 = 0x0107000000000000;
+    pub const OUTPUT_CERTAINTY_CHANGED: u64 = 0x0106000000000000;
+    pub const OUTPUT_ERROR: u64 = 0x0107000000000000;
+    pub const OUTPUT_REJECTED: u64 = 0x0108000000000000;
 }
 
 const SIGNAL_SHORT_HEADER_BYTE_COUNT: usize = 8;
@@ -771,6 +826,7 @@ pub enum InputRoute {
     Lookup,
     Count,
     Remove,
+    ChangeCertainty,
     LookupStash,
 }
 
@@ -783,6 +839,7 @@ pub enum OutputRoute {
     RecordFound,
     RecordsCounted,
     RecordRemoved,
+    CertaintyChanged,
     Error,
     Rejected,
 }
@@ -796,6 +853,7 @@ impl Input {
             Self::Lookup(_) => InputRoute::Lookup,
             Self::Count(_) => InputRoute::Count,
             Self::Remove(_) => InputRoute::Remove,
+            Self::ChangeCertainty(_) => InputRoute::ChangeCertainty,
             Self::LookupStash(_) => InputRoute::LookupStash,
         }
     }
@@ -808,6 +866,7 @@ impl Input {
             Self::Lookup(_) => short_header::INPUT_LOOKUP,
             Self::Count(_) => short_header::INPUT_COUNT,
             Self::Remove(_) => short_header::INPUT_REMOVE,
+            Self::ChangeCertainty(_) => short_header::INPUT_CHANGE_CERTAINTY,
             Self::LookupStash(_) => short_header::INPUT_LOOKUP_STASH,
         }
     }
@@ -820,6 +879,7 @@ impl Input {
             short_header::INPUT_LOOKUP => Ok(InputRoute::Lookup),
             short_header::INPUT_COUNT => Ok(InputRoute::Count),
             short_header::INPUT_REMOVE => Ok(InputRoute::Remove),
+            short_header::INPUT_CHANGE_CERTAINTY => Ok(InputRoute::ChangeCertainty),
             short_header::INPUT_LOOKUP_STASH => Ok(InputRoute::LookupStash),
             _ => Err(SignalFrameError::UnknownHeader { root_enum: "Input", header }),
         }
@@ -861,6 +921,7 @@ impl Output {
             Self::RecordFound(_) => OutputRoute::RecordFound,
             Self::RecordsCounted(_) => OutputRoute::RecordsCounted,
             Self::RecordRemoved(_) => OutputRoute::RecordRemoved,
+            Self::CertaintyChanged(_) => OutputRoute::CertaintyChanged,
             Self::Error(_) => OutputRoute::Error,
             Self::Rejected(_) => OutputRoute::Rejected,
         }
@@ -874,6 +935,7 @@ impl Output {
             Self::RecordFound(_) => short_header::OUTPUT_RECORD_FOUND,
             Self::RecordsCounted(_) => short_header::OUTPUT_RECORDS_COUNTED,
             Self::RecordRemoved(_) => short_header::OUTPUT_RECORD_REMOVED,
+            Self::CertaintyChanged(_) => short_header::OUTPUT_CERTAINTY_CHANGED,
             Self::Error(_) => short_header::OUTPUT_ERROR,
             Self::Rejected(_) => short_header::OUTPUT_REJECTED,
         }
@@ -887,6 +949,7 @@ impl Output {
             short_header::OUTPUT_RECORD_FOUND => Ok(OutputRoute::RecordFound),
             short_header::OUTPUT_RECORDS_COUNTED => Ok(OutputRoute::RecordsCounted),
             short_header::OUTPUT_RECORD_REMOVED => Ok(OutputRoute::RecordRemoved),
+            short_header::OUTPUT_CERTAINTY_CHANGED => Ok(OutputRoute::CertaintyChanged),
             short_header::OUTPUT_ERROR => Ok(OutputRoute::Error),
             short_header::OUTPUT_REJECTED => Ok(OutputRoute::Rejected),
             _ => Err(SignalFrameError::UnknownHeader { root_enum: "Output", header }),
@@ -943,6 +1006,7 @@ impl SignalObjectName {
                 InputRoute::Lookup => "SignalInputLookup",
                 InputRoute::Count => "SignalInputCount",
                 InputRoute::Remove => "SignalInputRemove",
+                InputRoute::ChangeCertainty => "SignalInputChangeCertainty",
                 InputRoute::LookupStash => "SignalInputLookupStash",
             },
             Self::Output(route) => match route {
@@ -952,6 +1016,7 @@ impl SignalObjectName {
                 OutputRoute::RecordFound => "SignalOutputRecordFound",
                 OutputRoute::RecordsCounted => "SignalOutputRecordsCounted",
                 OutputRoute::RecordRemoved => "SignalOutputRecordRemoved",
+                OutputRoute::CertaintyChanged => "SignalOutputCertaintyChanged",
                 OutputRoute::Error => "SignalOutputError",
                 OutputRoute::Rejected => "SignalOutputRejected",
             },

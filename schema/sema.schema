@@ -2,8 +2,10 @@
   Entry spirit:signal:Entry
   Query spirit:signal:Query
   RecordIdentifier spirit:signal:RecordIdentifier
+  CertaintyChange spirit:signal:CertaintyChange
   SemaReceipt spirit:signal:SemaReceipt
   RemoveReceipt spirit:signal:RemoveReceipt
+  CertaintyChangeReceipt spirit:signal:CertaintyChangeReceipt
   ObservedRecords spirit:signal:ObservedRecords
   FoundRecord spirit:signal:FoundRecord
   CountedRecords spirit:signal:CountedRecords
@@ -12,18 +14,20 @@
 [WriteInput ReadInput]
 [WriteOutput ReadOutput]
 {
-  WriteInput [(Record Record) (Remove Remove)]
+  WriteInput [(Record Record) (Remove Remove) (ChangeCertainty ChangeCertainty)]
   Record Entry
   Remove RecordIdentifier
+  ChangeCertainty CertaintyChange
 
   ReadInput [(Observe Observe) (Lookup Lookup) (Count Count)]
   Observe Query
   Lookup RecordIdentifier
   Count Query
 
-  WriteOutput [(Recorded Recorded) (Removed Removed) (Missed Missed)]
+  WriteOutput [(Recorded Recorded) (Removed Removed) (CertaintyChanged CertaintyChanged) (Missed Missed)]
   Recorded SemaReceipt
   Removed RemoveReceipt
+  CertaintyChanged CertaintyChangeReceipt
   Missed ErrorReport
 
   ReadOutput [(Observed Observed) (Found Found) (Counted Counted) (Missed Missed)]

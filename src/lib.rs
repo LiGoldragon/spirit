@@ -65,10 +65,11 @@ pub use schema::sema::{
     WriteOutputRoute as SemaWriteOutputRoute, sema,
 };
 pub use schema::signal::{
-    ActorStartFailure, ActorStopFailure, AtLeast, AtMost, CommitSequence, Count, CountedRecords,
-    DatabaseMarker, Description, Entry, Error, ErrorMessage, ErrorReport, Exact, Export,
-    FoundRecord, Full, Import, Input, InputRoute, Integer, Kind, LocalPath, Lookup, LookupStash,
-    Magnitude, MailIdentifier, MailLedgerEvent, MessageIdentifier, MessageProcessed,
+    ActorStartFailure, ActorStopFailure, AtLeast, AtMost, Certainty, CertaintyChange,
+    CertaintyChangeReceipt, CertaintyChanged, ChangeCertainty, CommitSequence, Count,
+    CountedRecords, DatabaseMarker, Description, Entry, Error, ErrorMessage, ErrorReport, Exact,
+    Export, FoundRecord, Full, Import, Input, InputRoute, Integer, Kind, LocalPath, Lookup,
+    LookupStash, Magnitude, MailIdentifier, MailLedgerEvent, MessageIdentifier, MessageProcessed,
     MessageProcessedHook, MessageRoot, MessageSent, MessageSentHook, Observe, ObservedRecords,
     OriginRoute, Output, OutputRoute, Partial, Privacy, PrivacySelection, Processed, ProcessedMail,
     PublicPath, Query, Record, RecordAccepted, RecordCount, RecordFound, RecordIdentifier,

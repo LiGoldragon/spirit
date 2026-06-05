@@ -586,9 +586,9 @@ fn nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant()
     // itself cannot parse, which would silently break tooling.
     //
     // Variants exercised: RecordAccepted (happy Record), RecordRemoved
-    // (SEMA remove), Rejected (Signal validation), Error (SEMA missed),
-    // RecordsObserved (after Record + Observe). Five CLI invocations, five typed
-    // assertions, all parsed through `Output::from_str`.
+    // (SEMA remove), CertaintyChanged (SEMA mutate), Rejected (Signal
+    // validation), Error (SEMA missed), RecordsStashed (after Record +
+    // Observe). Six typed assertions, all parsed through `Output::from_str`.
     let binaries = NixBuiltBinaries::ensure();
     let daemon = DaemonProcess::spawn(&binaries);
 
@@ -617,7 +617,12 @@ fn nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant()
     );
     assert!(matches!(rerecorded, Output::RecordAccepted(_)));
 
-    // Variant 3: Rejected (Signal validation).
+    // Variant 3: CertaintyChanged.
+    let changed = run_cli_for_output(&binaries, daemon.socket(), "(ChangeCertainty (2 Zero))");
+    assert!(matches!(changed, Output::CertaintyChanged(_)));
+    assert_eq!(changed.route(), OutputRoute::CertaintyChanged);
+
+    // Variant 4: Rejected (Signal validation).
     let rejected = run_cli_for_output(
         &binaries,
         daemon.socket(),
@@ -626,7 +631,7 @@ fn nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant()
     assert!(matches!(rejected, Output::Rejected(_)));
     assert_eq!(rejected.route(), OutputRoute::Rejected);
 
-    // Variant 4: Error (SEMA missed).
+    // Variant 5: Error (SEMA missed).
     let errored = run_cli_for_output(
         &binaries,
         daemon.socket(),
@@ -635,14 +640,14 @@ fn nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant()
     assert!(matches!(errored, Output::Error(_)));
     assert_eq!(errored.route(), OutputRoute::Error);
 
-    // Variant 5: RecordsObserved.
+    // Variant 6: RecordsStashed.
     let observed = run_cli_for_output(
         &binaries,
         daemon.socket(),
         "(Observe ((Full [[nix-integration]]) (Some Decision) (Exact Zero)))",
     );
-    assert!(matches!(observed, Output::RecordsObserved(_)));
-    assert_eq!(observed.route(), OutputRoute::RecordsObserved);
+    assert!(matches!(observed, Output::RecordsStashed(_)));
+    assert_eq!(observed.route(), OutputRoute::RecordsStashed);
 }
 
 // ---------------------------------------------------------------------------

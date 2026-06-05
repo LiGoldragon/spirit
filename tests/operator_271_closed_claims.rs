@@ -80,7 +80,7 @@ fn signal_schema_input_uses_exported_object_variant_names() {
 
     // The active production Input enum body — compact exported objects.
     witness.must_contain(
-        "[State Record Observe Lookup Count Remove LookupStash]",
+        "[State Record Observe Lookup Count Remove ChangeCertainty LookupStash]",
         "4",
     );
     witness.must_contain("State Statement", "4");
@@ -89,6 +89,7 @@ fn signal_schema_input_uses_exported_object_variant_names() {
     witness.must_contain("Lookup RecordIdentifier", "4");
     witness.must_contain("Count Query", "4");
     witness.must_contain("Remove RecordIdentifier", "4");
+    witness.must_contain("ChangeCertainty CertaintyChange", "4");
     witness.must_contain("LookupStash StashHandle", "4");
 
     // Retired short-suffix shorthand must not appear.
@@ -109,7 +110,7 @@ fn signal_schema_output_uses_exported_object_variant_names() {
 
     // The active production Output enum body.
     witness.must_contain(
-        "[RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved Error Rejected]",
+        "[RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged Error Rejected]",
         "4",
     );
     witness.must_contain("RecordAccepted SemaReceipt", "4");
@@ -117,6 +118,7 @@ fn signal_schema_output_uses_exported_object_variant_names() {
     witness.must_contain("RecordFound FoundRecord", "4");
     witness.must_contain("RecordsCounted CountedRecords", "4");
     witness.must_contain("RecordRemoved RemoveReceipt", "4");
+    witness.must_contain("CertaintyChanged CertaintyChangeReceipt", "4");
     witness.must_contain("Error ErrorReport", "4");
     witness.must_contain("Rejected SignalRejection", "4");
 }
@@ -176,21 +178,28 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     sema_witness.must_round_trip_as_schema_source();
 
     signal_witness.must_contain(
-        "[State Record Observe Lookup Count Remove LookupStash]",
+        "[State Record Observe Lookup Count Remove ChangeCertainty LookupStash]",
         "4",
     );
     signal_witness.must_contain("State Statement", "4");
     signal_witness.must_contain("Record Entry", "4");
     signal_witness.must_contain("Observe Query", "4");
     signal_witness.must_contain("Lookup RecordIdentifier", "4");
+    signal_witness.must_contain("ChangeCertainty CertaintyChange", "4");
     sema_witness.must_contain("[WriteInput ReadInput]", "4");
-    sema_witness.must_contain("WriteInput [(Record Record) (Remove Remove)]", "4");
-    sema_witness.must_contain("Recorded SemaReceipt", "4");
     sema_witness.must_contain(
-        "WriteOutput [(Recorded Recorded) (Removed Removed) (Missed Missed)]",
+        "WriteInput [(Record Record) (Remove Remove) (ChangeCertainty ChangeCertainty)]",
         "4",
     );
-    nexus_witness.must_contain("CommandSemaWrite SemaWriteInput", "4");
+    sema_witness.must_contain("Recorded SemaReceipt", "4");
+    sema_witness.must_contain(
+        "WriteOutput [(Recorded Recorded) (Removed Removed) (CertaintyChanged CertaintyChanged) (Missed Missed)]",
+        "4",
+    );
+    nexus_witness.must_contain(
+        "CommandSemaWrite [(Record Record) (Remove Remove) (ChangeCertainty ChangeCertainty)]",
+        "4",
+    );
     nexus_witness.must_contain("NexusAction [(CommandSemaWrite CommandSemaWrite)", "4");
     nexus_witness.must_contain(
         "NexusEffectCommand [(Stash Stash) (ClassifyState ClassifyState)]",
@@ -229,6 +238,7 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     signal_witness.must_contain("Lookup(Lookup)", "4");
     signal_witness.must_contain("Count(Count)", "4");
     signal_witness.must_contain("Remove(Remove)", "4");
+    signal_witness.must_contain("ChangeCertainty(ChangeCertainty)", "4");
 
     // The schema-emitted Output enum carries exported alias nouns.
     signal_witness.must_contain("pub enum Output {", "4");
@@ -241,10 +251,13 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     signal_witness.must_contain("RecordFound(RecordFound)", "4");
     signal_witness.must_contain("RecordsCounted(RecordsCounted)", "4");
     signal_witness.must_contain("RecordRemoved(RecordRemoved)", "4");
+    signal_witness.must_contain("CertaintyChanged(CertaintyChanged)", "4");
     signal_witness.must_contain("Error(Error)", "4");
     signal_witness.must_contain("Rejected(Rejected)", "4");
 
-    // Nexus exposes internal features as schema-emitted effect nouns.
+    // Nexus exposes internal features as schema-emitted action/effect nouns.
+    nexus_witness.must_contain("pub enum CommandSemaWrite {", "4");
+    nexus_witness.must_contain("ChangeCertainty(ChangeCertainty)", "4");
     nexus_witness.must_contain("pub enum NexusEffectCommand {", "4");
     nexus_witness.must_contain("pub type ClassifyState = Statement;", "4");
     nexus_witness.must_contain("ClassifyState(ClassifyState)", "4");
@@ -255,11 +268,13 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     sema_witness.must_contain("pub enum WriteInput {", "4");
     sema_witness.must_contain("Record(Record)", "4");
     sema_witness.must_contain("Remove(Remove)", "4");
+    sema_witness.must_contain("ChangeCertainty(ChangeCertainty)", "4");
     sema_witness.must_contain("pub enum ReadInput {", "4");
     sema_witness.must_contain("Observe(Observe)", "4");
     sema_witness.must_contain("Lookup(Lookup)", "4");
     sema_witness.must_contain("Count(Count)", "4");
     sema_witness.must_contain("pub type Recorded = SemaReceipt;", "4");
+    sema_witness.must_contain("pub type CertaintyChanged = CertaintyChangeReceipt;", "4");
 
     // The schema-emitted unit enums carry bare variants.
     signal_witness.must_contain("pub enum ValidationError", "4");

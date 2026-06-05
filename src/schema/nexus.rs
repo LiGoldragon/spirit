@@ -9,7 +9,6 @@ pub use spirit::schema::signal::Input as SignalInput;
 pub use spirit::schema::signal::Output as SignalOutput;
 pub use spirit::schema::sema::ReadInput as SemaReadInput;
 pub use spirit::schema::sema::ReadOutput as SemaReadOutput;
-pub use spirit::schema::sema::WriteInput as SemaWriteInput;
 pub use spirit::schema::sema::WriteOutput as SemaWriteOutput;
 pub use spirit::schema::signal::Records as Records;
 pub use spirit::schema::signal::RecordCount as RecordCount;
@@ -17,6 +16,8 @@ pub use spirit::schema::signal::StashHandle as StashHandle;
 pub use spirit::schema::signal::DatabaseMarker as DatabaseMarker;
 pub use spirit::schema::signal::Statement as Statement;
 pub use spirit::schema::signal::Entry as Entry;
+pub use spirit::schema::signal::RecordIdentifier as RecordIdentifier;
+pub use spirit::schema::signal::CertaintyChange as CertaintyChange;
 
 #[cfg(feature = "nota-text")]
 pub use nota_next::{
@@ -31,7 +32,19 @@ pub type SemaReadCompleted = SemaReadOutput;
 
 pub type EffectCompleted = NexusEffectResult;
 
-pub type CommandSemaWrite = SemaWriteInput;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum CommandSemaWrite {
+    Record(Record),
+    Remove(Remove),
+    ChangeCertainty(ChangeCertainty),
+}
+
+pub type Record = Entry;
+
+pub type Remove = RecordIdentifier;
+
+pub type ChangeCertainty = CertaintyChange;
 
 pub type CommandSemaRead = SemaReadInput;
 
@@ -114,6 +127,20 @@ pub enum Output {
     ReplyToSignal(ReplyToSignal),
     CommandEffect(CommandEffect),
     Continue(Continue),
+}
+
+impl CommandSemaWrite {
+    pub fn record(payload: Record) -> Self {
+        Self::Record(payload)
+    }
+
+    pub fn remove(payload: Remove) -> Self {
+        Self::Remove(payload)
+    }
+
+    pub fn change_certainty(payload: ChangeCertainty) -> Self {
+        Self::ChangeCertainty(payload)
+    }
 }
 
 impl NexusWork {
@@ -213,6 +240,29 @@ impl Output {
 
     pub fn r#continue(payload: Continue) -> Self {
         Self::Continue(payload)
+    }
+}
+
+impl From<CommandSemaWrite> for NexusAction {
+    fn from(payload: CommandSemaWrite) -> Self {
+        Self::CommandSemaWrite(payload)
+    }
+}
+
+impl From<CommandSemaWrite> for Output {
+    fn from(payload: CommandSemaWrite) -> Self {
+        Self::CommandSemaWrite(payload)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl CommandSemaWrite {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
     }
 }
 

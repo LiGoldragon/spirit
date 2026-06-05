@@ -1,7 +1,7 @@
 use spirit::{
-    DatabaseMarker, Entry, Input, InputRoute, Kind, Magnitude, MessageIdentifier, MessageRoot,
-    OriginRoute, Output, OutputRoute, Record, Rejected, SemaReceipt, SignalFrameError,
-    SignalRejection, Statement, ValidationError,
+    CertaintyChange, CertaintyChangeReceipt, DatabaseMarker, Entry, Input, InputRoute, Kind,
+    Magnitude, MessageIdentifier, MessageRoot, OriginRoute, Output, OutputRoute, Record, Rejected,
+    SemaReceipt, SignalFrameError, SignalRejection, Statement, ValidationError,
 };
 
 fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
@@ -59,6 +59,39 @@ fn generated_state_input_surface_owns_route_header_and_rkyv_frame() {
     assert_eq!(decoded, input);
 }
 
+#[test]
+fn generated_change_certainty_surface_owns_route_header_and_rkyv_frame() {
+    let input = Input::change_certainty(CertaintyChange {
+        record_identifier: 7,
+        certainty: Magnitude::Zero,
+    });
+
+    assert_eq!(input.route(), InputRoute::ChangeCertainty);
+
+    let frame = input.encode_signal_frame().expect("encode frame");
+    let (route, decoded) = Input::decode_signal_frame(&frame).expect("decode frame");
+
+    assert_eq!(route, InputRoute::ChangeCertainty);
+    assert_eq!(decoded, input);
+}
+
+#[test]
+fn generated_certainty_changed_output_owns_route_header_and_rkyv_frame() {
+    let output = Output::certainty_changed(CertaintyChangeReceipt {
+        record_identifier: 7,
+        certainty: Magnitude::Zero,
+        database_marker: marker(4, 101),
+    });
+
+    assert_eq!(output.route(), OutputRoute::CertaintyChanged);
+
+    let frame = output.encode_signal_frame().expect("encode frame");
+    let (route, decoded) = Output::decode_signal_frame(&frame).expect("decode frame");
+
+    assert_eq!(route, OutputRoute::CertaintyChanged);
+    assert_eq!(decoded, output);
+}
+
 #[cfg(feature = "nota-text")]
 #[test]
 fn generated_state_input_round_trips_the_canonical_newtype_shape() {
@@ -71,6 +104,23 @@ fn generated_state_input_round_trips_the_canonical_newtype_shape() {
         Input::state(Statement::new(String::from("capture this intent")))
     );
     assert_eq!(input.to_string(), "(State [capture this intent])");
+}
+
+#[cfg(feature = "nota-text")]
+#[test]
+fn generated_change_certainty_round_trips_the_canonical_shape() {
+    let input = "(ChangeCertainty (7 Zero))"
+        .parse::<Input>()
+        .expect("parse change certainty input");
+
+    assert_eq!(
+        input,
+        Input::change_certainty(CertaintyChange {
+            record_identifier: 7,
+            certainty: Magnitude::Zero,
+        })
+    );
+    assert_eq!(input.to_string(), "(ChangeCertainty (7 Zero))");
 }
 
 #[test]

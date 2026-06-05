@@ -354,7 +354,9 @@ impl Input {
             Self::State(statement) => statement.validate(),
             Self::Record(record) => record.validate(),
             Self::Observe(observe) => observe.validate(),
-            Self::Lookup(_) | Self::Remove(_) | Self::LookupStash(_) => Ok(()),
+            Self::Lookup(_) | Self::Remove(_) | Self::ChangeCertainty(_) | Self::LookupStash(_) => {
+                Ok(())
+            }
             Self::Count(count) => count.validate(),
         }
     }
@@ -466,6 +468,7 @@ impl Output {
             Self::RecordFound(record) => record.database_marker.clone(),
             Self::RecordsCounted(records) => records.database_marker.clone(),
             Self::RecordRemoved(receipt) => receipt.database_marker.clone(),
+            Self::CertaintyChanged(receipt) => receipt.database_marker.clone(),
             Self::Error(report) => report.database_marker.clone(),
             Self::Rejected(rejection) => rejection.database_marker.clone(),
         }

@@ -8,8 +8,10 @@ pub type Path = std::string::String;
 pub use spirit::schema::signal::Entry as Entry;
 pub use spirit::schema::signal::Query as Query;
 pub use spirit::schema::signal::RecordIdentifier as RecordIdentifier;
+pub use spirit::schema::signal::CertaintyChange as CertaintyChange;
 pub use spirit::schema::signal::SemaReceipt as SemaReceipt;
 pub use spirit::schema::signal::RemoveReceipt as RemoveReceipt;
+pub use spirit::schema::signal::CertaintyChangeReceipt as CertaintyChangeReceipt;
 pub use spirit::schema::signal::ObservedRecords as ObservedRecords;
 pub use spirit::schema::signal::FoundRecord as FoundRecord;
 pub use spirit::schema::signal::CountedRecords as CountedRecords;
@@ -25,11 +27,14 @@ pub use nota_next::{
 pub enum WriteInput {
     Record(Record),
     Remove(Remove),
+    ChangeCertainty(ChangeCertainty),
 }
 
 pub type Record = Entry;
 
 pub type Remove = RecordIdentifier;
+
+pub type ChangeCertainty = CertaintyChange;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -50,12 +55,15 @@ pub type Count = Query;
 pub enum WriteOutput {
     Recorded(Recorded),
     Removed(Removed),
+    CertaintyChanged(CertaintyChanged),
     Missed(Missed),
 }
 
 pub type Recorded = SemaReceipt;
 
 pub type Removed = RemoveReceipt;
+
+pub type CertaintyChanged = CertaintyChangeReceipt;
 
 pub type Missed = ErrorReport;
 
@@ -96,6 +104,10 @@ impl WriteInput {
     pub fn remove(payload: Remove) -> Self {
         Self::Remove(payload)
     }
+
+    pub fn change_certainty(payload: ChangeCertainty) -> Self {
+        Self::ChangeCertainty(payload)
+    }
 }
 
 impl ReadInput {
@@ -119,6 +131,10 @@ impl WriteOutput {
 
     pub fn removed(payload: Removed) -> Self {
         Self::Removed(payload)
+    }
+
+    pub fn certainty_changed(payload: CertaintyChanged) -> Self {
+        Self::CertaintyChanged(payload)
     }
 
     pub fn missed(payload: Missed) -> Self {
@@ -437,6 +453,7 @@ impl Output {
 pub enum WriteInputRoute {
     Record,
     Remove,
+    ChangeCertainty,
 }
 
 impl WriteInput {
@@ -444,6 +461,7 @@ impl WriteInput {
         match self {
             Self::Record(_) => WriteInputRoute::Record,
             Self::Remove(_) => WriteInputRoute::Remove,
+            Self::ChangeCertainty(_) => WriteInputRoute::ChangeCertainty,
         }
     }
 }
@@ -471,6 +489,7 @@ impl ReadInput {
 pub enum WriteOutputRoute {
     Recorded,
     Removed,
+    CertaintyChanged,
     Missed,
 }
 
@@ -479,6 +498,7 @@ impl WriteOutput {
         match self {
             Self::Recorded(_) => WriteOutputRoute::Recorded,
             Self::Removed(_) => WriteOutputRoute::Removed,
+            Self::CertaintyChanged(_) => WriteOutputRoute::CertaintyChanged,
             Self::Missed(_) => WriteOutputRoute::Missed,
         }
     }
@@ -523,6 +543,7 @@ impl SemaObjectName {
             Self::WriteInput(route) => match route {
                 WriteInputRoute::Record => "SemaWriteInputRecord",
                 WriteInputRoute::Remove => "SemaWriteInputRemove",
+                WriteInputRoute::ChangeCertainty => "SemaWriteInputChangeCertainty",
             },
             Self::ReadInput(route) => match route {
                 ReadInputRoute::Observe => "SemaReadInputObserve",
@@ -532,6 +553,7 @@ impl SemaObjectName {
             Self::WriteOutput(route) => match route {
                 WriteOutputRoute::Recorded => "SemaWriteOutputRecorded",
                 WriteOutputRoute::Removed => "SemaWriteOutputRemoved",
+                WriteOutputRoute::CertaintyChanged => "SemaWriteOutputCertaintyChanged",
                 WriteOutputRoute::Missed => "SemaWriteOutputMissed",
             },
             Self::ReadOutput(route) => match route {
