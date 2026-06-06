@@ -49,10 +49,15 @@ pub mod schema {
     pub mod sema;
     #[rustfmt::skip]
     pub mod meta_signal;
+    #[rustfmt::skip]
+    pub mod daemon;
 }
 
 pub use config::{Configuration, ConfigurationError};
-pub use daemon::{Daemon, DaemonCommand, DaemonCommandError, DaemonError, SpiritListener};
+pub use daemon::{Daemon, SpiritDaemon, SpiritDaemonError};
+pub use schema::daemon::{
+    ComponentDaemon, DaemonCommand, DaemonEntry, DaemonError, ListenerTier,
+};
 pub use engine::{Engine, MailLedger, MailLedgerHook, SignalAccepted, SignalActor};
 pub use meta_transport::{
     MetaFrameError, MetaInputRoute, MetaOutputRoute, MetaSignalTransport, MetaTransportError,

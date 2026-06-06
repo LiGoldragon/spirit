@@ -1,6 +1,7 @@
 use std::{fs, path::Path};
 
 use thiserror::Error;
+use triad_runtime::DaemonConfiguration;
 
 /// Daemon configuration loaded from a binary rkyv file.
 ///
@@ -94,6 +95,24 @@ impl Configuration {
 
     pub fn write_binary_file(&self, path: impl AsRef<Path>) -> Result<(), ConfigurationError> {
         fs::write(path, self.to_binary_bytes()?).map_err(ConfigurationError::Write)
+    }
+}
+
+impl DaemonConfiguration for Configuration {
+    fn socket_path(&self) -> &Path {
+        Configuration::socket_path(self)
+    }
+
+    fn meta_socket_path(&self) -> Option<&Path> {
+        Configuration::meta_socket_path(self)
+    }
+
+    fn database_path(&self) -> &Path {
+        Configuration::database_path(self)
+    }
+
+    fn trace_socket_path(&self) -> Option<&Path> {
+        Configuration::trace_socket_path(self)
     }
 }
 

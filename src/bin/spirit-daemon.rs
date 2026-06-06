@@ -1,8 +1,5 @@
-use spirit::DaemonCommand;
+use spirit::{DaemonEntry, SpiritDaemon};
 
-fn main() {
-    if let Err(error) = DaemonCommand::from_environment().run() {
-        eprintln!("spirit-daemon: {error}");
-        std::process::exit(1);
-    }
+fn main() -> std::process::ExitCode {
+    SpiritDaemon::run_to_exit_code()
 }

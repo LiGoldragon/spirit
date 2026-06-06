@@ -1,4 +1,4 @@
-use spirit::{Configuration, DaemonCommand, DaemonCommandError};
+use spirit::{Configuration, DaemonCommand, DaemonError, SpiritDaemon};
 use triad_runtime::ArgumentError;
 
 struct TemporaryConfiguration {
@@ -49,7 +49,7 @@ fn daemon_configuration_carries_optional_meta_socket_slot() {
     configuration
         .write_binary_file(temporary_configuration.configuration_path())
         .expect("write binary configuration");
-    let command = DaemonCommand::from_arguments([temporary_configuration
+    let command = DaemonCommand::<SpiritDaemon>::from_arguments([temporary_configuration
         .configuration_path()
         .to_string_lossy()
         .into_owned()]);
@@ -66,7 +66,7 @@ fn daemon_configuration_carries_optional_meta_socket_slot() {
 fn daemon_command_reads_the_single_binary_configuration_argument() {
     let temporary_configuration = TemporaryConfiguration::new();
     let configuration = temporary_configuration.write_configuration();
-    let command = DaemonCommand::from_arguments([temporary_configuration
+    let command = DaemonCommand::<SpiritDaemon>::from_arguments([temporary_configuration
         .configuration_path()
         .to_string_lossy()
         .into_owned()]);
@@ -78,18 +78,18 @@ fn daemon_command_reads_the_single_binary_configuration_argument() {
 
 #[test]
 fn daemon_command_rejects_missing_or_extra_arguments() {
-    let missing = DaemonCommand::from_arguments(std::iter::empty::<String>());
-    let extra = DaemonCommand::from_arguments(["one", "two"]);
+    let missing = DaemonCommand::<SpiritDaemon>::from_arguments(std::iter::empty::<String>());
+    let extra = DaemonCommand::<SpiritDaemon>::from_arguments(["one", "two"]);
 
     assert!(matches!(
         missing.configuration(),
-        Err(DaemonCommandError::Argument(ArgumentError::ArgumentCount {
+        Err(DaemonError::Argument(ArgumentError::ArgumentCount {
             count: 0
         }))
     ));
     assert!(matches!(
         extra.configuration(),
-        Err(DaemonCommandError::Argument(ArgumentError::ArgumentCount {
+        Err(DaemonError::Argument(ArgumentError::ArgumentCount {
             count: 2
         }))
     ));
