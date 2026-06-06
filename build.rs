@@ -24,11 +24,14 @@ impl SchemaBuild {
         println!("cargo:rerun-if-changed=src/schema/nexus.rs");
         println!("cargo:rerun-if-changed=schema/sema.schema");
         println!("cargo:rerun-if-changed=src/schema/sema.rs");
+        println!("cargo:rerun-if-changed=schema/meta-signal.schema");
+        println!("cargo:rerun-if-changed=src/schema/meta_signal.rs");
 
         let plan = GenerationPlan::new(&self.crate_root, "spirit", "0.1.0")
             .with_module(ModuleEmission::signal_runtime_module("signal"))
             .with_module(ModuleEmission::nexus_runtime())
-            .with_module(ModuleEmission::sema_runtime());
+            .with_module(ModuleEmission::sema_runtime())
+            .with_module(ModuleEmission::wire_contract_module("meta-signal"));
         GenerationDriver::new(plan)
             .generate()
             .expect("generate spirit schema artifacts")

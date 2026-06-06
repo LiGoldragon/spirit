@@ -1,18 +1,47 @@
-use std::os::unix::net::UnixStream;
+use std::{
+    fmt::{Display, Formatter},
+    os::unix::net::UnixStream,
+};
 
 use thiserror::Error;
 use triad_runtime::{
-    ArgumentError, ComponentArgument, ComponentCommand, DaemonRuntime, ListenerError,
-    RequestErrorLog, SingleListenerDaemon, SingleListenerDaemonError,
+    ArgumentError, ComponentArgument, ComponentCommand, ListenerError, ListenerSocket,
+    MultiListenerDaemon, MultiListenerDaemonError, MultiListenerRuntime, RequestErrorLog, SocketMode,
 };
 
 use crate::{
     Configuration, ConfigurationError, Engine, StoreError,
+    meta_transport::{MetaInput, MetaSignalTransport, MetaTransportError},
     schema::signal::{ActorStartFailure, ActorStopFailure, Input, Output, Query},
     store::Store,
     subscription::{SubscriptionError, SubscriptionHub},
     transport::{SignalTransport, TransportError},
 };
+
+/// The owner-only meta socket file mode: readable and writable by the owner
+/// uid only (`rw-------`). triad-runtime has no peer-credential check, so the
+/// meta surface's owner-only authority rests entirely on this filesystem mode.
+const OWNER_ONLY_SOCKET_MODE: u32 = 0o600;
+
+/// Which authority-tiered socket an arriving stream belongs to. `Working` is
+/// the peer-callable signal surface (`schema/signal.schema`); `Meta` is the
+/// owner-only `Configure` policy surface (`schema/meta-signal.schema`). Used as
+/// the `MultiListenerRuntime::Listener` tag so `handle_stream` decodes the
+/// correct wire contract for the arriving socket.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SpiritListener {
+    Working,
+    Meta,
+}
+
+impl Display for SpiritListener {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Working => formatter.write_str("working"),
+            Self::Meta => formatter.write_str("meta"),
+        }
+    }
+}
 
 #[cfg(feature = "testing-trace")]
 use crate::TraceLog;
@@ -27,6 +56,9 @@ pub enum DaemonError {
 
     #[error("daemon transport error: {0}")]
     Transport(#[from] TransportError),
+
+    #[error("daemon meta transport error: {0}")]
+    MetaTransport(#[from] MetaTransportError),
 
     #[error("daemon subscription error: {0}")]
     Subscription(#[from] SubscriptionError),
@@ -101,13 +133,19 @@ impl Daemon {
 
     pub fn run(&self) -> Result<(), DaemonError> {
         let runtime = self.runtime()?;
-        SingleListenerDaemon::new(
-            self.configuration.socket_path(),
-            runtime,
-            RequestErrorLog::new("spirit-daemon"),
-        )
-        .run()
-        .map_err(Into::into)
+        let mut sockets = vec![ListenerSocket::new(
+            SpiritListener::Working,
+            self.configuration.socket_path().to_path_buf(),
+        )];
+        if let Some(meta_socket_path) = self.configuration.meta_socket_path() {
+            sockets.push(
+                ListenerSocket::new(SpiritListener::Meta, meta_socket_path.to_path_buf())
+                    .with_socket_mode(SocketMode::new(OWNER_ONLY_SOCKET_MODE)),
+            );
+        }
+        MultiListenerDaemon::new(sockets, runtime, RequestErrorLog::new("spirit-daemon"))
+            .run()
+            .map_err(Into::into)
     }
 
     fn runtime(&self) -> Result<SpiritDaemonRuntime, DaemonError> {
@@ -145,7 +183,7 @@ impl SpiritDaemonRuntime {
         }
     }
 
-    fn handle_stream(&self, stream: UnixStream) -> Result<(), DaemonError> {
+    fn handle_working_stream(&self, stream: UnixStream) -> Result<(), DaemonError> {
         let subscription_writer = stream.try_clone()?;
         let mut transport = SignalTransport::new(stream);
         let (_route, input) = transport.read_input()?;
@@ -155,6 +193,20 @@ impl SpiritDaemonRuntime {
         transport.write_output(&root_output)?;
         self.register_subscription(subscription_filter, &root_output, subscription_writer);
         self.publish_output(&root_output)?;
+        Ok(())
+    }
+
+    /// Serve one owner-only meta request: decode a `Configure` meta `Input`,
+    /// apply it through `Engine::configure` (a configuration effect, not a SEMA
+    /// log write), and write the `Configured` / `Rejected` meta `Output` back.
+    /// No subscription registration — `Configure` is request/reply, not a
+    /// stream.
+    fn handle_meta_stream(&self, stream: UnixStream) -> Result<(), DaemonError> {
+        let mut transport = MetaSignalTransport::new(stream);
+        let (_route, input) = transport.read_input()?;
+        let MetaInput::Configure(request) = input;
+        let reply = self.engine.configure(request);
+        transport.write_output(&reply)?;
         Ok(())
     }
 
@@ -211,7 +263,8 @@ impl SubscriptionFilter {
     }
 }
 
-impl DaemonRuntime for SpiritDaemonRuntime {
+impl MultiListenerRuntime for SpiritDaemonRuntime {
+    type Listener = SpiritListener;
     type RequestError = DaemonError;
     type StartError = ActorStartFailure;
     type StopError = ActorStopFailure;
@@ -224,17 +277,24 @@ impl DaemonRuntime for SpiritDaemonRuntime {
         self.engine.stop()
     }
 
-    fn handle_stream(&mut self, stream: UnixStream) -> Result<(), Self::RequestError> {
-        SpiritDaemonRuntime::handle_stream(self, stream)
+    fn handle_stream(
+        &mut self,
+        listener: SpiritListener,
+        stream: UnixStream,
+    ) -> Result<(), Self::RequestError> {
+        match listener {
+            SpiritListener::Working => self.handle_working_stream(stream),
+            SpiritListener::Meta => self.handle_meta_stream(stream),
+        }
     }
 }
 
-impl From<SingleListenerDaemonError<ActorStartFailure, ActorStopFailure>> for DaemonError {
-    fn from(error: SingleListenerDaemonError<ActorStartFailure, ActorStopFailure>) -> Self {
+impl From<MultiListenerDaemonError<ActorStartFailure, ActorStopFailure>> for DaemonError {
+    fn from(error: MultiListenerDaemonError<ActorStartFailure, ActorStopFailure>) -> Self {
         match error {
-            SingleListenerDaemonError::Listener(error) => Self::Listener(error),
-            SingleListenerDaemonError::Start(error) => Self::ActorStart(error),
-            SingleListenerDaemonError::Stop(error) => Self::ActorStop(error),
+            MultiListenerDaemonError::Listener(error) => Self::Listener(error),
+            MultiListenerDaemonError::Start(error) => Self::ActorStart(error),
+            MultiListenerDaemonError::Stop(error) => Self::ActorStop(error),
         }
     }
 }

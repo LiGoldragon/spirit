@@ -187,6 +187,14 @@ impl Nexus {
         &self.store
     }
 
+    /// Re-point the durable archive target the SEMA store writes to. The
+    /// owner-only meta `Configure` effect drives this through the same
+    /// single-flight `&mut Nexus` borrow that guards every working write, so
+    /// the store's single-slot durable state stays sound.
+    pub fn set_archive_target(&mut self, path: impl Into<std::path::PathBuf>) -> Result<(), StoreError> {
+        self.store.set_archive_target(path)
+    }
+
     pub fn stash_table(&self) -> &StashTable {
         &self.stash_table
     }

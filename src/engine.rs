@@ -3,6 +3,10 @@ use std::{convert::Infallible, sync::Mutex};
 use crate::{
     nexus::Nexus,
     schema::{
+        meta_signal::{
+            ConfigureRejection, ConfigureRejectionReason, ConfigureReceipt, ConfigureRequest,
+            Output as MetaOutput,
+        },
         nexus::{self as nexus_schema, NexusAction, NexusEngine, NexusWork},
         signal::{
             self as signal_schema, ActorStartFailure, ActorStopFailure, DatabaseMarker, Entry,
@@ -163,6 +167,32 @@ impl Engine {
 
     pub fn database_marker(&self) -> DatabaseMarker {
         self.nexus.lock().expect("nexus lock").database_marker()
+    }
+
+    /// Apply an owner-only meta `Configure` request: re-point the durable
+    /// archive target the SEMA store writes to, and reply with the now-active
+    /// target plus the database marker.
+    ///
+    /// This is the meta-socket effect — it does NOT re-enter the
+    /// Signal -> Nexus -> SEMA working pipeline; there is no SEMA log write.
+    /// It locks the same single-flight Nexus mutex the working path uses, so a
+    /// reconfigure and a working write can never run concurrently and the
+    /// store's single-slot durable state stays sound. On a sema-engine open
+    /// failure at the requested target the store keeps its current target and
+    /// the request is rejected with `ArchiveTargetUnwritable`.
+    pub fn configure(&self, request: ConfigureRequest) -> MetaOutput {
+        let archive_target = request.into_payload();
+        let mut nexus = self.nexus.lock().expect("nexus lock");
+        match nexus.set_archive_target(&archive_target) {
+            Ok(()) => MetaOutput::configured(ConfigureReceipt {
+                archive_target,
+                database_marker: nexus.database_marker(),
+            }),
+            Err(_error) => MetaOutput::rejected(ConfigureRejection {
+                configure_rejection_reason: ConfigureRejectionReason::ArchiveTargetUnwritable,
+                database_marker: nexus.database_marker(),
+            }),
+        }
     }
 
     pub fn intent_recorded_event(

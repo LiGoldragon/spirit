@@ -30,6 +30,7 @@ extern crate self as spirit;
 pub mod config;
 pub mod daemon;
 pub mod engine;
+pub mod meta_transport;
 pub mod nexus;
 mod plane;
 pub mod store;
@@ -46,11 +47,16 @@ pub mod schema {
     pub mod nexus;
     #[rustfmt::skip]
     pub mod sema;
+    #[rustfmt::skip]
+    pub mod meta_signal;
 }
 
 pub use config::{Configuration, ConfigurationError};
-pub use daemon::{Daemon, DaemonCommand, DaemonCommandError, DaemonError};
+pub use daemon::{Daemon, DaemonCommand, DaemonCommandError, DaemonError, SpiritListener};
 pub use engine::{Engine, MailLedger, MailLedgerHook, SignalAccepted, SignalActor};
+pub use meta_transport::{
+    MetaFrameError, MetaInputRoute, MetaOutputRoute, MetaSignalTransport, MetaTransportError,
+};
 pub use nexus::{Nexus, StashTable};
 pub use store::{Store, StoreError};
 #[cfg(feature = "testing-trace")]

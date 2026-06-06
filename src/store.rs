@@ -214,6 +214,29 @@ impl Store {
         &self.path
     }
 
+    /// Re-point the durable archive target to `path` (the owner-only meta
+    /// `Configure` effect).
+    ///
+    /// Semantics are REDIRECT, not migrate: the store closes its current
+    /// `sema-engine` handle and opens (or resumes) the database at the new
+    /// `*.sema` path, so every subsequent `Record` / `ChangeCertainty` /
+    /// `Remove` and every `CollectRemovalCandidates`/archive read lands at the
+    /// new target. Records already written to the previous file are left in
+    /// place — they are neither copied forward nor deleted. Opening an existing
+    /// file at the new path resumes its persisted commit sequence and record
+    /// identifier counter; a fresh path starts empty.
+    pub fn set_archive_target(&mut self, path: impl Into<PathBuf>) -> Result<(), StoreError> {
+        let path = path.into();
+        let mut database =
+            SemaDatabase::open(EngineOpen::new(path.clone(), SPIRIT_SCHEMA_VERSION))?;
+        let entries =
+            database.register_identified_table(IdentifiedTableDescriptor::new(ENTRIES_TABLE))?;
+        self.database = database;
+        self.entries = entries;
+        self.path = path;
+        Ok(())
+    }
+
     fn record(&self, entry: Entry) -> Result<u64, StoreError> {
         Ok(self
             .database

@@ -96,10 +96,12 @@ machinery remain future work.
 `main` only creates `DaemonCommand::from_environment()` and runs it; the
 command loads the single binary configuration path and constructs `Daemon`.
 `Daemon` then constructs `SpiritDaemonRuntime` around the component `Engine`
-and gives it to `triad_runtime::SingleListenerDaemon`. The shared runtime
-prepares the Unix socket, binds the listener, starts the runtime, serves
-accepted streams, logs request-level errors without stopping the listener, and
-stops the runtime when the accept loop exits. Spirit's runtime object owns only
+and gives it to `triad_runtime::MultiListenerDaemon` as one or two tagged
+`ListenerSocket`s (the working socket always, the owner-only meta socket when
+`meta_socket_path` is set). The shared runtime prepares each Unix socket, binds
+the listeners, starts the runtime, serves accepted streams round-robin, logs
+request-level errors without stopping the listeners, and stops the runtime when
+the accept loop exits. Spirit's runtime object owns only
 engine construction and the one-stream generated signal-frame bridge.
 
 This is the live startup-runner slice: startup and listener behavior belongs to
@@ -146,11 +148,14 @@ The daemon:
    binary rkyv `Configuration` object;
 2. constructs `SpiritDaemonRuntime`, opening the configured `.sema` database
    path through `Store`;
-3. hands that runtime and the configured socket path to
-   `triad_runtime::SingleListenerDaemon`;
-4. starts the generated engine lifecycle through `DaemonRuntime::start`;
+3. hands that runtime and the configured socket paths (working, plus the
+   owner-only meta socket when `meta_socket_path` is set) to
+   `triad_runtime::MultiListenerDaemon`;
+4. starts the generated engine lifecycle through `MultiListenerRuntime::start`;
 5. reads a length-prefixed binary frame from each accepted stream;
-6. asks generated `Input` to triage by short header and decode itself;
+6. asks generated `Input` to triage by short header and decode itself (the
+   working socket decodes signal `Input`; the meta socket decodes meta-signal
+   `Input`);
 7. dispatches through `Engine`;
 8. asks generated `Output` to frame itself as binary rkyv;
 9. writes it back.
@@ -161,13 +166,33 @@ configuration file; production configuration should later become another
 typed binary signal surface differentiated by the root message enumerator,
 not a NOTA side channel.
 
-The binary configuration already carries the daemon's meta slot as an optional
-`meta_socket_path`. The current slice does not bind a meta listener or author
-the meta signal contract; it reserves the typed configuration slot so policy
-and configuration authority have a component-owned home distinct from the
-ordinary working socket. A later meta-signal slice can bind that path through
-`triad_runtime::MultiListenerDaemon` or an equivalent runtime shell without
-changing the ordinary signal contract.
+The binary configuration carries the daemon's meta slot as an optional
+`meta_socket_path`. When that path is set, the daemon binds a SECOND listener
+on it — the owner-only meta-signal surface — distinct from the ordinary working
+socket, so policy and configuration authority have a component-owned home apart
+from the peer-callable working signal. The meta contract is the crate-local
+`schema/meta-signal.schema` wire-only module (a fourth schema module emitted via
+`RustEmissionTarget::WireContract` into `src/schema/meta_signal.rs`): it carries
+only the `Configure` `Input` root, the `Configured`/`Rejected` `Output` roots,
+their records, and the rkyv derives — no Nexus/SEMA planes and no engine traits.
+The single owner-only operation is `Configure(ConfigureRequest { ArchiveTarget })`,
+which re-points the durable archive target the SEMA store writes to; the daemon
+applies it through `Engine::configure` (a configuration effect under the same
+single-flight Nexus mutex the working path uses, NOT a SEMA log write) and
+replies with the now-active target plus the database marker.
+
+The daemon binds both sockets through `triad_runtime::MultiListenerDaemon`,
+tagging each with a `SpiritListener` discriminant (`Working` / `Meta`) so
+`MultiListenerRuntime::handle_stream` decodes the correct wire contract for the
+arriving socket. Owner-only authority rests on the meta socket file mode
+(`0o600`, applied via `SocketMode`); `triad-runtime` has no peer-credential
+check, so the filesystem mode IS the owner gate. When `meta_socket_path` is
+`None` the daemon binds only the working socket, preserving the single-socket
+lifecycle unchanged. The meta wire codec (an 8-byte short-header frame
+byte-identical to the signal plane's) lives on the generated `Input`/`Output`
+nouns in `src/meta_transport.rs`, because the `WireContract` emission target in
+the current `schema-rust-next` pin emits the per-root `short_header` constants
+but not the `encode_signal_frame`/`decode_signal_frame` frame codec.
 
 `Configuration` may also carry a trace socket path. That field is still binary
 rkyv configuration; it does not add a NOTA startup path to the daemon. Only a

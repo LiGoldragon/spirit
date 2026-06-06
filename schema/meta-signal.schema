@@ -1,0 +1,17 @@
+{
+  DatabaseMarker spirit:signal:DatabaseMarker
+}
+[Configure]
+[Configured Rejected]
+{
+  Configure ConfigureRequest
+  Configured ConfigureReceipt
+  Rejected ConfigureRejection
+
+  ArchiveTarget String
+
+  ConfigureRequest { ArchiveTarget * }
+  ConfigureReceipt { ArchiveTarget * DatabaseMarker * }
+  ConfigureRejection { ConfigureRejectionReason * DatabaseMarker * }
+  ConfigureRejectionReason [ArchiveTargetUnwritable InternalError]
+}
