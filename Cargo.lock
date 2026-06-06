@@ -22,9 +22,9 @@ checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
 
 [[package]]
 name = "bitflags"
-version = "2.12.1"
+version = "2.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84d7ced0ae9557296835c32bf1b1e02b44c746701f898460fb000d7eaa84f00a"
+checksum = "b4388bee8683e3d04af747c73422af53102d2bd24d9eadb6cbc100baef4b43f8"
 
 [[package]]
 name = "blake3"
@@ -313,7 +313,7 @@ dependencies = [
 [[package]]
 name = "nota-next"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#fb600e327157df47a0d18a42c25821a7e06a30a9"
+source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#f0e435a629f8312b173b0f8564c17ee0a4001561"
 dependencies = [
  "nota-next-derive",
  "rkyv",
@@ -322,7 +322,7 @@ dependencies = [
 [[package]]
 name = "nota-next-derive"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#fb600e327157df47a0d18a42c25821a7e06a30a9"
+source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#f0e435a629f8312b173b0f8564c17ee0a4001561"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -488,7 +488,7 @@ dependencies = [
 [[package]]
 name = "schema-next"
 version = "0.1.4"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#30a88bee607ac1d590c24152483a994f14c27d07"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#77e71a410d03e3cc5c16cebd82202e712439e648"
 dependencies = [
  "nota-next",
  "rkyv",
@@ -507,6 +507,7 @@ dependencies = [
 [[package]]
 name = "schema-rust-next"
 version = "0.1.14"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#b75c7f50b533ed10fb96269442547f1c7b534f47"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -519,7 +520,7 @@ dependencies = [
 [[package]]
 name = "sema"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/sema.git#c453d8ca484c2c9ad75930a4f7b5e941859b6e00"
+source = "git+https://github.com/LiGoldragon/sema.git#09f2a423ecaaa9984d913e6f009aa346280a29bd"
 dependencies = [
  "redb",
  "rkyv",
@@ -595,7 +596,7 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 [[package]]
 name = "signal-core"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/signal-core.git#a38daf71cb86d986096f394454688c01bae09411"
+source = "git+https://github.com/LiGoldragon/signal-core.git#3f10055aa281aa3e5c8c38312f961516e4470ad3"
 dependencies = [
  "nota-codec",
  "rkyv",
@@ -606,7 +607,7 @@ dependencies = [
 [[package]]
 name = "signal-core-macros"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/signal-core.git#a38daf71cb86d986096f394454688c01bae09411"
+source = "git+https://github.com/LiGoldragon/signal-core.git#3f10055aa281aa3e5c8c38312f961516e4470ad3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -738,6 +739,7 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 [[package]]
 name = "triad-runtime"
 version = "0.2.1"
+source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#1bd383bf409cb5c0cda1c0b3ee33164821968bfa"
 dependencies = [
  "signal-frame",
  "thiserror",

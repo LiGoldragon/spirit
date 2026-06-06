@@ -18,9 +18,7 @@ pub use spirit::schema::signal::CountedRecords as CountedRecords;
 pub use spirit::schema::signal::ErrorReport as ErrorReport;
 
 #[cfg(feature = "nota-text")]
-pub use nota_next::{
-    NotaDecode, NotaDecodeError, NotaEncode, NotaSource,
-};
+pub use nota_next::{NotaDecode, NotaDecodeError, NotaEncode, NotaSource};
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -100,11 +98,9 @@ impl WriteInput {
     pub fn record(payload: Record) -> Self {
         Self::Record(payload)
     }
-
     pub fn remove(payload: Remove) -> Self {
         Self::Remove(payload)
     }
-
     pub fn change_certainty(payload: ChangeCertainty) -> Self {
         Self::ChangeCertainty(payload)
     }
@@ -114,11 +110,9 @@ impl ReadInput {
     pub fn observe(payload: Observe) -> Self {
         Self::Observe(payload)
     }
-
     pub fn lookup(payload: Lookup) -> Self {
         Self::Lookup(payload)
     }
-
     pub fn count(payload: Count) -> Self {
         Self::Count(payload)
     }
@@ -128,15 +122,12 @@ impl WriteOutput {
     pub fn recorded(payload: Recorded) -> Self {
         Self::Recorded(payload)
     }
-
     pub fn removed(payload: Removed) -> Self {
         Self::Removed(payload)
     }
-
     pub fn certainty_changed(payload: CertaintyChanged) -> Self {
         Self::CertaintyChanged(payload)
     }
-
     pub fn missed(payload: Missed) -> Self {
         Self::Missed(payload)
     }
@@ -146,15 +137,12 @@ impl ReadOutput {
     pub fn observed(payload: Observed) -> Self {
         Self::Observed(payload)
     }
-
     pub fn found(payload: Found) -> Self {
         Self::Found(payload)
     }
-
     pub fn counted(payload: Counted) -> Self {
         Self::Counted(payload)
     }
-
     pub fn missed(payload: Missed) -> Self {
         Self::Missed(payload)
     }
@@ -164,7 +152,6 @@ impl Input {
     pub fn write_input(payload: WriteInput) -> Self {
         Self::WriteInput(payload)
     }
-
     pub fn read_input(payload: ReadInput) -> Self {
         Self::ReadInput(payload)
     }
@@ -174,7 +161,6 @@ impl Output {
     pub fn write_output(payload: WriteOutput) -> Self {
         Self::WriteOutput(payload)
     }
-
     pub fn read_output(payload: ReadOutput) -> Self {
         Self::ReadOutput(payload)
     }
@@ -209,7 +195,6 @@ impl WriteInput {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -220,7 +205,6 @@ impl ReadInput {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -231,7 +215,6 @@ impl WriteOutput {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -242,7 +225,6 @@ impl ReadOutput {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -253,7 +235,6 @@ impl Input {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -262,12 +243,10 @@ impl Input {
 #[cfg(feature = "nota-text")]
 impl std::str::FromStr for Input {
     type Err = NotaDecodeError;
-
     fn from_str(source: &str) -> Result<Self, Self::Err> {
         NotaSource::new(source).parse::<Self>()
     }
 }
-
 #[cfg(feature = "nota-text")]
 impl std::fmt::Display for Input {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -280,7 +259,6 @@ impl Output {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -289,12 +267,10 @@ impl Output {
 #[cfg(feature = "nota-text")]
 impl std::str::FromStr for Output {
     type Err = NotaDecodeError;
-
     fn from_str(source: &str) -> Result<Self, Self::Err> {
         NotaSource::new(source).parse::<Self>()
     }
 }
-
 #[cfg(feature = "nota-text")]
 impl std::fmt::Display for Output {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -303,7 +279,16 @@ impl std::fmt::Display for Output {
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub enum WriteInputRoute {
     Record,
     Remove,
@@ -321,7 +306,16 @@ impl WriteInput {
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub enum ReadInputRoute {
     Observe,
     Lookup,
@@ -339,7 +333,16 @@ impl ReadInput {
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub enum WriteOutputRoute {
     Recorded,
     Removed,
@@ -359,7 +362,16 @@ impl WriteOutput {
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub enum ReadOutputRoute {
     Observed,
     Found,
@@ -504,7 +516,6 @@ impl OriginRoute {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(self) -> String {
         <Self as NotaEncode>::to_nota(&self)
     }
@@ -656,14 +667,14 @@ pub trait SemaEngine {
 
 pub trait UpgradeFrom<Previous>: Sized {
     type Error;
-
     fn upgrade_from(previous: Previous) -> Result<Self, Self::Error>;
 }
-
 pub trait AcceptPrevious<Previous>: UpgradeFrom<Previous> {
     fn accept_previous(previous: Previous) -> Result<Self, Self::Error> {
         Self::upgrade_from(previous)
     }
 }
-
-impl<Current, Previous> AcceptPrevious<Previous> for Current where Current: UpgradeFrom<Previous> {}
+impl<Current, Previous> AcceptPrevious<Previous> for Current
+where
+    Current: UpgradeFrom<Previous>,
+{}

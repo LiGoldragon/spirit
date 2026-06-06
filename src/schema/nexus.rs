@@ -28,9 +28,7 @@ pub use spirit::schema::signal::ObserverSubscription as ObserverSubscription;
 pub use spirit::schema::signal::ObserverRetraction as ObserverRetraction;
 
 #[cfg(feature = "nota-text")]
-pub use nota_next::{
-    NotaDecode, NotaDecodeError, NotaEncode, NotaSource,
-};
+pub use nota_next::{NotaDecode, NotaDecodeError, NotaEncode, NotaSource};
 
 pub type SignalArrived = SignalInput;
 
@@ -165,11 +163,9 @@ impl CommandSemaWrite {
     pub fn record(payload: Record) -> Self {
         Self::Record(payload)
     }
-
     pub fn remove(payload: Remove) -> Self {
         Self::Remove(payload)
     }
-
     pub fn change_certainty(payload: ChangeCertainty) -> Self {
         Self::ChangeCertainty(payload)
     }
@@ -179,15 +175,12 @@ impl NexusWork {
     pub fn signal_arrived(payload: SignalArrived) -> Self {
         Self::SignalArrived(payload)
     }
-
     pub fn sema_write_completed(payload: SemaWriteCompleted) -> Self {
         Self::SemaWriteCompleted(payload)
     }
-
     pub fn sema_read_completed(payload: SemaReadCompleted) -> Self {
         Self::SemaReadCompleted(payload)
     }
-
     pub fn effect_completed(payload: EffectCompleted) -> Self {
         Self::EffectCompleted(payload)
     }
@@ -197,19 +190,15 @@ impl NexusAction {
     pub fn command_sema_write(payload: CommandSemaWrite) -> Self {
         Self::CommandSemaWrite(payload)
     }
-
     pub fn command_sema_read(payload: CommandSemaRead) -> Self {
         Self::CommandSemaRead(payload)
     }
-
     pub fn reply_to_signal(payload: ReplyToSignal) -> Self {
         Self::ReplyToSignal(payload)
     }
-
     pub fn command_effect(payload: CommandEffect) -> Self {
         Self::CommandEffect(payload)
     }
-
     pub fn r#continue(payload: Continue) -> Self {
         Self::Continue(payload)
     }
@@ -219,23 +208,18 @@ impl NexusEffectCommand {
     pub fn stash(payload: Stash) -> Self {
         Self::Stash(payload)
     }
-
     pub fn classify_state(payload: ClassifyState) -> Self {
         Self::ClassifyState(payload)
     }
-
     pub fn open_intent_subscription(payload: OpenIntentSubscription) -> Self {
         Self::OpenIntentSubscription(payload)
     }
-
     pub fn collect_removal_candidates(payload: CollectRemovalCandidates) -> Self {
         Self::CollectRemovalCandidates(payload)
     }
-
     pub fn open_observer_tap(payload: OpenObserverTap) -> Self {
         Self::OpenObserverTap(payload)
     }
-
     pub fn close_observer_tap(payload: CloseObserverTap) -> Self {
         Self::CloseObserverTap(payload)
     }
@@ -245,23 +229,18 @@ impl NexusEffectResult {
     pub fn stashed(payload: Stashed) -> Self {
         Self::Stashed(payload)
     }
-
     pub fn state_classified(payload: StateClassified) -> Self {
         Self::StateClassified(payload)
     }
-
     pub fn intent_subscription_opened(payload: IntentSubscriptionOpened) -> Self {
         Self::IntentSubscriptionOpened(payload)
     }
-
     pub fn removal_candidates_collected(payload: RemovalCandidatesCollected) -> Self {
         Self::RemovalCandidatesCollected(payload)
     }
-
     pub fn observer_tap_opened(payload: ObserverTapOpened) -> Self {
         Self::ObserverTapOpened(payload)
     }
-
     pub fn observer_tap_closed(payload: ObserverTapClosed) -> Self {
         Self::ObserverTapClosed(payload)
     }
@@ -271,15 +250,12 @@ impl Input {
     pub fn signal_arrived(payload: SignalArrived) -> Self {
         Self::SignalArrived(payload)
     }
-
     pub fn sema_write_completed(payload: SemaWriteCompleted) -> Self {
         Self::SemaWriteCompleted(payload)
     }
-
     pub fn sema_read_completed(payload: SemaReadCompleted) -> Self {
         Self::SemaReadCompleted(payload)
     }
-
     pub fn effect_completed(payload: EffectCompleted) -> Self {
         Self::EffectCompleted(payload)
     }
@@ -289,19 +265,15 @@ impl Output {
     pub fn command_sema_write(payload: CommandSemaWrite) -> Self {
         Self::CommandSemaWrite(payload)
     }
-
     pub fn command_sema_read(payload: CommandSemaRead) -> Self {
         Self::CommandSemaRead(payload)
     }
-
     pub fn reply_to_signal(payload: ReplyToSignal) -> Self {
         Self::ReplyToSignal(payload)
     }
-
     pub fn command_effect(payload: CommandEffect) -> Self {
         Self::CommandEffect(payload)
     }
-
     pub fn r#continue(payload: Continue) -> Self {
         Self::Continue(payload)
     }
@@ -324,7 +296,6 @@ impl CommandSemaWrite {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -335,7 +306,6 @@ impl NexusWork {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -346,7 +316,6 @@ impl NexusAction {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -357,7 +326,6 @@ impl NexusEffectCommand {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -368,7 +336,6 @@ impl NexusEffectResult {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -379,7 +346,6 @@ impl StashRequest {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -390,7 +356,6 @@ impl StashResult {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -401,7 +366,6 @@ impl Input {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -410,12 +374,10 @@ impl Input {
 #[cfg(feature = "nota-text")]
 impl std::str::FromStr for Input {
     type Err = NotaDecodeError;
-
     fn from_str(source: &str) -> Result<Self, Self::Err> {
         NotaSource::new(source).parse::<Self>()
     }
 }
-
 #[cfg(feature = "nota-text")]
 impl std::fmt::Display for Input {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -428,7 +390,6 @@ impl Output {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -437,12 +398,10 @@ impl Output {
 #[cfg(feature = "nota-text")]
 impl std::str::FromStr for Output {
     type Err = NotaDecodeError;
-
     fn from_str(source: &str) -> Result<Self, Self::Err> {
         NotaSource::new(source).parse::<Self>()
     }
 }
-
 #[cfg(feature = "nota-text")]
 impl std::fmt::Display for Output {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -451,7 +410,16 @@ impl std::fmt::Display for Output {
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub enum NexusWorkRoute {
     SignalArrived,
     SemaWriteCompleted,
@@ -471,7 +439,16 @@ impl NexusWork {
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub enum NexusActionRoute {
     CommandSemaWrite,
     CommandSemaRead,
@@ -601,7 +578,6 @@ impl OriginRoute {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(self) -> String {
         <Self as NotaEncode>::to_nota(&self)
     }
@@ -836,14 +812,14 @@ where
 
 pub trait UpgradeFrom<Previous>: Sized {
     type Error;
-
     fn upgrade_from(previous: Previous) -> Result<Self, Self::Error>;
 }
-
 pub trait AcceptPrevious<Previous>: UpgradeFrom<Previous> {
     fn accept_previous(previous: Previous) -> Result<Self, Self::Error> {
         Self::upgrade_from(previous)
     }
 }
-
-impl<Current, Previous> AcceptPrevious<Previous> for Current where Current: UpgradeFrom<Previous> {}
+impl<Current, Previous> AcceptPrevious<Previous> for Current
+where
+    Current: UpgradeFrom<Previous>,
+{}

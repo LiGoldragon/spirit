@@ -6,9 +6,7 @@ pub type Boolean = bool;
 pub type Path = std::string::String;
 
 #[cfg(feature = "nota-text")]
-pub use nota_next::{
-    NotaDecode, NotaDecodeError, NotaEncode, NotaSource,
-};
+pub use nota_next::{NotaDecode, NotaDecodeError, NotaEncode, NotaSource};
 
 pub type SourcePath = String;
 
@@ -462,16 +460,13 @@ impl RemovalCandidateCollection {
     pub fn new(payload: RecordQuery) -> Self {
         Self(payload)
     }
-
     pub fn payload(&self) -> &RecordQuery {
         &self.0
     }
-
     pub fn into_payload(self) -> RecordQuery {
         self.0
     }
 }
-
 impl From<RecordQuery> for RemovalCandidateCollection {
     fn from(payload: RecordQuery) -> Self {
         Self::new(payload)
@@ -482,16 +477,13 @@ impl ObservedOperation {
     pub fn new(payload: OperationKind) -> Self {
         Self(payload)
     }
-
     pub fn payload(&self) -> &OperationKind {
         &self.0
     }
-
     pub fn into_payload(self) -> OperationKind {
         self.0
     }
 }
-
 impl From<OperationKind> for ObservedOperation {
     fn from(payload: OperationKind) -> Self {
         Self::new(payload)
@@ -502,16 +494,13 @@ impl Statement {
     pub fn new(payload: StatementText) -> Self {
         Self(payload)
     }
-
     pub fn payload(&self) -> &StatementText {
         &self.0
     }
-
     pub fn into_payload(self) -> StatementText {
         self.0
     }
 }
-
 impl From<StatementText> for Statement {
     fn from(payload: StatementText) -> Self {
         Self::new(payload)
@@ -528,7 +517,6 @@ impl MailLedgerEvent {
     pub fn sent(payload: Sent) -> Self {
         Self::Sent(payload)
     }
-
     pub fn processed(payload: Processed) -> Self {
         Self::Processed(payload)
     }
@@ -538,7 +526,6 @@ impl TopicMatch {
     pub fn partial(payload: Partial) -> Self {
         Self::Partial(payload)
     }
-
     pub fn full(payload: Full) -> Self {
         Self::Full(payload)
     }
@@ -548,11 +535,9 @@ impl PrivacySelection {
     pub fn exact(payload: Exact) -> Self {
         Self::Exact(payload)
     }
-
     pub fn at_most(payload: AtMost) -> Self {
         Self::AtMost(payload)
     }
-
     pub fn at_least(payload: AtLeast) -> Self {
         Self::AtLeast(payload)
     }
@@ -562,47 +547,36 @@ impl Input {
     pub fn state(payload: State) -> Self {
         Self::State(payload)
     }
-
     pub fn record(payload: Record) -> Self {
         Self::Record(payload)
     }
-
     pub fn observe(payload: Observe) -> Self {
         Self::Observe(payload)
     }
-
     pub fn lookup(payload: Lookup) -> Self {
         Self::Lookup(payload)
     }
-
     pub fn count(payload: Count) -> Self {
         Self::Count(payload)
     }
-
     pub fn remove(payload: Remove) -> Self {
         Self::Remove(payload)
     }
-
     pub fn change_certainty(payload: ChangeCertainty) -> Self {
         Self::ChangeCertainty(payload)
     }
-
     pub fn lookup_stash(payload: LookupStash) -> Self {
         Self::LookupStash(payload)
     }
-
     pub fn collect_removal_candidates(payload: CollectRemovalCandidates) -> Self {
         Self::CollectRemovalCandidates(payload)
     }
-
     pub fn tap(payload: Tap) -> Self {
         Self::Tap(payload)
     }
-
     pub fn untap(payload: Untap) -> Self {
         Self::Untap(payload)
     }
-
     pub fn subscribe_intent(payload: SubscribeIntent) -> Self {
         Self::SubscribeIntent(payload)
     }
@@ -612,55 +586,42 @@ impl Output {
     pub fn record_accepted(payload: RecordAccepted) -> Self {
         Self::RecordAccepted(payload)
     }
-
     pub fn records_observed(payload: RecordsObserved) -> Self {
         Self::RecordsObserved(payload)
     }
-
     pub fn records_stashed(payload: RecordsStashed) -> Self {
         Self::RecordsStashed(payload)
     }
-
     pub fn record_found(payload: RecordFound) -> Self {
         Self::RecordFound(payload)
     }
-
     pub fn records_counted(payload: RecordsCounted) -> Self {
         Self::RecordsCounted(payload)
     }
-
     pub fn record_removed(payload: RecordRemoved) -> Self {
         Self::RecordRemoved(payload)
     }
-
     pub fn certainty_changed(payload: CertaintyChanged) -> Self {
         Self::CertaintyChanged(payload)
     }
-
     pub fn removal_candidates_collected(payload: RemovalCandidatesCollected) -> Self {
         Self::RemovalCandidatesCollected(payload)
     }
-
     pub fn observation_tapped(payload: ObservationTapped) -> Self {
         Self::ObservationTapped(payload)
     }
-
     pub fn observation_untapped(payload: ObservationUntapped) -> Self {
         Self::ObservationUntapped(payload)
     }
-
     pub fn subscription_started(payload: SubscriptionStarted) -> Self {
         Self::SubscriptionStarted(payload)
     }
-
     pub fn event(payload: IntentEvent) -> Self {
         Self::Event(payload)
     }
-
     pub fn error(payload: Error) -> Self {
         Self::Error(payload)
     }
-
     pub fn rejected(payload: Rejected) -> Self {
         Self::Rejected(payload)
     }
@@ -683,7 +644,6 @@ impl Import {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -694,7 +654,6 @@ impl Export {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -705,7 +664,6 @@ impl SignalReuse {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -716,7 +674,6 @@ impl DatabaseMarker {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -727,7 +684,6 @@ impl SemaReceipt {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -738,7 +694,6 @@ impl RemoveReceipt {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -749,7 +704,6 @@ impl ObservedRecords {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -760,7 +714,6 @@ impl FoundRecord {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -771,7 +724,6 @@ impl CountedRecords {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -782,7 +734,6 @@ impl ErrorReport {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -793,7 +744,6 @@ impl SignalRejection {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -804,7 +754,6 @@ impl StashedObservation {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -815,7 +764,6 @@ impl IntentSubscription {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -826,7 +774,6 @@ impl IntentRecorded {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -837,7 +784,6 @@ impl IntentEvent {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -848,7 +794,6 @@ impl ValidationError {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -859,7 +804,6 @@ impl SentMail {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -870,7 +814,6 @@ impl ProcessedMail {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -881,7 +824,6 @@ impl MailLedgerEvent {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -892,7 +834,6 @@ impl TopicMatch {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -903,7 +844,6 @@ impl PrivacySelection {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -914,7 +854,6 @@ impl RemovalCandidateCollection {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -925,7 +864,6 @@ impl ArchivedRecord {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -936,7 +874,6 @@ impl RemovalCandidateSkipReason {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -947,7 +884,6 @@ impl SkippedRemovalCandidate {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -958,7 +894,6 @@ impl RemovalCandidatesCollection {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -969,7 +904,6 @@ impl ObserverFilter {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -980,7 +914,6 @@ impl ObserverSubscription {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -991,7 +924,6 @@ impl ObserverRetraction {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -1002,7 +934,6 @@ impl OperationKind {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -1013,7 +944,6 @@ impl ObservedOperation {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -1024,7 +954,6 @@ impl Entry {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -1035,7 +964,6 @@ impl Statement {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -1046,7 +974,6 @@ impl CertaintyChange {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -1057,7 +984,6 @@ impl CertaintyChangeReceipt {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -1068,7 +994,6 @@ impl Query {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -1079,7 +1004,6 @@ impl Kind {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -1090,7 +1014,6 @@ impl Magnitude {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -1101,7 +1024,6 @@ impl Input {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -1110,12 +1032,10 @@ impl Input {
 #[cfg(feature = "nota-text")]
 impl std::str::FromStr for Input {
     type Err = NotaDecodeError;
-
     fn from_str(source: &str) -> Result<Self, Self::Err> {
         NotaSource::new(source).parse::<Self>()
     }
 }
-
 #[cfg(feature = "nota-text")]
 impl std::fmt::Display for Input {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -1128,7 +1048,6 @@ impl Output {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -1137,12 +1056,10 @@ impl Output {
 #[cfg(feature = "nota-text")]
 impl std::str::FromStr for Output {
     type Err = NotaDecodeError;
-
     fn from_str(source: &str) -> Result<Self, Self::Err> {
         NotaSource::new(source).parse::<Self>()
     }
 }
-
 #[cfg(feature = "nota-text")]
 impl std::fmt::Display for Output {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -1180,7 +1097,6 @@ pub mod short_header {
 }
 
 const SIGNAL_SHORT_HEADER_BYTE_COUNT: usize = 8;
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SignalFrameError {
     ArchiveEncode,
@@ -1189,23 +1105,39 @@ pub enum SignalFrameError {
     UnknownHeader { root_enum: &'static str, header: u64 },
     HeaderMismatch { expected: u64, found: u64 },
 }
-
 impl std::fmt::Display for SignalFrameError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::ArchiveEncode => formatter.write_str("failed to encode rkyv archive"),
             Self::ArchiveDecode => formatter.write_str("failed to decode rkyv archive"),
-            Self::FrameTooShort { found } => write!(formatter, "signal frame too short: {found} bytes"),
-            Self::UnknownHeader { root_enum, header } => write!(formatter, "unknown {root_enum} short header 0x{header:016X}"),
-            Self::HeaderMismatch { expected, found } => write!(formatter, "decoded payload header mismatch: expected 0x{expected:016X}, found 0x{found:016X}"),
+            Self::FrameTooShort { found } => {
+                write!(formatter, "signal frame too short: {found} bytes")
+            }
+            Self::UnknownHeader { root_enum, header } => {
+                write!(formatter, "unknown {root_enum} short header 0x{header:016X}")
+            }
+            Self::HeaderMismatch { expected, found } => {
+                write!(
+                    formatter,
+                    "decoded payload header mismatch: expected 0x{expected:016X}, found 0x{found:016X}"
+                )
+            }
         }
     }
 }
-
 impl std::error::Error for SignalFrameError {}
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub enum InputRoute {
     State,
     Record,
@@ -1222,7 +1154,16 @@ pub enum InputRoute {
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub enum OutputRoute {
     RecordAccepted,
     RecordsObserved,
@@ -1257,7 +1198,6 @@ impl Input {
             Self::SubscribeIntent(_) => InputRoute::SubscribeIntent,
         }
     }
-
     pub fn short_header(&self) -> u64 {
         match self {
             Self::State(_) => short_header::INPUT_STATE,
@@ -1268,13 +1208,14 @@ impl Input {
             Self::Remove(_) => short_header::INPUT_REMOVE,
             Self::ChangeCertainty(_) => short_header::INPUT_CHANGE_CERTAINTY,
             Self::LookupStash(_) => short_header::INPUT_LOOKUP_STASH,
-            Self::CollectRemovalCandidates(_) => short_header::INPUT_COLLECT_REMOVAL_CANDIDATES,
+            Self::CollectRemovalCandidates(_) => {
+                short_header::INPUT_COLLECT_REMOVAL_CANDIDATES
+            }
             Self::Tap(_) => short_header::INPUT_TAP,
             Self::Untap(_) => short_header::INPUT_UNTAP,
             Self::SubscribeIntent(_) => short_header::INPUT_SUBSCRIBE_INTENT,
         }
     }
-
     pub fn route_from_short_header(header: u64) -> Result<InputRoute, SignalFrameError> {
         match header {
             short_header::INPUT_STATE => Ok(InputRoute::State),
@@ -1285,36 +1226,53 @@ impl Input {
             short_header::INPUT_REMOVE => Ok(InputRoute::Remove),
             short_header::INPUT_CHANGE_CERTAINTY => Ok(InputRoute::ChangeCertainty),
             short_header::INPUT_LOOKUP_STASH => Ok(InputRoute::LookupStash),
-            short_header::INPUT_COLLECT_REMOVAL_CANDIDATES => Ok(InputRoute::CollectRemovalCandidates),
+            short_header::INPUT_COLLECT_REMOVAL_CANDIDATES => {
+                Ok(InputRoute::CollectRemovalCandidates)
+            }
             short_header::INPUT_TAP => Ok(InputRoute::Tap),
             short_header::INPUT_UNTAP => Ok(InputRoute::Untap),
             short_header::INPUT_SUBSCRIBE_INTENT => Ok(InputRoute::SubscribeIntent),
-            _ => Err(SignalFrameError::UnknownHeader { root_enum: "Input", header }),
+            _ => {
+                Err(SignalFrameError::UnknownHeader {
+                    root_enum: "Input",
+                    header,
+                })
+            }
         }
     }
-
     pub fn encode_signal_frame(&self) -> Result<Vec<u8>, SignalFrameError> {
         let archive = rkyv::to_bytes::<rkyv::rancor::Error>(self)
             .map_err(|_| SignalFrameError::ArchiveEncode)?;
-        let mut frame = Vec::with_capacity(SIGNAL_SHORT_HEADER_BYTE_COUNT + archive.len());
+        let mut frame = Vec::with_capacity(
+            SIGNAL_SHORT_HEADER_BYTE_COUNT + archive.len(),
+        );
         frame.extend_from_slice(&self.short_header().to_le_bytes());
         frame.extend_from_slice(&archive);
         Ok(frame)
     }
-
-    pub fn decode_signal_frame(frame: &[u8]) -> Result<(InputRoute, Self), SignalFrameError> {
+    pub fn decode_signal_frame(
+        frame: &[u8],
+    ) -> Result<(InputRoute, Self), SignalFrameError> {
         if frame.len() < SIGNAL_SHORT_HEADER_BYTE_COUNT {
-            return Err(SignalFrameError::FrameTooShort { found: frame.len() });
+            return Err(SignalFrameError::FrameTooShort {
+                found: frame.len(),
+            });
         }
         let mut header_bytes = [0_u8; SIGNAL_SHORT_HEADER_BYTE_COUNT];
         header_bytes.copy_from_slice(&frame[..SIGNAL_SHORT_HEADER_BYTE_COUNT]);
         let header = u64::from_le_bytes(header_bytes);
         let route = Self::route_from_short_header(header)?;
-        let value = rkyv::from_bytes::<Self, rkyv::rancor::Error>(&frame[SIGNAL_SHORT_HEADER_BYTE_COUNT..])
+        let value = rkyv::from_bytes::<
+            Self,
+            rkyv::rancor::Error,
+        >(&frame[SIGNAL_SHORT_HEADER_BYTE_COUNT..])
             .map_err(|_| SignalFrameError::ArchiveDecode)?;
         let expected = value.short_header();
         if expected != header {
-            return Err(SignalFrameError::HeaderMismatch { expected, found: header });
+            return Err(SignalFrameError::HeaderMismatch {
+                expected,
+                found: header,
+            });
         }
         Ok((route, value))
     }
@@ -1330,7 +1288,9 @@ impl Output {
             Self::RecordsCounted(_) => OutputRoute::RecordsCounted,
             Self::RecordRemoved(_) => OutputRoute::RecordRemoved,
             Self::CertaintyChanged(_) => OutputRoute::CertaintyChanged,
-            Self::RemovalCandidatesCollected(_) => OutputRoute::RemovalCandidatesCollected,
+            Self::RemovalCandidatesCollected(_) => {
+                OutputRoute::RemovalCandidatesCollected
+            }
             Self::ObservationTapped(_) => OutputRoute::ObservationTapped,
             Self::ObservationUntapped(_) => OutputRoute::ObservationUntapped,
             Self::SubscriptionStarted(_) => OutputRoute::SubscriptionStarted,
@@ -1339,7 +1299,6 @@ impl Output {
             Self::Rejected(_) => OutputRoute::Rejected,
         }
     }
-
     pub fn short_header(&self) -> u64 {
         match self {
             Self::RecordAccepted(_) => short_header::OUTPUT_RECORD_ACCEPTED,
@@ -1349,7 +1308,9 @@ impl Output {
             Self::RecordsCounted(_) => short_header::OUTPUT_RECORDS_COUNTED,
             Self::RecordRemoved(_) => short_header::OUTPUT_RECORD_REMOVED,
             Self::CertaintyChanged(_) => short_header::OUTPUT_CERTAINTY_CHANGED,
-            Self::RemovalCandidatesCollected(_) => short_header::OUTPUT_REMOVAL_CANDIDATES_COLLECTED,
+            Self::RemovalCandidatesCollected(_) => {
+                short_header::OUTPUT_REMOVAL_CANDIDATES_COLLECTED
+            }
             Self::ObservationTapped(_) => short_header::OUTPUT_OBSERVATION_TAPPED,
             Self::ObservationUntapped(_) => short_header::OUTPUT_OBSERVATION_UNTAPPED,
             Self::SubscriptionStarted(_) => short_header::OUTPUT_SUBSCRIPTION_STARTED,
@@ -1358,8 +1319,9 @@ impl Output {
             Self::Rejected(_) => short_header::OUTPUT_REJECTED,
         }
     }
-
-    pub fn route_from_short_header(header: u64) -> Result<OutputRoute, SignalFrameError> {
+    pub fn route_from_short_header(
+        header: u64,
+    ) -> Result<OutputRoute, SignalFrameError> {
         match header {
             short_header::OUTPUT_RECORD_ACCEPTED => Ok(OutputRoute::RecordAccepted),
             short_header::OUTPUT_RECORDS_OBSERVED => Ok(OutputRoute::RecordsObserved),
@@ -1368,39 +1330,60 @@ impl Output {
             short_header::OUTPUT_RECORDS_COUNTED => Ok(OutputRoute::RecordsCounted),
             short_header::OUTPUT_RECORD_REMOVED => Ok(OutputRoute::RecordRemoved),
             short_header::OUTPUT_CERTAINTY_CHANGED => Ok(OutputRoute::CertaintyChanged),
-            short_header::OUTPUT_REMOVAL_CANDIDATES_COLLECTED => Ok(OutputRoute::RemovalCandidatesCollected),
+            short_header::OUTPUT_REMOVAL_CANDIDATES_COLLECTED => {
+                Ok(OutputRoute::RemovalCandidatesCollected)
+            }
             short_header::OUTPUT_OBSERVATION_TAPPED => Ok(OutputRoute::ObservationTapped),
-            short_header::OUTPUT_OBSERVATION_UNTAPPED => Ok(OutputRoute::ObservationUntapped),
-            short_header::OUTPUT_SUBSCRIPTION_STARTED => Ok(OutputRoute::SubscriptionStarted),
+            short_header::OUTPUT_OBSERVATION_UNTAPPED => {
+                Ok(OutputRoute::ObservationUntapped)
+            }
+            short_header::OUTPUT_SUBSCRIPTION_STARTED => {
+                Ok(OutputRoute::SubscriptionStarted)
+            }
             short_header::OUTPUT_EVENT => Ok(OutputRoute::Event),
             short_header::OUTPUT_ERROR => Ok(OutputRoute::Error),
             short_header::OUTPUT_REJECTED => Ok(OutputRoute::Rejected),
-            _ => Err(SignalFrameError::UnknownHeader { root_enum: "Output", header }),
+            _ => {
+                Err(SignalFrameError::UnknownHeader {
+                    root_enum: "Output",
+                    header,
+                })
+            }
         }
     }
-
     pub fn encode_signal_frame(&self) -> Result<Vec<u8>, SignalFrameError> {
         let archive = rkyv::to_bytes::<rkyv::rancor::Error>(self)
             .map_err(|_| SignalFrameError::ArchiveEncode)?;
-        let mut frame = Vec::with_capacity(SIGNAL_SHORT_HEADER_BYTE_COUNT + archive.len());
+        let mut frame = Vec::with_capacity(
+            SIGNAL_SHORT_HEADER_BYTE_COUNT + archive.len(),
+        );
         frame.extend_from_slice(&self.short_header().to_le_bytes());
         frame.extend_from_slice(&archive);
         Ok(frame)
     }
-
-    pub fn decode_signal_frame(frame: &[u8]) -> Result<(OutputRoute, Self), SignalFrameError> {
+    pub fn decode_signal_frame(
+        frame: &[u8],
+    ) -> Result<(OutputRoute, Self), SignalFrameError> {
         if frame.len() < SIGNAL_SHORT_HEADER_BYTE_COUNT {
-            return Err(SignalFrameError::FrameTooShort { found: frame.len() });
+            return Err(SignalFrameError::FrameTooShort {
+                found: frame.len(),
+            });
         }
         let mut header_bytes = [0_u8; SIGNAL_SHORT_HEADER_BYTE_COUNT];
         header_bytes.copy_from_slice(&frame[..SIGNAL_SHORT_HEADER_BYTE_COUNT]);
         let header = u64::from_le_bytes(header_bytes);
         let route = Self::route_from_short_header(header)?;
-        let value = rkyv::from_bytes::<Self, rkyv::rancor::Error>(&frame[SIGNAL_SHORT_HEADER_BYTE_COUNT..])
+        let value = rkyv::from_bytes::<
+            Self,
+            rkyv::rancor::Error,
+        >(&frame[SIGNAL_SHORT_HEADER_BYTE_COUNT..])
             .map_err(|_| SignalFrameError::ArchiveDecode)?;
         let expected = value.short_header();
         if expected != header {
-            return Err(SignalFrameError::HeaderMismatch { expected, found: header });
+            return Err(SignalFrameError::HeaderMismatch {
+                expected,
+                found: header,
+            });
         }
         Ok((route, value))
     }
@@ -1596,7 +1579,6 @@ impl MessageIdentifier {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(self) -> String {
         <Self as NotaEncode>::to_nota(&self)
     }
@@ -1619,7 +1601,6 @@ impl OriginRoute {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(self) -> String {
         <Self as NotaEncode>::to_nota(&self)
     }
@@ -1844,14 +1825,14 @@ pub trait SignalEngine {
 
 pub trait UpgradeFrom<Previous>: Sized {
     type Error;
-
     fn upgrade_from(previous: Previous) -> Result<Self, Self::Error>;
 }
-
 pub trait AcceptPrevious<Previous>: UpgradeFrom<Previous> {
     fn accept_previous(previous: Previous) -> Result<Self, Self::Error> {
         Self::upgrade_from(previous)
     }
 }
-
-impl<Current, Previous> AcceptPrevious<Previous> for Current where Current: UpgradeFrom<Previous> {}
+impl<Current, Previous> AcceptPrevious<Previous> for Current
+where
+    Current: UpgradeFrom<Previous>,
+{}

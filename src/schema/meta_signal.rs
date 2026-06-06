@@ -8,9 +8,7 @@ pub type Path = std::string::String;
 pub use spirit::schema::signal::DatabaseMarker as DatabaseMarker;
 
 #[cfg(feature = "nota-text")]
-pub use nota_next::{
-    NotaDecode, NotaDecodeError, NotaEncode, NotaSource,
-};
+pub use nota_next::{NotaDecode, NotaDecodeError, NotaEncode, NotaSource};
 
 pub type Configure = ConfigureRequest;
 
@@ -73,16 +71,13 @@ impl ArchivePath {
     pub fn new(payload: ArchivePathText) -> Self {
         Self(payload)
     }
-
     pub fn payload(&self) -> &ArchivePathText {
         &self.0
     }
-
     pub fn into_payload(self) -> ArchivePathText {
         self.0
     }
 }
-
 impl From<ArchivePathText> for ArchivePath {
     fn from(payload: ArchivePathText) -> Self {
         Self::new(payload)
@@ -93,16 +88,13 @@ impl ConfigureRequest {
     pub fn new(payload: ArchiveDatabaseTarget) -> Self {
         Self(payload)
     }
-
     pub fn payload(&self) -> &ArchiveDatabaseTarget {
         &self.0
     }
-
     pub fn into_payload(self) -> ArchiveDatabaseTarget {
         self.0
     }
 }
-
 impl From<ArchiveDatabaseTarget> for ConfigureRequest {
     fn from(payload: ArchiveDatabaseTarget) -> Self {
         Self::new(payload)
@@ -125,7 +117,6 @@ impl Output {
     pub fn configured(payload: Configured) -> Self {
         Self::Configured(payload)
     }
-
     pub fn rejected(payload: Rejected) -> Self {
         Self::Rejected(payload)
     }
@@ -142,7 +133,6 @@ impl ArchivePath {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -153,7 +143,6 @@ impl ArchiveDatabaseTarget {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -164,7 +153,6 @@ impl ConfigureRequest {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -175,7 +163,6 @@ impl ConfigureReceipt {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -186,7 +173,6 @@ impl ConfigureRejection {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -197,7 +183,6 @@ impl ConfigureRejectionReason {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -208,7 +193,6 @@ impl Input {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -217,12 +201,10 @@ impl Input {
 #[cfg(feature = "nota-text")]
 impl std::str::FromStr for Input {
     type Err = NotaDecodeError;
-
     fn from_str(source: &str) -> Result<Self, Self::Err> {
         NotaSource::new(source).parse::<Self>()
     }
 }
-
 #[cfg(feature = "nota-text")]
 impl std::fmt::Display for Input {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -235,7 +217,6 @@ impl Output {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
     }
@@ -244,12 +225,10 @@ impl Output {
 #[cfg(feature = "nota-text")]
 impl std::str::FromStr for Output {
     type Err = NotaDecodeError;
-
     fn from_str(source: &str) -> Result<Self, Self::Err> {
         NotaSource::new(source).parse::<Self>()
     }
 }
-
 #[cfg(feature = "nota-text")]
 impl std::fmt::Display for Output {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -264,7 +243,6 @@ pub mod short_header {
 }
 
 const SIGNAL_SHORT_HEADER_BYTE_COUNT: usize = 8;
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SignalFrameError {
     ArchiveEncode,
@@ -273,29 +251,54 @@ pub enum SignalFrameError {
     UnknownHeader { root_enum: &'static str, header: u64 },
     HeaderMismatch { expected: u64, found: u64 },
 }
-
 impl std::fmt::Display for SignalFrameError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::ArchiveEncode => formatter.write_str("failed to encode rkyv archive"),
             Self::ArchiveDecode => formatter.write_str("failed to decode rkyv archive"),
-            Self::FrameTooShort { found } => write!(formatter, "signal frame too short: {found} bytes"),
-            Self::UnknownHeader { root_enum, header } => write!(formatter, "unknown {root_enum} short header 0x{header:016X}"),
-            Self::HeaderMismatch { expected, found } => write!(formatter, "decoded payload header mismatch: expected 0x{expected:016X}, found 0x{found:016X}"),
+            Self::FrameTooShort { found } => {
+                write!(formatter, "signal frame too short: {found} bytes")
+            }
+            Self::UnknownHeader { root_enum, header } => {
+                write!(formatter, "unknown {root_enum} short header 0x{header:016X}")
+            }
+            Self::HeaderMismatch { expected, found } => {
+                write!(
+                    formatter,
+                    "decoded payload header mismatch: expected 0x{expected:016X}, found 0x{found:016X}"
+                )
+            }
         }
     }
 }
-
 impl std::error::Error for SignalFrameError {}
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub enum InputRoute {
     Configure,
 }
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub enum OutputRoute {
     Configured,
     Rejected,
@@ -307,42 +310,55 @@ impl Input {
             Self::Configure(_) => InputRoute::Configure,
         }
     }
-
     pub fn short_header(&self) -> u64 {
         match self {
             Self::Configure(_) => short_header::INPUT_CONFIGURE,
         }
     }
-
     pub fn route_from_short_header(header: u64) -> Result<InputRoute, SignalFrameError> {
         match header {
             short_header::INPUT_CONFIGURE => Ok(InputRoute::Configure),
-            _ => Err(SignalFrameError::UnknownHeader { root_enum: "Input", header }),
+            _ => {
+                Err(SignalFrameError::UnknownHeader {
+                    root_enum: "Input",
+                    header,
+                })
+            }
         }
     }
-
     pub fn encode_signal_frame(&self) -> Result<Vec<u8>, SignalFrameError> {
         let archive = rkyv::to_bytes::<rkyv::rancor::Error>(self)
             .map_err(|_| SignalFrameError::ArchiveEncode)?;
-        let mut frame = Vec::with_capacity(SIGNAL_SHORT_HEADER_BYTE_COUNT + archive.len());
+        let mut frame = Vec::with_capacity(
+            SIGNAL_SHORT_HEADER_BYTE_COUNT + archive.len(),
+        );
         frame.extend_from_slice(&self.short_header().to_le_bytes());
         frame.extend_from_slice(&archive);
         Ok(frame)
     }
-
-    pub fn decode_signal_frame(frame: &[u8]) -> Result<(InputRoute, Self), SignalFrameError> {
+    pub fn decode_signal_frame(
+        frame: &[u8],
+    ) -> Result<(InputRoute, Self), SignalFrameError> {
         if frame.len() < SIGNAL_SHORT_HEADER_BYTE_COUNT {
-            return Err(SignalFrameError::FrameTooShort { found: frame.len() });
+            return Err(SignalFrameError::FrameTooShort {
+                found: frame.len(),
+            });
         }
         let mut header_bytes = [0_u8; SIGNAL_SHORT_HEADER_BYTE_COUNT];
         header_bytes.copy_from_slice(&frame[..SIGNAL_SHORT_HEADER_BYTE_COUNT]);
         let header = u64::from_le_bytes(header_bytes);
         let route = Self::route_from_short_header(header)?;
-        let value = rkyv::from_bytes::<Self, rkyv::rancor::Error>(&frame[SIGNAL_SHORT_HEADER_BYTE_COUNT..])
+        let value = rkyv::from_bytes::<
+            Self,
+            rkyv::rancor::Error,
+        >(&frame[SIGNAL_SHORT_HEADER_BYTE_COUNT..])
             .map_err(|_| SignalFrameError::ArchiveDecode)?;
         let expected = value.short_header();
         if expected != header {
-            return Err(SignalFrameError::HeaderMismatch { expected, found: header });
+            return Err(SignalFrameError::HeaderMismatch {
+                expected,
+                found: header,
+            });
         }
         Ok((route, value))
     }
@@ -355,44 +371,59 @@ impl Output {
             Self::Rejected(_) => OutputRoute::Rejected,
         }
     }
-
     pub fn short_header(&self) -> u64 {
         match self {
             Self::Configured(_) => short_header::OUTPUT_CONFIGURED,
             Self::Rejected(_) => short_header::OUTPUT_REJECTED,
         }
     }
-
-    pub fn route_from_short_header(header: u64) -> Result<OutputRoute, SignalFrameError> {
+    pub fn route_from_short_header(
+        header: u64,
+    ) -> Result<OutputRoute, SignalFrameError> {
         match header {
             short_header::OUTPUT_CONFIGURED => Ok(OutputRoute::Configured),
             short_header::OUTPUT_REJECTED => Ok(OutputRoute::Rejected),
-            _ => Err(SignalFrameError::UnknownHeader { root_enum: "Output", header }),
+            _ => {
+                Err(SignalFrameError::UnknownHeader {
+                    root_enum: "Output",
+                    header,
+                })
+            }
         }
     }
-
     pub fn encode_signal_frame(&self) -> Result<Vec<u8>, SignalFrameError> {
         let archive = rkyv::to_bytes::<rkyv::rancor::Error>(self)
             .map_err(|_| SignalFrameError::ArchiveEncode)?;
-        let mut frame = Vec::with_capacity(SIGNAL_SHORT_HEADER_BYTE_COUNT + archive.len());
+        let mut frame = Vec::with_capacity(
+            SIGNAL_SHORT_HEADER_BYTE_COUNT + archive.len(),
+        );
         frame.extend_from_slice(&self.short_header().to_le_bytes());
         frame.extend_from_slice(&archive);
         Ok(frame)
     }
-
-    pub fn decode_signal_frame(frame: &[u8]) -> Result<(OutputRoute, Self), SignalFrameError> {
+    pub fn decode_signal_frame(
+        frame: &[u8],
+    ) -> Result<(OutputRoute, Self), SignalFrameError> {
         if frame.len() < SIGNAL_SHORT_HEADER_BYTE_COUNT {
-            return Err(SignalFrameError::FrameTooShort { found: frame.len() });
+            return Err(SignalFrameError::FrameTooShort {
+                found: frame.len(),
+            });
         }
         let mut header_bytes = [0_u8; SIGNAL_SHORT_HEADER_BYTE_COUNT];
         header_bytes.copy_from_slice(&frame[..SIGNAL_SHORT_HEADER_BYTE_COUNT]);
         let header = u64::from_le_bytes(header_bytes);
         let route = Self::route_from_short_header(header)?;
-        let value = rkyv::from_bytes::<Self, rkyv::rancor::Error>(&frame[SIGNAL_SHORT_HEADER_BYTE_COUNT..])
+        let value = rkyv::from_bytes::<
+            Self,
+            rkyv::rancor::Error,
+        >(&frame[SIGNAL_SHORT_HEADER_BYTE_COUNT..])
             .map_err(|_| SignalFrameError::ArchiveDecode)?;
         let expected = value.short_header();
         if expected != header {
-            return Err(SignalFrameError::HeaderMismatch { expected, found: header });
+            return Err(SignalFrameError::HeaderMismatch {
+                expected,
+                found: header,
+            });
         }
         Ok((route, value))
     }
