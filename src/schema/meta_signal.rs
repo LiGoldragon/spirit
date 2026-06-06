@@ -18,16 +18,27 @@ pub type Configured = ConfigureReceipt;
 
 pub type Rejected = ConfigureRejection;
 
-pub type ArchiveTarget = String;
+pub type ArchivePathText = String;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ConfigureRequest(pub ArchiveTarget);
+pub struct ArchivePath(pub ArchivePathText);
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum ArchiveDatabaseTarget {
+    Default,
+    Path(ArchivePath),
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ConfigureRequest(pub ArchiveDatabaseTarget);
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ConfigureReceipt {
-    pub archive_target: ArchiveTarget,
+    pub archive_database_target: ArchiveDatabaseTarget,
     pub database_marker: DatabaseMarker,
 }
 
@@ -58,23 +69,49 @@ pub enum Output {
     Rejected(Rejected),
 }
 
-impl ConfigureRequest {
-    pub fn new(payload: ArchiveTarget) -> Self {
+impl ArchivePath {
+    pub fn new(payload: ArchivePathText) -> Self {
         Self(payload)
     }
 
-    pub fn payload(&self) -> &ArchiveTarget {
+    pub fn payload(&self) -> &ArchivePathText {
         &self.0
     }
 
-    pub fn into_payload(self) -> ArchiveTarget {
+    pub fn into_payload(self) -> ArchivePathText {
         self.0
     }
 }
 
-impl From<ArchiveTarget> for ConfigureRequest {
-    fn from(payload: ArchiveTarget) -> Self {
+impl From<ArchivePathText> for ArchivePath {
+    fn from(payload: ArchivePathText) -> Self {
         Self::new(payload)
+    }
+}
+
+impl ConfigureRequest {
+    pub fn new(payload: ArchiveDatabaseTarget) -> Self {
+        Self(payload)
+    }
+
+    pub fn payload(&self) -> &ArchiveDatabaseTarget {
+        &self.0
+    }
+
+    pub fn into_payload(self) -> ArchiveDatabaseTarget {
+        self.0
+    }
+}
+
+impl From<ArchiveDatabaseTarget> for ConfigureRequest {
+    fn from(payload: ArchiveDatabaseTarget) -> Self {
+        Self::new(payload)
+    }
+}
+
+impl ArchiveDatabaseTarget {
+    pub fn path(payload: ArchivePathText) -> Self {
+        Self::Path(ArchivePath::new(payload))
     }
 }
 
@@ -91,6 +128,34 @@ impl Output {
 
     pub fn rejected(payload: Rejected) -> Self {
         Self::Rejected(payload)
+    }
+}
+
+impl From<ArchivePath> for ArchiveDatabaseTarget {
+    fn from(payload: ArchivePath) -> Self {
+        Self::Path(payload)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl ArchivePath {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl ArchiveDatabaseTarget {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
     }
 }
 

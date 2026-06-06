@@ -21,6 +21,11 @@ pub use spirit::schema::signal::SubscriptionToken as SubscriptionToken;
 pub use spirit::schema::signal::IntentSubscription as IntentSubscription;
 pub use spirit::schema::signal::RecordIdentifier as RecordIdentifier;
 pub use spirit::schema::signal::CertaintyChange as CertaintyChange;
+pub use spirit::schema::signal::RemovalCandidateCollection as RemovalCandidateCollection;
+pub use spirit::schema::signal::RemovalCandidatesCollection as RemovalCandidatesCollection;
+pub use spirit::schema::signal::ObserverFilter as ObserverFilter;
+pub use spirit::schema::signal::ObserverSubscription as ObserverSubscription;
+pub use spirit::schema::signal::ObserverRetraction as ObserverRetraction;
 
 #[cfg(feature = "nota-text")]
 pub use nota_next::{
@@ -82,6 +87,9 @@ pub enum NexusEffectCommand {
     Stash(Stash),
     ClassifyState(ClassifyState),
     OpenIntentSubscription(OpenIntentSubscription),
+    CollectRemovalCandidates(CollectRemovalCandidates),
+    OpenObserverTap(OpenObserverTap),
+    CloseObserverTap(CloseObserverTap),
 }
 
 pub type Stash = StashRequest;
@@ -90,12 +98,21 @@ pub type ClassifyState = Statement;
 
 pub type OpenIntentSubscription = Query;
 
+pub type CollectRemovalCandidates = RemovalCandidateCollection;
+
+pub type OpenObserverTap = ObserverFilter;
+
+pub type CloseObserverTap = SubscriptionToken;
+
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum NexusEffectResult {
     Stashed(Stashed),
     StateClassified(StateClassified),
     IntentSubscriptionOpened(IntentSubscriptionOpened),
+    RemovalCandidatesCollected(RemovalCandidatesCollected),
+    ObserverTapOpened(ObserverTapOpened),
+    ObserverTapClosed(ObserverTapClosed),
 }
 
 pub type Stashed = StashResult;
@@ -103,6 +120,12 @@ pub type Stashed = StashResult;
 pub type StateClassified = Entry;
 
 pub type IntentSubscriptionOpened = IntentSubscription;
+
+pub type RemovalCandidatesCollected = RemovalCandidatesCollection;
+
+pub type ObserverTapOpened = ObserverSubscription;
+
+pub type ObserverTapClosed = ObserverRetraction;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -204,6 +227,18 @@ impl NexusEffectCommand {
     pub fn open_intent_subscription(payload: OpenIntentSubscription) -> Self {
         Self::OpenIntentSubscription(payload)
     }
+
+    pub fn collect_removal_candidates(payload: CollectRemovalCandidates) -> Self {
+        Self::CollectRemovalCandidates(payload)
+    }
+
+    pub fn open_observer_tap(payload: OpenObserverTap) -> Self {
+        Self::OpenObserverTap(payload)
+    }
+
+    pub fn close_observer_tap(payload: CloseObserverTap) -> Self {
+        Self::CloseObserverTap(payload)
+    }
 }
 
 impl NexusEffectResult {
@@ -217,6 +252,18 @@ impl NexusEffectResult {
 
     pub fn intent_subscription_opened(payload: IntentSubscriptionOpened) -> Self {
         Self::IntentSubscriptionOpened(payload)
+    }
+
+    pub fn removal_candidates_collected(payload: RemovalCandidatesCollected) -> Self {
+        Self::RemovalCandidatesCollected(payload)
+    }
+
+    pub fn observer_tap_opened(payload: ObserverTapOpened) -> Self {
+        Self::ObserverTapOpened(payload)
+    }
+
+    pub fn observer_tap_closed(payload: ObserverTapClosed) -> Self {
+        Self::ObserverTapClosed(payload)
     }
 }
 

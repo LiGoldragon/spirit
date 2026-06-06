@@ -80,7 +80,7 @@ fn signal_schema_input_uses_exported_object_variant_names() {
 
     // The active production Input enum body — compact exported objects.
     witness.must_contain(
-        "[State Record Observe Lookup Count Remove ChangeCertainty LookupStash (SubscribeIntent SubscribeIntent opens IntentEventStream)]",
+        "[State Record Observe Lookup Count Remove ChangeCertainty LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream)]",
         "4",
     );
     witness.must_contain("State Statement", "4");
@@ -111,7 +111,7 @@ fn signal_schema_output_uses_exported_object_variant_names() {
 
     // The active production Output enum body.
     witness.must_contain(
-        "[RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged SubscriptionStarted (Event IntentEvent) Error Rejected]",
+        "[RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted (Event IntentEvent) Error Rejected]",
         "4",
     );
     witness.must_contain("RecordAccepted SemaReceipt", "4");
@@ -184,7 +184,7 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     sema_witness.must_round_trip_as_schema_source();
 
     signal_witness.must_contain(
-        "[State Record Observe Lookup Count Remove ChangeCertainty LookupStash (SubscribeIntent SubscribeIntent opens IntentEventStream)]",
+        "[State Record Observe Lookup Count Remove ChangeCertainty LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream)]",
         "4",
     );
     signal_witness.must_contain("State Statement", "4");
@@ -209,13 +209,13 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     );
     nexus_witness.must_contain("NexusAction [(CommandSemaWrite CommandSemaWrite)", "4");
     nexus_witness.must_contain(
-        "NexusEffectCommand [(Stash Stash) (ClassifyState ClassifyState) (OpenIntentSubscription OpenIntentSubscription)]",
+        "NexusEffectCommand [(Stash Stash) (ClassifyState ClassifyState) (OpenIntentSubscription OpenIntentSubscription) (CollectRemovalCandidates CollectRemovalCandidates) (OpenObserverTap OpenObserverTap) (CloseObserverTap CloseObserverTap)]",
         "4",
     );
     nexus_witness.must_contain("ClassifyState Statement", "4");
     nexus_witness.must_contain("OpenIntentSubscription Query", "4");
     nexus_witness.must_contain(
-        "NexusEffectResult [(Stashed Stashed) (StateClassified StateClassified) (IntentSubscriptionOpened IntentSubscriptionOpened)]",
+        "NexusEffectResult [(Stashed Stashed) (StateClassified StateClassified) (IntentSubscriptionOpened IntentSubscriptionOpened) (RemovalCandidatesCollected RemovalCandidatesCollected) (ObserverTapOpened ObserverTapOpened) (ObserverTapClosed ObserverTapClosed)]",
         "4",
     );
     nexus_witness.must_contain("StateClassified Entry", "4");

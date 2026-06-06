@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::{
     MailLedger,
     schema::{
+        meta_signal::ArchiveDatabaseTarget,
         nexus::{
             self as nexus_schema, ActorStartFailure as NexusActorStartFailure,
             ActorStopFailure as NexusActorStopFailure, CommandSemaWrite, NexusAction,
@@ -15,8 +16,11 @@ use crate::{
         },
         signal::{
             DatabaseMarker, Entry, ErrorReport, Input, IntentEvent, IntentRecorded,
-            IntentSubscription, Kind, Magnitude, Output, Records, SemaReceipt, SignalRejection,
-            StashHandle, StashedObservation, Statement, ValidationError,
+            IntentSubscription, Kind, Magnitude, ObservedOperation, ObservedOperations,
+            ObserverFilter, ObserverRetraction, ObserverSubscription, OperationKind, Output,
+            Records, RemovalCandidateCollection, RemovalCandidatesCollection, SemaReceipt,
+            SignalRejection, StashHandle, StashedObservation, Statement, SubscriptionToken,
+            ValidationError,
         },
     },
     store::{Store, StoreError},
@@ -45,6 +49,96 @@ pub struct ClassificationPolicy {
     fallback_kind: Kind,
     fallback_magnitude: Magnitude,
     fallback_privacy: Magnitude,
+}
+
+/// The observer-tap registry — the meta-observation surface ported from old
+/// spirit's `Tap`/`Untap` operator stream.
+///
+/// Every admitted working operation is appended to the operation log as a typed
+/// `OperationKind`. `Tap(ObserverFilter)` mints an observer subscription token,
+/// records the filter, and returns the operation log filtered by that observer
+/// filter so the caller sees what has been observed so far. `Untap(token)`
+/// retires the subscription and returns its final filtered observations. This
+/// is the request/reply half of the old observer stream: the operation history
+/// is the load-bearing `OperationReceived` content, scoped by `ObserverFilter`.
+#[derive(Debug, Default)]
+pub struct ObserverTapTable {
+    next_token: u64,
+    operation_log: Vec<OperationKind>,
+    taps: HashMap<u64, ObserverFilter>,
+}
+
+impl ObserverTapTable {
+    /// Record one admitted operation in the observer log.
+    pub fn observe_operation(&mut self, operation: OperationKind) {
+        self.operation_log.push(operation);
+    }
+
+    /// Open an observer tap under a freshly minted token and return the
+    /// operations observed so far, filtered by `filter`.
+    pub fn open(&mut self, filter: ObserverFilter) -> (u64, ObserverFilter, ObservedOperations) {
+        self.next_token += 1;
+        let token = self.next_token;
+        self.taps.insert(token, filter.clone());
+        (token, filter.clone(), self.observed_operations(&filter))
+    }
+
+    /// Close an observer tap. Returns the tap's final filtered observations when
+    /// the token was registered, and `None` when it was not.
+    pub fn close(&mut self, token: SubscriptionToken) -> Option<ObservedOperations> {
+        let filter = self.taps.remove(&token)?;
+        Some(self.observed_operations(&filter))
+    }
+
+    fn observed_operations(&self, filter: &ObserverFilter) -> ObservedOperations {
+        self.operation_log
+            .iter()
+            .filter(|operation| filter.observes_operation(operation))
+            .cloned()
+            .map(ObservedOperation)
+            .collect()
+    }
+
+    pub fn len(&self) -> usize {
+        self.taps.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.taps.is_empty()
+    }
+}
+
+impl ObserverFilter {
+    /// Whether this observer filter admits an operation event. `All` and
+    /// `OperationsOnly` observe every operation; `EffectsOnly` observes none
+    /// (effect events are not operations).
+    pub fn observes_operation(&self, _operation: &OperationKind) -> bool {
+        match self {
+            Self::All | Self::OperationsOnly => true,
+            Self::EffectsOnly => false,
+        }
+    }
+}
+
+impl OperationKind {
+    /// The operation kind of an admitted working `Input` — the typed observer
+    /// log entry recorded for the `Tap`/`Untap` surface.
+    pub fn from_input(input: &Input) -> Self {
+        match input {
+            Input::State(_) => Self::State,
+            Input::Record(_) => Self::Record,
+            Input::Observe(_) => Self::Observe,
+            Input::Lookup(_) => Self::Lookup,
+            Input::Count(_) => Self::Count,
+            Input::Remove(_) => Self::Remove,
+            Input::ChangeCertainty(_) => Self::ChangeCertainty,
+            Input::LookupStash(_) => Self::LookupStash,
+            Input::CollectRemovalCandidates(_) => Self::CollectRemovalCandidates,
+            Input::Tap(_) => Self::Tap,
+            Input::Untap(_) => Self::Untap,
+            Input::SubscribeIntent(_) => Self::SubscribeIntent,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -109,6 +203,7 @@ pub struct Nexus {
     store: Store,
     mail_ledger: MailLedger,
     stash_table: StashTable,
+    observer_tap_table: ObserverTapTable,
     classification_policy: ClassificationPolicy,
     subscription_token_issuer: SubscriptionTokenIssuer,
     #[cfg(feature = "testing-trace")]
@@ -161,6 +256,7 @@ impl Nexus {
                 store,
                 mail_ledger: MailLedger::default(),
                 stash_table: StashTable::default(),
+                observer_tap_table: ObserverTapTable::default(),
                 classification_policy: ClassificationPolicy::default(),
                 subscription_token_issuer: SubscriptionTokenIssuer::default(),
             }
@@ -173,6 +269,7 @@ impl Nexus {
             store: store.with_trace(trace_log.clone()),
             mail_ledger: MailLedger::default(),
             stash_table: StashTable::default(),
+            observer_tap_table: ObserverTapTable::default(),
             classification_policy: ClassificationPolicy::default(),
             subscription_token_issuer: SubscriptionTokenIssuer::default(),
             trace_log,
@@ -187,16 +284,27 @@ impl Nexus {
         &self.store
     }
 
-    /// Re-point the durable archive target the SEMA store writes to. The
+    /// Store the owner-configured archive target on the SEMA store. The
     /// owner-only meta `Configure` effect drives this through the same
-    /// single-flight `&mut Nexus` borrow that guards every working write, so
-    /// the store's single-slot durable state stays sound.
-    pub fn set_archive_target(&mut self, path: impl Into<std::path::PathBuf>) -> Result<(), StoreError> {
-        self.store.set_archive_target(path)
+    /// single-flight `&mut Nexus` borrow that guards every working write.
+    ///
+    /// This records WHERE the SEPARATE archive database lives; it does NOT open,
+    /// move, or touch the live database, so the live intent log is never
+    /// disturbed by a reconfigure.
+    pub fn set_archive_target(&mut self, archive_target: ArchiveDatabaseTarget) {
+        self.store.set_archive_target(archive_target);
+    }
+
+    pub fn archive_target(&self) -> &ArchiveDatabaseTarget {
+        self.store.archive_target()
     }
 
     pub fn stash_table(&self) -> &StashTable {
         &self.stash_table
+    }
+
+    pub fn observer_tap_table(&self) -> &ObserverTapTable {
+        &self.observer_tap_table
     }
 
     pub fn classification_policy(&self) -> &ClassificationPolicy {
@@ -244,7 +352,50 @@ impl Nexus {
                     database_marker: self.database_marker(),
                 })
             }
+            NexusEffectCommand::CollectRemovalCandidates(collection) => {
+                self.collect_removal_candidates(collection)
+            }
+            NexusEffectCommand::OpenObserverTap(filter) => {
+                let (token, observer_filter, observed_operations) =
+                    self.observer_tap_table.open(filter);
+                NexusEffectResult::observer_tap_opened(ObserverSubscription {
+                    subscription_token: token,
+                    observer_filter,
+                    observed_operations,
+                    database_marker: self.database_marker(),
+                })
+            }
+            NexusEffectCommand::CloseObserverTap(token) => {
+                let observed_operations =
+                    self.observer_tap_table.close(token).unwrap_or_default();
+                NexusEffectResult::observer_tap_closed(ObserverRetraction {
+                    subscription_token: token,
+                    observed_operations,
+                    database_marker: self.database_marker(),
+                })
+            }
         }
+    }
+
+    /// Run the `CollectRemovalCandidates` working operation: archive the
+    /// matching records into the SEPARATE archive database at the
+    /// owner-configured target and remove them from the live log. On a store
+    /// error the effect surfaces an empty collection so the caller still gets a
+    /// typed reply rather than a dropped request.
+    fn collect_removal_candidates(
+        &mut self,
+        collection: RemovalCandidateCollection,
+    ) -> NexusEffectResult {
+        let result = self
+            .store
+            .collect_removal_candidates(collection)
+            .unwrap_or_else(|_error| RemovalCandidatesCollection {
+                archived_records: Vec::new(),
+                removed_identifiers: Vec::new(),
+                skipped_removal_candidates: Vec::new(),
+                database_marker: self.database_marker(),
+            });
+        NexusEffectResult::removal_candidates_collected(result)
     }
 }
 
@@ -333,7 +484,7 @@ impl Nexus {
     /// `CommandEffect(ClassifyState)` followed by
     /// `EffectCompleted(StateClassified)` and the ordinary SEMA
     /// `Record` write.
-    fn step_decide(&self, work: NexusWork) -> NexusAction {
+    fn step_decide(&mut self, work: NexusWork) -> NexusAction {
         match work {
             NexusWork::SignalArrived(input) => self.decide_signal_arrival(input),
             NexusWork::SemaWriteCompleted(output) => self.decide_sema_write_completion(output),
@@ -342,7 +493,12 @@ impl Nexus {
         }
     }
 
-    fn decide_signal_arrival(&self, input: Input) -> NexusAction {
+    fn decide_signal_arrival(&mut self, input: Input) -> NexusAction {
+        // Record every admitted operation in the observer log so a later
+        // `Tap(ObserverFilter)` sees the operations observed so far. This is the
+        // recording half of the ported `Tap`/`Untap` observer surface.
+        self.observer_tap_table
+            .observe_operation(OperationKind::from_input(&input));
         match input {
             Input::State(statement) => {
                 NexusAction::command_effect(NexusEffectCommand::classify_state(statement))
@@ -373,6 +529,15 @@ impl Nexus {
                     database_marker: self.database_marker(),
                 })),
             },
+            Input::CollectRemovalCandidates(collection) => NexusAction::command_effect(
+                NexusEffectCommand::collect_removal_candidates(collection),
+            ),
+            Input::Tap(filter) => {
+                NexusAction::command_effect(NexusEffectCommand::open_observer_tap(filter))
+            }
+            Input::Untap(token) => {
+                NexusAction::command_effect(NexusEffectCommand::close_observer_tap(token))
+            }
             Input::SubscribeIntent(query) => {
                 NexusAction::command_effect(NexusEffectCommand::open_intent_subscription(query))
             }
@@ -433,6 +598,15 @@ impl Nexus {
             })),
             NexusEffectResult::IntentSubscriptionOpened(subscription) => {
                 NexusAction::reply_to_signal(Output::subscription_started(subscription))
+            }
+            NexusEffectResult::RemovalCandidatesCollected(collection) => {
+                NexusAction::reply_to_signal(Output::removal_candidates_collected(collection))
+            }
+            NexusEffectResult::ObserverTapOpened(subscription) => {
+                NexusAction::reply_to_signal(Output::observation_tapped(subscription))
+            }
+            NexusEffectResult::ObserverTapClosed(retraction) => {
+                NexusAction::reply_to_signal(Output::observation_untapped(retraction))
             }
         }
     }

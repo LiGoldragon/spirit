@@ -254,7 +254,10 @@ impl SubscriptionFilter {
             | Input::Count(_)
             | Input::Remove(_)
             | Input::ChangeCertainty(_)
-            | Input::LookupStash(_) => None,
+            | Input::LookupStash(_)
+            | Input::CollectRemovalCandidates(_)
+            | Input::Tap(_)
+            | Input::Untap(_) => None,
         }
     }
 

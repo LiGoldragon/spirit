@@ -175,11 +175,22 @@ from the peer-callable working signal. The meta contract is the crate-local
 `RustEmissionTarget::WireContract` into `src/schema/meta_signal.rs`): it carries
 only the `Configure` `Input` root, the `Configured`/`Rejected` `Output` roots,
 their records, and the rkyv derives — no Nexus/SEMA planes and no engine traits.
-The single owner-only operation is `Configure(ConfigureRequest { ArchiveTarget })`,
-which re-points the durable archive target the SEMA store writes to; the daemon
-applies it through `Engine::configure` (a configuration effect under the same
-single-flight Nexus mutex the working path uses, NOT a SEMA log write) and
-replies with the now-active target plus the database marker.
+The single owner-only operation is
+`Configure(ConfigureRequest { ArchiveDatabaseTarget })`, where
+`ArchiveDatabaseTarget` is the ported `[Default | Path(ArchivePath)]` enum. It
+sets WHERE the SEPARATE archive database lives — the destination the
+peer-callable `CollectRemovalCandidates` working operation archives into. The
+archive database is a distinct `*.sema` file from the live intent log;
+`Configure` does NOT open, move, or touch the live database. The daemon applies
+it through `Engine::configure` (an owner-config effect under the same
+single-flight Nexus mutex the working path uses, NOT a SEMA log write), which
+stores the target on the SEMA `Store` (`Store::set_archive_target`, a field +
+accessor) and replies with the now-active target plus the live database marker.
+The authority split is load-bearing: the OWNER configures WHERE archives go
+(meta `Configure`); a PEER does the archiving (working
+`CollectRemovalCandidates`). The earlier `set_archive_target` re-opened the LIVE
+`SemaDatabase` at the new path — that was the bug; the live log is now never
+disturbed by a reconfigure.
 
 The daemon binds both sockets through `triad_runtime::MultiListenerDaemon`,
 tagging each with a `SpiritListener` discriminant (`Working` / `Meta`) so
@@ -322,6 +333,37 @@ identified record, mutates only the stored entry's `Magnitude` through the
 `Certainty` alias, writes it back through `Engine::mutate_identified`, and
 returns `CertaintyChangeReceipt` with the same `RecordIdentifier` and a new
 database marker.
+
+`CollectRemovalCandidates` is the peer-callable archiving operation ported from
+old persona-spirit. Signal admits a `RemovalCandidateCollection { RecordQuery }`
+(the peer supplies only the candidate selection; the destination comes from
+owner config). Nexus emits the schema-declared
+`CommandEffect(CollectRemovalCandidates(...))`; the effect calls
+`Store::collect_removal_candidates`, which opens the SEPARATE archive database on
+demand at the owner-configured `ArchiveDatabaseTarget` (a distinct `ArchiveDatabase`
+noun over its own `*.sema` file, resolving `Default` to a `<live-stem>.archive.sema`
+sibling), asserts each matching `Entry` into it, retracts the original from the
+live log, and returns `RemovalCandidatesCollection { archived_records,
+removed_identifiers, skipped_removal_candidates, database_marker }`. A record that
+fails to archive stays in the live log and is reported as a
+`SkippedRemovalCandidate(ArchiveFailed)`; one that vanishes mid-collection is
+`RecordAlreadyRemoved`. Nexus replies `Output::RemovalCandidatesCollected`.
+
+`Tap`/`Untap` port old persona-spirit's observer (meta-observation) stream as a
+request/reply surface. Every admitted working operation is recorded in the
+`ObserverTapTable` operation log as a typed `OperationKind`. `Tap(ObserverFilter)`
+emits `CommandEffect(OpenObserverTap(...))`, mints an observer token, and replies
+`ObservationTapped(ObserverSubscription)` carrying the operations observed so far
+filtered by the `[All | OperationsOnly | EffectsOnly]` filter. `Untap(token)`
+emits `CommandEffect(CloseObserverTap(...))` and replies
+`ObservationUntapped(ObserverRetraction)` with the tap's final filtered
+observations, retiring the subscription. `Watch`/`Unwatch` reconciliation:
+old `Watch` (records subscription) is already covered by `SubscribeIntent`; the
+un-covered half — token-based cancellation — is what `Untap` restores. The
+observer event push-stream (`OperationReceived`/`EffectEmitted` as live frames)
+is not wired because the generated streaming `Frame` carries a single event type
+(`IntentEvent`); the operation history is the load-bearing observer content and
+is delivered request/reply.
 
 ### SEMA
 

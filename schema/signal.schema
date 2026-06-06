@@ -1,6 +1,6 @@
 {}
-[State Record Observe Lookup Count Remove ChangeCertainty LookupStash (SubscribeIntent SubscribeIntent opens IntentEventStream)]
-[RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged SubscriptionStarted (Event IntentEvent) Error Rejected]
+[State Record Observe Lookup Count Remove ChangeCertainty LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream)]
+[RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted (Event IntentEvent) Error Rejected]
 {
   SourcePath String
   LocalPath String
@@ -17,6 +17,9 @@
   Remove RecordIdentifier
   ChangeCertainty CertaintyChange
   LookupStash StashHandle
+  CollectRemovalCandidates RemovalCandidateCollection
+  Tap ObserverFilter
+  Untap SubscriptionToken
   SubscribeIntent Query
 
   RecordAccepted SemaReceipt
@@ -26,6 +29,9 @@
   RecordsCounted CountedRecords
   RecordRemoved RemoveReceipt
   CertaintyChanged CertaintyChangeReceipt
+  RemovalCandidatesCollected RemovalCandidatesCollection
+  ObservationTapped ObserverSubscription
+  ObservationUntapped ObserverRetraction
   SubscriptionStarted IntentSubscription
   Error ErrorReport
   Rejected SignalRejection
@@ -73,6 +79,24 @@
   Exact Privacy
   AtMost Privacy
   AtLeast Privacy
+
+  RemovalCandidateCollection { RecordQuery * }
+  RecordQuery Query
+  ArchivedRecord { RecordIdentifier * Entry * }
+  ArchivedRecords (Vec ArchivedRecord)
+  RemovedIdentifier RecordIdentifier
+  RemovedIdentifiers (Vec RemovedIdentifier)
+  RemovalCandidateSkipReason [ArchiveFailed RecordChanged RecordAlreadyRemoved NoLongerCandidate]
+  SkippedRemovalCandidate { RecordIdentifier * RemovalCandidateSkipReason * }
+  SkippedRemovalCandidates (Vec SkippedRemovalCandidate)
+  RemovalCandidatesCollection { ArchivedRecords * RemovedIdentifiers * SkippedRemovalCandidates * DatabaseMarker * }
+
+  ObserverFilter [All OperationsOnly EffectsOnly]
+  ObserverSubscription { SubscriptionToken * ObserverFilter * ObservedOperations * DatabaseMarker * }
+  ObserverRetraction { SubscriptionToken * ObservedOperations * DatabaseMarker * }
+  OperationKind [State Record Observe Lookup Count Remove ChangeCertainty LookupStash CollectRemovalCandidates Tap Untap SubscribeIntent]
+  ObservedOperation { OperationKind * }
+  ObservedOperations (Vec ObservedOperation)
 
   Entry { Topics * Kind * Description * Magnitude * Privacy * }
   Statement { StatementText * }

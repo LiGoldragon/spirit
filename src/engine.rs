@@ -3,10 +3,7 @@ use std::{convert::Infallible, sync::Mutex};
 use crate::{
     nexus::Nexus,
     schema::{
-        meta_signal::{
-            ConfigureRejection, ConfigureRejectionReason, ConfigureReceipt, ConfigureRequest,
-            Output as MetaOutput,
-        },
+        meta_signal::{ConfigureReceipt, ConfigureRequest, Output as MetaOutput},
         nexus::{self as nexus_schema, NexusAction, NexusEngine, NexusWork},
         signal::{
             self as signal_schema, ActorStartFailure, ActorStopFailure, DatabaseMarker, Entry,
@@ -169,30 +166,28 @@ impl Engine {
         self.nexus.lock().expect("nexus lock").database_marker()
     }
 
-    /// Apply an owner-only meta `Configure` request: re-point the durable
-    /// archive target the SEMA store writes to, and reply with the now-active
-    /// target plus the database marker.
+    /// Apply an owner-only meta `Configure` request: store WHERE the SEPARATE
+    /// archive database lives, and reply with the now-active target plus the
+    /// live database marker.
     ///
-    /// This is the meta-socket effect — it does NOT re-enter the
-    /// Signal -> Nexus -> SEMA working pipeline; there is no SEMA log write.
-    /// It locks the same single-flight Nexus mutex the working path uses, so a
-    /// reconfigure and a working write can never run concurrently and the
-    /// store's single-slot durable state stays sound. On a sema-engine open
-    /// failure at the requested target the store keeps its current target and
-    /// the request is rejected with `ArchiveTargetUnwritable`.
+    /// This is the owner-config meta-socket effect. It records the archive
+    /// target the peer-callable `CollectRemovalCandidates` will write to; it
+    /// does NOT open, move, or touch the live database, and it never re-enters
+    /// the Signal -> Nexus -> SEMA working pipeline (there is no SEMA log
+    /// write). It locks the same single-flight Nexus mutex the working path
+    /// uses, so a reconfigure and a working write can never run concurrently.
+    /// Storing the target is infallible — the archive database is opened lazily
+    /// later, not here — so this always replies `Configured`. The
+    /// `ConfigureRejection` / `ArchiveTargetUnwritable` arm of the contract is
+    /// reserved for a future eager-validation policy.
     pub fn configure(&self, request: ConfigureRequest) -> MetaOutput {
-        let archive_target = request.into_payload();
+        let archive_database_target = request.into_payload();
         let mut nexus = self.nexus.lock().expect("nexus lock");
-        match nexus.set_archive_target(&archive_target) {
-            Ok(()) => MetaOutput::configured(ConfigureReceipt {
-                archive_target,
-                database_marker: nexus.database_marker(),
-            }),
-            Err(_error) => MetaOutput::rejected(ConfigureRejection {
-                configure_rejection_reason: ConfigureRejectionReason::ArchiveTargetUnwritable,
-                database_marker: nexus.database_marker(),
-            }),
-        }
+        nexus.set_archive_target(archive_database_target.clone());
+        MetaOutput::configured(ConfigureReceipt {
+            archive_database_target,
+            database_marker: nexus.database_marker(),
+        })
     }
 
     pub fn intent_recorded_event(
@@ -399,9 +394,13 @@ impl Input {
             Self::State(statement) => statement.validate(),
             Self::Record(record) => record.validate(),
             Self::Observe(observe) => observe.validate(),
-            Self::Lookup(_) | Self::Remove(_) | Self::ChangeCertainty(_) | Self::LookupStash(_) => {
-                Ok(())
-            }
+            Self::Lookup(_)
+            | Self::Remove(_)
+            | Self::ChangeCertainty(_)
+            | Self::LookupStash(_)
+            | Self::Tap(_)
+            | Self::Untap(_) => Ok(()),
+            Self::CollectRemovalCandidates(collection) => collection.payload().validate(),
             Self::SubscribeIntent(query) => query.validate(),
             Self::Count(count) => count.validate(),
         }
@@ -515,6 +514,9 @@ impl Output {
             Self::RecordsCounted(records) => records.database_marker.clone(),
             Self::RecordRemoved(receipt) => receipt.database_marker.clone(),
             Self::CertaintyChanged(receipt) => receipt.database_marker.clone(),
+            Self::RemovalCandidatesCollected(collection) => collection.database_marker.clone(),
+            Self::ObservationTapped(subscription) => subscription.database_marker.clone(),
+            Self::ObservationUntapped(retraction) => retraction.database_marker.clone(),
             Self::SubscriptionStarted(subscription) => subscription.database_marker.clone(),
             Self::Event(event) => event.database_marker(),
             Self::Error(report) => report.database_marker.clone(),

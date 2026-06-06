@@ -11,6 +11,7 @@ use sema_engine::{
 use thiserror::Error;
 
 use crate::schema::{
+    meta_signal::ArchiveDatabaseTarget,
     sema::{
         self as sema_schema, ActorStartFailure as SemaActorStartFailure,
         ActorStopFailure as SemaActorStopFailure, ReadInput as SemaReadInput,
@@ -18,9 +19,10 @@ use crate::schema::{
         WriteOutput as SemaWriteOutput,
     },
     signal::{
-        CertaintyChange, CertaintyChangeReceipt, CountedRecords, DatabaseMarker, Entry,
-        ErrorReport, FoundRecord, Magnitude, ObservedRecords, Privacy, PrivacySelection, Query,
-        RemoveReceipt, SemaReceipt,
+        ArchivedRecord, CertaintyChange, CertaintyChangeReceipt, CountedRecords, DatabaseMarker,
+        Entry, ErrorReport, FoundRecord, Magnitude, ObservedRecords, Privacy, PrivacySelection,
+        Query, RemovalCandidateCollection, RemovalCandidatesCollection, RemoveReceipt, SemaReceipt,
+        SkippedRemovalCandidate,
     },
 };
 
@@ -42,6 +44,7 @@ pub struct Store {
     database: SemaDatabase,
     entries: IdentifiedTableReference<Entry>,
     path: PathBuf,
+    archive_target: ArchiveDatabaseTarget,
     #[cfg(feature = "testing-trace")]
     trace_log: TraceLog,
 }
@@ -191,6 +194,7 @@ impl Store {
             database,
             entries,
             path,
+            archive_target: ArchiveDatabaseTarget::Default,
             #[cfg(feature = "testing-trace")]
             trace_log: TraceLog::default(),
         })
@@ -214,27 +218,116 @@ impl Store {
         &self.path
     }
 
-    /// Re-point the durable archive target to `path` (the owner-only meta
+    /// Store the owner-configured archive target (the owner-only meta
     /// `Configure` effect).
     ///
-    /// Semantics are REDIRECT, not migrate: the store closes its current
-    /// `sema-engine` handle and opens (or resumes) the database at the new
-    /// `*.sema` path, so every subsequent `Record` / `ChangeCertainty` /
-    /// `Remove` and every `CollectRemovalCandidates`/archive read lands at the
-    /// new target. Records already written to the previous file are left in
-    /// place — they are neither copied forward nor deleted. Opening an existing
-    /// file at the new path resumes its persisted commit sequence and record
-    /// identifier counter; a fresh path starts empty.
-    pub fn set_archive_target(&mut self, path: impl Into<PathBuf>) -> Result<(), StoreError> {
-        let path = path.into();
-        let mut database =
-            SemaDatabase::open(EngineOpen::new(path.clone(), SPIRIT_SCHEMA_VERSION))?;
-        let entries =
-            database.register_identified_table(IdentifiedTableDescriptor::new(ENTRIES_TABLE))?;
-        self.database = database;
-        self.entries = entries;
-        self.path = path;
-        Ok(())
+    /// The archive is a SEPARATE database from the live intent log. This
+    /// method records WHERE that separate archive database lives; it does NOT
+    /// open, move, or touch the live database in any way. Every subsequent
+    /// `Record` / `ChangeCertainty` / `Remove` / `Observe` keeps landing on the
+    /// same live `*.sema` file the store was opened with. The configured target
+    /// is consumed only by `collect_removal_candidates`, which opens the
+    /// separate archive database on demand.
+    ///
+    /// This is owner-config storage, not a database operation, so it is
+    /// infallible — there is no sema-engine open at configure time.
+    pub fn set_archive_target(&mut self, archive_target: ArchiveDatabaseTarget) {
+        self.archive_target = archive_target;
+    }
+
+    /// The owner-configured archive target: WHERE the separate archive database
+    /// lives. Defaults to [`ArchiveDatabaseTarget::Default`] until an owner
+    /// `Configure` sets it.
+    pub fn archive_target(&self) -> &ArchiveDatabaseTarget {
+        &self.archive_target
+    }
+
+    /// Resolve the configured archive target to a concrete `*.sema` path for
+    /// the SEPARATE archive database.
+    ///
+    /// `Default` derives a sibling of the live database file
+    /// (`<live-stem>.archive.sema`); `Path` uses the owner-supplied path
+    /// verbatim. Either way the resolved path is distinct from the live
+    /// database path so the archive never collides with the live log.
+    fn archive_database_path(&self) -> PathBuf {
+        match &self.archive_target {
+            ArchiveDatabaseTarget::Default => {
+                let stem = self
+                    .path
+                    .file_stem()
+                    .map(|stem| stem.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| String::from("spirit"));
+                self.path
+                    .with_file_name(format!("{stem}.archive.sema"))
+            }
+            ArchiveDatabaseTarget::Path(archive_path) => PathBuf::from(archive_path.payload()),
+        }
+    }
+
+    /// Collect removal-candidate records, archive them into the SEPARATE
+    /// archive database at the owner-configured target, and remove them from
+    /// the live log.
+    ///
+    /// This is the peer-callable working operation. For every record matching
+    /// the candidate query it asserts a copy into the separate archive database
+    /// (opened on demand at the configured target — never the live database),
+    /// then retracts the original from the live log. A record that fails to
+    /// archive is left in the live log and reported as a
+    /// [`SkippedRemovalCandidate`] with [`RemovalCandidateSkipReason::ArchiveFailed`];
+    /// a record that vanishes between the match and the retraction is reported
+    /// with [`RemovalCandidateSkipReason::RecordAlreadyRemoved`]. The reply
+    /// carries the archived records, the removed identifiers, the skipped
+    /// candidates, and the live database's post-removal marker.
+    pub fn collect_removal_candidates(
+        &self,
+        collection: RemovalCandidateCollection,
+    ) -> Result<RemovalCandidatesCollection, StoreError> {
+        let query = collection.into_payload();
+        let mut archive = self.open_archive_database()?;
+        let mut archived_records = Vec::new();
+        let mut removed_identifiers = Vec::new();
+        let mut skipped_candidates = Vec::new();
+        for record in self.records()? {
+            let identifier = record.identifier().value();
+            let entry = record.into_value();
+            if !entry.matches(&query) {
+                continue;
+            }
+            match archive.archive_entry(entry.clone()) {
+                Ok(()) => match self.remove(identifier)? {
+                    true => {
+                        archived_records.push(ArchivedRecord {
+                            record_identifier: identifier,
+                            entry,
+                        });
+                        removed_identifiers.push(identifier);
+                    }
+                    false => skipped_candidates.push(SkippedRemovalCandidate {
+                        record_identifier: identifier,
+                        removal_candidate_skip_reason:
+                            crate::schema::signal::RemovalCandidateSkipReason::RecordAlreadyRemoved,
+                    }),
+                },
+                Err(_error) => skipped_candidates.push(SkippedRemovalCandidate {
+                    record_identifier: identifier,
+                    removal_candidate_skip_reason:
+                        crate::schema::signal::RemovalCandidateSkipReason::ArchiveFailed,
+                }),
+            }
+        }
+        Ok(RemovalCandidatesCollection {
+            archived_records,
+            removed_identifiers,
+            skipped_removal_candidates: skipped_candidates,
+            database_marker: self.database_marker(),
+        })
+    }
+
+    /// Open the SEPARATE archive database at the owner-configured target. This
+    /// is a distinct `sema-engine` handle over a distinct `*.sema` file; it is
+    /// never the live database handle.
+    fn open_archive_database(&self) -> Result<ArchiveDatabase, StoreError> {
+        ArchiveDatabase::open(self.archive_database_path())
     }
 
     fn record(&self, entry: Entry) -> Result<u64, StoreError> {
@@ -358,6 +451,39 @@ impl Store {
             .database
             .match_identified(IdentifiedQueryPlan::all(self.entries))?
             .into_records())
+    }
+}
+
+/// The SEPARATE archive database: a sema-engine identified table over its own
+/// `*.sema` file, distinct from the live intent log.
+///
+/// `CollectRemovalCandidates` opens one of these on demand at the
+/// owner-configured [`ArchiveDatabaseTarget`], asserts each removal-candidate
+/// `Entry` into it, and drops the handle when the collection completes. The
+/// archive owns no relationship to the live `Store` database beyond holding the
+/// records the live log let go.
+struct ArchiveDatabase {
+    database: SemaDatabase,
+    entries: IdentifiedTableReference<Entry>,
+}
+
+impl ArchiveDatabase {
+    fn open(path: impl Into<PathBuf>) -> Result<Self, StoreError> {
+        let mut database =
+            SemaDatabase::open(EngineOpen::new(path.into(), SPIRIT_SCHEMA_VERSION))?;
+        let entries =
+            database.register_identified_table(IdentifiedTableDescriptor::new(ENTRIES_TABLE))?;
+        Ok(Self { database, entries })
+    }
+
+    /// Durably assert an archived copy of one removal-candidate `Entry` into the
+    /// separate archive database. The archive allocates its own identifier; the
+    /// original live identifier travels in the `CollectRemovalCandidates` reply,
+    /// not in the archive's identifier space.
+    fn archive_entry(&mut self, entry: Entry) -> Result<(), StoreError> {
+        self.database
+            .assert_identified(IdentifiedAssertion::new(self.entries, entry))?;
+        Ok(())
     }
 }
 

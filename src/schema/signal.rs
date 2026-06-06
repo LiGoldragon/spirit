@@ -53,6 +53,12 @@ pub type ChangeCertainty = CertaintyChange;
 
 pub type LookupStash = StashHandle;
 
+pub type CollectRemovalCandidates = RemovalCandidateCollection;
+
+pub type Tap = ObserverFilter;
+
+pub type Untap = SubscriptionToken;
+
 pub type SubscribeIntent = Query;
 
 pub type RecordAccepted = SemaReceipt;
@@ -68,6 +74,12 @@ pub type RecordsCounted = CountedRecords;
 pub type RecordRemoved = RemoveReceipt;
 
 pub type CertaintyChanged = CertaintyChangeReceipt;
+
+pub type RemovalCandidatesCollected = RemovalCandidatesCollection;
+
+pub type ObservationTapped = ObserverSubscription;
+
+pub type ObservationUntapped = ObserverRetraction;
 
 pub type SubscriptionStarted = IntentSubscription;
 
@@ -254,6 +266,100 @@ pub type AtLeast = Privacy;
 
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct RemovalCandidateCollection(pub RecordQuery);
+
+pub type RecordQuery = Query;
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ArchivedRecord {
+    pub record_identifier: RecordIdentifier,
+    pub entry: Entry,
+}
+
+pub type ArchivedRecords = Vec<ArchivedRecord>;
+
+pub type RemovedIdentifier = RecordIdentifier;
+
+pub type RemovedIdentifiers = Vec<RemovedIdentifier>;
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum RemovalCandidateSkipReason {
+    ArchiveFailed,
+    RecordChanged,
+    RecordAlreadyRemoved,
+    NoLongerCandidate,
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct SkippedRemovalCandidate {
+    pub record_identifier: RecordIdentifier,
+    pub removal_candidate_skip_reason: RemovalCandidateSkipReason,
+}
+
+pub type SkippedRemovalCandidates = Vec<SkippedRemovalCandidate>;
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct RemovalCandidatesCollection {
+    pub archived_records: ArchivedRecords,
+    pub removed_identifiers: RemovedIdentifiers,
+    pub skipped_removal_candidates: SkippedRemovalCandidates,
+    pub database_marker: DatabaseMarker,
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum ObserverFilter {
+    All,
+    OperationsOnly,
+    EffectsOnly,
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ObserverSubscription {
+    pub subscription_token: SubscriptionToken,
+    pub observer_filter: ObserverFilter,
+    pub observed_operations: ObservedOperations,
+    pub database_marker: DatabaseMarker,
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ObserverRetraction {
+    pub subscription_token: SubscriptionToken,
+    pub observed_operations: ObservedOperations,
+    pub database_marker: DatabaseMarker,
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum OperationKind {
+    State,
+    Record,
+    Observe,
+    Lookup,
+    Count,
+    Remove,
+    ChangeCertainty,
+    LookupStash,
+    CollectRemovalCandidates,
+    Tap,
+    Untap,
+    SubscribeIntent,
+}
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ObservedOperation(pub OperationKind);
+
+pub type ObservedOperations = Vec<ObservedOperation>;
+
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Entry {
     pub topics: Topics,
     pub kind: Kind,
@@ -327,6 +433,9 @@ pub enum Input {
     Remove(Remove),
     ChangeCertainty(ChangeCertainty),
     LookupStash(LookupStash),
+    CollectRemovalCandidates(CollectRemovalCandidates),
+    Tap(Tap),
+    Untap(Untap),
     SubscribeIntent(SubscribeIntent),
 }
 
@@ -340,10 +449,53 @@ pub enum Output {
     RecordsCounted(RecordsCounted),
     RecordRemoved(RecordRemoved),
     CertaintyChanged(CertaintyChanged),
+    RemovalCandidatesCollected(RemovalCandidatesCollected),
+    ObservationTapped(ObservationTapped),
+    ObservationUntapped(ObservationUntapped),
     SubscriptionStarted(SubscriptionStarted),
     Event(IntentEvent),
     Error(Error),
     Rejected(Rejected),
+}
+
+impl RemovalCandidateCollection {
+    pub fn new(payload: RecordQuery) -> Self {
+        Self(payload)
+    }
+
+    pub fn payload(&self) -> &RecordQuery {
+        &self.0
+    }
+
+    pub fn into_payload(self) -> RecordQuery {
+        self.0
+    }
+}
+
+impl From<RecordQuery> for RemovalCandidateCollection {
+    fn from(payload: RecordQuery) -> Self {
+        Self::new(payload)
+    }
+}
+
+impl ObservedOperation {
+    pub fn new(payload: OperationKind) -> Self {
+        Self(payload)
+    }
+
+    pub fn payload(&self) -> &OperationKind {
+        &self.0
+    }
+
+    pub fn into_payload(self) -> OperationKind {
+        self.0
+    }
+}
+
+impl From<OperationKind> for ObservedOperation {
+    fn from(payload: OperationKind) -> Self {
+        Self::new(payload)
+    }
 }
 
 impl Statement {
@@ -439,6 +591,18 @@ impl Input {
         Self::LookupStash(payload)
     }
 
+    pub fn collect_removal_candidates(payload: CollectRemovalCandidates) -> Self {
+        Self::CollectRemovalCandidates(payload)
+    }
+
+    pub fn tap(payload: Tap) -> Self {
+        Self::Tap(payload)
+    }
+
+    pub fn untap(payload: Untap) -> Self {
+        Self::Untap(payload)
+    }
+
     pub fn subscribe_intent(payload: SubscribeIntent) -> Self {
         Self::SubscribeIntent(payload)
     }
@@ -471,6 +635,18 @@ impl Output {
 
     pub fn certainty_changed(payload: CertaintyChanged) -> Self {
         Self::CertaintyChanged(payload)
+    }
+
+    pub fn removal_candidates_collected(payload: RemovalCandidatesCollected) -> Self {
+        Self::RemovalCandidatesCollected(payload)
+    }
+
+    pub fn observation_tapped(payload: ObservationTapped) -> Self {
+        Self::ObservationTapped(payload)
+    }
+
+    pub fn observation_untapped(payload: ObservationUntapped) -> Self {
+        Self::ObservationUntapped(payload)
     }
 
     pub fn subscription_started(payload: SubscriptionStarted) -> Self {
@@ -734,6 +910,116 @@ impl PrivacySelection {
 }
 
 #[cfg(feature = "nota-text")]
+impl RemovalCandidateCollection {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl ArchivedRecord {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl RemovalCandidateSkipReason {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl SkippedRemovalCandidate {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl RemovalCandidatesCollection {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl ObserverFilter {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl ObserverSubscription {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl ObserverRetraction {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl OperationKind {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
+impl ObservedOperation {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[cfg(feature = "nota-text")]
 impl Entry {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -873,7 +1159,10 @@ pub mod short_header {
     pub const INPUT_REMOVE: u64 = 0x0005000000000000;
     pub const INPUT_CHANGE_CERTAINTY: u64 = 0x0006000000000000;
     pub const INPUT_LOOKUP_STASH: u64 = 0x0007000000000000;
-    pub const INPUT_SUBSCRIBE_INTENT: u64 = 0x0008000000000000;
+    pub const INPUT_COLLECT_REMOVAL_CANDIDATES: u64 = 0x0008000000000000;
+    pub const INPUT_TAP: u64 = 0x0009000000000000;
+    pub const INPUT_UNTAP: u64 = 0x000A000000000000;
+    pub const INPUT_SUBSCRIBE_INTENT: u64 = 0x000B000000000000;
     pub const OUTPUT_RECORD_ACCEPTED: u64 = 0x0100000000000000;
     pub const OUTPUT_RECORDS_OBSERVED: u64 = 0x0101000000000000;
     pub const OUTPUT_RECORDS_STASHED: u64 = 0x0102000000000000;
@@ -881,10 +1170,13 @@ pub mod short_header {
     pub const OUTPUT_RECORDS_COUNTED: u64 = 0x0104000000000000;
     pub const OUTPUT_RECORD_REMOVED: u64 = 0x0105000000000000;
     pub const OUTPUT_CERTAINTY_CHANGED: u64 = 0x0106000000000000;
-    pub const OUTPUT_SUBSCRIPTION_STARTED: u64 = 0x0107000000000000;
-    pub const OUTPUT_EVENT: u64 = 0x0108000000000000;
-    pub const OUTPUT_ERROR: u64 = 0x0109000000000000;
-    pub const OUTPUT_REJECTED: u64 = 0x010A000000000000;
+    pub const OUTPUT_REMOVAL_CANDIDATES_COLLECTED: u64 = 0x0107000000000000;
+    pub const OUTPUT_OBSERVATION_TAPPED: u64 = 0x0108000000000000;
+    pub const OUTPUT_OBSERVATION_UNTAPPED: u64 = 0x0109000000000000;
+    pub const OUTPUT_SUBSCRIPTION_STARTED: u64 = 0x010A000000000000;
+    pub const OUTPUT_EVENT: u64 = 0x010B000000000000;
+    pub const OUTPUT_ERROR: u64 = 0x010C000000000000;
+    pub const OUTPUT_REJECTED: u64 = 0x010D000000000000;
 }
 
 const SIGNAL_SHORT_HEADER_BYTE_COUNT: usize = 8;
@@ -923,6 +1215,9 @@ pub enum InputRoute {
     Remove,
     ChangeCertainty,
     LookupStash,
+    CollectRemovalCandidates,
+    Tap,
+    Untap,
     SubscribeIntent,
 }
 
@@ -936,6 +1231,9 @@ pub enum OutputRoute {
     RecordsCounted,
     RecordRemoved,
     CertaintyChanged,
+    RemovalCandidatesCollected,
+    ObservationTapped,
+    ObservationUntapped,
     SubscriptionStarted,
     Event,
     Error,
@@ -953,6 +1251,9 @@ impl Input {
             Self::Remove(_) => InputRoute::Remove,
             Self::ChangeCertainty(_) => InputRoute::ChangeCertainty,
             Self::LookupStash(_) => InputRoute::LookupStash,
+            Self::CollectRemovalCandidates(_) => InputRoute::CollectRemovalCandidates,
+            Self::Tap(_) => InputRoute::Tap,
+            Self::Untap(_) => InputRoute::Untap,
             Self::SubscribeIntent(_) => InputRoute::SubscribeIntent,
         }
     }
@@ -967,6 +1268,9 @@ impl Input {
             Self::Remove(_) => short_header::INPUT_REMOVE,
             Self::ChangeCertainty(_) => short_header::INPUT_CHANGE_CERTAINTY,
             Self::LookupStash(_) => short_header::INPUT_LOOKUP_STASH,
+            Self::CollectRemovalCandidates(_) => short_header::INPUT_COLLECT_REMOVAL_CANDIDATES,
+            Self::Tap(_) => short_header::INPUT_TAP,
+            Self::Untap(_) => short_header::INPUT_UNTAP,
             Self::SubscribeIntent(_) => short_header::INPUT_SUBSCRIBE_INTENT,
         }
     }
@@ -981,6 +1285,9 @@ impl Input {
             short_header::INPUT_REMOVE => Ok(InputRoute::Remove),
             short_header::INPUT_CHANGE_CERTAINTY => Ok(InputRoute::ChangeCertainty),
             short_header::INPUT_LOOKUP_STASH => Ok(InputRoute::LookupStash),
+            short_header::INPUT_COLLECT_REMOVAL_CANDIDATES => Ok(InputRoute::CollectRemovalCandidates),
+            short_header::INPUT_TAP => Ok(InputRoute::Tap),
+            short_header::INPUT_UNTAP => Ok(InputRoute::Untap),
             short_header::INPUT_SUBSCRIBE_INTENT => Ok(InputRoute::SubscribeIntent),
             _ => Err(SignalFrameError::UnknownHeader { root_enum: "Input", header }),
         }
@@ -1023,6 +1330,9 @@ impl Output {
             Self::RecordsCounted(_) => OutputRoute::RecordsCounted,
             Self::RecordRemoved(_) => OutputRoute::RecordRemoved,
             Self::CertaintyChanged(_) => OutputRoute::CertaintyChanged,
+            Self::RemovalCandidatesCollected(_) => OutputRoute::RemovalCandidatesCollected,
+            Self::ObservationTapped(_) => OutputRoute::ObservationTapped,
+            Self::ObservationUntapped(_) => OutputRoute::ObservationUntapped,
             Self::SubscriptionStarted(_) => OutputRoute::SubscriptionStarted,
             Self::Event(_) => OutputRoute::Event,
             Self::Error(_) => OutputRoute::Error,
@@ -1039,6 +1349,9 @@ impl Output {
             Self::RecordsCounted(_) => short_header::OUTPUT_RECORDS_COUNTED,
             Self::RecordRemoved(_) => short_header::OUTPUT_RECORD_REMOVED,
             Self::CertaintyChanged(_) => short_header::OUTPUT_CERTAINTY_CHANGED,
+            Self::RemovalCandidatesCollected(_) => short_header::OUTPUT_REMOVAL_CANDIDATES_COLLECTED,
+            Self::ObservationTapped(_) => short_header::OUTPUT_OBSERVATION_TAPPED,
+            Self::ObservationUntapped(_) => short_header::OUTPUT_OBSERVATION_UNTAPPED,
             Self::SubscriptionStarted(_) => short_header::OUTPUT_SUBSCRIPTION_STARTED,
             Self::Event(_) => short_header::OUTPUT_EVENT,
             Self::Error(_) => short_header::OUTPUT_ERROR,
@@ -1055,6 +1368,9 @@ impl Output {
             short_header::OUTPUT_RECORDS_COUNTED => Ok(OutputRoute::RecordsCounted),
             short_header::OUTPUT_RECORD_REMOVED => Ok(OutputRoute::RecordRemoved),
             short_header::OUTPUT_CERTAINTY_CHANGED => Ok(OutputRoute::CertaintyChanged),
+            short_header::OUTPUT_REMOVAL_CANDIDATES_COLLECTED => Ok(OutputRoute::RemovalCandidatesCollected),
+            short_header::OUTPUT_OBSERVATION_TAPPED => Ok(OutputRoute::ObservationTapped),
+            short_header::OUTPUT_OBSERVATION_UNTAPPED => Ok(OutputRoute::ObservationUntapped),
             short_header::OUTPUT_SUBSCRIPTION_STARTED => Ok(OutputRoute::SubscriptionStarted),
             short_header::OUTPUT_EVENT => Ok(OutputRoute::Event),
             short_header::OUTPUT_ERROR => Ok(OutputRoute::Error),
@@ -1180,6 +1496,11 @@ impl SignalObjectName {
                     InputRoute::Remove => "SignalInputRemove",
                     InputRoute::ChangeCertainty => "SignalInputChangeCertainty",
                     InputRoute::LookupStash => "SignalInputLookupStash",
+                    InputRoute::CollectRemovalCandidates => {
+                        "SignalInputCollectRemovalCandidates"
+                    }
+                    InputRoute::Tap => "SignalInputTap",
+                    InputRoute::Untap => "SignalInputUntap",
                     InputRoute::SubscribeIntent => "SignalInputSubscribeIntent",
                 }
             }
@@ -1192,6 +1513,11 @@ impl SignalObjectName {
                     OutputRoute::RecordsCounted => "SignalOutputRecordsCounted",
                     OutputRoute::RecordRemoved => "SignalOutputRecordRemoved",
                     OutputRoute::CertaintyChanged => "SignalOutputCertaintyChanged",
+                    OutputRoute::RemovalCandidatesCollected => {
+                        "SignalOutputRemovalCandidatesCollected"
+                    }
+                    OutputRoute::ObservationTapped => "SignalOutputObservationTapped",
+                    OutputRoute::ObservationUntapped => "SignalOutputObservationUntapped",
                     OutputRoute::SubscriptionStarted => "SignalOutputSubscriptionStarted",
                     OutputRoute::Event => "SignalOutputEvent",
                     OutputRoute::Error => "SignalOutputError",

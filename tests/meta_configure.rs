@@ -1,19 +1,19 @@
 //! Owner-only meta `Configure` route end-to-end.
 //!
 //! Proves the meta-signal listener wiring: a `Configure` request routes through
-//! the owner-only meta socket, applies the configuration effect (re-points the
-//! durable archive target the working SEMA path writes to), and replies with a
-//! typed receipt — while the working signal socket keeps serving the existing
-//! lifecycle, the owner socket carries the owner-only filesystem mode, and the
-//! two contracts stay distinct wire vocabularies. The back-compat case (no meta
-//! socket configured) is also covered.
+//! the owner-only meta socket, applies the owner-config effect (stores WHERE the
+//! SEPARATE archive database lives), and replies with a typed receipt — WITHOUT
+//! touching the live intent-log database. The working signal socket keeps
+//! serving the existing lifecycle, the owner socket carries the owner-only
+//! filesystem mode, and the two contracts stay distinct wire vocabularies. The
+//! back-compat case (no meta socket configured) is also covered.
 
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use spirit::schema::meta_signal::{ConfigureRequest, Output as MetaOutput};
+use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest, Output as MetaOutput};
 use spirit::schema::signal::{Entry, Input, Kind, Magnitude, Output, Query, TopicMatch};
 use spirit::{Configuration, Daemon, MetaSignalTransport, SignalTransport};
 use tempfile::TempDir;
@@ -73,30 +73,33 @@ fn observe_query() -> Query {
 }
 
 #[test]
-fn configure_routes_through_meta_socket_and_moves_archive_target() {
+fn configure_sets_archive_target_and_leaves_live_database_unchanged() {
     let temp = TempDir::new().expect("tempdir");
     let working_socket = temp.path().join("spirit.sock");
     let meta_socket = temp.path().join("spirit-meta.sock");
-    let initial_database = temp.path().join("initial.sema");
-    let reconfigured_database = temp.path().join("reconfigured.sema");
+    let live_database = temp.path().join("live.sema");
+    let archive_database = temp.path().join("archive.sema");
 
-    let configuration = Configuration::new(&working_socket, &initial_database)
-        .with_meta_socket_path(&meta_socket);
+    let configuration =
+        Configuration::new(&working_socket, &live_database).with_meta_socket_path(&meta_socket);
     let _daemon = DaemonThread::spawn(configuration);
     wait_for_socket(&working_socket);
     wait_for_socket(&meta_socket);
 
-    // CORE PROOF: a Configure request over the META socket is accepted.
+    // CORE PROOF (1): a Configure request over the META socket is accepted and
+    // the receipt echoes the now-active archive target. Configure sets WHERE
+    // the SEPARATE archive database lives — it is a typed `ArchiveDatabaseTarget`,
+    // not a string, and the live database path is never named in it.
+    let archive_target = ArchiveDatabaseTarget::path(archive_database.to_string_lossy().into_owned());
     let mut meta_transport =
         MetaSignalTransport::connect(&meta_socket).expect("connect meta socket");
-    let new_target = reconfigured_database.to_string_lossy().into_owned();
     let (_route, reply) = meta_transport
-        .configure(ConfigureRequest::new(new_target.clone()))
+        .configure(ConfigureRequest::new(archive_target.clone()))
         .expect("exchange configure");
     match reply {
         MetaOutput::Configured(receipt) => {
             assert_eq!(
-                receipt.archive_target, new_target,
+                receipt.archive_database_target, archive_target,
                 "receipt echoes the now-active archive target"
             );
         }
@@ -105,38 +108,44 @@ fn configure_routes_through_meta_socket_and_moves_archive_target() {
         }
     }
 
-    // EFFECT PROOF: a record written over the WORKING socket after the
-    // reconfigure lands at the NEW archive target, not the initial one.
+    // CORE PROOF (2): the LIVE database is UNCHANGED by Configure. A record
+    // written over the WORKING socket AFTER the Configure lands in the same live
+    // database the daemon opened — Configure never re-pointed, moved, or touched
+    // the live log.
     let mut working_transport =
         SignalTransport::connect(&working_socket).expect("connect working socket");
     let (_output_route, record_output) = working_transport
-        .exchange(&Input::Record(decision_entry("intent after reconfigure")))
+        .exchange(&Input::Record(decision_entry("intent after configure")))
         .expect("exchange record");
     assert!(
         matches!(record_output, Output::RecordAccepted(_)),
-        "working record accepted after reconfigure, got {record_output:?}"
+        "working record accepted after configure, got {record_output:?}"
     );
 
     assert!(
-        reconfigured_database.exists(),
-        "reconfigured archive target file exists after the working write"
+        live_database.exists(),
+        "the live database is the one that received the working write"
+    );
+    assert!(
+        !archive_database.exists(),
+        "Configure must NOT create or open the archive database — it only stored the target"
     );
 
-    // The record is observable over the working socket from the new target.
-    // Observe stashes its result set, so the reply is a stashed observation
-    // whose record_count counts the intent recorded into the reconfigured
-    // target — proving the Configure effect actually moved the archive output.
+    // CORE PROOF (3): the record sent after Configure is still found in the LIVE
+    // database. Observe stashes its result set, so the reply is a stashed
+    // observation whose record_count counts the intent recorded into the live
+    // log — proving the live database is intact and serving working reads.
     let mut observe_transport =
         SignalTransport::connect(&working_socket).expect("reconnect working socket");
     let (_observe_route, observed) = observe_transport
         .exchange(&Input::Observe(observe_query()))
         .expect("exchange observe");
     let Output::RecordsStashed(stashed) = observed else {
-        panic!("the reconfigured target serves the recorded intent back, got {observed:?}")
+        panic!("the live database serves the recorded intent back, got {observed:?}")
     };
     assert_eq!(
         stashed.record_count, 1,
-        "the reconfigured target holds exactly the one intent recorded after the reconfigure"
+        "the live database holds exactly the one intent recorded after the Configure"
     );
 }
 
@@ -180,7 +189,7 @@ fn working_socket_rejects_a_meta_configure_frame() {
     // decoder must fail to read it as a signal Output (the two contracts are
     // distinct wire vocabularies): the daemon drops the stream on a decode
     // error, so the reply read returns an error rather than a valid Output.
-    let target = database.to_string_lossy().into_owned();
+    let target = ArchiveDatabaseTarget::path(database.to_string_lossy().into_owned());
     let mut meta_on_working = MetaSignalTransport::connect(&working_socket)
         .expect("connect meta transport to working socket");
     let result = meta_on_working.configure(ConfigureRequest::new(target));

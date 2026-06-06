@@ -15,6 +15,11 @@
   IntentSubscription spirit:signal:IntentSubscription
   RecordIdentifier spirit:signal:RecordIdentifier
   CertaintyChange spirit:signal:CertaintyChange
+  RemovalCandidateCollection spirit:signal:RemovalCandidateCollection
+  RemovalCandidatesCollection spirit:signal:RemovalCandidatesCollection
+  ObserverFilter spirit:signal:ObserverFilter
+  ObserverSubscription spirit:signal:ObserverSubscription
+  ObserverRetraction spirit:signal:ObserverRetraction
 }
 [SignalArrived SemaWriteCompleted SemaReadCompleted EffectCompleted]
 [CommandSemaWrite CommandSemaRead ReplyToSignal CommandEffect Continue]
@@ -36,14 +41,20 @@
   NexusWork [(SignalArrived SignalArrived) (SemaWriteCompleted SemaWriteCompleted) (SemaReadCompleted SemaReadCompleted) (EffectCompleted EffectCompleted)]
   NexusAction [(CommandSemaWrite CommandSemaWrite) (CommandSemaRead CommandSemaRead) (ReplyToSignal ReplyToSignal) (CommandEffect CommandEffect) (Continue Continue)]
 
-  NexusEffectCommand [(Stash Stash) (ClassifyState ClassifyState) (OpenIntentSubscription OpenIntentSubscription)]
+  NexusEffectCommand [(Stash Stash) (ClassifyState ClassifyState) (OpenIntentSubscription OpenIntentSubscription) (CollectRemovalCandidates CollectRemovalCandidates) (OpenObserverTap OpenObserverTap) (CloseObserverTap CloseObserverTap)]
   Stash StashRequest
   ClassifyState Statement
   OpenIntentSubscription Query
-  NexusEffectResult [(Stashed Stashed) (StateClassified StateClassified) (IntentSubscriptionOpened IntentSubscriptionOpened)]
+  CollectRemovalCandidates RemovalCandidateCollection
+  OpenObserverTap ObserverFilter
+  CloseObserverTap SubscriptionToken
+  NexusEffectResult [(Stashed Stashed) (StateClassified StateClassified) (IntentSubscriptionOpened IntentSubscriptionOpened) (RemovalCandidatesCollected RemovalCandidatesCollected) (ObserverTapOpened ObserverTapOpened) (ObserverTapClosed ObserverTapClosed)]
   Stashed StashResult
   StateClassified Entry
   IntentSubscriptionOpened IntentSubscription
+  RemovalCandidatesCollected RemovalCandidatesCollection
+  ObserverTapOpened ObserverSubscription
+  ObserverTapClosed ObserverRetraction
   StashRequest { Records * DatabaseMarker * }
   StashResult { StashHandle * RecordCount * DatabaseMarker * }
 }
