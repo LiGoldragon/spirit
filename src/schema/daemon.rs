@@ -2,10 +2,10 @@
 use std::os::unix::net::UnixStream;
 use thiserror::Error;
 use triad_runtime::{
-    ArgumentError, ComponentArgument, ComponentCommand, DaemonConfiguration, ExitReport,
-    FrameBody, FrameError, LengthPrefixedCodec, ListenerError, ListenerSocket,
-    MultiListenerDaemon, MultiListenerDaemonError, MultiListenerRuntime, RequestErrorLog,
-    SocketMode,
+    ArgumentError, ComponentArgument, ComponentCommand, ConnectionContext,
+    DaemonConfiguration, ExitReport, FrameBody, FrameError, LengthPrefixedCodec,
+    ListenerError, ListenerSocket, MultiListenerDaemon, MultiListenerDaemonError,
+    MultiListenerRuntime, RequestErrorLog, SocketMode,
 };
 use crate::schema::signal::{Input, Output, SignalFrameError};
 use triad_runtime::{SubscriptionEventPublisher, SubscriptionRegistry, SubscriptionToken};
@@ -64,9 +64,16 @@ pub trait ComponentDaemon: Sized + 'static {
     }
     /// Run one decoded working `Input` through the engine and return the
     /// `Output` root to encode back to the caller.
+    ///
+    /// `connection` carries the accepted stream's kernel-vouched peer
+    /// credentials (uid / gid / pid via `SO_PEERCRED`), so the component can
+    /// mint an origin from the operating-system trust boundary rather than
+    /// trusting a payload claim. Components that do not classify by origin
+    /// take it as `_connection`.
     fn handle_working_input(
         engine: &Self::Engine,
         input: Input,
+        connection: &triad_runtime::ConnectionContext,
     ) -> Result<Output, Self::Error>;
     /// Serve one owner-only meta stream end to end (read, handle, write).
     /// The meta wire codec is component-owned, so this is a full escape hatch.
@@ -327,12 +334,14 @@ impl<Daemon: ComponentDaemon> GeneratedDaemonRuntime<Daemon> {
         }
     }
     fn handle_working_stream(&self, stream: UnixStream) -> Result<(), Daemon::Error> {
+        let connection = ConnectionContext::from_stream(&stream)
+            .map_err(FrameError::Io)?;
         let mut transport = WorkingTransport::new(stream);
         let subscription_writer = transport.try_clone_stream()?;
         let frame = transport.read_frame()?;
         let (_route, input) = Input::decode_signal_frame(&frame)?;
         let subscription_filter = Daemon::subscription_filter(&input);
-        let output = Daemon::handle_working_input(&self.engine, input)?;
+        let output = Daemon::handle_working_input(&self.engine, input, &connection)?;
         transport.write_frame(output.encode_signal_frame()?)?;
         if let (Some(filter), Some(token)) = (
             subscription_filter,

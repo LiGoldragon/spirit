@@ -115,7 +115,11 @@ impl ComponentDaemon for SpiritDaemon {
         engine.stop().map_err(Self::Error::from)
     }
 
-    fn handle_working_input(engine: &Self::Engine, input: Input) -> Result<Output, Self::Error> {
+    fn handle_working_input(
+        engine: &Self::Engine,
+        input: Input,
+        _connection: &triad_runtime::ConnectionContext,
+    ) -> Result<Output, Self::Error> {
         Ok(engine.handle(input).root().clone())
     }
 
