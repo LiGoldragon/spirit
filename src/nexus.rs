@@ -10,8 +10,8 @@ use crate::{
             NexusEffectResult, NexusEngine, NexusWork, StashRequest, StashResult,
         },
         sema::{
-            ReadInput as SemaReadInput, ReadOutput as SemaReadOutput, SemaEngine,
-            WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
+            self as sema_schema, ReadInput as SemaReadInput, ReadOutput as SemaReadOutput,
+            SemaEngine, WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
         },
         signal::{
             DatabaseMarker, Entry, ErrorReport, Input, IntentEvent, IntentRecorded,
@@ -28,6 +28,7 @@ use crate::{
 #[cfg(feature = "testing-trace")]
 use crate::{ObjectName, TraceEvent, TraceLog, schema::nexus::NexusObjectName};
 use signal_frame::SubscriptionTokenInner;
+use tokio::runtime::{Handle, RuntimeFlavor};
 use triad_runtime::{ContinuationExhausted, SubscriptionTokenIssuer};
 
 /// The stash table — the durable handle store backing the Stash effect.
@@ -397,6 +398,36 @@ impl Nexus {
             });
         NexusEffectResult::removal_candidates_collected(result)
     }
+
+    /// Run a SEMA write without pinning synchronous database work onto a
+    /// multi-thread async worker. Current-thread runtimes cannot use
+    /// `block_in_place`, so in-process sync callers keep the direct path.
+    fn apply_sema_write_operation(
+        &mut self,
+        input: sema_schema::sema::Sema<SemaWriteInput>,
+    ) -> SemaWriteOutput {
+        match Handle::current().runtime_flavor() {
+            RuntimeFlavor::MultiThread => tokio::task::block_in_place(|| {
+                SemaEngine::apply(&mut self.store, input).into_root()
+            }),
+            RuntimeFlavor::CurrentThread => SemaEngine::apply(&mut self.store, input).into_root(),
+            _ => SemaEngine::apply(&mut self.store, input).into_root(),
+        }
+    }
+
+    /// Run a SEMA read with the same async-runtime boundary as writes.
+    fn observe_sema_read_operation(
+        &self,
+        input: sema_schema::sema::Sema<SemaReadInput>,
+    ) -> SemaReadOutput {
+        match Handle::current().runtime_flavor() {
+            RuntimeFlavor::MultiThread => {
+                tokio::task::block_in_place(|| SemaEngine::observe(&self.store, input).into_root())
+            }
+            RuntimeFlavor::CurrentThread => SemaEngine::observe(&self.store, input).into_root(),
+            _ => SemaEngine::observe(&self.store, input).into_root(),
+        }
+    }
 }
 
 /// Generated `NexusEngine::execute` owns the recursive runner loop.
@@ -438,13 +469,11 @@ impl NexusEngine for Nexus {
         origin_route: nexus_schema::OriginRoute,
         input: CommandSemaWrite,
     ) -> SemaWriteOutput {
-        SemaEngine::apply(
-            &mut self.store,
+        self.apply_sema_write_operation(
             input
                 .into_sema_write_input()
                 .with_origin_route(origin_route.into()),
         )
-        .into_root()
     }
 
     async fn observe_sema_read(
@@ -452,7 +481,7 @@ impl NexusEngine for Nexus {
         origin_route: nexus_schema::OriginRoute,
         input: SemaReadInput,
     ) -> SemaReadOutput {
-        SemaEngine::observe(&self.store, input.with_origin_route(origin_route.into())).into_root()
+        self.observe_sema_read_operation(input.with_origin_route(origin_route.into()))
     }
 
     async fn run_effect(&mut self, input: NexusEffectCommand) -> NexusEffectResult {

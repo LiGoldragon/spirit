@@ -118,6 +118,18 @@ fn execute_nexus(nexus: &mut Nexus, input: nexus::Nexus<NexusWork>) -> nexus::Ne
         .block_on(NexusEngine::execute(nexus, input))
 }
 
+fn execute_nexus_on_multi_thread_runtime(
+    nexus: &mut Nexus,
+    input: nexus::Nexus<NexusWork>,
+) -> nexus::Nexus<NexusAction> {
+    tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()
+        .expect("nexus multi-thread test runtime")
+        .block_on(NexusEngine::execute(nexus, input))
+}
+
 fn sema_route(offset: u64) -> spirit::schema::sema::OriginRoute {
     route(offset).into()
 }
@@ -263,6 +275,37 @@ fn nexus_runner_loop_routes_record_input_to_sema_write_command_then_back_to_repl
         other => panic!("expected ReplyToSignal(RecordAccepted), got {other:?}"),
     }
     assert_eq!(nexus.store().len(), 1, "runner loop committed to SEMA");
+}
+
+#[test]
+fn nexus_runner_moves_sema_work_through_multi_thread_runtime_boundary() {
+    let sema = SemaFile::new();
+    let mut nexus = Nexus::new(sema.open_store());
+    let record_input = nexus_signal_arrived(input_record(entry("multi-thread sema write")))
+        .with_origin_route(nexus_route(11));
+
+    let record_output = execute_nexus_on_multi_thread_runtime(&mut nexus, record_input);
+
+    match record_output.root() {
+        NexusAction::ReplyToSignal(Output::RecordAccepted(receipt)) => {
+            assert_eq!(receipt.record_identifier, 1);
+            assert_eq!(receipt.database_marker.commit_sequence, 1);
+        }
+        other => panic!("expected multi-thread RecordAccepted, got {other:?}"),
+    }
+
+    let observe_input =
+        nexus_signal_arrived(input_observe(query())).with_origin_route(nexus_route(12));
+    let observe_output = execute_nexus_on_multi_thread_runtime(&mut nexus, observe_input);
+
+    match observe_output.root() {
+        NexusAction::ReplyToSignal(Output::RecordsStashed(stash)) => {
+            assert_eq!(stash.stash_handle, 1);
+            assert_eq!(stash.record_count, 1);
+            assert_eq!(stash.database_marker.commit_sequence, 1);
+        }
+        other => panic!("expected observed records to become RecordsStashed, got {other:?}"),
+    }
 }
 
 #[test]
