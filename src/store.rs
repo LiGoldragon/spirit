@@ -21,8 +21,8 @@ use crate::schema::{
     signal::{
         ArchivedRecord, CertaintyChange, CertaintyChangeReceipt, CountedRecords, DatabaseMarker,
         Entry, ErrorReport, FoundRecord, Magnitude, ObservedRecords, Privacy, PrivacySelection,
-        Query, RemovalCandidateCollection, RemovalCandidatesCollection, RemoveReceipt, SemaReceipt,
-        SkippedRemovalCandidate,
+        Query, RecordChange, RecordChangeReceipt, RemovalCandidateCollection,
+        RemovalCandidatesCollection, RemoveReceipt, SemaReceipt, SkippedRemovalCandidate,
     },
 };
 
@@ -112,6 +112,17 @@ impl SemaEngine for Store {
             }
             SemaWriteInput::ChangeCertainty(change) => match self.change_certainty(change) {
                 Ok(Some(receipt)) => SemaWriteOutput::certainty_changed(receipt),
+                Ok(None) => SemaWriteOutput::missed(ErrorReport {
+                    error_message: String::from("record not found"),
+                    database_marker: self.database_marker(),
+                }),
+                Err(error) => SemaWriteOutput::missed(ErrorReport {
+                    error_message: error.to_string(),
+                    database_marker: self.database_marker(),
+                }),
+            },
+            SemaWriteInput::ChangeRecord(change) => match self.change_record(change) {
+                Ok(Some(receipt)) => SemaWriteOutput::record_changed(receipt),
                 Ok(None) => SemaWriteOutput::missed(ErrorReport {
                     error_message: String::from("record not found"),
                     database_marker: self.database_marker(),
@@ -382,7 +393,7 @@ impl Store {
         let Some(mut entry) = self.entry_by_identifier(record_identifier)? else {
             return Ok(None);
         };
-        entry.magnitude = change.certainty.clone();
+        entry.magnitude = change.certainty;
         self.database.mutate_identified(IdentifiedMutation::new(
             self.entries,
             EngineRecordIdentifier::new(record_identifier),
@@ -391,6 +402,25 @@ impl Store {
         Ok(Some(CertaintyChangeReceipt {
             record_identifier,
             certainty: change.certainty,
+            database_marker: self.database_marker(),
+        }))
+    }
+
+    fn change_record(
+        &self,
+        change: RecordChange,
+    ) -> Result<Option<RecordChangeReceipt>, StoreError> {
+        let record_identifier = change.record_identifier;
+        if self.entry_by_identifier(record_identifier)?.is_none() {
+            return Ok(None);
+        }
+        self.database.mutate_identified(IdentifiedMutation::new(
+            self.entries,
+            EngineRecordIdentifier::new(record_identifier),
+            change.entry,
+        ))?;
+        Ok(Some(RecordChangeReceipt {
+            record_identifier,
             database_marker: self.database_marker(),
         }))
     }

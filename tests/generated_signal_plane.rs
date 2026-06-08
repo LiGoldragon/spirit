@@ -5,8 +5,8 @@ use signal_frame::{
 use spirit::schema::signal::{
     CertaintyChange, CertaintyChangeReceipt, DatabaseMarker, Entry, Input, InputRoute, IntentEvent,
     IntentRecorded, Kind, Magnitude, MessageIdentifier, MessageRoot, OriginRoute, Output,
-    OutputRoute, Record, Rejected, SemaReceipt, SignalFrameError, SignalRejection, Statement,
-    ValidationError,
+    OutputRoute, Record, RecordChange, RecordChangeReceipt, Rejected, SemaReceipt,
+    SignalFrameError, SignalRejection, Statement, ValidationError,
 };
 
 fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
@@ -98,6 +98,45 @@ fn generated_certainty_changed_output_owns_route_header_and_rkyv_frame() {
 }
 
 #[test]
+fn generated_record_change_surface_owns_route_header_and_rkyv_frame() {
+    let replacement = Entry {
+        topics: vec![String::from("schema"), String::from("mutation")],
+        kind: Kind::Correction,
+        description: String::from("record mutation is a schema-visible operation"),
+        magnitude: Magnitude::High,
+        privacy: Magnitude::Zero,
+    };
+    let input = Input::change_record(RecordChange {
+        record_identifier: 7,
+        entry: replacement,
+    });
+
+    assert_eq!(input.route(), InputRoute::ChangeRecord);
+
+    let frame = input.encode_signal_frame().expect("encode frame");
+    let (route, decoded) = Input::decode_signal_frame(&frame).expect("decode frame");
+
+    assert_eq!(route, InputRoute::ChangeRecord);
+    assert_eq!(decoded, input);
+}
+
+#[test]
+fn generated_record_changed_output_owns_route_header_and_rkyv_frame() {
+    let output = Output::record_changed(RecordChangeReceipt {
+        record_identifier: 7,
+        database_marker: marker(4, 101),
+    });
+
+    assert_eq!(output.route(), OutputRoute::RecordChanged);
+
+    let frame = output.encode_signal_frame().expect("encode frame");
+    let (route, decoded) = Output::decode_signal_frame(&frame).expect("decode frame");
+
+    assert_eq!(route, OutputRoute::RecordChanged);
+    assert_eq!(decoded, output);
+}
+
+#[test]
 fn generated_streaming_surface_owns_subscription_event_frames() {
     let event = IntentEvent::intent_recorded(IntentRecorded {
         entry: Entry {
@@ -168,6 +207,32 @@ fn generated_change_certainty_round_trips_the_canonical_shape() {
         })
     );
     assert_eq!(input.to_string(), "(ChangeCertainty (7 Zero))");
+}
+
+#[cfg(feature = "nota-text")]
+#[test]
+fn generated_change_record_round_trips_the_canonical_shape() {
+    let input = "(ChangeRecord (7 ([[schema mutation]] Correction [replacement] High Zero)))"
+        .parse::<Input>()
+        .expect("parse change record input");
+
+    assert_eq!(
+        input,
+        Input::change_record(RecordChange {
+            record_identifier: 7,
+            entry: Entry {
+                topics: vec![String::from("schema mutation")],
+                kind: Kind::Correction,
+                description: String::from("replacement"),
+                magnitude: Magnitude::High,
+                privacy: Magnitude::Zero,
+            },
+        })
+    );
+    assert_eq!(
+        input.to_string(),
+        "(ChangeRecord (7 ([[schema mutation]] Correction [replacement] High Zero)))"
+    );
 }
 
 #[test]

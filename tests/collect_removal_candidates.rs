@@ -35,7 +35,7 @@ fn topic_query(topic: &str) -> Query {
     }
 }
 
-fn record(engine: &Engine, entry: Entry) {
+fn record(engine: &mut Engine, entry: Entry) {
     let output = engine.handle(Input::Record(entry)).into_root();
     assert!(
         matches!(output, Output::RecordAccepted(_)),
@@ -49,7 +49,7 @@ fn collect_removal_candidates_archives_to_separate_db_and_removes_from_live() {
     let live_database = temp.path().join("live.sema");
     let archive_database = temp.path().join("archive.sema");
 
-    let engine = Engine::new(Store::open(&live_database).expect("open live store"));
+    let mut engine = Engine::new(Store::open(&live_database).expect("open live store"));
     engine.start().expect("engine start");
 
     // OWNER configures WHERE the separate archive database lives.
@@ -66,8 +66,8 @@ fn collect_removal_candidates_archives_to_separate_db_and_removes_from_live() {
 
     // Two live records: one is a removal candidate (topic `stale`), one stays
     // (topic `keep`).
-    record(&engine, entry("stale", "obsolete intent to retire"));
-    record(&engine, entry("keep", "intent that must remain live"));
+    record(&mut engine, entry("stale", "obsolete intent to retire"));
+    record(&mut engine, entry("keep", "intent that must remain live"));
 
     // PEER collects the removal candidates matching the `stale` query.
     let collection = RemovalCandidateCollection::new(topic_query("stale"));
@@ -147,13 +147,13 @@ fn collect_removal_candidates_with_no_matches_archives_nothing() {
     let live_database = temp.path().join("live.sema");
     let archive_database = temp.path().join("archive.sema");
 
-    let engine = Engine::new(Store::open(&live_database).expect("open live store"));
+    let mut engine = Engine::new(Store::open(&live_database).expect("open live store"));
     engine.start().expect("engine start");
     let archive_target =
         ArchiveDatabaseTarget::path(archive_database.to_string_lossy().into_owned());
     engine.configure(ConfigureRequest::new(archive_target));
 
-    record(&engine, entry("keep", "intent that must remain live"));
+    record(&mut engine, entry("keep", "intent that must remain live"));
 
     let collection = RemovalCandidateCollection::new(topic_query("stale"));
     let reply = engine

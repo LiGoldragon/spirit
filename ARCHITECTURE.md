@@ -304,9 +304,10 @@ communication boundary.
 
 Nexus write commands are feature-specific. `CommandSemaWrite` is not a raw
 pass-through alias for the whole SEMA write enum; it is a Nexus-plane enum with
-visible `Record`, `Remove`, and `ChangeCertainty` objects. The generated runner
-still treats it as the fixed `SemaWrite` outcome, but the component schema
-keeps each internal write feature readable in `schema/nexus.schema`.
+visible `Record`, `Remove`, `ChangeCertainty`, and `ChangeRecord` objects. The
+generated runner still treats it as the fixed `SemaWrite` outcome, but the
+component schema keeps each internal write feature readable in
+`schema/nexus.schema`.
 
 `State` classification follows that rule. Signal admits the raw statement, but
 does not classify it and does not open storage. Nexus first emits
@@ -330,13 +331,15 @@ token to a live socket writer. Successful `Record` writes are projected back
 through `Engine::intent_recorded_event`/`Nexus::intent_recorded_event`, so the
 daemon never opens SEMA directly to publish events.
 
-`ChangeCertainty` is the first production conditional-write parity slice.
-Signal admits the generated `CertaintyChange` payload. Nexus emits the
-schema-declared `CommandSemaWrite(ChangeCertainty(...))`. SEMA looks up the
-identified record, mutates only the stored entry's `Magnitude` through the
-`Certainty` alias, writes it back through `Engine::mutate_identified`, and
-returns `CertaintyChangeReceipt` with the same `RecordIdentifier` and a new
-database marker.
+`ChangeCertainty` and `ChangeRecord` are production mutation parity slices.
+Signal admits the generated `CertaintyChange` or `RecordChange` payload. Nexus
+emits the schema-declared `CommandSemaWrite(ChangeCertainty(...))` or
+`CommandSemaWrite(ChangeRecord(...))`. SEMA looks up the identified record and
+writes back through `Engine::mutate_identified`; certainty changes mutate only
+the stored entry's `Magnitude` through the `Certainty` alias, while record
+changes replace the full stored `Entry` under the same `RecordIdentifier`. The
+reply is `CertaintyChangeReceipt` or `RecordChangeReceipt` with a new database
+marker.
 
 `CollectRemovalCandidates` is the peer-callable archiving operation ported from
 old persona-spirit. Signal admits a `RemovalCandidateCollection { RecordQuery }`

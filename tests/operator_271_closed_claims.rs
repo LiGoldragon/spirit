@@ -80,7 +80,7 @@ fn signal_schema_input_uses_exported_object_variant_names() {
 
     // The active production Input enum body — compact exported objects.
     witness.must_contain(
-        "[State Record Observe Lookup Count Remove ChangeCertainty LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream)]",
+        "[State Record Observe Lookup Count Remove ChangeCertainty ChangeRecord LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream)]",
         "4",
     );
     witness.must_contain("State Statement", "4");
@@ -90,6 +90,7 @@ fn signal_schema_input_uses_exported_object_variant_names() {
     witness.must_contain("Count Query", "4");
     witness.must_contain("Remove RecordIdentifier", "4");
     witness.must_contain("ChangeCertainty CertaintyChange", "4");
+    witness.must_contain("ChangeRecord RecordChange", "4");
     witness.must_contain("LookupStash StashHandle", "4");
     witness.must_contain("SubscribeIntent Query", "4");
 
@@ -111,7 +112,7 @@ fn signal_schema_output_uses_exported_object_variant_names() {
 
     // The active production Output enum body.
     witness.must_contain(
-        "[RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted (Event IntentEvent) Error Rejected]",
+        "[RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged RecordChanged RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted (Event IntentEvent) Error Rejected]",
         "4",
     );
     witness.must_contain("RecordAccepted SemaReceipt", "4");
@@ -120,6 +121,7 @@ fn signal_schema_output_uses_exported_object_variant_names() {
     witness.must_contain("RecordsCounted CountedRecords", "4");
     witness.must_contain("RecordRemoved RemoveReceipt", "4");
     witness.must_contain("CertaintyChanged CertaintyChangeReceipt", "4");
+    witness.must_contain("RecordChanged RecordChangeReceipt", "4");
     witness.must_contain("SubscriptionStarted IntentSubscription", "4");
     witness.must_contain(
         "IntentEvent [(IntentRecorded IntentRecorded belongs IntentEventStream)]",
@@ -184,7 +186,7 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     sema_witness.must_round_trip_as_schema_source();
 
     signal_witness.must_contain(
-        "[State Record Observe Lookup Count Remove ChangeCertainty LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream)]",
+        "[State Record Observe Lookup Count Remove ChangeCertainty ChangeRecord LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream)]",
         "4",
     );
     signal_witness.must_contain("State Statement", "4");
@@ -192,19 +194,20 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     signal_witness.must_contain("Observe Query", "4");
     signal_witness.must_contain("Lookup RecordIdentifier", "4");
     signal_witness.must_contain("ChangeCertainty CertaintyChange", "4");
+    signal_witness.must_contain("ChangeRecord RecordChange", "4");
     signal_witness.must_contain("SubscribeIntent Query", "4");
     sema_witness.must_contain("[WriteInput ReadInput]", "4");
     sema_witness.must_contain(
-        "WriteInput [(Record Record) (Remove Remove) (ChangeCertainty ChangeCertainty)]",
+        "WriteInput [(Record Record) (Remove Remove) (ChangeCertainty ChangeCertainty) (ChangeRecord ChangeRecord)]",
         "4",
     );
     sema_witness.must_contain("Recorded SemaReceipt", "4");
     sema_witness.must_contain(
-        "WriteOutput [(Recorded Recorded) (Removed Removed) (CertaintyChanged CertaintyChanged) (Missed Missed)]",
+        "WriteOutput [(Recorded Recorded) (Removed Removed) (CertaintyChanged CertaintyChanged) (RecordChanged RecordChanged) (Missed Missed)]",
         "4",
     );
     nexus_witness.must_contain(
-        "CommandSemaWrite [(Record Record) (Remove Remove) (ChangeCertainty ChangeCertainty)]",
+        "CommandSemaWrite [(Record Record) (Remove Remove) (ChangeCertainty ChangeCertainty) (ChangeRecord ChangeRecord)]",
         "4",
     );
     nexus_witness.must_contain("NexusAction [(CommandSemaWrite CommandSemaWrite)", "4");

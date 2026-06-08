@@ -9,6 +9,16 @@ use triad_runtime::{
     ExitReport, RequestErrorLog,
 };
 #[rustfmt::skip]
+use triad_runtime::EngineRequestError;
+#[rustfmt::skip]
+use triad_runtime::kameo::Actor;
+#[rustfmt::skip]
+use triad_runtime::kameo::actor::{ActorRef, Spawn, WeakActorRef};
+#[rustfmt::skip]
+use triad_runtime::kameo::error::{ActorStopReason, HookError, SendError};
+#[rustfmt::skip]
+use triad_runtime::kameo::message::{Context, Message};
+#[rustfmt::skip]
 use tokio::io::AsyncWriteExt;
 #[rustfmt::skip]
 use triad_runtime::{FrameBody, FrameError, LengthPrefixedCodec};
@@ -32,10 +42,12 @@ pub trait ComponentDaemon: Sized + 'static {
     type Configuration: DaemonConfiguration;
     type ConfigurationError: std::error::Error;
     type Engine: Send + Sync + 'static;
-    type Error: std::fmt::Display
+    type Error: std::fmt::Debug
+        + std::fmt::Display
         + From<FrameError>
         + From<SignalFrameError>
         + From<signal_frame::FrameError>
+        + From<EngineRequestError>
         + Send
         + Sync
         + 'static;
@@ -80,7 +92,7 @@ pub trait ComponentDaemon: Sized + 'static {
     /// trusting a payload claim. Components that do not classify by origin
     /// take it as `_connection`.
     fn handle_working_input<'connection>(
-        engine: &'connection Self::Engine,
+        engine: &'connection mut Self::Engine,
         input: Input,
         connection: &'connection triad_runtime::ConnectionContext,
     ) -> impl std::future::Future<
@@ -111,7 +123,7 @@ pub trait ComponentDaemon: Sized + 'static {
     /// but this hook remains the explicit component escape hatch until
     /// the daemon shape names the meta signal contract path.
     fn handle_meta_connection(
-        engine: &Self::Engine,
+        engine: &mut Self::Engine,
         connection: AcceptedConnection,
     ) -> impl std::future::Future<Output = Result<(), Self::Error>> + Send + '_ {
         async move {
@@ -207,15 +219,16 @@ pub trait DaemonBinder: ComponentDaemon {
             Some(socket_mode) => working_socket.with_socket_mode(socket_mode),
             None => working_socket,
         };
+        let mut listener_sockets = std::vec![working_socket];
         let meta_socket_path = configuration
             .meta_socket_path()
             .ok_or(DaemonError::MissingMetaSocket)?
             .to_path_buf();
-        let listener_sockets = [
-            working_socket,
-            AsyncListenerSocket::new(ListenerTier::Meta, meta_socket_path)
-                .with_socket_mode(SocketMode::new(0o600)),
-        ];
+        listener_sockets
+            .push(
+                AsyncListenerSocket::new(ListenerTier::Meta, meta_socket_path)
+                    .with_socket_mode(SocketMode::new(0o600)),
+            );
         Ok(
             AsyncMultiListenerDaemon::new(
                     listener_sockets,
@@ -408,18 +421,113 @@ impl<'writers, Daemon: ComponentDaemon> SubscriptionWriters<'writers, Daemon> {
     }
 }
 #[rustfmt::skip]
-/// The generated runtime struct that owns the engine. Its
-/// `handle_connection` IS the async decode -> execute -> encode spine.
-pub struct GeneratedDaemonRuntime<Daemon: ComponentDaemon> {
+/// The kameo actor that owns the component engine. The mailbox
+/// serialises every request, giving each handler exclusive `&mut`
+/// access to the engine without a component-internal lock.
+pub struct EngineActor<Daemon: ComponentDaemon> {
     engine: Daemon::Engine,
+}
+#[rustfmt::skip]
+impl<Daemon: ComponentDaemon> Actor for EngineActor<Daemon> {
+    type Args = Self;
+    type Error = Daemon::Error;
+    async fn on_start(
+        actor: Self::Args,
+        _actor_reference: ActorRef<Self>,
+    ) -> Result<Self, Self::Error> {
+        Daemon::start(&actor.engine)?;
+        Ok(actor)
+    }
+    async fn on_stop(
+        &mut self,
+        _actor_reference: WeakActorRef<Self>,
+        _reason: ActorStopReason,
+    ) -> Result<(), Self::Error> {
+        Daemon::stop(&self.engine)
+    }
+}
+#[rustfmt::skip]
+/// The stream actor's working reply: the encoded `Output` plus the
+/// stream event the committed output published, computed together
+/// inside the engine actor's exclusive `&mut` handler.
+pub struct WorkingOutcome<Daemon: ComponentDaemon> {
+    output: Output,
+    event: Option<Daemon::StreamEvent>,
+}
+#[rustfmt::skip]
+#[derive(Debug)]
+pub struct WorkingInput {
+    input: Input,
+    context: triad_runtime::ConnectionContext,
+}
+#[rustfmt::skip]
+impl<Daemon: ComponentDaemon> Message<WorkingInput> for EngineActor<Daemon> {
+    type Reply = Result<WorkingOutcome<Daemon>, Daemon::Error>;
+    async fn handle(
+        &mut self,
+        message: WorkingInput,
+        _context: &mut Context<Self, Self::Reply>,
+    ) -> Self::Reply {
+        let output = Daemon::handle_working_input(
+                &mut self.engine,
+                message.input,
+                &message.context,
+            )
+            .await?;
+        let event = Daemon::published_event(&self.engine, &output).await?;
+        Ok(WorkingOutcome { output, event })
+    }
+}
+#[rustfmt::skip]
+pub struct MetaConnection {
+    connection: AcceptedConnection,
+}
+#[rustfmt::skip]
+impl<Daemon: ComponentDaemon> Message<MetaConnection> for EngineActor<Daemon> {
+    type Reply = Result<(), Daemon::Error>;
+    async fn handle(
+        &mut self,
+        message: MetaConnection,
+        _context: &mut Context<Self, Self::Reply>,
+    ) -> Self::Reply {
+        Daemon::handle_meta_connection(&mut self.engine, message.connection).await
+    }
+}
+#[rustfmt::skip]
+/// The generated runtime struct holds an `ActorRef` to the engine
+/// actor. Its `handle_connection` IS the async decode -> ask -> encode
+/// spine; the engine state lives behind the actor mailbox.
+pub struct GeneratedDaemonRuntime<Daemon: ComponentDaemon> {
+    engine: ActorRef<EngineActor<Daemon>>,
     subscriptions: EmittedSubscriptions<Daemon>,
 }
 #[rustfmt::skip]
 impl<Daemon: ComponentDaemon> GeneratedDaemonRuntime<Daemon> {
     fn new(engine: Daemon::Engine) -> Self {
         Self {
-            engine,
+            engine: EngineActor::<Daemon>::spawn(EngineActor { engine }),
             subscriptions: EmittedSubscriptions::default(),
+        }
+    }
+    /// Translate a kameo `SendError` from an engine `ask` into the
+    /// component's typed `Error` via `EngineRequestError`.
+    fn engine_send_error(
+        error: SendError<WorkingInput, Daemon::Error>,
+    ) -> Daemon::Error {
+        match error {
+            SendError::HandlerError(error) => error,
+            SendError::ActorNotRunning(_) => {
+                EngineRequestError::new("engine actor is not running").into()
+            }
+            SendError::ActorStopped => {
+                EngineRequestError::new("engine actor stopped before replying").into()
+            }
+            SendError::MailboxFull(_) => {
+                EngineRequestError::new("engine actor mailbox is full").into()
+            }
+            SendError::Timeout(_) => {
+                EngineRequestError::new("engine actor request timed out").into()
+            }
         }
     }
     async fn handle_working_connection(
@@ -429,24 +537,47 @@ impl<Daemon: ComponentDaemon> GeneratedDaemonRuntime<Daemon> {
         let mut transport = WorkingTransport::new(connection);
         let frame = transport.read_frame().await?;
         let (_route, input) = Input::decode_signal_frame(&frame)?;
-        let subscription_filter = Daemon::subscription_filter(&input);
-        let output = Daemon::handle_working_input(
-                &self.engine,
-                input,
-                transport.context(),
-            )
-            .await?;
-        transport.write_frame(output.encode_signal_frame()?).await?;
+        let filter = Daemon::subscription_filter(&input);
+        let context = *transport.context();
+        let outcome = match self.engine.ask(WorkingInput { input, context }).await {
+            Ok(outcome) => outcome,
+            Err(error) => return Err(Self::engine_send_error(error)),
+        };
+        transport.write_frame(outcome.output.encode_signal_frame()?).await?;
         if let (Some(filter), Some(token)) = (
-            subscription_filter,
-            Daemon::subscription_token(&output),
+            filter,
+            Daemon::subscription_token(&outcome.output),
         ) {
             self.subscriptions.register(token, filter, transport.into_writer()).await;
         }
-        if let Some(event) = Daemon::published_event(&self.engine, &output).await? {
+        if let Some(event) = outcome.event {
             self.subscriptions.publish(event).await?;
         }
         Ok(())
+    }
+    async fn handle_meta_connection(
+        &self,
+        connection: AcceptedConnection,
+    ) -> Result<(), Daemon::Error> {
+        match self.engine.ask(MetaConnection { connection }).await {
+            Ok(()) => Ok(()),
+            Err(SendError::HandlerError(error)) => Err(error),
+            Err(SendError::ActorNotRunning(_)) => {
+                Err(EngineRequestError::new("engine actor is not running").into())
+            }
+            Err(SendError::ActorStopped) => {
+                Err(
+                    EngineRequestError::new("engine actor stopped before replying")
+                        .into(),
+                )
+            }
+            Err(SendError::MailboxFull(_)) => {
+                Err(EngineRequestError::new("engine actor mailbox is full").into())
+            }
+            Err(SendError::Timeout(_)) => {
+                Err(EngineRequestError::new("engine actor request timed out").into())
+            }
+        }
     }
 }
 #[rustfmt::skip]
@@ -454,11 +585,31 @@ impl<Daemon: ComponentDaemon> AsyncMultiConnectionRuntime
 for GeneratedDaemonRuntime<Daemon> {
     type Listener = ListenerTier;
     type Error = Daemon::Error;
-    async fn start(&self) -> Result<(), Self::Error> {
-        Daemon::start(&self.engine)
+    async fn start(&self) -> Result<(), Daemon::Error> {
+        self.engine
+            .wait_for_startup_with_result(|result| match result {
+                Ok(()) => Ok(()),
+                Err(HookError::Error(error)) => {
+                    Err(
+                        EngineRequestError::new(
+                                format!("engine actor failed to start: {error:?}"),
+                            )
+                            .into(),
+                    )
+                }
+                Err(HookError::Panicked(_)) => {
+                    Err(
+                        EngineRequestError::new("engine actor panicked during startup")
+                            .into(),
+                    )
+                }
+            })
+            .await
     }
-    async fn stop(&self) -> Result<(), Self::Error> {
-        Daemon::stop(&self.engine)
+    async fn stop(&self) -> Result<(), Daemon::Error> {
+        let _ = self.engine.stop_gracefully().await;
+        self.engine.wait_for_shutdown().await;
+        Ok(())
     }
     async fn handle_connection(
         &self,
@@ -467,9 +618,7 @@ for GeneratedDaemonRuntime<Daemon> {
     ) -> Result<(), Self::Error> {
         match listener {
             ListenerTier::Working => self.handle_working_connection(connection).await,
-            ListenerTier::Meta => {
-                Daemon::handle_meta_connection(&self.engine, connection).await
-            }
+            ListenerTier::Meta => self.handle_meta_connection(connection).await,
         }
     }
 }

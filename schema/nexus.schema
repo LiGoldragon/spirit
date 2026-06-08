@@ -15,6 +15,7 @@
   IntentSubscription spirit:signal:IntentSubscription
   RecordIdentifier spirit:signal:RecordIdentifier
   CertaintyChange spirit:signal:CertaintyChange
+  RecordChange spirit:signal:RecordChange
   RemovalCandidateCollection spirit:signal:RemovalCandidateCollection
   RemovalCandidatesCollection spirit:signal:RemovalCandidatesCollection
   ObserverFilter spirit:signal:ObserverFilter
@@ -29,10 +30,11 @@
   SemaReadCompleted SemaReadOutput
   EffectCompleted NexusEffectResult
 
-  CommandSemaWrite [(Record Record) (Remove Remove) (ChangeCertainty ChangeCertainty)]
+  CommandSemaWrite [(Record Record) (Remove Remove) (ChangeCertainty ChangeCertainty) (ChangeRecord ChangeRecord)]
   Record Entry
   Remove RecordIdentifier
   ChangeCertainty CertaintyChange
+  ChangeRecord RecordChange
   CommandSemaRead SemaReadInput
   ReplyToSignal SignalOutput
   CommandEffect NexusEffectCommand

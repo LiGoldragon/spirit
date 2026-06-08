@@ -42,6 +42,8 @@ pub use crate::schema::signal::RecordIdentifier as RecordIdentifier;
 #[rustfmt::skip]
 pub use crate::schema::signal::CertaintyChange as CertaintyChange;
 #[rustfmt::skip]
+pub use crate::schema::signal::RecordChange as RecordChange;
+#[rustfmt::skip]
 pub use crate::schema::signal::RemovalCandidateCollection as RemovalCandidateCollection;
 #[rustfmt::skip]
 pub use crate::schema::signal::RemovalCandidatesCollection as RemovalCandidatesCollection;
@@ -75,6 +77,7 @@ pub enum CommandSemaWrite {
     Record(Record),
     Remove(Remove),
     ChangeCertainty(ChangeCertainty),
+    ChangeRecord(ChangeRecord),
 }
 
 #[rustfmt::skip]
@@ -85,6 +88,9 @@ pub type Remove = RecordIdentifier;
 
 #[rustfmt::skip]
 pub type ChangeCertainty = CertaintyChange;
+
+#[rustfmt::skip]
+pub type ChangeRecord = RecordChange;
 
 #[rustfmt::skip]
 pub type CommandSemaRead = SemaReadInput;
@@ -227,6 +233,9 @@ impl CommandSemaWrite {
     }
     pub fn change_certainty(payload: ChangeCertainty) -> Self {
         Self::ChangeCertainty(payload)
+    }
+    pub fn change_record(payload: ChangeRecord) -> Self {
+        Self::ChangeRecord(payload)
     }
 }
 

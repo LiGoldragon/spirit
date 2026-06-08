@@ -1,7 +1,7 @@
 #[cfg(feature = "nota-text")]
 use spirit::schema::signal::{Export, Import};
 use spirit::{
-    Engine, Nexus, SignalActor, Store,
+    Engine, Nexus, SignalAdmission, Store,
     schema::{
         nexus::{self, CommandSemaWrite, NexusAction, NexusEffectCommand, NexusEngine, NexusWork},
         sema::{
@@ -11,8 +11,9 @@ use spirit::{
         signal::{
             CertaintyChange, DatabaseMarker, Entry, ErrorReport, Input, Kind, Magnitude,
             MailLedgerEvent, MessageIdentifier, MessageSent, MessageSentHook, OriginRoute, Output,
-            PrivacySelection, ProcessedMail, Query, RecordIdentifier, SemaReceipt, SentMail,
-            SignalEngine, SignalRejection, StashHandle, Statement, TopicMatch, ValidationError,
+            PrivacySelection, ProcessedMail, Query, RecordChange, RecordIdentifier, SemaReceipt,
+            SentMail, SignalEngine, SignalRejection, StashHandle, Statement, TopicMatch,
+            ValidationError,
         },
     },
 };
@@ -156,6 +157,13 @@ fn input_change_certainty(record_identifier: RecordIdentifier, certainty: Magnit
     })
 }
 
+fn input_change_record(record_identifier: RecordIdentifier, entry: Entry) -> Input {
+    Input::change_record(RecordChange {
+        record_identifier,
+        entry,
+    })
+}
+
 fn input_lookup_stash(stash_handle: StashHandle) -> Input {
     Input::lookup_stash(stash_handle)
 }
@@ -179,6 +187,13 @@ fn sema_change_certainty(
     SemaWriteInput::change_certainty(CertaintyChange {
         record_identifier,
         certainty,
+    })
+}
+
+fn sema_change_record(record_identifier: RecordIdentifier, entry: Entry) -> SemaWriteInput {
+    SemaWriteInput::change_record(RecordChange {
+        record_identifier,
+        entry,
     })
 }
 
@@ -307,6 +322,28 @@ fn nexus_change_certainty_is_visible_as_schema_declared_write_command() {
 }
 
 #[test]
+fn nexus_change_record_is_visible_as_schema_declared_write_command() {
+    let sema = SemaFile::new();
+    let mut nexus = Nexus::new(sema.open_store());
+    let replacement = entry_with_topics(&["runtime-triad", "replacement"], "replacement record");
+    let nexus_input = nexus_signal_arrived(input_change_record(1, replacement.clone()))
+        .with_origin_route(nexus_route(6));
+
+    let first_action = NexusEngine::decide(&mut nexus, nexus_input);
+
+    assert_eq!(first_action.origin_route(), nexus_route(6));
+    match first_action.root() {
+        NexusAction::CommandSemaWrite(CommandSemaWrite::ChangeRecord(change)) => {
+            assert_eq!(change.record_identifier, 1);
+            assert_eq!(change.entry, replacement);
+        }
+        other => {
+            panic!("expected ChangeRecord to become CommandSemaWrite(ChangeRecord), got {other:?}")
+        }
+    }
+}
+
+#[test]
 fn nexus_state_classification_is_visible_as_schema_declared_effect_command() {
     let sema = SemaFile::new();
     let mut nexus = Nexus::new(sema.open_store());
@@ -363,11 +400,43 @@ fn sema_engine_changes_certainty_without_changing_record_identifier() {
 }
 
 #[test]
-fn signal_actor_pushes_accepted_message_through_sent_hook_before_nexus_holds_mail() {
-    let signal_actor = SignalActor::default();
+fn sema_engine_changes_record_without_changing_record_identifier() {
+    let sema = SemaFile::new();
+    let mut store = sema.open_store();
+    SemaEngine::apply(
+        &mut store,
+        sema_write_message(sema_record(entry("original target")), 1),
+    );
+
+    let replacement = entry_with_topics(&["runtime-triad", "replacement"], "replacement target");
+    let changed = SemaEngine::apply(
+        &mut store,
+        sema_write_message(sema_change_record(1, replacement.clone()), 2),
+    );
+    match changed.root() {
+        SemaWriteOutput::RecordChanged(receipt) => {
+            assert_eq!(receipt.record_identifier, 1);
+            assert_eq!(receipt.database_marker.commit_sequence, 2);
+        }
+        other => panic!("expected RecordChanged receipt, got {other:?}"),
+    }
+
+    let found = SemaEngine::observe(&store, sema_read_message(sema_lookup(1), 3));
+    match found.root() {
+        SemaReadOutput::Found(record) => {
+            assert_eq!(record.record_identifier, 1);
+            assert_eq!(record.entry, replacement);
+        }
+        other => panic!("expected changed record lookup, got {other:?}"),
+    }
+}
+
+#[test]
+fn signal_admission_pushes_accepted_message_through_sent_hook_before_nexus_holds_mail() {
+    let signal_admission = SignalAdmission::default();
     let signal_entry = entry("signal pushes to nexus");
     let expected_short_header = input_record(signal_entry.clone()).short_header();
-    let accepted = signal_actor
+    let accepted = signal_admission
         .admit(input_record(signal_entry.clone()))
         .expect("signal input admits");
     let mut hook = SentHookProbe { events: Vec::new() };
@@ -410,9 +479,9 @@ fn nexus_step_decide_routes_signal_arrival_to_sema_command_without_committing() 
     assert!(store.is_empty(), "store starts empty");
 
     // Trace the runner's first action without driving it.
-    let signal_actor = SignalActor::default();
+    let signal_admission = SignalAdmission::default();
     let signal_input = input_record(entry("held in flight")).with_origin_route(route(1));
-    let nexus_input = SignalEngine::triage(&signal_actor, signal_input);
+    let nexus_input = SignalEngine::triage(&signal_admission, signal_input);
     assert_eq!(nexus_input.origin_route(), nexus_route(1));
     match nexus_input.root() {
         NexusWork::SignalArrived(Input::Record(recorded)) => {
@@ -455,7 +524,7 @@ fn sema_engine_writes_durable_records_and_returns_schema_objects() {
 #[test]
 fn engine_lifecycle_runs_generated_trait_hooks_without_actor_mailboxes() {
     let sema = SemaFile::new();
-    let engine = sema.engine();
+    let mut engine = sema.engine();
 
     engine.start().expect("generated lifecycle start hooks run");
     let output = engine.handle(input_record(entry("lifecycle still handles input")));
@@ -497,11 +566,11 @@ fn nexus_engine_trait_runs_nexus_decision_through_sema_state() {
 #[test]
 fn signal_engine_trait_triages_signal_roots_to_nexus_and_back() {
     let sema = SemaFile::new();
-    let signal_actor = SignalActor::default();
+    let signal_admission = SignalAdmission::default();
     let mut nexus = Nexus::new(sema.open_store());
     let signal_input = input_record(entry("signal trait root")).with_origin_route(route(21));
 
-    let nexus_input = SignalEngine::triage(&signal_actor, signal_input);
+    let nexus_input = SignalEngine::triage(&signal_admission, signal_input);
     assert_eq!(nexus_input.origin_route(), nexus_route(21));
     assert!(matches!(
         nexus_input.root(),
@@ -509,7 +578,7 @@ fn signal_engine_trait_triages_signal_roots_to_nexus_and_back() {
     ));
 
     let nexus_output = execute_nexus(&mut nexus, nexus_input);
-    let signal_output = SignalEngine::reply(&signal_actor, nexus_output);
+    let signal_output = SignalEngine::reply(&signal_admission, nexus_output);
 
     assert_eq!(signal_output.origin_route(), route(21));
     match signal_output.root() {
@@ -798,7 +867,7 @@ fn sema_engine_removes_records_and_advances_database_work_marker() {
 #[test]
 fn nexus_runs_sema_while_holding_mail_then_replies_through_schema_objects() {
     let sema = SemaFile::new();
-    let engine = sema.engine();
+    let mut engine = sema.engine();
 
     let recorded = engine.handle(input_record(entry("nexus drives sema")));
     assert_eq!(recorded.origin_route(), route(1));
@@ -815,9 +884,9 @@ fn nexus_runs_sema_while_holding_mail_then_replies_through_schema_objects() {
 }
 
 #[test]
-fn signal_actor_rejects_invalid_input_with_schema_emitted_rejection_before_mail_or_sema() {
+fn signal_admission_rejects_invalid_input_with_schema_emitted_rejection_before_mail_or_sema() {
     let sema = SemaFile::new();
-    let engine = sema.engine();
+    let mut engine = sema.engine();
     let mut bad = entry("missing topic");
     bad.topics = vec![String::new()];
 
@@ -856,7 +925,7 @@ fn sema_read_miss_completion_routes_through_runner_loop_to_error_reply() {
     .with_origin_route(nexus_route(7));
 
     let nexus_output = execute_nexus(&mut nexus, nexus_input);
-    let signal_output = SignalEngine::reply(&SignalActor::default(), nexus_output);
+    let signal_output = SignalEngine::reply(&SignalAdmission::default(), nexus_output);
 
     assert_eq!(
         signal_output.root(),
@@ -890,7 +959,7 @@ fn plane_envelopes_keep_payload_names_scoped() {
         NexusAction::ReplyToSignal(Output::RecordAccepted(_))
     ));
 
-    let signal_output = SignalEngine::reply(&SignalActor::default(), nexus_output);
+    let signal_output = SignalEngine::reply(&SignalAdmission::default(), nexus_output);
     assert_eq!(signal_output.origin_route(), route(11));
     assert!(matches!(signal_output.root(), Output::RecordAccepted(_)));
 }
@@ -923,7 +992,7 @@ fn nexus_and_sema_have_explicit_input_output_languages() {
         NexusWork::sema_write_completed(sema_output).with_origin_route(nexus_route(14));
     let mut second_nexus = Nexus::new(SemaFile::new().open_store());
     let nexus_output_from_sema = execute_nexus(&mut second_nexus, nexus_input_from_sema);
-    let signal_output = SignalEngine::reply(&SignalActor::default(), nexus_output_from_sema);
+    let signal_output = SignalEngine::reply(&SignalAdmission::default(), nexus_output_from_sema);
     assert!(matches!(signal_output.root(), Output::RecordAccepted(_)));
 }
 
@@ -958,7 +1027,7 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
     // full records. The two-call pattern proves the recursive computation
     // is real on a real flow.
     let sema = SemaFile::new();
-    let engine = sema.engine();
+    let mut engine = sema.engine();
 
     let recorded = engine.handle(input_record(entry("full runtime triad works")));
     assert_eq!(recorded.origin_route(), route(1));
@@ -1033,7 +1102,7 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
 #[test]
 fn full_runtime_triad_looks_up_and_counts_through_signal_nexus_and_sema() {
     let sema = SemaFile::new();
-    let engine = sema.engine();
+    let mut engine = sema.engine();
 
     engine.handle(input_record(entry_with_topics(
         &["runtime-triad", "schema"],

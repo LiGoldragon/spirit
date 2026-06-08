@@ -1,7 +1,5 @@
 use std::{convert::Infallible, sync::Mutex as StdMutex};
 
-use tokio::sync::Mutex;
-
 use crate::{
     nexus::Nexus,
     schema::{
@@ -25,21 +23,37 @@ const ORIGIN_ROUTE_BASE: Integer = 1_000_000;
 
 /// The daemon runtime: a thin composer of the three execution centers.
 ///
-/// `Engine` owns the Signal admission actor and the Nexus mail keeper.
+/// `Engine` owns the Signal admission gate and the Nexus mail keeper.
 /// Nexus owns the durable SEMA store and the mail ledger. `Engine::handle`
 /// runs the record-970 flow as a composition — it does NOT call the store
 /// directly; the SEMA invocation lives inside Nexus, which holds the mail
 /// in a being-processed state across it.
+///
+/// The engine is owned by the schema-emitted `EngineActor` kameo actor: the
+/// actor mailbox serialises every working request, so `Engine` holds its
+/// Nexus as a plain field and mutates it through `&mut self` — no internal
+/// lock guards the single-flight working path. The Signal admission gate keeps
+/// its small `StdMutex` identity counters because it is borrowed shared
+/// (`&self`) by the `SignalEngine::triage` / `reply` plane.
 #[derive(Debug)]
 pub struct Engine {
-    signal_actor: SignalActor,
-    nexus: Mutex<Nexus>,
+    signal_admission: SignalAdmission,
+    nexus: Nexus,
     #[cfg(feature = "testing-trace")]
     trace_log: TraceLog,
 }
 
+/// The Signal admission gate: the request-admission plane that mints the
+/// origin route, issues a message identifier, and validates a wire `Input`
+/// before any deeper layer sees it, plus the `SignalEngine` triage / reply
+/// translation between the Signal and Nexus planes.
+///
+/// This is NOT a kameo actor — the kameo actor that owns the engine is the
+/// schema-emitted `EngineActor`. The admission gate is a data-bearing plane
+/// the engine composes; its identity counters live behind small `StdMutex`es
+/// because the `SignalEngine` plane borrows it shared.
 #[derive(Debug, Default)]
-pub struct SignalActor {
+pub struct SignalAdmission {
     next_message_identifier: StdMutex<Integer>,
     next_origin_route: StdMutex<Integer>,
     #[cfg(feature = "testing-trace")]
@@ -78,8 +92,8 @@ impl Engine {
         #[cfg(not(feature = "testing-trace"))]
         {
             Self {
-                signal_actor: SignalActor::default(),
-                nexus: Mutex::new(Nexus::new(store)),
+                signal_admission: SignalAdmission::default(),
+                nexus: Nexus::new(store),
             }
         }
     }
@@ -87,8 +101,8 @@ impl Engine {
     #[cfg(feature = "testing-trace")]
     pub fn new_with_trace(store: Store, trace_log: TraceLog) -> Self {
         Self {
-            signal_actor: SignalActor::with_trace(trace_log.clone()),
-            nexus: Mutex::new(Nexus::new_with_trace(store, trace_log.clone())),
+            signal_admission: SignalAdmission::with_trace(trace_log.clone()),
+            nexus: Nexus::new_with_trace(store, trace_log.clone()),
             trace_log,
         }
     }
@@ -98,23 +112,14 @@ impl Engine {
         self.trace_log.events()
     }
 
-    pub fn start(&self) -> Result<(), EngineStartFailure> {
-        {
-            let mut nexus = self.nexus.try_lock().map_err(|_| {
-                EngineStartFailure::ResourceBusy(String::from("nexus startup lock"))
-            })?;
-            NexusEngine::on_start(&mut *nexus)?;
-        }
-        self.signal_actor.start()
+    pub fn start(&mut self) -> Result<(), EngineStartFailure> {
+        NexusEngine::on_start(&mut self.nexus)?;
+        self.signal_admission.start()
     }
 
-    pub fn stop(&self) -> Result<(), EngineStopFailure> {
-        self.signal_actor.stop()?;
-        let mut nexus = self
-            .nexus
-            .try_lock()
-            .map_err(|_| EngineStopFailure::ResourceLocked(String::from("nexus shutdown lock")))?;
-        NexusEngine::on_stop(&mut *nexus)?;
+    pub fn stop(&mut self) -> Result<(), EngineStopFailure> {
+        self.signal_admission.stop()?;
+        NexusEngine::on_stop(&mut self.nexus)?;
         Ok(())
     }
 
@@ -125,7 +130,7 @@ impl Engine {
     /// identifier, and validates) before any deeper layer sees it. The
     /// sent hook fires at the Signal→Nexus handoff; the processed hook
     /// fires after the NexusEngine returns its reply.
-    pub fn handle(&self, input: Input) -> signal_schema::signal::Signal<Output> {
+    pub fn handle(&mut self, input: Input) -> signal_schema::signal::Signal<Output> {
         tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -133,50 +138,41 @@ impl Engine {
             .block_on(self.handle_async(input))
     }
 
-    pub async fn handle_async(&self, input: Input) -> signal_schema::signal::Signal<Output> {
-        let accepted = match self.signal_actor.admit(input) {
+    pub async fn handle_async(&mut self, input: Input) -> signal_schema::signal::Signal<Output> {
+        let accepted = match self.signal_admission.admit(input) {
             Ok(accepted) => accepted,
             Err(rejected) => {
-                let output = rejected.into_signal_output(self.database_marker_async().await);
+                let output = rejected.into_signal_output(self.nexus.database_marker());
                 #[cfg(feature = "testing-trace")]
-                self.signal_actor.trace_signal_rejected();
+                self.signal_admission.trace_signal_rejected();
                 #[cfg(feature = "testing-trace")]
-                self.signal_actor.trace_signal_replied();
+                self.signal_admission.trace_signal_replied();
                 return output;
             }
         };
-        let mut nexus = self.nexus.lock().await;
-        accepted.process_with(&self.signal_actor, &mut nexus).await
+        accepted
+            .process_with(&self.signal_admission, &mut self.nexus)
+            .await
     }
 
     pub fn record_count(&self) -> usize {
-        self.nexus.blocking_lock().store().len()
+        self.nexus.store().len()
     }
 
     pub fn sent_message_count(&self) -> usize {
-        self.nexus
-            .blocking_lock()
-            .mail_ledger()
-            .sent_message_count()
+        self.nexus.mail_ledger().sent_message_count()
     }
 
     pub fn processed_message_count(&self) -> usize {
-        self.nexus
-            .blocking_lock()
-            .mail_ledger()
-            .processed_message_count()
+        self.nexus.mail_ledger().processed_message_count()
     }
 
     pub fn mail_ledger(&self) -> Vec<MailLedgerEvent> {
-        self.nexus.blocking_lock().mail_ledger().events()
+        self.nexus.mail_ledger().events()
     }
 
     pub fn database_marker(&self) -> DatabaseMarker {
-        self.nexus.blocking_lock().database_marker()
-    }
-
-    pub async fn database_marker_async(&self) -> DatabaseMarker {
-        self.nexus.lock().await.database_marker()
+        self.nexus.database_marker()
     }
 
     /// Apply an owner-only meta `Configure` request: store WHERE the SEPARATE
@@ -187,50 +183,43 @@ impl Engine {
     /// target the peer-callable `CollectRemovalCandidates` will write to; it
     /// does NOT open, move, or touch the live database, and it never re-enters
     /// the Signal -> Nexus -> SEMA working pipeline (there is no SEMA log
-    /// write). It locks the same single-flight Nexus mutex the working path
-    /// uses, so a reconfigure and a working write can never run concurrently.
-    /// Storing the target is infallible — the archive database is opened lazily
-    /// later, not here — so this always replies `Configured`. The
-    /// `ConfigureRejection` / `ArchiveTargetUnwritable` arm of the contract is
-    /// reserved for a future eager-validation policy.
-    pub fn configure(&self, request: ConfigureRequest) -> MetaOutput {
-        tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("spirit sync configure runtime")
-            .block_on(self.configure_async(request))
-    }
-
-    pub async fn configure_async(&self, request: ConfigureRequest) -> MetaOutput {
+    /// write). It takes `&mut self`, so the schema-emitted `EngineActor`
+    /// mailbox serialises a reconfigure against every working write — a
+    /// reconfigure and a working write can never run concurrently, without any
+    /// component-internal lock. Storing the target is infallible — the archive
+    /// database is opened lazily later, not here — so this always replies
+    /// `Configured`. The `ConfigureRejection` / `ArchiveTargetUnwritable` arm of
+    /// the contract is reserved for a future eager-validation policy.
+    pub fn configure(&mut self, request: ConfigureRequest) -> MetaOutput {
         let archive_database_target = request.into_payload();
-        let mut nexus = self.nexus.lock().await;
-        nexus.set_archive_target(archive_database_target.clone());
+        self.nexus
+            .set_archive_target(archive_database_target.clone());
         MetaOutput::configured(ConfigureReceipt {
             archive_database_target,
-            database_marker: nexus.database_marker(),
+            database_marker: self.nexus.database_marker(),
         })
+    }
+
+    pub async fn configure_async(&mut self, request: ConfigureRequest) -> MetaOutput {
+        self.configure(request)
     }
 
     pub fn intent_recorded_event(
         &self,
         receipt: &SemaReceipt,
     ) -> Result<Option<IntentEvent>, StoreError> {
-        tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("spirit sync intent event runtime")
-            .block_on(self.intent_recorded_event_async(receipt))
+        self.nexus.intent_recorded_event(receipt)
     }
 
     pub async fn intent_recorded_event_async(
         &self,
         receipt: &SemaReceipt,
     ) -> Result<Option<IntentEvent>, StoreError> {
-        self.nexus.lock().await.intent_recorded_event(receipt)
+        self.intent_recorded_event(receipt)
     }
 }
 
-impl SignalActor {
+impl SignalAdmission {
     #[cfg(feature = "testing-trace")]
     pub fn with_trace(trace_log: TraceLog) -> Self {
         Self {
@@ -287,7 +276,7 @@ impl SignalActor {
     }
 }
 
-impl SignalEngine for SignalActor {
+impl SignalEngine for SignalAdmission {
     type NexusInput = nexus_schema::nexus::Nexus<NexusWork>;
     type NexusOutput = nexus_schema::nexus::Nexus<NexusAction>;
 
@@ -437,6 +426,7 @@ impl Input {
             | Self::LookupStash(_)
             | Self::Tap(_)
             | Self::Untap(_) => Ok(()),
+            Self::ChangeRecord(change) => change.validate(),
             Self::CollectRemovalCandidates(collection) => collection.payload().validate(),
             Self::SubscribeIntent(query) => query.validate(),
             Self::Count(count) => count.validate(),
@@ -465,6 +455,12 @@ impl Entry {
             return Err(ValidationError::EmptyDescription);
         }
         Ok(())
+    }
+}
+
+impl crate::schema::signal::RecordChange {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        self.entry.validate()
     }
 }
 
@@ -551,6 +547,7 @@ impl Output {
             Self::RecordsCounted(records) => records.database_marker.clone(),
             Self::RecordRemoved(receipt) => receipt.database_marker.clone(),
             Self::CertaintyChanged(receipt) => receipt.database_marker.clone(),
+            Self::RecordChanged(receipt) => receipt.database_marker.clone(),
             Self::RemovalCandidatesCollected(collection) => collection.database_marker.clone(),
             Self::ObservationTapped(subscription) => subscription.database_marker.clone(),
             Self::ObservationUntapped(retraction) => retraction.database_marker.clone(),

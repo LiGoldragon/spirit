@@ -1,6 +1,6 @@
 {}
-[State Record Observe Lookup Count Remove ChangeCertainty LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream)]
-[RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted (Event IntentEvent) Error Rejected]
+[State Record Observe Lookup Count Remove ChangeCertainty ChangeRecord LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream)]
+[RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged RecordChanged RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted (Event IntentEvent) Error Rejected]
 {
   SourcePath String
   LocalPath String
@@ -16,6 +16,7 @@
   Count Query
   Remove RecordIdentifier
   ChangeCertainty CertaintyChange
+  ChangeRecord RecordChange
   LookupStash StashHandle
   CollectRemovalCandidates RemovalCandidateCollection
   Tap ObserverFilter
@@ -29,6 +30,7 @@
   RecordsCounted CountedRecords
   RecordRemoved RemoveReceipt
   CertaintyChanged CertaintyChangeReceipt
+  RecordChanged RecordChangeReceipt
   RemovalCandidatesCollected RemovalCandidatesCollection
   ObservationTapped ObserverSubscription
   ObservationUntapped ObserverRetraction
@@ -94,7 +96,7 @@
   ObserverFilter [All OperationsOnly EffectsOnly]
   ObserverSubscription { SubscriptionToken * ObserverFilter * ObservedOperations * DatabaseMarker * }
   ObserverRetraction { SubscriptionToken * ObservedOperations * DatabaseMarker * }
-  OperationKind [State Record Observe Lookup Count Remove ChangeCertainty LookupStash CollectRemovalCandidates Tap Untap SubscribeIntent]
+  OperationKind [State Record Observe Lookup Count Remove ChangeCertainty ChangeRecord LookupStash CollectRemovalCandidates Tap Untap SubscribeIntent]
   ObservedOperation { OperationKind * }
   ObservedOperations (Vec ObservedOperation)
 
@@ -102,6 +104,8 @@
   Statement { StatementText * }
   CertaintyChange { RecordIdentifier * Certainty * }
   CertaintyChangeReceipt { RecordIdentifier * Certainty * DatabaseMarker * }
+  RecordChange { RecordIdentifier * Entry * }
+  RecordChangeReceipt { RecordIdentifier * DatabaseMarker * }
   Query { TopicMatch * kind (Optional Kind) privacy_selection PrivacySelection }
   Records (Vec Entry)
   RecordSet (Vec Entry)

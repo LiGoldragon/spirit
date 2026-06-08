@@ -78,8 +78,8 @@ impl ObserverTapTable {
     pub fn open(&mut self, filter: ObserverFilter) -> (u64, ObserverFilter, ObservedOperations) {
         self.next_token += 1;
         let token = self.next_token;
-        self.taps.insert(token, filter.clone());
-        (token, filter.clone(), self.observed_operations(&filter))
+        self.taps.insert(token, filter);
+        (token, filter, self.observed_operations(&filter))
     }
 
     /// Close an observer tap. Returns the tap's final filtered observations when
@@ -131,6 +131,7 @@ impl OperationKind {
             Input::Count(_) => Self::Count,
             Input::Remove(_) => Self::Remove,
             Input::ChangeCertainty(_) => Self::ChangeCertainty,
+            Input::ChangeRecord(_) => Self::ChangeRecord,
             Input::LookupStash(_) => Self::LookupStash,
             Input::CollectRemovalCandidates(_) => Self::CollectRemovalCandidates,
             Input::Tap(_) => Self::Tap,
@@ -224,10 +225,10 @@ impl ClassificationPolicy {
     pub fn classify(&self, statement: Statement) -> Entry {
         Entry {
             topics: vec![self.fallback_topic.clone()],
-            kind: self.fallback_kind.clone(),
+            kind: self.fallback_kind,
             description: statement.into_payload(),
-            magnitude: self.fallback_magnitude.clone(),
-            privacy: self.fallback_privacy.clone(),
+            magnitude: self.fallback_magnitude,
+            privacy: self.fallback_privacy,
         }
     }
 }
@@ -238,6 +239,7 @@ impl CommandSemaWrite {
             Self::Record(record) => SemaWriteInput::record(record),
             Self::Remove(remove) => SemaWriteInput::remove(remove),
             Self::ChangeCertainty(change) => SemaWriteInput::change_certainty(change),
+            Self::ChangeRecord(change) => SemaWriteInput::change_record(change),
         }
     }
 }
@@ -515,6 +517,9 @@ impl Nexus {
             Input::ChangeCertainty(change) => {
                 NexusAction::command_sema_write(CommandSemaWrite::change_certainty(change))
             }
+            Input::ChangeRecord(change) => {
+                NexusAction::command_sema_write(CommandSemaWrite::change_record(change))
+            }
             Input::LookupStash(handle) => match self.stash_table.lookup(&handle) {
                 Some((records, database_marker)) => NexusAction::reply_to_signal(
                     Output::records_observed(crate::schema::signal::ObservedRecords {
@@ -552,6 +557,9 @@ impl Nexus {
             }
             SemaWriteOutput::CertaintyChanged(receipt) => {
                 NexusAction::reply_to_signal(Output::certainty_changed(receipt))
+            }
+            SemaWriteOutput::RecordChanged(receipt) => {
+                NexusAction::reply_to_signal(Output::record_changed(receipt))
             }
             SemaWriteOutput::Missed(report) => NexusAction::reply_to_signal(Output::error(report)),
         }

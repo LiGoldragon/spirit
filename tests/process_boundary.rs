@@ -441,6 +441,61 @@ fn cli_and_daemon_change_certainty_without_changing_record_identifier() {
 }
 
 #[test]
+fn cli_and_daemon_change_record_replaces_entry_under_same_identifier() {
+    let temp = TempDir::new().expect("tempdir");
+    let socket_path = temp.path().join("change-record.sock");
+    let database_path = temp.path().join("change-record.sema");
+
+    let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
+
+    let accepted = run_cli(
+        &socket_path,
+        "(Record ([[schema]] Decision [original record] Maximum Zero))",
+    );
+    match accepted {
+        Output::RecordAccepted(receipt) => {
+            assert_eq!(receipt.record_identifier, 1);
+            assert_eq!(receipt.database_marker.commit_sequence, 1);
+        }
+        other => panic!("expected RecordAccepted before record change, got {other:?}"),
+    }
+
+    let changed = run_cli(
+        &socket_path,
+        "(ChangeRecord (1 ([[schema mutation]] Correction [replacement record] High Zero)))",
+    );
+    match changed {
+        Output::RecordChanged(receipt) => {
+            assert_eq!(receipt.record_identifier, 1);
+            assert_eq!(receipt.database_marker.commit_sequence, 2);
+        }
+        other => panic!("expected RecordChanged, got {other:?}"),
+    }
+
+    let found = run_cli(&socket_path, "(Lookup 1)");
+    match found {
+        Output::RecordFound(record) => {
+            assert_eq!(record.record_identifier, 1);
+            assert_eq!(record.entry.topics, vec![String::from("schema mutation")]);
+            assert_eq!(record.entry.kind, Kind::Correction);
+            assert_eq!(record.entry.description, "replacement record");
+            assert_eq!(record.entry.magnitude, Magnitude::High);
+            assert_eq!(record.entry.privacy, Magnitude::Zero);
+        }
+        other => panic!("expected changed record lookup, got {other:?}"),
+    }
+
+    let missing_old_query = run_cli(
+        &socket_path,
+        "(Observe ((Full [[schema]]) (Some Decision) (Exact Zero)))",
+    );
+    assert!(
+        matches!(missing_old_query, Output::Error(_)),
+        "the original entry should be replaced, got {missing_old_query:?}"
+    );
+}
+
+#[test]
 fn cli_renders_alias_payload_outputs_without_wrapper_repetition() {
     let temp = TempDir::new().expect("tempdir");
     let socket_path = temp.path().join("alias-payload.sock");

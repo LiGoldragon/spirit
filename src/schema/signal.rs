@@ -68,6 +68,9 @@ pub type Remove = RecordIdentifier;
 pub type ChangeCertainty = CertaintyChange;
 
 #[rustfmt::skip]
+pub type ChangeRecord = RecordChange;
+
+#[rustfmt::skip]
 pub type LookupStash = StashHandle;
 
 #[rustfmt::skip]
@@ -102,6 +105,9 @@ pub type RecordRemoved = RemoveReceipt;
 
 #[rustfmt::skip]
 pub type CertaintyChanged = CertaintyChangeReceipt;
+
+#[rustfmt::skip]
+pub type RecordChanged = RecordChangeReceipt;
 
 #[rustfmt::skip]
 pub type RemovalCandidatesCollected = RemovalCandidatesCollection;
@@ -259,7 +265,16 @@ pub enum IntentEvent {
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub enum ValidationError {
     EmptyTopic,
     EmptyDescription,
@@ -365,7 +380,16 @@ pub type RemovedIdentifiers = Vec<RemovedIdentifier>;
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub enum RemovalCandidateSkipReason {
     ArchiveFailed,
     RecordChanged,
@@ -396,7 +420,16 @@ pub struct RemovalCandidatesCollection {
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub enum ObserverFilter {
     All,
     OperationsOnly,
@@ -424,7 +457,16 @@ pub struct ObserverRetraction {
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub enum OperationKind {
     State,
     Record,
@@ -433,6 +475,7 @@ pub enum OperationKind {
     Count,
     Remove,
     ChangeCertainty,
+    ChangeRecord,
     LookupStash,
     CollectRemovalCandidates,
     Tap,
@@ -484,6 +527,22 @@ pub struct CertaintyChangeReceipt {
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct RecordChange {
+    pub record_identifier: RecordIdentifier,
+    pub entry: Entry,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct RecordChangeReceipt {
+    pub record_identifier: RecordIdentifier,
+    pub database_marker: DatabaseMarker,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Query {
     pub topic_match: TopicMatch,
     pub kind: Option<Kind>,
@@ -498,7 +557,16 @@ pub type RecordSet = Vec<Entry>;
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub enum Kind {
     Decision,
     Principle,
@@ -509,7 +577,16 @@ pub enum Kind {
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 pub enum Magnitude {
     Zero,
     Minimum,
@@ -532,6 +609,7 @@ pub enum Input {
     Count(Count),
     Remove(Remove),
     ChangeCertainty(ChangeCertainty),
+    ChangeRecord(ChangeRecord),
     LookupStash(LookupStash),
     CollectRemovalCandidates(CollectRemovalCandidates),
     Tap(Tap),
@@ -550,6 +628,7 @@ pub enum Output {
     RecordsCounted(RecordsCounted),
     RecordRemoved(RecordRemoved),
     CertaintyChanged(CertaintyChanged),
+    RecordChanged(RecordChanged),
     RemovalCandidatesCollected(RemovalCandidatesCollected),
     ObservationTapped(ObservationTapped),
     ObservationUntapped(ObservationUntapped),
@@ -679,6 +758,9 @@ impl Input {
     pub fn change_certainty(payload: ChangeCertainty) -> Self {
         Self::ChangeCertainty(payload)
     }
+    pub fn change_record(payload: ChangeRecord) -> Self {
+        Self::ChangeRecord(payload)
+    }
     pub fn lookup_stash(payload: LookupStash) -> Self {
         Self::LookupStash(payload)
     }
@@ -718,6 +800,9 @@ impl Output {
     }
     pub fn certainty_changed(payload: CertaintyChanged) -> Self {
         Self::CertaintyChanged(payload)
+    }
+    pub fn record_changed(payload: RecordChanged) -> Self {
+        Self::RecordChanged(payload)
     }
     pub fn removal_candidates_collected(payload: RemovalCandidatesCollected) -> Self {
         Self::RemovalCandidatesCollected(payload)
@@ -927,8 +1012,8 @@ impl ValidationError {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
     }
 }
 
@@ -1015,8 +1100,8 @@ impl RemovalCandidateSkipReason {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
     }
 }
 
@@ -1048,8 +1133,8 @@ impl ObserverFilter {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
     }
 }
 
@@ -1081,8 +1166,8 @@ impl OperationKind {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
     }
 }
 
@@ -1143,6 +1228,28 @@ impl CertaintyChangeReceipt {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
+impl RecordChange {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl RecordChangeReceipt {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
 impl Query {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -1158,8 +1265,8 @@ impl Kind {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
     }
 }
 
@@ -1169,8 +1276,8 @@ impl Magnitude {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
     }
 }
 
@@ -1237,11 +1344,12 @@ pub mod short_header {
     pub const INPUT_COUNT: u64 = 0x0004000000000000;
     pub const INPUT_REMOVE: u64 = 0x0005000000000000;
     pub const INPUT_CHANGE_CERTAINTY: u64 = 0x0006000000000000;
-    pub const INPUT_LOOKUP_STASH: u64 = 0x0007000000000000;
-    pub const INPUT_COLLECT_REMOVAL_CANDIDATES: u64 = 0x0008000000000000;
-    pub const INPUT_TAP: u64 = 0x0009000000000000;
-    pub const INPUT_UNTAP: u64 = 0x000A000000000000;
-    pub const INPUT_SUBSCRIBE_INTENT: u64 = 0x000B000000000000;
+    pub const INPUT_CHANGE_RECORD: u64 = 0x0007000000000000;
+    pub const INPUT_LOOKUP_STASH: u64 = 0x0008000000000000;
+    pub const INPUT_COLLECT_REMOVAL_CANDIDATES: u64 = 0x0009000000000000;
+    pub const INPUT_TAP: u64 = 0x000A000000000000;
+    pub const INPUT_UNTAP: u64 = 0x000B000000000000;
+    pub const INPUT_SUBSCRIBE_INTENT: u64 = 0x000C000000000000;
     pub const OUTPUT_RECORD_ACCEPTED: u64 = 0x0100000000000000;
     pub const OUTPUT_RECORDS_OBSERVED: u64 = 0x0101000000000000;
     pub const OUTPUT_RECORDS_STASHED: u64 = 0x0102000000000000;
@@ -1249,13 +1357,14 @@ pub mod short_header {
     pub const OUTPUT_RECORDS_COUNTED: u64 = 0x0104000000000000;
     pub const OUTPUT_RECORD_REMOVED: u64 = 0x0105000000000000;
     pub const OUTPUT_CERTAINTY_CHANGED: u64 = 0x0106000000000000;
-    pub const OUTPUT_REMOVAL_CANDIDATES_COLLECTED: u64 = 0x0107000000000000;
-    pub const OUTPUT_OBSERVATION_TAPPED: u64 = 0x0108000000000000;
-    pub const OUTPUT_OBSERVATION_UNTAPPED: u64 = 0x0109000000000000;
-    pub const OUTPUT_SUBSCRIPTION_STARTED: u64 = 0x010A000000000000;
-    pub const OUTPUT_EVENT: u64 = 0x010B000000000000;
-    pub const OUTPUT_ERROR: u64 = 0x010C000000000000;
-    pub const OUTPUT_REJECTED: u64 = 0x010D000000000000;
+    pub const OUTPUT_RECORD_CHANGED: u64 = 0x0107000000000000;
+    pub const OUTPUT_REMOVAL_CANDIDATES_COLLECTED: u64 = 0x0108000000000000;
+    pub const OUTPUT_OBSERVATION_TAPPED: u64 = 0x0109000000000000;
+    pub const OUTPUT_OBSERVATION_UNTAPPED: u64 = 0x010A000000000000;
+    pub const OUTPUT_SUBSCRIPTION_STARTED: u64 = 0x010B000000000000;
+    pub const OUTPUT_EVENT: u64 = 0x010C000000000000;
+    pub const OUTPUT_ERROR: u64 = 0x010D000000000000;
+    pub const OUTPUT_REJECTED: u64 = 0x010E000000000000;
 }
 
 #[rustfmt::skip]
@@ -1313,6 +1422,7 @@ pub enum InputRoute {
     Count,
     Remove,
     ChangeCertainty,
+    ChangeRecord,
     LookupStash,
     CollectRemovalCandidates,
     Tap,
@@ -1340,6 +1450,7 @@ pub enum OutputRoute {
     RecordsCounted,
     RecordRemoved,
     CertaintyChanged,
+    RecordChanged,
     RemovalCandidatesCollected,
     ObservationTapped,
     ObservationUntapped,
@@ -1360,6 +1471,7 @@ impl Input {
             Self::Count(_) => InputRoute::Count,
             Self::Remove(_) => InputRoute::Remove,
             Self::ChangeCertainty(_) => InputRoute::ChangeCertainty,
+            Self::ChangeRecord(_) => InputRoute::ChangeRecord,
             Self::LookupStash(_) => InputRoute::LookupStash,
             Self::CollectRemovalCandidates(_) => InputRoute::CollectRemovalCandidates,
             Self::Tap(_) => InputRoute::Tap,
@@ -1376,6 +1488,7 @@ impl Input {
             Self::Count(_) => short_header::INPUT_COUNT,
             Self::Remove(_) => short_header::INPUT_REMOVE,
             Self::ChangeCertainty(_) => short_header::INPUT_CHANGE_CERTAINTY,
+            Self::ChangeRecord(_) => short_header::INPUT_CHANGE_RECORD,
             Self::LookupStash(_) => short_header::INPUT_LOOKUP_STASH,
             Self::CollectRemovalCandidates(_) => {
                 short_header::INPUT_COLLECT_REMOVAL_CANDIDATES
@@ -1394,6 +1507,7 @@ impl Input {
             short_header::INPUT_COUNT => Ok(InputRoute::Count),
             short_header::INPUT_REMOVE => Ok(InputRoute::Remove),
             short_header::INPUT_CHANGE_CERTAINTY => Ok(InputRoute::ChangeCertainty),
+            short_header::INPUT_CHANGE_RECORD => Ok(InputRoute::ChangeRecord),
             short_header::INPUT_LOOKUP_STASH => Ok(InputRoute::LookupStash),
             short_header::INPUT_COLLECT_REMOVAL_CANDIDATES => {
                 Ok(InputRoute::CollectRemovalCandidates)
@@ -1458,6 +1572,7 @@ impl Output {
             Self::RecordsCounted(_) => OutputRoute::RecordsCounted,
             Self::RecordRemoved(_) => OutputRoute::RecordRemoved,
             Self::CertaintyChanged(_) => OutputRoute::CertaintyChanged,
+            Self::RecordChanged(_) => OutputRoute::RecordChanged,
             Self::RemovalCandidatesCollected(_) => {
                 OutputRoute::RemovalCandidatesCollected
             }
@@ -1478,6 +1593,7 @@ impl Output {
             Self::RecordsCounted(_) => short_header::OUTPUT_RECORDS_COUNTED,
             Self::RecordRemoved(_) => short_header::OUTPUT_RECORD_REMOVED,
             Self::CertaintyChanged(_) => short_header::OUTPUT_CERTAINTY_CHANGED,
+            Self::RecordChanged(_) => short_header::OUTPUT_RECORD_CHANGED,
             Self::RemovalCandidatesCollected(_) => {
                 short_header::OUTPUT_REMOVAL_CANDIDATES_COLLECTED
             }
@@ -1500,6 +1616,7 @@ impl Output {
             short_header::OUTPUT_RECORDS_COUNTED => Ok(OutputRoute::RecordsCounted),
             short_header::OUTPUT_RECORD_REMOVED => Ok(OutputRoute::RecordRemoved),
             short_header::OUTPUT_CERTAINTY_CHANGED => Ok(OutputRoute::CertaintyChanged),
+            short_header::OUTPUT_RECORD_CHANGED => Ok(OutputRoute::RecordChanged),
             short_header::OUTPUT_REMOVAL_CANDIDATES_COLLECTED => {
                 Ok(OutputRoute::RemovalCandidatesCollected)
             }
@@ -1562,6 +1679,24 @@ impl Output {
 #[rustfmt::skip]
 impl signal_frame::RequestPayload for Input {}
 #[rustfmt::skip]
+impl signal_frame::SignalOperationHeads for Input {
+    const HEADS: &'static [&'static str] = &[
+        "State",
+        "Record",
+        "Observe",
+        "Lookup",
+        "Count",
+        "Remove",
+        "ChangeCertainty",
+        "ChangeRecord",
+        "LookupStash",
+        "CollectRemovalCandidates",
+        "Tap",
+        "Untap",
+        "SubscribeIntent",
+    ];
+}
+#[rustfmt::skip]
 impl signal_frame::LogVariant for Input {
     fn log_variant(&self) -> u64 {
         self.short_header()
@@ -1607,6 +1742,7 @@ impl Output {
         )
     }
 }
+
 #[rustfmt::skip]
 impl IntentEvent {
     pub fn into_subscription_frame(
@@ -1660,6 +1796,7 @@ impl SignalObjectName {
                     InputRoute::Count => "SignalInputCount",
                     InputRoute::Remove => "SignalInputRemove",
                     InputRoute::ChangeCertainty => "SignalInputChangeCertainty",
+                    InputRoute::ChangeRecord => "SignalInputChangeRecord",
                     InputRoute::LookupStash => "SignalInputLookupStash",
                     InputRoute::CollectRemovalCandidates => {
                         "SignalInputCollectRemovalCandidates"
@@ -1678,6 +1815,7 @@ impl SignalObjectName {
                     OutputRoute::RecordsCounted => "SignalOutputRecordsCounted",
                     OutputRoute::RecordRemoved => "SignalOutputRecordRemoved",
                     OutputRoute::CertaintyChanged => "SignalOutputCertaintyChanged",
+                    OutputRoute::RecordChanged => "SignalOutputRecordChanged",
                     OutputRoute::RemovalCandidatesCollected => {
                         "SignalOutputRemovalCandidatesCollected"
                     }

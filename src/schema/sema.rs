@@ -18,11 +18,15 @@ pub use crate::schema::signal::RecordIdentifier as RecordIdentifier;
 #[rustfmt::skip]
 pub use crate::schema::signal::CertaintyChange as CertaintyChange;
 #[rustfmt::skip]
+pub use crate::schema::signal::RecordChange as RecordChange;
+#[rustfmt::skip]
 pub use crate::schema::signal::SemaReceipt as SemaReceipt;
 #[rustfmt::skip]
 pub use crate::schema::signal::RemoveReceipt as RemoveReceipt;
 #[rustfmt::skip]
 pub use crate::schema::signal::CertaintyChangeReceipt as CertaintyChangeReceipt;
+#[rustfmt::skip]
+pub use crate::schema::signal::RecordChangeReceipt as RecordChangeReceipt;
 #[rustfmt::skip]
 pub use crate::schema::signal::ObservedRecords as ObservedRecords;
 #[rustfmt::skip]
@@ -43,6 +47,7 @@ pub enum WriteInput {
     Record(Record),
     Remove(Remove),
     ChangeCertainty(ChangeCertainty),
+    ChangeRecord(ChangeRecord),
 }
 
 #[rustfmt::skip]
@@ -53,6 +58,9 @@ pub type Remove = RecordIdentifier;
 
 #[rustfmt::skip]
 pub type ChangeCertainty = CertaintyChange;
+
+#[rustfmt::skip]
+pub type ChangeRecord = RecordChange;
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -79,6 +87,7 @@ pub enum WriteOutput {
     Recorded(Recorded),
     Removed(Removed),
     CertaintyChanged(CertaintyChanged),
+    RecordChanged(RecordChanged),
     Missed(Missed),
 }
 
@@ -90,6 +99,9 @@ pub type Removed = RemoveReceipt;
 
 #[rustfmt::skip]
 pub type CertaintyChanged = CertaintyChangeReceipt;
+
+#[rustfmt::skip]
+pub type RecordChanged = RecordChangeReceipt;
 
 #[rustfmt::skip]
 pub type Missed = ErrorReport;
@@ -140,6 +152,9 @@ impl WriteInput {
     pub fn change_certainty(payload: ChangeCertainty) -> Self {
         Self::ChangeCertainty(payload)
     }
+    pub fn change_record(payload: ChangeRecord) -> Self {
+        Self::ChangeRecord(payload)
+    }
 }
 
 #[rustfmt::skip]
@@ -165,6 +180,9 @@ impl WriteOutput {
     }
     pub fn certainty_changed(payload: CertaintyChanged) -> Self {
         Self::CertaintyChanged(payload)
+    }
+    pub fn record_changed(payload: RecordChanged) -> Self {
+        Self::RecordChanged(payload)
     }
     pub fn missed(payload: Missed) -> Self {
         Self::Missed(payload)
@@ -349,6 +367,7 @@ pub enum WriteInputRoute {
     Record,
     Remove,
     ChangeCertainty,
+    ChangeRecord,
 }
 
 #[rustfmt::skip]
@@ -358,6 +377,7 @@ impl WriteInput {
             Self::Record(_) => WriteInputRoute::Record,
             Self::Remove(_) => WriteInputRoute::Remove,
             Self::ChangeCertainty(_) => WriteInputRoute::ChangeCertainty,
+            Self::ChangeRecord(_) => WriteInputRoute::ChangeRecord,
         }
     }
 }
@@ -407,6 +427,7 @@ pub enum WriteOutputRoute {
     Recorded,
     Removed,
     CertaintyChanged,
+    RecordChanged,
     Missed,
 }
 
@@ -417,6 +438,7 @@ impl WriteOutput {
             Self::Recorded(_) => WriteOutputRoute::Recorded,
             Self::Removed(_) => WriteOutputRoute::Removed,
             Self::CertaintyChanged(_) => WriteOutputRoute::CertaintyChanged,
+            Self::RecordChanged(_) => WriteOutputRoute::RecordChanged,
             Self::Missed(_) => WriteOutputRoute::Missed,
         }
     }
@@ -484,6 +506,7 @@ impl SemaObjectName {
                     WriteInputRoute::Record => "SemaWriteInputRecord",
                     WriteInputRoute::Remove => "SemaWriteInputRemove",
                     WriteInputRoute::ChangeCertainty => "SemaWriteInputChangeCertainty",
+                    WriteInputRoute::ChangeRecord => "SemaWriteInputChangeRecord",
                 }
             }
             Self::ReadInput(route) => {
@@ -500,6 +523,7 @@ impl SemaObjectName {
                     WriteOutputRoute::CertaintyChanged => {
                         "SemaWriteOutputCertaintyChanged"
                     }
+                    WriteOutputRoute::RecordChanged => "SemaWriteOutputRecordChanged",
                     WriteOutputRoute::Missed => "SemaWriteOutputMissed",
                 }
             }

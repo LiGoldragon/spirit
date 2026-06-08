@@ -5,7 +5,7 @@
 //! shape is schema files driving Nix-built binaries that the test
 //! launches and exchanges real rkyv signal frames with over a real
 //! Unix socket. Every component — `spirit` (CLI), `spirit-
-//! daemon` (daemon, holds the SignalActor + Engine + Store triad) — is
+//! daemon` (daemon, holds the SignalAdmission + Engine + Store triad) — is
 //! the SAME schema-emitted code path the runtime uses.
 //!
 //! ## Discipline
@@ -48,12 +48,12 @@
 //!
 //! - `nix_built_spirit_cli_records_through_real_socket_to_nix_built_daemon`
 //!   — happy-path Record traverses CLI binary → Unix socket → daemon
-//!   binary → SignalActor → Engine → Store, returning `RecordAccepted`.
+//!   binary → SignalAdmission → Engine → Store, returning `RecordAccepted`.
 //!   The test parses the CLI's stdout back through the schema-emitted
 //!   `Output::FromStr` and matches typed variants.
 //!
 //! - `nix_built_daemon_rejects_invalid_input_through_schema_emitted_rejection`
-//!   — invalid Input is rejected by `SignalActor::admit` and the
+//!   — invalid Input is rejected by `SignalAdmission::admit` and the
 //!   schema-emitted `SignalRejection` flows back to the CLI through
 //!   the rkyv signal frame.
 //!
@@ -164,11 +164,10 @@ impl NixBuiltBinaries {
         }
     }
 
-    /// Run `nix build` against the workspace flake — the same path
-    /// `scripts/check-local-schema-stack` uses, with the same local
-    /// schema-stack overrides so the build picks up the workspace's
-    /// upstream checkouts of `nota-next`/`schema-next`/`schema-rust-next`
-    /// rather than the pinned remote revisions.
+    /// Run `nix build` against the workspace flake. Present local dependency
+    /// checkouts are passed as `path:` overrides so in-flight stack work is
+    /// exercised; missing default checkouts are skipped so a clean machine can
+    /// still verify the packaged binary against the flake pins.
     fn nix_build() -> PathBuf {
         let repo_root = repo_root();
         let temp_link = repo_root.join("target").join("nix-integration-result");
@@ -179,6 +178,8 @@ impl NixBuiltBinaries {
         let mut command = Command::new("nix");
         command
             .arg("build")
+            .arg("--log-format")
+            .arg("bar-with-logs")
             .arg("--print-out-paths")
             .arg("--no-link");
         for (input, path) in nix_input_overrides() {
@@ -208,8 +209,14 @@ fn repo_root() -> PathBuf {
 }
 
 fn nix_input_overrides() -> Vec<(&'static str, String)> {
-    let workspace_default = |name: &str, env_key: &str| -> String {
-        env::var(env_key).unwrap_or_else(|_| format!("/git/github.com/LiGoldragon/{name}"))
+    let workspace_default = |name: &str, env_key: &str| -> Option<String> {
+        match env::var(env_key) {
+            Ok(path) => Some(path),
+            Err(_) => {
+                let path = PathBuf::from(format!("/git/github.com/LiGoldragon/{name}"));
+                path.exists().then(|| path.display().to_string())
+            }
+        }
     };
     vec![
         (
@@ -256,7 +263,7 @@ fn nix_input_overrides() -> Vec<(&'static str, String)> {
         ),
     ]
     .into_iter()
-    .map(|(input, path)| (input, format!("path:{path}")))
+    .filter_map(|(input, path)| path.map(|path| (input, format!("path:{path}"))))
     .collect()
 }
 
@@ -403,7 +410,7 @@ fn nix_build_default_package_emits_both_binaries() {
 fn nix_built_spirit_cli_records_through_real_socket_to_nix_built_daemon() {
     // PATTERN: Record path end-to-end through the actual binaries Nix
     // built. The CLI binary opens a Unix socket to the daemon binary,
-    // sends an rkyv-encoded signal frame, the daemon's SignalActor +
+    // sends an rkyv-encoded signal frame, the daemon's SignalAdmission +
     // Engine + Store triad runs, the schema-emitted SemaReceipt comes
     // back through the reverse plane chain, the CLI writes the NOTA
     // round-trip to stdout, and we parse it back into the schema-
@@ -431,7 +438,7 @@ fn nix_built_spirit_cli_records_through_real_socket_to_nix_built_daemon() {
 #[ignore = "invokes nix build; run via cargo test --test nix_integration -- --ignored"]
 fn nix_built_daemon_rejects_invalid_input_through_schema_emitted_rejection() {
     // PATTERN: invalid Input — empty topic — fails `Entry::validate`
-    // inside SignalActor::admit on the Nix-built daemon. The reply is
+    // inside SignalAdmission::admit on the Nix-built daemon. The reply is
     // the schema-emitted `SignalRejection` variant carrying the schema-
     // emitted `ValidationError::EmptyTopic`. The CLI prints the
     // schema-emitted NOTA round-trip; we parse it back through

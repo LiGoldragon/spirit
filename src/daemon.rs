@@ -14,8 +14,8 @@
 use thiserror::Error;
 use tokio::io::AsyncWriteExt;
 use triad_runtime::{
-    AcceptedConnection, FrameBody as LengthPrefixedFrameBody, FrameError, LengthPrefixedCodec,
-    ListenerError,
+    AcceptedConnection, EngineRequestError, FrameBody as LengthPrefixedFrameBody, FrameError,
+    LengthPrefixedCodec, ListenerError,
 };
 
 use crate::{
@@ -75,11 +75,14 @@ pub enum SpiritDaemonError {
     #[error("daemon sema store error: {0}")]
     Store(#[from] StoreError),
 
-    #[error("daemon actor start error: {0}")]
+    #[error("daemon engine start error: {0}")]
     EngineStart(#[from] EngineStartFailure),
 
-    #[error("daemon actor stop error: {0}")]
+    #[error("daemon engine stop error: {0}")]
     EngineStop(#[from] EngineStopFailure),
+
+    #[error("daemon engine request error: {0}")]
+    EngineRequest(#[from] EngineRequestError),
 }
 
 impl ComponentDaemon for SpiritDaemon {
@@ -99,33 +102,34 @@ impl ComponentDaemon for SpiritDaemon {
         Configuration::from_binary_path(path)
     }
 
+    /// Open the engine and run its lifecycle start hooks. Engine startup needs
+    /// exclusive `&mut` access (the SEMA → Nexus → Signal `on_start` chain), so
+    /// it runs here at owned construction — before the engine is handed to the
+    /// schema-emitted `EngineActor`, whose mailbox serialises every later
+    /// request behind a shared `ActorRef`. The emitted `ComponentDaemon::start`
+    /// / `stop` hooks take a shared `&Self::Engine` and stay the trait no-op
+    /// default; the durable SEMA store releases on engine drop at shutdown.
     fn build_runtime(configuration: &Self::Configuration) -> Result<Self::Engine, Self::Error> {
         #[cfg(feature = "testing-trace")]
-        {
+        let mut engine = {
             let trace_log = configuration
                 .trace_socket_path()
                 .map(TraceLog::socket)
                 .unwrap_or_default();
             let store = Store::open_with_trace(configuration.database_path(), trace_log.clone())?;
-            Ok(Engine::new_with_trace(store, trace_log))
-        }
+            Engine::new_with_trace(store, trace_log)
+        };
         #[cfg(not(feature = "testing-trace"))]
-        {
+        let mut engine = {
             let store = Store::open(configuration.database_path())?;
-            Ok(Engine::new(store))
-        }
-    }
-
-    fn start(engine: &Self::Engine) -> Result<(), Self::Error> {
-        engine.start().map_err(Self::Error::from)
-    }
-
-    fn stop(engine: &Self::Engine) -> Result<(), Self::Error> {
-        engine.stop().map_err(Self::Error::from)
+            Engine::new(store)
+        };
+        engine.start().map_err(Self::Error::from)?;
+        Ok(engine)
     }
 
     async fn handle_working_input(
-        engine: &Self::Engine,
+        engine: &mut Self::Engine,
         input: Input,
         _connection: &triad_runtime::ConnectionContext,
     ) -> Result<Output, Self::Error> {
@@ -137,7 +141,7 @@ impl ComponentDaemon for SpiritDaemon {
     /// log write), and write the `Configured` / `Rejected` meta `Output` back.
     /// `Configure` is request/reply, not a stream — no subscription handling.
     async fn handle_meta_connection(
-        engine: &Self::Engine,
+        engine: &mut Self::Engine,
         mut connection: AcceptedConnection,
     ) -> Result<(), Self::Error> {
         let frame = LengthPrefixedCodec::default()
@@ -171,6 +175,7 @@ impl ComponentDaemon for SpiritDaemon {
             | Input::Count(_)
             | Input::Remove(_)
             | Input::ChangeCertainty(_)
+            | Input::ChangeRecord(_)
             | Input::LookupStash(_)
             | Input::CollectRemovalCandidates(_)
             | Input::Tap(_)

@@ -39,14 +39,14 @@ fn observe_query() -> Query {
 fn engine() -> (TempDir, Engine) {
     let temp = TempDir::new().expect("tempdir");
     let database = temp.path().join("observer-tap.sema");
-    let engine = Engine::new(Store::open(&database).expect("open store"));
+    let mut engine = Engine::new(Store::open(&database).expect("open store"));
     engine.start().expect("engine start");
     (temp, engine)
 }
 
 #[test]
 fn tap_returns_the_operations_observed_so_far() {
-    let (_temp, engine) = engine();
+    let (_temp, mut engine) = engine();
 
     // Drive a few working operations; each is recorded in the observer log.
     let _ = engine
@@ -75,7 +75,7 @@ fn tap_returns_the_operations_observed_so_far() {
     let kinds: Vec<OperationKind> = subscription
         .observed_operations
         .iter()
-        .map(|operation| operation.0.clone())
+        .map(|operation| operation.0)
         .collect();
     assert_eq!(
         kinds,
@@ -91,7 +91,7 @@ fn tap_returns_the_operations_observed_so_far() {
 
 #[test]
 fn untap_retires_the_subscription_and_returns_its_observations() {
-    let (_temp, engine) = engine();
+    let (_temp, mut engine) = engine();
 
     let _ = engine.handle(Input::Record(entry("intent"))).into_root();
     let tapped = engine
@@ -125,7 +125,7 @@ fn untap_retires_the_subscription_and_returns_its_observations() {
 
 #[test]
 fn effects_only_filter_observes_no_operations() {
-    let (_temp, engine) = engine();
+    let (_temp, mut engine) = engine();
 
     let _ = engine.handle(Input::Record(entry("intent"))).into_root();
 

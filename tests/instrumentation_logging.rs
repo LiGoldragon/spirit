@@ -43,7 +43,7 @@ fn entry(description: &str) -> Entry {
 fn testing_trace_records_real_signal_nexus_and_sema_activations() {
     let sema = SemaFile::new();
     let trace_log = TraceLog::recording();
-    let engine = sema.engine_with_trace(trace_log.clone());
+    let mut engine = sema.engine_with_trace(trace_log.clone());
 
     let recorded = engine.handle(Input::Record(entry("trace witness")));
     let record_marker = match recorded.root() {
@@ -123,7 +123,7 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
 fn testing_trace_records_lifecycle_hooks_from_generated_engine_traits() {
     let sema = SemaFile::new();
     let trace_log = TraceLog::recording();
-    let engine = sema.engine_with_trace(trace_log.clone());
+    let mut engine = sema.engine_with_trace(trace_log.clone());
 
     engine.start().expect("start lifecycle hooks run");
     engine.stop().expect("stop lifecycle hooks run");
@@ -155,7 +155,7 @@ fn testing_trace_records_lifecycle_hooks_from_generated_engine_traits() {
 #[test]
 fn testing_trace_builds_record_activations_by_default() {
     let sema = SemaFile::new();
-    let engine = Engine::new(Store::open(&sema.path).expect("open sema store"));
+    let mut engine = Engine::new(Store::open(&sema.path).expect("open sema store"));
 
     let output = engine.handle(Input::Record(entry("default trace witness")));
     assert!(matches!(output.root(), Output::RecordAccepted(_)));
@@ -177,7 +177,7 @@ fn testing_trace_builds_record_activations_by_default() {
 fn testing_trace_records_signal_rejection_without_nexus_or_sema_activations() {
     let sema = SemaFile::new();
     let trace_log = TraceLog::recording();
-    let engine = sema.engine_with_trace(trace_log.clone());
+    let mut engine = sema.engine_with_trace(trace_log.clone());
 
     let mut invalid_entry = entry("invalid trace witness");
     invalid_entry.topics = vec![];
