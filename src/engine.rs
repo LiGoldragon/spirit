@@ -1,4 +1,6 @@
-use std::{convert::Infallible, sync::Mutex};
+use std::{convert::Infallible, sync::Mutex as StdMutex};
+
+use tokio::sync::Mutex;
 
 use crate::{
     nexus::Nexus,
@@ -38,8 +40,8 @@ pub struct Engine {
 
 #[derive(Debug, Default)]
 pub struct SignalActor {
-    next_message_identifier: Mutex<Integer>,
-    next_origin_route: Mutex<Integer>,
+    next_message_identifier: StdMutex<Integer>,
+    next_origin_route: StdMutex<Integer>,
     #[cfg(feature = "testing-trace")]
     trace_log: TraceLog,
 }
@@ -58,7 +60,7 @@ pub struct SignalRejected {
 
 #[derive(Debug, Default)]
 pub struct MailLedger {
-    events: Mutex<Vec<MailLedgerEvent>>,
+    events: StdMutex<Vec<MailLedgerEvent>>,
 }
 
 #[derive(Debug)]
@@ -96,17 +98,23 @@ impl Engine {
         self.trace_log.events()
     }
 
-    pub fn start(&mut self) -> Result<(), ActorStartFailure> {
+    pub fn start(&self) -> Result<(), ActorStartFailure> {
         {
-            let mut nexus = self.nexus.lock().expect("nexus lock");
+            let mut nexus = self
+                .nexus
+                .try_lock()
+                .map_err(|_| ActorStartFailure::ResourceBusy(String::from("nexus startup lock")))?;
             NexusEngine::on_start(&mut *nexus)?;
         }
-        SignalEngine::on_start(&mut self.signal_actor)
+        self.signal_actor.start()
     }
 
-    pub fn stop(&mut self) -> Result<(), ActorStopFailure> {
-        SignalEngine::on_stop(&mut self.signal_actor)?;
-        let mut nexus = self.nexus.lock().expect("nexus lock");
+    pub fn stop(&self) -> Result<(), ActorStopFailure> {
+        self.signal_actor.stop()?;
+        let mut nexus = self
+            .nexus
+            .try_lock()
+            .map_err(|_| ActorStopFailure::ResourceLocked(String::from("nexus shutdown lock")))?;
         NexusEngine::on_stop(&mut *nexus)?;
         Ok(())
     }
@@ -119,10 +127,18 @@ impl Engine {
     /// sent hook fires at the Signal→Nexus handoff; the processed hook
     /// fires after the NexusEngine returns its reply.
     pub fn handle(&self, input: Input) -> signal_schema::signal::Signal<Output> {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("spirit sync handle runtime")
+            .block_on(self.handle_async(input))
+    }
+
+    pub async fn handle_async(&self, input: Input) -> signal_schema::signal::Signal<Output> {
         let accepted = match self.signal_actor.admit(input) {
             Ok(accepted) => accepted,
             Err(rejected) => {
-                let output = rejected.into_signal_output(self.database_marker());
+                let output = rejected.into_signal_output(self.database_marker_async().await);
                 #[cfg(feature = "testing-trace")]
                 self.signal_actor.trace_signal_rejected();
                 #[cfg(feature = "testing-trace")]
@@ -130,40 +146,38 @@ impl Engine {
                 return output;
             }
         };
-        let mut nexus = self.nexus.lock().expect("nexus lock");
-        accepted.process_with(&self.signal_actor, &mut nexus)
+        let mut nexus = self.nexus.lock().await;
+        accepted.process_with(&self.signal_actor, &mut nexus).await
     }
 
     pub fn record_count(&self) -> usize {
-        self.nexus.lock().expect("nexus lock").store().len()
+        self.nexus.blocking_lock().store().len()
     }
 
     pub fn sent_message_count(&self) -> usize {
         self.nexus
-            .lock()
-            .expect("nexus lock")
+            .blocking_lock()
             .mail_ledger()
             .sent_message_count()
     }
 
     pub fn processed_message_count(&self) -> usize {
         self.nexus
-            .lock()
-            .expect("nexus lock")
+            .blocking_lock()
             .mail_ledger()
             .processed_message_count()
     }
 
     pub fn mail_ledger(&self) -> Vec<MailLedgerEvent> {
-        self.nexus
-            .lock()
-            .expect("nexus lock")
-            .mail_ledger()
-            .events()
+        self.nexus.blocking_lock().mail_ledger().events()
     }
 
     pub fn database_marker(&self) -> DatabaseMarker {
-        self.nexus.lock().expect("nexus lock").database_marker()
+        self.nexus.blocking_lock().database_marker()
+    }
+
+    pub async fn database_marker_async(&self) -> DatabaseMarker {
+        self.nexus.lock().await.database_marker()
     }
 
     /// Apply an owner-only meta `Configure` request: store WHERE the SEPARATE
@@ -181,8 +195,16 @@ impl Engine {
     /// `ConfigureRejection` / `ArchiveTargetUnwritable` arm of the contract is
     /// reserved for a future eager-validation policy.
     pub fn configure(&self, request: ConfigureRequest) -> MetaOutput {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("spirit sync configure runtime")
+            .block_on(self.configure_async(request))
+    }
+
+    pub async fn configure_async(&self, request: ConfigureRequest) -> MetaOutput {
         let archive_database_target = request.into_payload();
-        let mut nexus = self.nexus.lock().expect("nexus lock");
+        let mut nexus = self.nexus.lock().await;
         nexus.set_archive_target(archive_database_target.clone());
         MetaOutput::configured(ConfigureReceipt {
             archive_database_target,
@@ -194,10 +216,18 @@ impl Engine {
         &self,
         receipt: &SemaReceipt,
     ) -> Result<Option<IntentEvent>, StoreError> {
-        self.nexus
-            .lock()
-            .expect("nexus lock")
-            .intent_recorded_event(receipt)
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("spirit sync intent event runtime")
+            .block_on(self.intent_recorded_event_async(receipt))
+    }
+
+    pub async fn intent_recorded_event_async(
+        &self,
+        receipt: &SemaReceipt,
+    ) -> Result<Option<IntentEvent>, StoreError> {
+        self.nexus.lock().await.intent_recorded_event(receipt)
     }
 }
 
@@ -208,6 +238,18 @@ impl SignalActor {
             trace_log,
             ..Self::default()
         }
+    }
+
+    pub fn start(&self) -> Result<(), ActorStartFailure> {
+        #[cfg(feature = "testing-trace")]
+        self.trace_signal_activation(SignalObjectName::Started);
+        Ok(())
+    }
+
+    pub fn stop(&self) -> Result<(), ActorStopFailure> {
+        #[cfg(feature = "testing-trace")]
+        self.trace_signal_activation(SignalObjectName::Stopped);
+        Ok(())
     }
 
     /// Admit a wire Input: mint the origin route, issue a message
@@ -251,15 +293,11 @@ impl SignalEngine for SignalActor {
     type NexusOutput = nexus_schema::nexus::Nexus<NexusAction>;
 
     fn on_start(&mut self) -> Result<(), ActorStartFailure> {
-        #[cfg(feature = "testing-trace")]
-        self.trace_signal_activation(SignalObjectName::Started);
-        Ok(())
+        self.start()
     }
 
     fn on_stop(&mut self) -> Result<(), ActorStopFailure> {
-        #[cfg(feature = "testing-trace")]
-        self.trace_signal_activation(SignalObjectName::Stopped);
-        Ok(())
+        self.stop()
     }
 
     #[cfg(feature = "testing-trace")]
@@ -304,7 +342,7 @@ impl SignalAccepted {
     /// returns and before Signal frames the reply. The `&mut Nexus`
     /// exclusive borrow held across `NexusEngine::execute` is the
     /// single-flight guard.
-    pub fn process_with<Signal>(
+    pub async fn process_with<Signal>(
         self,
         signal_engine: &Signal,
         nexus: &mut Nexus,
@@ -321,7 +359,7 @@ impl SignalAccepted {
         let identifier = self.identifier();
         let nexus_input = signal_engine.triage(self.input);
         let origin_route = nexus_input.origin_route();
-        let nexus_output = NexusEngine::execute(nexus, nexus_input);
+        let nexus_output = NexusEngine::execute(nexus, nexus_input).await;
         let signal_output = signal_engine.reply(nexus_output);
         MessageProcessed::new(
             identifier,

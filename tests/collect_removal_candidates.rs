@@ -49,7 +49,7 @@ fn collect_removal_candidates_archives_to_separate_db_and_removes_from_live() {
     let live_database = temp.path().join("live.sema");
     let archive_database = temp.path().join("archive.sema");
 
-    let mut engine = Engine::new(Store::open(&live_database).expect("open live store"));
+    let engine = Engine::new(Store::open(&live_database).expect("open live store"));
     engine.start().expect("engine start");
 
     // OWNER configures WHERE the separate archive database lives.
@@ -103,16 +103,23 @@ fn collect_removal_candidates_archives_to_separate_db_and_removes_from_live() {
     );
 
     // REMOVED FROM LIVE: the stale record is gone, the keep record remains.
-    let stale_observe = engine.handle(Input::Observe(topic_query("stale"))).into_root();
+    let stale_observe = engine
+        .handle(Input::Observe(topic_query("stale")))
+        .into_root();
     assert!(
         matches!(stale_observe, Output::Error(_)),
         "the stale record is gone from the live log (no matching record), got {stale_observe:?}"
     );
-    let keep_observe = engine.handle(Input::Observe(topic_query("keep"))).into_root();
+    let keep_observe = engine
+        .handle(Input::Observe(topic_query("keep")))
+        .into_root();
     let Output::RecordsStashed(kept) = keep_observe else {
         panic!("the keep record still serves from the live log, got {keep_observe:?}")
     };
-    assert_eq!(kept.record_count, 1, "the keep record stayed in the live log");
+    assert_eq!(
+        kept.record_count, 1,
+        "the keep record stayed in the live log"
+    );
 
     // ARCHIVE-TO-SEPARATE-DB: the archive database is a distinct file holding
     // the archived record. Reopening it as a store shows exactly one record.
@@ -140,7 +147,7 @@ fn collect_removal_candidates_with_no_matches_archives_nothing() {
     let live_database = temp.path().join("live.sema");
     let archive_database = temp.path().join("archive.sema");
 
-    let mut engine = Engine::new(Store::open(&live_database).expect("open live store"));
+    let engine = Engine::new(Store::open(&live_database).expect("open live store"));
     engine.start().expect("engine start");
     let archive_target =
         ArchiveDatabaseTarget::path(archive_database.to_string_lossy().into_owned());
@@ -165,11 +172,16 @@ fn collect_removal_candidates_with_no_matches_archives_nothing() {
     );
 
     // The keep record is untouched in the live log.
-    let keep_observe = engine.handle(Input::Observe(topic_query("keep"))).into_root();
+    let keep_observe = engine
+        .handle(Input::Observe(topic_query("keep")))
+        .into_root();
     let Output::RecordsStashed(kept) = keep_observe else {
         panic!("the keep record still serves from the live log, got {keep_observe:?}")
     };
-    assert_eq!(kept.record_count, 1, "the keep record stayed in the live log");
+    assert_eq!(
+        kept.record_count, 1,
+        "the keep record stayed in the live log"
+    );
 
     engine.stop().expect("engine stop");
 }

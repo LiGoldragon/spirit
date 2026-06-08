@@ -29,7 +29,8 @@ impl TemporaryConfiguration {
     }
 
     fn write_configuration(&self) -> Configuration {
-        let configuration = Configuration::new(self.socket_path(), self.database_path());
+        let configuration = Configuration::new(self.socket_path(), self.database_path())
+            .with_meta_socket_path(self.meta_socket_path());
         configuration
             .write_binary_file(self.configuration_path())
             .expect("write binary configuration");
@@ -38,7 +39,7 @@ impl TemporaryConfiguration {
 }
 
 #[test]
-fn daemon_configuration_carries_optional_meta_socket_slot() {
+fn daemon_configuration_carries_meta_socket_slot() {
     let temporary_configuration = TemporaryConfiguration::new();
     let meta_socket_path = temporary_configuration.meta_socket_path();
     let configuration = Configuration::new(

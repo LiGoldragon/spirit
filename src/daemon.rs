@@ -1,23 +1,26 @@
 //! Spirit's daemon hooks — the only daemon code spirit hand-writes.
 //!
-//! The uniform daemon skeleton (the `DaemonCommand` argv parsing, the decode ->
-//! execute -> encode spine, the `{Single,Multi}ListenerDaemon` selection, the
-//! option-B subscription registry + publish wiring, and the `ExitReport`-based
-//! entry) is EMITTED into `src/schema/daemon.rs` by schema-rust-next's daemon
-//! emitter, driven by the `NexusDaemonShape` in `build.rs`. Spirit fills only
-//! the record-1488 escape hatches through `impl ComponentDaemon for
-//! SpiritDaemon`: how to load its `Configuration`, how to open its Store/Engine
-//! (`build_runtime`), how one working `Input` becomes one `Output`, the
-//! owner-only meta escape hatch, and the stream filter + event policy.
-
-use std::os::unix::net::UnixStream;
+//! The uniform daemon skeleton (the `DaemonCommand` argv parsing, actor-native
+//! multi-listener binding, accepted-connection context, decode -> execute ->
+//! encode spine, emitted subscription registry + retained-writer publish
+//! wiring, and `ExitReport`-based entry) is emitted into
+//! `src/schema/daemon.rs` by schema-rust-next's daemon emitter. Spirit fills
+//! only the record-1488 escape hatches through `impl ComponentDaemon for
+//! SpiritDaemon`: how to load its binary `Configuration`, how to open its
+//! Store/Engine (`build_runtime`), how one working `Input` becomes one
+//! `Output`, the owner-only meta request hook, and the stream filter + event
+//! policy.
 
 use thiserror::Error;
-use triad_runtime::{FrameError, ListenerError};
+use tokio::io::AsyncWriteExt;
+use triad_runtime::{
+    AcceptedConnection, FrameBody as LengthPrefixedFrameBody, FrameError, LengthPrefixedCodec,
+    ListenerError,
+};
 
 use crate::{
     Configuration, ConfigurationError, Engine, StoreError,
-    meta_transport::{MetaInput, MetaSignalTransport, MetaTransportError},
+    meta_transport::{MetaFrameError, MetaInput, MetaTransportError},
     schema::daemon::{ComponentDaemon, DaemonBinder, DaemonError},
     schema::signal::{
         ActorStartFailure, ActorStopFailure, Input, IntentEvent, Output, Query, SignalFrameError,
@@ -57,11 +60,17 @@ pub enum SpiritDaemonError {
     #[error("daemon signal frame error: {0}")]
     SignalFrame(#[from] SignalFrameError),
 
+    #[error("daemon stream frame error: {0}")]
+    StreamFrame(#[from] signal_frame::FrameError),
+
     #[error("daemon transport error: {0}")]
     Transport(#[from] TransportError),
 
     #[error("daemon meta transport error: {0}")]
     MetaTransport(#[from] MetaTransportError),
+
+    #[error("daemon meta frame error: {0}")]
+    MetaFrame(#[from] MetaFrameError),
 
     #[error("daemon sema store error: {0}")]
     Store(#[from] StoreError),
@@ -107,32 +116,48 @@ impl ComponentDaemon for SpiritDaemon {
         }
     }
 
-    fn start(engine: &mut Self::Engine) -> Result<(), Self::Error> {
+    fn start(engine: &Self::Engine) -> Result<(), Self::Error> {
         engine.start().map_err(Self::Error::from)
     }
 
-    fn stop(engine: &mut Self::Engine) -> Result<(), Self::Error> {
+    fn stop(engine: &Self::Engine) -> Result<(), Self::Error> {
         engine.stop().map_err(Self::Error::from)
     }
 
-    fn handle_working_input(
+    async fn handle_working_input(
         engine: &Self::Engine,
         input: Input,
         _connection: &triad_runtime::ConnectionContext,
     ) -> Result<Output, Self::Error> {
-        Ok(engine.handle(input).root().clone())
+        Ok(engine.handle_async(input).await.root().clone())
     }
 
     /// Serve one owner-only meta request: decode a `Configure` meta `Input`,
     /// apply it through `Engine::configure` (a configuration effect, not a SEMA
     /// log write), and write the `Configured` / `Rejected` meta `Output` back.
     /// `Configure` is request/reply, not a stream — no subscription handling.
-    fn handle_meta_stream(engine: &Self::Engine, stream: UnixStream) -> Result<(), Self::Error> {
-        let mut transport = MetaSignalTransport::new(stream);
-        let (_route, input) = transport.read_input()?;
+    async fn handle_meta_connection(
+        engine: &Self::Engine,
+        mut connection: AcceptedConnection,
+    ) -> Result<(), Self::Error> {
+        let frame = LengthPrefixedCodec::default()
+            .read_body_async(connection.stream_mut())
+            .await?
+            .into_bytes();
+        let (_route, input) = MetaInput::decode_signal_frame(&frame)?;
         let MetaInput::Configure(request) = input;
-        let reply = engine.configure(request);
-        transport.write_output(&reply)?;
+        let reply = engine.configure_async(request).await;
+        LengthPrefixedCodec::default()
+            .write_body_async(
+                connection.stream_mut(),
+                &LengthPrefixedFrameBody::new(reply.encode_signal_frame()?),
+            )
+            .await?;
+        connection
+            .stream_mut()
+            .flush()
+            .await
+            .map_err(FrameError::from)?;
         Ok(())
     }
 
@@ -162,14 +187,14 @@ impl ComponentDaemon for SpiritDaemon {
         }
     }
 
-    fn published_event(
+    async fn published_event(
         engine: &Self::Engine,
         output: &Output,
     ) -> Result<Option<Self::StreamEvent>, Self::Error> {
         let Output::RecordAccepted(receipt) = output else {
             return Ok(None);
         };
-        Ok(engine.intent_recorded_event(receipt)?)
+        Ok(engine.intent_recorded_event_async(receipt).await?)
     }
 
     fn event_matches_filter(filter: &Self::SubscriptionFilter, event: &Self::StreamEvent) -> bool {
@@ -194,9 +219,14 @@ impl Daemon {
     }
 
     pub fn run(self) -> Result<(), DaemonError<SpiritDaemon>> {
-        SpiritDaemon::bind(self.configuration)?
-            .run()
-            .map_err(DaemonError::from)
+        tokio::runtime::Runtime::new()
+            .map_err(DaemonError::Runtime)?
+            .block_on(async {
+                SpiritDaemon::bind(self.configuration)?
+                    .run()
+                    .await
+                    .map_err(DaemonError::from)
+            })
     }
 }
 

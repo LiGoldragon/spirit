@@ -123,7 +123,7 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
 fn testing_trace_records_lifecycle_hooks_from_generated_engine_traits() {
     let sema = SemaFile::new();
     let trace_log = TraceLog::recording();
-    let mut engine = sema.engine_with_trace(trace_log.clone());
+    let engine = sema.engine_with_trace(trace_log.clone());
 
     engine.start().expect("start lifecycle hooks run");
     engine.stop().expect("stop lifecycle hooks run");

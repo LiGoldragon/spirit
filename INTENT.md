@@ -75,13 +75,16 @@ Spirit's generated roots implement `triad-runtime` role traits such as
 role name can then be spoken by the runner without pretending Spirit's
 component-specific variants are the universal shape for every component.
 
-*The daemon listener shell is shared runtime, not Spirit boilerplate.* `Daemon`
-constructs a data-bearing `SpiritDaemonRuntime` around `Engine`, then hands it
-to `triad_runtime::SingleListenerDaemon`. The shared runtime creates parent
-directories, removes stale socket files, binds the Unix listener, starts and
-stops the runtime, and keeps the listener alive after per-request transport
-errors. Spirit owns only configuration decoding, engine construction, and the
-generated signal-frame bridge for one accepted stream.
+*The daemon listener shell is shared runtime, not Spirit boilerplate.* The
+generated `DaemonBinder` constructs `GeneratedDaemonRuntime<SpiritDaemon>`
+around `Engine`, then hands it to `triad_runtime::ActorMultiListenerDaemon`
+with a working listener and a required meta listener. The shared runtime
+creates parent directories, removes stale socket files, binds Unix listeners,
+captures accepted-connection context, starts and stops the component runtime,
+keeps listeners alive after per-request transport errors, and owns the emitted
+subscription registry / retained writer plumbing. Spirit owns only binary
+configuration decoding, engine construction, one working-input hook, the
+owner-only meta request hook, and stream filter/event policy.
 
 *SEMA is durable.* `Store` maps generated SEMA roots onto `sema-engine` identified-record operations over a `.sema` file. Each `Record` calls `Engine::assert_identified`, each `ChangeCertainty` calls `Engine::mutate_identified`, each `Remove` calls `Engine::retract_identified`, and `Observe`/`Lookup`/`Count` read through `Engine::match_identified`. SEMA replies carry generated `DatabaseMarker` values so Signal replies report the state commit sequence and digest.
 
@@ -89,11 +92,12 @@ generated signal-frame bridge for one accepted stream.
 
 *The daemon configuration carries the meta slot.* Per Spirit record `pb1g`
 (High certainty), every component needs a meta slot because configuration and
-policy authority must not live on the ordinary working signal. Spirit therefore
-carries an optional binary `meta_socket_path` in `Configuration` even before
-the meta signal contract/listener is authored. If no separate
-`meta-signal-spirit` repo exists for a later slice, the meta signal surface
-belongs inside this daemon repo instead of being omitted.
+policy authority must not live on the ordinary working signal. Spirit's
+`Configuration` stores `meta_socket_path` as an `Option` because the shared
+`DaemonConfiguration` trait uses that shape, but the generated Spirit daemon
+rejects `None` with `MissingMetaSocket` before serving either socket. If no
+separate `meta-signal-spirit` repo exists for a later slice, the meta signal
+surface belongs inside this daemon repo instead of being omitted.
 
 *Trace is optional runtime instrumentation.* The `testing-trace` surface observes Signal/Nexus/SEMA calls through generated trait hooks without affecting production binary behavior. Trace events carry schema-generated typed `ObjectName`, not free strings. Spirit owns the typed `TraceEvent` over plane-local object names; `triad-runtime` owns the reusable log, frame mechanics, and client-side collection.
 

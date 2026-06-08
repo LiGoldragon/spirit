@@ -366,8 +366,7 @@ impl Nexus {
                 })
             }
             NexusEffectCommand::CloseObserverTap(token) => {
-                let observed_operations =
-                    self.observer_tap_table.close(token).unwrap_or_default();
+                let observed_operations = self.observer_tap_table.close(token).unwrap_or_default();
                 NexusEffectResult::observer_tap_closed(ObserverRetraction {
                     subscription_token: token,
                     observed_operations,
@@ -433,7 +432,7 @@ impl NexusEngine for Nexus {
             .with_origin_route(origin_route)
     }
 
-    fn apply_sema_write(
+    async fn apply_sema_write(
         &mut self,
         origin_route: nexus_schema::OriginRoute,
         input: CommandSemaWrite,
@@ -447,15 +446,15 @@ impl NexusEngine for Nexus {
         .into_root()
     }
 
-    fn observe_sema_read(
-        &self,
+    async fn observe_sema_read(
+        &mut self,
         origin_route: nexus_schema::OriginRoute,
         input: SemaReadInput,
     ) -> SemaReadOutput {
         SemaEngine::observe(&self.store, input.with_origin_route(origin_route.into())).into_root()
     }
 
-    fn run_effect(&mut self, input: NexusEffectCommand) -> NexusEffectResult {
+    async fn run_effect(&mut self, input: NexusEffectCommand) -> NexusEffectResult {
         self.apply_effect(input)
     }
 

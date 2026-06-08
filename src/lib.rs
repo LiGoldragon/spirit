@@ -25,8 +25,6 @@
 
 #![forbid(unsafe_code)]
 
-extern crate self as spirit;
-
 pub mod config;
 pub mod daemon;
 pub mod engine;
@@ -55,14 +53,12 @@ pub mod schema {
 
 pub use config::{Configuration, ConfigurationError};
 pub use daemon::{Daemon, SpiritDaemon, SpiritDaemonError};
-pub use schema::daemon::{
-    ComponentDaemon, DaemonCommand, DaemonEntry, DaemonError, ListenerTier,
-};
 pub use engine::{Engine, MailLedger, MailLedgerHook, SignalAccepted, SignalActor};
 pub use meta_transport::{
     MetaFrameError, MetaInputRoute, MetaOutputRoute, MetaSignalTransport, MetaTransportError,
 };
 pub use nexus::{Nexus, StashTable};
+pub use schema::daemon::{ComponentDaemon, DaemonCommand, DaemonEntry, DaemonError, ListenerTier};
 pub use store::{Store, StoreError};
 #[cfg(feature = "testing-trace")]
 pub use trace::{TraceClient, TraceError, TraceLog, TraceSocketListener, TraceSocketPath};

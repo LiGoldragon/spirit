@@ -3,7 +3,7 @@ use spirit::schema::signal::{Export, Import};
 use spirit::{
     Engine, Nexus, SignalActor, Store,
     schema::{
-        nexus::{CommandSemaWrite, NexusAction, NexusEffectCommand, NexusEngine, NexusWork},
+        nexus::{self, CommandSemaWrite, NexusAction, NexusEffectCommand, NexusEngine, NexusWork},
         sema::{
             self, ReadInput as SemaReadInput, ReadOutput as SemaReadOutput, SemaEngine,
             WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
@@ -107,6 +107,14 @@ fn route(offset: u64) -> OriginRoute {
 
 fn nexus_route(offset: u64) -> spirit::schema::nexus::OriginRoute {
     route(offset).into()
+}
+
+fn execute_nexus(nexus: &mut Nexus, input: nexus::Nexus<NexusWork>) -> nexus::Nexus<NexusAction> {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("nexus test runtime")
+        .block_on(NexusEngine::execute(nexus, input))
 }
 
 fn sema_route(offset: u64) -> spirit::schema::sema::OriginRoute {
@@ -229,7 +237,7 @@ fn nexus_runner_loop_routes_record_input_to_sema_write_command_then_back_to_repl
     let nexus_input = nexus_signal_arrived(input_record(entry("nexus runner routes")))
         .with_origin_route(nexus_route(1));
 
-    let nexus_output = NexusEngine::execute(&mut nexus, nexus_input);
+    let nexus_output = execute_nexus(&mut nexus, nexus_input);
 
     assert_eq!(nexus_output.origin_route(), nexus_route(1));
     match nexus_output.root() {
@@ -249,7 +257,7 @@ fn nexus_classifies_state_into_provisional_record_through_sema_write() {
     let nexus_input = nexus_signal_arrived(input_state("capture this statement"))
         .with_origin_route(nexus_route(2));
 
-    let nexus_output = NexusEngine::execute(&mut nexus, nexus_input);
+    let nexus_output = execute_nexus(&mut nexus, nexus_input);
 
     match nexus_output.root() {
         NexusAction::ReplyToSignal(Output::RecordAccepted(receipt)) => {
@@ -447,7 +455,7 @@ fn sema_engine_writes_durable_records_and_returns_schema_objects() {
 #[test]
 fn engine_lifecycle_runs_generated_trait_hooks_without_actor_mailboxes() {
     let sema = SemaFile::new();
-    let mut engine = sema.engine();
+    let engine = sema.engine();
 
     engine.start().expect("generated lifecycle start hooks run");
     let output = engine.handle(input_record(entry("lifecycle still handles input")));
@@ -469,7 +477,7 @@ fn nexus_engine_trait_runs_nexus_decision_through_sema_state() {
     let nexus_input = nexus_signal_arrived(input_record(entry("nexus trait root")))
         .with_origin_route(nexus_route(20));
 
-    let nexus_output = NexusEngine::execute(&mut nexus, nexus_input);
+    let nexus_output = execute_nexus(&mut nexus, nexus_input);
 
     assert_eq!(nexus_output.origin_route(), nexus_route(20));
     match nexus_output.root() {
@@ -500,7 +508,7 @@ fn signal_engine_trait_triages_signal_roots_to_nexus_and_back() {
         NexusWork::SignalArrived(Input::Record(_))
     ));
 
-    let nexus_output = NexusEngine::execute(&mut nexus, nexus_input);
+    let nexus_output = execute_nexus(&mut nexus, nexus_input);
     let signal_output = SignalEngine::reply(&signal_actor, nexus_output);
 
     assert_eq!(signal_output.origin_route(), route(21));
@@ -847,7 +855,7 @@ fn sema_read_miss_completion_routes_through_runner_loop_to_error_reply() {
     }))
     .with_origin_route(nexus_route(7));
 
-    let nexus_output = NexusEngine::execute(&mut nexus, nexus_input);
+    let nexus_output = execute_nexus(&mut nexus, nexus_input);
     let signal_output = SignalEngine::reply(&SignalActor::default(), nexus_output);
 
     assert_eq!(
@@ -874,7 +882,7 @@ fn plane_envelopes_keep_payload_names_scoped() {
     let nexus_input = nexus_signal_arrived(input_record(entry("language input")))
         .with_origin_route(nexus_route(11));
 
-    let nexus_output = NexusEngine::execute(&mut nexus, nexus_input);
+    let nexus_output = execute_nexus(&mut nexus, nexus_input);
     assert_eq!(nexus_output.origin_route(), nexus_route(11));
     // The runner loop drove the full cycle to ReplyToSignal(RecordAccepted).
     assert!(matches!(
@@ -897,7 +905,7 @@ fn nexus_and_sema_have_explicit_input_output_languages() {
     let nexus_input = nexus_signal_arrived(input_record(entry("language input")))
         .with_origin_route(nexus_route(13));
 
-    let nexus_output = NexusEngine::execute(&mut nexus, nexus_input);
+    let nexus_output = execute_nexus(&mut nexus, nexus_input);
     assert!(matches!(
         nexus_output.root(),
         NexusAction::ReplyToSignal(Output::RecordAccepted(_))
@@ -914,7 +922,7 @@ fn nexus_and_sema_have_explicit_input_output_languages() {
     let nexus_input_from_sema =
         NexusWork::sema_write_completed(sema_output).with_origin_route(nexus_route(14));
     let mut second_nexus = Nexus::new(SemaFile::new().open_store());
-    let nexus_output_from_sema = NexusEngine::execute(&mut second_nexus, nexus_input_from_sema);
+    let nexus_output_from_sema = execute_nexus(&mut second_nexus, nexus_input_from_sema);
     let signal_output = SignalEngine::reply(&SignalActor::default(), nexus_output_from_sema);
     assert!(matches!(signal_output.root(), Output::RecordAccepted(_)));
 }

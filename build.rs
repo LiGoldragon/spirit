@@ -54,7 +54,8 @@ impl SchemaBuild {
     /// (`schema/meta-signal.schema`) at mode `0o600`. The stream wiring is
     /// derived from the signal schema's `IntentEventStream` declaration.
     fn daemon_shape(&self) -> NexusDaemonShape {
-        NexusDaemonShape::new("spirit-daemon", WorkingListenerTier::new("signal"))
-            .with_meta_tier(MetaListenerTier::new(SocketModeBits::new(OWNER_ONLY_SOCKET_MODE)))
+        NexusDaemonShape::new("spirit-daemon", WorkingListenerTier::new("signal")).with_meta_tier(
+            MetaListenerTier::new(SocketModeBits::new(OWNER_ONLY_SOCKET_MODE)),
+        )
     }
 }

@@ -7,7 +7,9 @@ use triad_runtime::DaemonConfiguration;
 ///
 /// The daemon intentionally does not decode NOTA at startup. Text-facing
 /// launchers or tests can produce this binary object, but the daemon itself
-/// only receives the binary configuration path.
+/// only receives the binary configuration path. The meta socket is stored as
+/// an `Option` because the shared daemon trait exposes that shape; Spirit's
+/// generated daemon rejects `None` before serving.
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, Eq, PartialEq)]
 pub struct Configuration {
     socket_path: ConfigurationPath,

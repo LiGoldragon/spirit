@@ -5,8 +5,9 @@
 //! SEPARATE archive database lives), and replies with a typed receipt — WITHOUT
 //! touching the live intent-log database. The working signal socket keeps
 //! serving the existing lifecycle, the owner socket carries the owner-only
-//! filesystem mode, and the two contracts stay distinct wire vocabularies. The
-//! back-compat case (no meta socket configured) is also covered.
+//! filesystem mode, and the two contracts stay distinct wire vocabularies.
+//! A daemon configuration without the required meta socket is rejected before
+//! serving.
 
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
@@ -15,7 +16,9 @@ use std::time::{Duration, Instant};
 
 use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest, Output as MetaOutput};
 use spirit::schema::signal::{Entry, Input, Kind, Magnitude, Output, Query, TopicMatch};
-use spirit::{Configuration, Daemon, MetaSignalTransport, SignalTransport};
+use spirit::{
+    Configuration, Daemon, DaemonError, MetaSignalTransport, SignalTransport, SpiritDaemon,
+};
 use tempfile::TempDir;
 
 struct DaemonThread {
@@ -90,7 +93,8 @@ fn configure_sets_archive_target_and_leaves_live_database_unchanged() {
     // the receipt echoes the now-active archive target. Configure sets WHERE
     // the SEPARATE archive database lives — it is a typed `ArchiveDatabaseTarget`,
     // not a string, and the live database path is never named in it.
-    let archive_target = ArchiveDatabaseTarget::path(archive_database.to_string_lossy().into_owned());
+    let archive_target =
+        ArchiveDatabaseTarget::path(archive_database.to_string_lossy().into_owned());
     let mut meta_transport =
         MetaSignalTransport::connect(&meta_socket).expect("connect meta socket");
     let (_route, reply) = meta_transport
@@ -104,7 +108,10 @@ fn configure_sets_archive_target_and_leaves_live_database_unchanged() {
             );
         }
         MetaOutput::Rejected(rejection) => {
-            panic!("configure rejected: {:?}", rejection.configure_rejection_reason)
+            panic!(
+                "configure rejected: {:?}",
+                rejection.configure_rejection_reason
+            )
         }
     }
 
@@ -200,29 +207,18 @@ fn working_socket_rejects_a_meta_configure_frame() {
 }
 
 #[test]
-fn back_compat_no_meta_socket_serves_working_lifecycle() {
+fn daemon_rejects_missing_meta_socket_before_serving() {
     let temp = TempDir::new().expect("tempdir");
     let working_socket = temp.path().join("spirit.sock");
-    let meta_socket = temp.path().join("spirit-meta.sock");
     let database = temp.path().join("intent.sema");
 
-    // No with_meta_socket_path: only the working socket should bind.
     let configuration = Configuration::new(&working_socket, &database);
-    let _daemon = DaemonThread::spawn(configuration);
-    wait_for_socket(&working_socket);
 
     assert!(
-        !meta_socket.exists(),
-        "no meta socket binds when meta_socket_path is None"
-    );
-
-    let mut working_transport =
-        SignalTransport::connect(&working_socket).expect("connect working socket");
-    let (_route, output) = working_transport
-        .exchange(&Input::Record(decision_entry("back-compat record")))
-        .expect("exchange record");
-    assert!(
-        matches!(output, Output::RecordAccepted(_)),
-        "the single-socket working lifecycle is unchanged, got {output:?}"
+        matches!(
+            Daemon::new(configuration).run(),
+            Err(DaemonError::<SpiritDaemon>::MissingMetaSocket)
+        ),
+        "a daemon without the meta slot must fail before serving"
     );
 }

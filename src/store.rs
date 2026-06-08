@@ -257,8 +257,7 @@ impl Store {
                     .file_stem()
                     .map(|stem| stem.to_string_lossy().into_owned())
                     .unwrap_or_else(|| String::from("spirit"));
-                self.path
-                    .with_file_name(format!("{stem}.archive.sema"))
+                self.path.with_file_name(format!("{stem}.archive.sema"))
             }
             ArchiveDatabaseTarget::Path(archive_path) => PathBuf::from(archive_path.payload()),
         }
@@ -469,8 +468,7 @@ struct ArchiveDatabase {
 
 impl ArchiveDatabase {
     fn open(path: impl Into<PathBuf>) -> Result<Self, StoreError> {
-        let mut database =
-            SemaDatabase::open(EngineOpen::new(path.into(), SPIRIT_SCHEMA_VERSION))?;
+        let mut database = SemaDatabase::open(EngineOpen::new(path.into(), SPIRIT_SCHEMA_VERSION))?;
         let entries =
             database.register_identified_table(IdentifiedTableDescriptor::new(ENTRIES_TABLE))?;
         Ok(Self { database, entries })

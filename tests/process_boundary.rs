@@ -45,9 +45,15 @@ impl Drop for SubscriberProcess {
 }
 
 impl DaemonProcess {
+    fn meta_socket_path(socket_path: &Path) -> std::path::PathBuf {
+        socket_path.with_extension("meta.sock")
+    }
+
     fn spawn(socket_path: &Path, database_path: &Path) -> Self {
         let configuration_path = socket_path.with_extension("config.rkyv");
+        let meta_socket_path = Self::meta_socket_path(socket_path);
         Configuration::new(socket_path, database_path)
+            .with_meta_socket_path(&meta_socket_path)
             .write_binary_file(&configuration_path)
             .expect("write binary daemon configuration");
         let child = Command::new(env!("CARGO_BIN_EXE_spirit-daemon"))
@@ -56,6 +62,7 @@ impl DaemonProcess {
             .expect("spawn daemon");
         let process = Self { child };
         wait_for_socket(socket_path);
+        wait_for_socket(&meta_socket_path);
         process
     }
 
@@ -66,7 +73,9 @@ impl DaemonProcess {
         trace_socket_path: &Path,
     ) -> Self {
         let configuration_path = socket_path.with_extension("config.rkyv");
+        let meta_socket_path = Self::meta_socket_path(socket_path);
         Configuration::new_with_trace(socket_path, database_path, trace_socket_path)
+            .with_meta_socket_path(&meta_socket_path)
             .write_binary_file(&configuration_path)
             .expect("write binary daemon configuration with trace socket");
         let child = Command::new(env!("CARGO_BIN_EXE_spirit-daemon"))
@@ -75,6 +84,7 @@ impl DaemonProcess {
             .expect("spawn daemon");
         let process = Self { child };
         wait_for_socket(socket_path);
+        wait_for_socket(&meta_socket_path);
         process
     }
 }

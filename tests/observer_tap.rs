@@ -39,7 +39,7 @@ fn observe_query() -> Query {
 fn engine() -> (TempDir, Engine) {
     let temp = TempDir::new().expect("tempdir");
     let database = temp.path().join("observer-tap.sema");
-    let mut engine = Engine::new(Store::open(&database).expect("open store"));
+    let engine = Engine::new(Store::open(&database).expect("open store"));
     engine.start().expect("engine start");
     (temp, engine)
 }
@@ -49,8 +49,12 @@ fn tap_returns_the_operations_observed_so_far() {
     let (_temp, engine) = engine();
 
     // Drive a few working operations; each is recorded in the observer log.
-    let _ = engine.handle(Input::Record(entry("first intent"))).into_root();
-    let _ = engine.handle(Input::Record(entry("second intent"))).into_root();
+    let _ = engine
+        .handle(Input::Record(entry("first intent")))
+        .into_root();
+    let _ = engine
+        .handle(Input::Record(entry("second intent")))
+        .into_root();
     let _ = engine.handle(Input::Observe(observe_query())).into_root();
 
     // Tap with the `All` filter: the reply lists the operations observed so far.
@@ -90,7 +94,9 @@ fn untap_retires_the_subscription_and_returns_its_observations() {
     let (_temp, engine) = engine();
 
     let _ = engine.handle(Input::Record(entry("intent"))).into_root();
-    let tapped = engine.handle(Input::Tap(ObserverFilter::OperationsOnly)).into_root();
+    let tapped = engine
+        .handle(Input::Tap(ObserverFilter::OperationsOnly))
+        .into_root();
     let Output::ObservationTapped(subscription) = tapped else {
         panic!("expected ObservationTapped, got {tapped:?}")
     };
@@ -125,7 +131,9 @@ fn effects_only_filter_observes_no_operations() {
 
     // `EffectsOnly` observes effect events, not operations, so an operation-only
     // log yields an empty observation set under this filter.
-    let reply = engine.handle(Input::Tap(ObserverFilter::EffectsOnly)).into_root();
+    let reply = engine
+        .handle(Input::Tap(ObserverFilter::EffectsOnly))
+        .into_root();
     let Output::ObservationTapped(subscription) = reply else {
         panic!("expected ObservationTapped, got {reply:?}")
     };
