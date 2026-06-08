@@ -77,7 +77,7 @@ component-specific variants are the universal shape for every component.
 
 *The daemon listener shell is shared runtime, not Spirit boilerplate.* The
 generated `DaemonBinder` constructs `GeneratedDaemonRuntime<SpiritDaemon>`
-around `Engine`, then hands it to `triad_runtime::ActorMultiListenerDaemon`
+around `Engine`, then hands it to `triad_runtime::AsyncMultiListenerDaemon`
 with a working listener and a required meta listener. The shared runtime
 creates parent directories, removes stale socket files, binds Unix listeners,
 captures accepted-connection context, starts and stops the component runtime,

@@ -96,8 +96,8 @@ machinery remain future work.
 `main` only creates `DaemonCommand::from_environment()` and runs it; the
 command loads the single binary configuration path and constructs `Daemon`.
 `Daemon` asks the generated `DaemonBinder` for an
-`ActorMultiListenerDaemon<GeneratedDaemonRuntime<SpiritDaemon>>`. The generated
-binder opens the component `Engine`, wraps it in actor-native runtime state,
+`AsyncMultiListenerDaemon<GeneratedDaemonRuntime<SpiritDaemon>>`. The generated
+binder opens the component `Engine`, wraps it in async task-backed runtime state,
 and passes a working listener plus a required owner-only meta listener to
 `triad-runtime`. The shared runtime prepares each Unix socket, binds the
 listeners, captures accepted connection context, starts the runtime, serves
@@ -150,8 +150,8 @@ The daemon:
 2. constructs `GeneratedDaemonRuntime<SpiritDaemon>`, opening the configured
    `.sema` database path through `Store`;
 3. hands that runtime plus the configured working and required owner-only meta
-   socket paths to `triad_runtime::ActorMultiListenerDaemon`;
-4. starts the generated engine lifecycle through the actor-native runtime;
+   socket paths to `triad_runtime::AsyncMultiListenerDaemon`;
+4. starts the generated engine lifecycle through the async task-backed runtime;
 5. reads a length-prefixed binary frame from each accepted stream;
 6. asks generated `Input` to triage by short header and decode itself (the
    working socket decodes signal `Input`; the meta socket decodes meta-signal
@@ -196,7 +196,7 @@ The authority split is load-bearing: the OWNER configures WHERE archives go
 disturbed by a reconfigure.
 
 The daemon binds both sockets through
-`triad_runtime::ActorMultiListenerDaemon`, tagging each accepted connection
+`triad_runtime::AsyncMultiListenerDaemon`, tagging each accepted connection
 with `ListenerTier` (`Working` / `Meta`) so `GeneratedDaemonRuntime` decodes
 the correct wire contract for the arriving socket. Owner-only authority rests
 on the meta socket file mode (`0o600`, applied via `SocketMode`) and listener
@@ -233,7 +233,7 @@ input. For ordinary inputs it prints one output and exits; for
 length-prefixed `signal-frame` subscription-event frames, rendering each as
 generated `Output::Event(IntentEvent)` at the human edge.
 
-The daemon handles a subscribe request through generated actor-native stream
+The daemon handles a subscribe request through generated async task-backed stream
 plumbing in `src/schema/daemon.rs`: it writes the ordinary
 `SubscriptionStarted` reply, stores the accepted connection's Tokio writer half
 under the Nexus-minted `SubscriptionToken`, registers the filter in a

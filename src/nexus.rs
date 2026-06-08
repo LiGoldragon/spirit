@@ -5,10 +5,9 @@ use crate::{
     schema::{
         meta_signal::ArchiveDatabaseTarget,
         nexus::{
-            self as nexus_schema, ActorStartFailure as NexusActorStartFailure,
-            ActorStopFailure as NexusActorStopFailure, CommandSemaWrite, NexusAction,
-            NexusEffectCommand, NexusEffectResult, NexusEngine, NexusWork, StashRequest,
-            StashResult,
+            self as nexus_schema, CommandSemaWrite, EngineStartFailure as NexusEngineStartFailure,
+            EngineStopFailure as NexusEngineStopFailure, NexusAction, NexusEffectCommand,
+            NexusEffectResult, NexusEngine, NexusWork, StashRequest, StashResult,
         },
         sema::{
             ReadInput as SemaReadInput, ReadOutput as SemaReadOutput, SemaEngine,
@@ -403,14 +402,14 @@ impl Nexus {
 /// decision step, storage write/read dispatch, effect dispatch, and the
 /// typed budget-exhausted reply.
 impl NexusEngine for Nexus {
-    fn on_start(&mut self) -> Result<(), NexusActorStartFailure> {
+    fn on_start(&mut self) -> Result<(), NexusEngineStartFailure> {
         SemaEngine::on_start(&mut self.store)?;
         #[cfg(feature = "testing-trace")]
         self.trace_nexus_activation(NexusObjectName::Started);
         Ok(())
     }
 
-    fn on_stop(&mut self) -> Result<(), NexusActorStopFailure> {
+    fn on_stop(&mut self) -> Result<(), NexusEngineStopFailure> {
         #[cfg(feature = "testing-trace")]
         self.trace_nexus_activation(NexusObjectName::Stopped);
         SemaEngine::on_stop(&mut self.store)?;

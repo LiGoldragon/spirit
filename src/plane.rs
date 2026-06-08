@@ -36,42 +36,42 @@ impl From<sema::OriginRoute> for nexus::OriginRoute {
     }
 }
 
-impl From<nexus::ActorStartFailure> for signal::ActorStartFailure {
-    fn from(error: nexus::ActorStartFailure) -> Self {
+impl From<nexus::EngineStartFailure> for signal::EngineStartFailure {
+    fn from(error: nexus::EngineStartFailure) -> Self {
         match error {
-            nexus::ActorStartFailure::ResourceBusy(value) => Self::ResourceBusy(value),
-            nexus::ActorStartFailure::ConfigurationInvalid(value) => {
+            nexus::EngineStartFailure::ResourceBusy(value) => Self::ResourceBusy(value),
+            nexus::EngineStartFailure::ConfigurationInvalid(value) => {
                 Self::ConfigurationInvalid(value)
             }
         }
     }
 }
 
-impl From<nexus::ActorStopFailure> for signal::ActorStopFailure {
-    fn from(error: nexus::ActorStopFailure) -> Self {
+impl From<nexus::EngineStopFailure> for signal::EngineStopFailure {
+    fn from(error: nexus::EngineStopFailure) -> Self {
         match error {
-            nexus::ActorStopFailure::ResourceLocked(value) => Self::ResourceLocked(value),
-            nexus::ActorStopFailure::ChildStillRunning(value) => Self::ChildStillRunning(value),
+            nexus::EngineStopFailure::ResourceLocked(value) => Self::ResourceLocked(value),
+            nexus::EngineStopFailure::ChildStillRunning(value) => Self::ChildStillRunning(value),
         }
     }
 }
 
-impl From<sema::ActorStartFailure> for nexus::ActorStartFailure {
-    fn from(error: sema::ActorStartFailure) -> Self {
+impl From<sema::EngineStartFailure> for nexus::EngineStartFailure {
+    fn from(error: sema::EngineStartFailure) -> Self {
         match error {
-            sema::ActorStartFailure::ResourceBusy(value) => Self::ResourceBusy(value),
-            sema::ActorStartFailure::ConfigurationInvalid(value) => {
+            sema::EngineStartFailure::ResourceBusy(value) => Self::ResourceBusy(value),
+            sema::EngineStartFailure::ConfigurationInvalid(value) => {
                 Self::ConfigurationInvalid(value)
             }
         }
     }
 }
 
-impl From<sema::ActorStopFailure> for nexus::ActorStopFailure {
-    fn from(error: sema::ActorStopFailure) -> Self {
+impl From<sema::EngineStopFailure> for nexus::EngineStopFailure {
+    fn from(error: sema::EngineStopFailure) -> Self {
         match error {
-            sema::ActorStopFailure::ResourceLocked(value) => Self::ResourceLocked(value),
-            sema::ActorStopFailure::ChildStillRunning(value) => Self::ChildStillRunning(value),
+            sema::EngineStopFailure::ResourceLocked(value) => Self::ResourceLocked(value),
+            sema::EngineStopFailure::ChildStillRunning(value) => Self::ChildStillRunning(value),
         }
     }
 }

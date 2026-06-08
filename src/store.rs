@@ -13,8 +13,8 @@ use thiserror::Error;
 use crate::schema::{
     meta_signal::ArchiveDatabaseTarget,
     sema::{
-        self as sema_schema, ActorStartFailure as SemaActorStartFailure,
-        ActorStopFailure as SemaActorStopFailure, ReadInput as SemaReadInput,
+        self as sema_schema, EngineStartFailure as SemaEngineStartFailure,
+        EngineStopFailure as SemaEngineStopFailure, ReadInput as SemaReadInput,
         ReadOutput as SemaReadOutput, SemaEngine, WriteInput as SemaWriteInput,
         WriteOutput as SemaWriteOutput,
     },
@@ -59,13 +59,13 @@ impl fmt::Debug for Store {
 }
 
 impl SemaEngine for Store {
-    fn on_start(&mut self) -> Result<(), SemaActorStartFailure> {
+    fn on_start(&mut self) -> Result<(), SemaEngineStartFailure> {
         #[cfg(feature = "testing-trace")]
         self.trace_sema_activation(SemaObjectName::Started);
         Ok(())
     }
 
-    fn on_stop(&mut self) -> Result<(), SemaActorStopFailure> {
+    fn on_stop(&mut self) -> Result<(), SemaEngineStopFailure> {
         #[cfg(feature = "testing-trace")]
         self.trace_sema_activation(SemaObjectName::Stopped);
         Ok(())

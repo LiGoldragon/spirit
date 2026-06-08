@@ -1,6 +1,6 @@
 //! Spirit's daemon hooks — the only daemon code spirit hand-writes.
 //!
-//! The uniform daemon skeleton (the `DaemonCommand` argv parsing, actor-native
+//! The uniform daemon skeleton (the `DaemonCommand` argv parsing, async task-backed
 //! multi-listener binding, accepted-connection context, decode -> execute ->
 //! encode spine, emitted subscription registry + retained-writer publish
 //! wiring, and `ExitReport`-based entry) is emitted into
@@ -23,7 +23,7 @@ use crate::{
     meta_transport::{MetaFrameError, MetaInput, MetaTransportError},
     schema::daemon::{ComponentDaemon, DaemonBinder, DaemonError},
     schema::signal::{
-        ActorStartFailure, ActorStopFailure, Input, IntentEvent, Output, Query, SignalFrameError,
+        EngineStartFailure, EngineStopFailure, Input, IntentEvent, Output, Query, SignalFrameError,
         short_header,
     },
     store::Store,
@@ -76,10 +76,10 @@ pub enum SpiritDaemonError {
     Store(#[from] StoreError),
 
     #[error("daemon actor start error: {0}")]
-    ActorStart(#[from] ActorStartFailure),
+    EngineStart(#[from] EngineStartFailure),
 
     #[error("daemon actor stop error: {0}")]
-    ActorStop(#[from] ActorStopFailure),
+    EngineStop(#[from] EngineStopFailure),
 }
 
 impl ComponentDaemon for SpiritDaemon {

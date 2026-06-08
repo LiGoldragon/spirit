@@ -8,7 +8,7 @@ use crate::{
         meta_signal::{ConfigureReceipt, ConfigureRequest, Output as MetaOutput},
         nexus::{self as nexus_schema, NexusAction, NexusEngine, NexusWork},
         signal::{
-            self as signal_schema, ActorStartFailure, ActorStopFailure, DatabaseMarker, Entry,
+            self as signal_schema, DatabaseMarker, EngineStartFailure, EngineStopFailure, Entry,
             ErrorReport, Input, Integer, IntentEvent, MailLedgerEvent, MessageIdentifier,
             MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook, OriginRoute,
             Output, ProcessedMail, Query, SemaReceipt, SentMail, SignalEngine, SignalRejection,
@@ -98,23 +98,22 @@ impl Engine {
         self.trace_log.events()
     }
 
-    pub fn start(&self) -> Result<(), ActorStartFailure> {
+    pub fn start(&self) -> Result<(), EngineStartFailure> {
         {
-            let mut nexus = self
-                .nexus
-                .try_lock()
-                .map_err(|_| ActorStartFailure::ResourceBusy(String::from("nexus startup lock")))?;
+            let mut nexus = self.nexus.try_lock().map_err(|_| {
+                EngineStartFailure::ResourceBusy(String::from("nexus startup lock"))
+            })?;
             NexusEngine::on_start(&mut *nexus)?;
         }
         self.signal_actor.start()
     }
 
-    pub fn stop(&self) -> Result<(), ActorStopFailure> {
+    pub fn stop(&self) -> Result<(), EngineStopFailure> {
         self.signal_actor.stop()?;
         let mut nexus = self
             .nexus
             .try_lock()
-            .map_err(|_| ActorStopFailure::ResourceLocked(String::from("nexus shutdown lock")))?;
+            .map_err(|_| EngineStopFailure::ResourceLocked(String::from("nexus shutdown lock")))?;
         NexusEngine::on_stop(&mut *nexus)?;
         Ok(())
     }
@@ -240,13 +239,13 @@ impl SignalActor {
         }
     }
 
-    pub fn start(&self) -> Result<(), ActorStartFailure> {
+    pub fn start(&self) -> Result<(), EngineStartFailure> {
         #[cfg(feature = "testing-trace")]
         self.trace_signal_activation(SignalObjectName::Started);
         Ok(())
     }
 
-    pub fn stop(&self) -> Result<(), ActorStopFailure> {
+    pub fn stop(&self) -> Result<(), EngineStopFailure> {
         #[cfg(feature = "testing-trace")]
         self.trace_signal_activation(SignalObjectName::Stopped);
         Ok(())
@@ -292,11 +291,11 @@ impl SignalEngine for SignalActor {
     type NexusInput = nexus_schema::nexus::Nexus<NexusWork>;
     type NexusOutput = nexus_schema::nexus::Nexus<NexusAction>;
 
-    fn on_start(&mut self) -> Result<(), ActorStartFailure> {
+    fn on_start(&mut self) -> Result<(), EngineStartFailure> {
         self.start()
     }
 
-    fn on_stop(&mut self) -> Result<(), ActorStopFailure> {
+    fn on_stop(&mut self) -> Result<(), EngineStopFailure> {
         self.stop()
     }
 
