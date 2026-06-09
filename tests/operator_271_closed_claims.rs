@@ -242,15 +242,15 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     let nexus_witness = SchemaSourceWitness::new("src/schema/nexus.rs", nexus_rust);
     let sema_witness = SchemaSourceWitness::new("src/schema/sema.rs", sema_rust);
 
-    // The schema-emitted Input enum carries exported alias nouns.
+    // The schema-emitted Input enum carries exported wrapper nouns.
     signal_witness.must_contain("pub enum Input {", "4");
-    signal_witness.must_contain("pub type State = Statement;", "4");
+    signal_witness.must_contain("pub struct State(Statement);", "4");
     signal_witness.must_contain("State(State)", "4");
-    signal_witness.must_contain("pub type Record = Entry;", "4");
-    signal_witness.must_contain("pub type Observe = Query;", "4");
-    signal_witness.must_contain("pub type PublicRecords = RecordSelection;", "4");
-    signal_witness.must_contain("pub type PrivateRecords = RecordSelection;", "4");
-    signal_witness.must_contain("pub type Lookup = RecordIdentifier;", "4");
+    signal_witness.must_contain("pub struct Record(Entry);", "4");
+    signal_witness.must_contain("pub struct Observe(Query);", "4");
+    signal_witness.must_contain("pub struct PublicRecords(RecordSelection);", "4");
+    signal_witness.must_contain("pub struct PrivateRecords(RecordSelection);", "4");
+    signal_witness.must_contain("pub struct Lookup(RecordIdentifier);", "4");
     signal_witness.must_contain("Record(Record)", "4");
     signal_witness.must_contain("Observe(Observe)", "4");
     signal_witness.must_contain("PublicRecords(PublicRecords)", "4");
@@ -260,11 +260,11 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     signal_witness.must_contain("Remove(Remove)", "4");
     signal_witness.must_contain("ChangeCertainty(ChangeCertainty)", "4");
 
-    // The schema-emitted Output enum carries exported alias nouns.
+    // The schema-emitted Output enum carries exported wrapper nouns.
     signal_witness.must_contain("pub enum Output {", "4");
-    signal_witness.must_contain("pub type RecordAccepted = SemaReceipt;", "4");
-    signal_witness.must_contain("pub type RecordsObserved = ObservedRecords;", "4");
-    signal_witness.must_contain("pub type RecordsStashed = StashedObservation;", "4");
+    signal_witness.must_contain("pub struct RecordAccepted(SemaReceipt);", "4");
+    signal_witness.must_contain("pub struct RecordsObserved(ObservedRecords);", "4");
+    signal_witness.must_contain("pub struct RecordsStashed(StashedObservation);", "4");
     signal_witness.must_contain("RecordAccepted(RecordAccepted)", "4");
     signal_witness.must_contain("RecordsObserved(RecordsObserved)", "4");
     signal_witness.must_contain("RecordsStashed(RecordsStashed)", "4");
@@ -279,9 +279,9 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     nexus_witness.must_contain("pub enum CommandSemaWrite {", "4");
     nexus_witness.must_contain("ChangeCertainty(ChangeCertainty)", "4");
     nexus_witness.must_contain("pub enum NexusEffectCommand {", "4");
-    nexus_witness.must_contain("pub type ClassifyState = Statement;", "4");
+    nexus_witness.must_contain("pub struct ClassifyState(Statement);", "4");
     nexus_witness.must_contain("ClassifyState(ClassifyState)", "4");
-    nexus_witness.must_contain("pub type StateClassified = Entry;", "4");
+    nexus_witness.must_contain("pub struct StateClassified(Entry);", "4");
     nexus_witness.must_contain("StateClassified(StateClassified)", "4");
 
     // The split SEMA module carries plane-local roots and imported payload nouns.
@@ -293,8 +293,8 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     sema_witness.must_contain("Observe(Observe)", "4");
     sema_witness.must_contain("Lookup(Lookup)", "4");
     sema_witness.must_contain("Count(Count)", "4");
-    sema_witness.must_contain("pub type Recorded = SemaReceipt;", "4");
-    sema_witness.must_contain("pub type CertaintyChanged = CertaintyChangeReceipt;", "4");
+    sema_witness.must_contain("pub struct Recorded(SemaReceipt);", "4");
+    sema_witness.must_contain("pub struct CertaintyChanged(CertaintyChangeReceipt);", "4");
 
     // The schema-emitted unit enums carry bare variants.
     signal_witness.must_contain("pub enum ValidationError", "4");

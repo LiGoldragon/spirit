@@ -9,11 +9,12 @@ use spirit::{
             WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
         },
         signal::{
-            CertaintyChange, DatabaseMarker, Entry, ErrorReport, Input, Kind, Magnitude,
-            MailLedgerEvent, MessageIdentifier, MessageSent, MessageSentHook, OriginRoute, Output,
-            PrivacySelection, ProcessedMail, Query, RecordChange, RecordIdentifier,
-            RecordSelection, SemaReceipt, SentMail, SignalEngine, SignalRejection, StashHandle,
-            Statement, TopicMatch, ValidationError,
+            Certainty, CertaintyChange, DatabaseMarker, Description, Entry, ErrorMessage,
+            ErrorReport, Input, Kind, Magnitude, MailLedgerEvent, MessageIdentifier, MessageSent,
+            MessageSentHook, OriginRoute, Output, Privacy, PrivacySelection, Query, RecordChange,
+            RecordIdentifier, RecordSelection, SemaReceipt, SentMail, SignalEngine,
+            SignalRejection, StashHandle, Statement, StatementText, TopicMatch, Topics,
+            ValidationError,
         },
     },
 };
@@ -60,35 +61,42 @@ fn entry(description: &str) -> Entry {
 
 fn entry_with_topics(topics: &[&str], description: &str) -> Entry {
     Entry {
-        topics: topics.iter().map(|topic| String::from(*topic)).collect(),
+        topics: topics_from_slice(topics),
         kind: Kind::Decision,
-        description: String::from(description),
+        description: Description::new(description),
         magnitude: Magnitude::Maximum,
-        privacy: Magnitude::Zero,
+        privacy: Privacy::new(Magnitude::Zero),
     }
 }
 
 fn entry_with_privacy(description: &str, privacy: Magnitude) -> Entry {
     Entry {
-        privacy,
+        privacy: Privacy::new(privacy),
         ..entry(description)
     }
 }
 
 fn record_identifier(code: &str) -> RecordIdentifier {
-    String::from(code)
+    RecordIdentifier::new(code)
+}
+
+fn topics_from_slice(topics: &[&str]) -> Topics {
+    Topics::from_strings(topics.iter().map(|topic| String::from(*topic)).collect())
 }
 
 fn assert_short_record_identifier(identifier: &RecordIdentifier) {
     assert!(
-        (4..=7).contains(&identifier.len()),
-        "record identifier should use a four-to-seven-character code: {identifier}"
+        (4..=7).contains(&identifier.payload().len()),
+        "record identifier should use a four-to-seven-character code: {:?}",
+        identifier.payload()
     );
     assert!(
         identifier
+            .payload()
             .chars()
             .all(|character| character.is_ascii_digit() || character.is_ascii_lowercase()),
-        "record identifier should be lower-base36: {identifier}"
+        "record identifier should be lower-base36: {:?}",
+        identifier.payload()
     );
 }
 
@@ -98,7 +106,7 @@ fn query() -> Query {
 
 fn full_query(topics: &[&str], kind: Option<Kind>) -> Query {
     Query {
-        topic_match: TopicMatch::full(topics.iter().map(|topic| String::from(*topic)).collect()),
+        topic_match: TopicMatch::full(topics_from_slice(topics)),
         kind,
         privacy_selection: PrivacySelection::default_observation_privacy(),
     }
@@ -106,7 +114,7 @@ fn full_query(topics: &[&str], kind: Option<Kind>) -> Query {
 
 fn partial_query(topics: &[&str], kind: Option<Kind>) -> Query {
     Query {
-        topic_match: TopicMatch::partial(topics.iter().map(|topic| String::from(*topic)).collect()),
+        topic_match: TopicMatch::partial(topics_from_slice(topics)),
         kind,
         privacy_selection: PrivacySelection::default_observation_privacy(),
     }
@@ -127,7 +135,7 @@ fn record_selection() -> RecordSelection {
 }
 
 fn route(offset: u64) -> OriginRoute {
-    OriginRoute(1_000_000 + offset)
+    OriginRoute::new(1_000_000 + offset)
 }
 
 fn nexus_route(offset: u64) -> spirit::schema::nexus::OriginRoute {
@@ -139,7 +147,7 @@ fn execute_nexus(nexus: &mut Nexus, input: nexus::Nexus<NexusWork>) -> nexus::Ne
         .enable_all()
         .build()
         .expect("nexus test runtime")
-        .block_on(NexusEngine::execute(nexus, input))
+        .block_on(nexus.execute_to_reply(input))
 }
 
 fn execute_nexus_on_multi_thread_runtime(
@@ -151,7 +159,21 @@ fn execute_nexus_on_multi_thread_runtime(
         .enable_all()
         .build()
         .expect("nexus multi-thread test runtime")
-        .block_on(NexusEngine::execute(nexus, input))
+        .block_on(nexus.execute_to_reply(input))
+}
+
+fn nexus_reply_output(output: &nexus::Nexus<NexusAction>) -> &Output {
+    match output.root() {
+        NexusAction::ReplyToSignal(reply) => reply.payload(),
+        other => panic!("expected ReplyToSignal, got {other:?}"),
+    }
+}
+
+fn nexus_signal_input(input: &nexus::Nexus<NexusWork>) -> &Input {
+    match input.root() {
+        NexusWork::SignalArrived(signal) => signal.payload(),
+        other => panic!("expected SignalArrived, got {other:?}"),
+    }
 }
 
 fn sema_route(offset: u64) -> spirit::schema::sema::OriginRoute {
@@ -171,7 +193,7 @@ fn input_record(entry: Entry) -> Input {
 }
 
 fn input_state(statement: &str) -> Input {
-    Input::state(Statement::new(String::from(statement)))
+    Input::state(Statement::new(StatementText::new(statement)))
 }
 
 fn input_observe(query: Query) -> Input {
@@ -197,7 +219,7 @@ fn input_count(query: Query) -> Input {
 fn input_change_certainty(record_identifier: RecordIdentifier, certainty: Magnitude) -> Input {
     Input::change_certainty(CertaintyChange {
         record_identifier,
-        certainty,
+        certainty: Certainty::new(certainty),
     })
 }
 
@@ -230,7 +252,7 @@ fn sema_change_certainty(
 ) -> SemaWriteInput {
     SemaWriteInput::change_certainty(CertaintyChange {
         record_identifier,
-        certainty,
+        certainty: Certainty::new(certainty),
     })
 }
 
@@ -256,32 +278,16 @@ fn sema_count(query: Query) -> SemaReadInput {
 #[test]
 fn generated_plane_roots_implement_shared_triad_runtime_roles() {
     fn assert_nexus_work<Work: triad_runtime::NexusWork>() {}
-    fn assert_nexus_effect_command<Effect: triad_runtime::NexusEffectCommand>() {}
-    fn assert_nexus_effect_result<Result: triad_runtime::NexusEffectResult>() {}
     fn assert_sema_write_input<Input: triad_runtime::SemaWriteInput>() {}
     fn assert_sema_write_output<Output: triad_runtime::SemaWriteOutput>() {}
     fn assert_sema_read_input<Input: triad_runtime::SemaReadInput>() {}
     fn assert_sema_read_output<Output: triad_runtime::SemaReadOutput>() {}
-    fn assert_nexus_action<
-        Action: triad_runtime::NexusAction<
-                Reply = Output,
-                SemaWrite = CommandSemaWrite,
-                SemaRead = SemaReadInput,
-                Effect = NexusEffectCommand,
-                Work = NexusWork,
-            >,
-    >() {
-    }
 
     assert_nexus_work::<NexusWork>();
-    assert_nexus_effect_command::<NexusEffectCommand>();
-    assert_nexus_effect_result::<spirit::schema::nexus::NexusEffectResult>();
-    assert_sema_write_input::<CommandSemaWrite>();
     assert_sema_write_input::<SemaWriteInput>();
     assert_sema_write_output::<SemaWriteOutput>();
     assert_sema_read_input::<SemaReadInput>();
     assert_sema_read_output::<SemaReadOutput>();
-    assert_nexus_action::<NexusAction>();
 }
 
 #[test]
@@ -299,8 +305,8 @@ fn nexus_runner_loop_routes_record_input_to_sema_write_command_then_back_to_repl
     let nexus_output = execute_nexus(&mut nexus, nexus_input);
 
     assert_eq!(nexus_output.origin_route(), nexus_route(1));
-    match nexus_output.root() {
-        NexusAction::ReplyToSignal(Output::RecordAccepted(receipt)) => {
+    match nexus_reply_output(&nexus_output) {
+        Output::RecordAccepted(receipt) => {
             assert_short_record_identifier(&receipt.record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 1);
         }
@@ -318,8 +324,8 @@ fn nexus_runner_moves_sema_work_through_multi_thread_runtime_boundary() {
 
     let record_output = execute_nexus_on_multi_thread_runtime(&mut nexus, record_input);
 
-    match record_output.root() {
-        NexusAction::ReplyToSignal(Output::RecordAccepted(receipt)) => {
+    match nexus_reply_output(&record_output) {
+        Output::RecordAccepted(receipt) => {
             assert_short_record_identifier(&receipt.record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 1);
         }
@@ -330,8 +336,8 @@ fn nexus_runner_moves_sema_work_through_multi_thread_runtime_boundary() {
         nexus_signal_arrived(input_observe(query())).with_origin_route(nexus_route(12));
     let observe_output = execute_nexus_on_multi_thread_runtime(&mut nexus, observe_input);
 
-    match observe_output.root() {
-        NexusAction::ReplyToSignal(Output::RecordsStashed(stash)) => {
+    match nexus_reply_output(&observe_output) {
+        Output::RecordsStashed(stash) => {
             assert_eq!(stash.stash_handle, 1);
             assert_eq!(stash.record_count, 1);
             assert_eq!(stash.database_marker.commit_sequence, 1);
@@ -349,8 +355,8 @@ fn nexus_classifies_state_into_provisional_record_through_sema_write() {
 
     let nexus_output = execute_nexus(&mut nexus, nexus_input);
 
-    match nexus_output.root() {
-        NexusAction::ReplyToSignal(Output::RecordAccepted(receipt)) => {
+    match nexus_reply_output(&nexus_output) {
+        Output::RecordAccepted(receipt) => {
             assert_short_record_identifier(&receipt.record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 1);
         }
@@ -433,9 +439,15 @@ fn nexus_state_classification_is_visible_as_schema_declared_effect_command() {
 
     assert_eq!(first_action.origin_route(), nexus_route(4));
     match first_action.root() {
-        NexusAction::CommandEffect(NexusEffectCommand::ClassifyState(statement)) => {
-            assert_eq!(statement.payload(), "visible classification");
-        }
+        NexusAction::CommandEffect(effect) => match effect.payload() {
+            NexusEffectCommand::ClassifyState(statement) => {
+                assert_eq!(
+                    statement.payload().payload().payload(),
+                    "visible classification"
+                );
+            }
+            other => panic!("expected State to become ClassifyState, got {other:?}"),
+        },
         other => panic!("expected State to become CommandEffect(ClassifyState), got {other:?}"),
     }
     assert_eq!(
@@ -454,7 +466,7 @@ fn sema_engine_changes_certainty_without_changing_record_identifier() {
         sema_write_message(sema_record(entry("certainty target")), 1),
     );
     let record_identifier = match recorded.into_root() {
-        SemaWriteOutput::Recorded(receipt) => receipt.record_identifier,
+        SemaWriteOutput::Recorded(receipt) => receipt.record_identifier.clone(),
         other => panic!("expected initial Recorded receipt, got {other:?}"),
     };
 
@@ -497,7 +509,7 @@ fn sema_engine_changes_record_without_changing_record_identifier() {
         sema_write_message(sema_record(entry("original target")), 1),
     );
     let record_identifier = match recorded.into_root() {
-        SemaWriteOutput::Recorded(receipt) => receipt.record_identifier,
+        SemaWriteOutput::Recorded(receipt) => receipt.record_identifier.clone(),
         other => panic!("expected initial Recorded receipt, got {other:?}"),
     };
 
@@ -539,17 +551,23 @@ fn signal_admission_pushes_accepted_message_through_sent_hook_before_nexus_holds
         .admit(input_record(signal_entry.clone()))
         .expect("signal input admits");
     let mut hook = SentHookProbe { events: Vec::new() };
-    let expected_sent = MailLedgerEvent::Sent(SentMail {
-        mail_identifier: 1,
-        origin_route: route(1),
-        short_header: expected_short_header,
-    });
+    let expected_sent = MailLedgerEvent::Sent(
+        SentMail {
+            mail_identifier: 1.into(),
+            origin_route: route(1),
+            short_header: expected_short_header.into(),
+        }
+        .into(),
+    );
 
-    assert_eq!(accepted.message_sent().identifier, MessageIdentifier(1));
+    assert_eq!(
+        accepted.message_sent().identifier,
+        MessageIdentifier::new(1)
+    );
     assert_eq!(accepted.message_sent().origin_route(), route(1));
     assert_ne!(
         accepted.message_sent().origin_route(),
-        OriginRoute(accepted.message_sent().identifier.0)
+        OriginRoute::new(accepted.message_sent().identifier.payload())
     );
     assert_eq!(hook.events, []);
 
@@ -582,9 +600,9 @@ fn nexus_step_decide_routes_signal_arrival_to_sema_command_without_committing() 
     let signal_input = input_record(entry("held in flight")).with_origin_route(route(1));
     let nexus_input = SignalEngine::triage(&signal_admission, signal_input);
     assert_eq!(nexus_input.origin_route(), nexus_route(1));
-    match nexus_input.root() {
-        NexusWork::SignalArrived(Input::Record(recorded)) => {
-            assert_eq!(recorded.description, "held in flight")
+    match nexus_signal_input(&nexus_input) {
+        Input::Record(recorded) => {
+            assert_eq!(recorded.payload().description, "held in flight")
         }
         other => panic!("expected SignalArrived(Record), got {other:?}"),
     }
@@ -648,8 +666,8 @@ fn nexus_engine_trait_runs_nexus_decision_through_sema_state() {
     let nexus_output = execute_nexus(&mut nexus, nexus_input);
 
     assert_eq!(nexus_output.origin_route(), nexus_route(20));
-    match nexus_output.root() {
-        NexusAction::ReplyToSignal(Output::RecordAccepted(receipt)) => {
+    match nexus_reply_output(&nexus_output) {
+        Output::RecordAccepted(receipt) => {
             assert_short_record_identifier(&receipt.record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 1);
         }
@@ -671,10 +689,7 @@ fn signal_engine_trait_triages_signal_roots_to_nexus_and_back() {
 
     let nexus_input = SignalEngine::triage(&signal_admission, signal_input);
     assert_eq!(nexus_input.origin_route(), nexus_route(21));
-    assert!(matches!(
-        nexus_input.root(),
-        NexusWork::SignalArrived(Input::Record(_))
-    ));
+    assert!(matches!(nexus_signal_input(&nexus_input), Input::Record(_)));
 
     let nexus_output = execute_nexus(&mut nexus, nexus_input);
     let signal_output = SignalEngine::reply(&signal_admission, nexus_output);
@@ -709,7 +724,7 @@ fn sema_store_persists_records_across_reopen_of_the_same_sema_file() {
             sema_write_message(sema_record(entry("durable two")), 2),
         );
         first_marker = match recorded.into_root() {
-            SemaWriteOutput::Recorded(receipt) => receipt.database_marker,
+            SemaWriteOutput::Recorded(receipt) => receipt.database_marker.clone(),
             other => panic!("expected Recorded, got {other:?}"),
         };
         assert_eq!(store.len(), 2);
@@ -833,7 +848,9 @@ fn sema_engine_queries_privacy_as_directional_magnitude() {
     let high = SemaEngine::observe(
         &store,
         sema_read_message(
-            sema_observe(privacy_query(PrivacySelection::at_least(Magnitude::High))),
+            sema_observe(privacy_query(PrivacySelection::at_least(Privacy::new(
+                Magnitude::High,
+            )))),
             5,
         ),
     );
@@ -884,7 +901,7 @@ fn public_private_record_shortcuts_project_to_privacy_queries_through_nexus() {
         Output::RecordsStashed(stashed) => {
             assert_eq!(stashed.record_count, 1);
             assert_eq!(stashed.database_marker, private_marker);
-            stashed.stash_handle
+            stashed.stash_handle.clone()
         }
         other => panic!("expected public shortcut to stash matching records, got {other:?}"),
     };
@@ -893,7 +910,7 @@ fn public_private_record_shortcuts_project_to_privacy_queries_through_nexus() {
         Output::RecordsStashed(stashed) => {
             assert_eq!(stashed.record_count, 1);
             assert_eq!(stashed.database_marker, private_marker);
-            stashed.stash_handle
+            stashed.stash_handle.clone()
         }
         other => panic!("expected private shortcut to stash matching records, got {other:?}"),
     };
@@ -931,7 +948,7 @@ fn sema_engine_lookup_and_count_are_read_plane_operations() {
         ),
     );
     let first_identifier = match first.into_root() {
-        SemaWriteOutput::Recorded(receipt) => receipt.record_identifier,
+        SemaWriteOutput::Recorded(receipt) => receipt.record_identifier.clone(),
         other => panic!("expected first Recorded receipt, got {other:?}"),
     };
     let second = SemaEngine::apply(
@@ -942,7 +959,7 @@ fn sema_engine_lookup_and_count_are_read_plane_operations() {
         ),
     );
     let second_identifier = match second.into_root() {
-        SemaWriteOutput::Recorded(receipt) => receipt.record_identifier,
+        SemaWriteOutput::Recorded(receipt) => receipt.record_identifier.clone(),
         other => panic!("expected second Recorded receipt, got {other:?}"),
     };
     assert_ne!(first_identifier, second_identifier);
@@ -1017,7 +1034,7 @@ fn sema_engine_removes_records_and_advances_database_work_marker() {
         sema_write_message(sema_record(entry("remove target")), 1),
     );
     let record_identifier = match recorded.into_root() {
-        SemaWriteOutput::Recorded(receipt) => receipt.record_identifier,
+        SemaWriteOutput::Recorded(receipt) => receipt.record_identifier.clone(),
         other => panic!("expected initial Recorded receipt, got {other:?}"),
     };
 
@@ -1067,7 +1084,7 @@ fn signal_admission_rejects_invalid_input_with_schema_emitted_rejection_before_m
     let sema = SemaFile::new();
     let mut engine = sema.engine();
     let mut bad = entry("missing topic");
-    bad.topics = vec![String::new()];
+    bad.topics = Topics::from_strings(vec![String::new()]);
 
     let output = engine.handle(input_record(bad));
 
@@ -1076,8 +1093,8 @@ fn signal_admission_rejects_invalid_input_with_schema_emitted_rejection_before_m
         &Output::rejected(SignalRejection {
             validation_error: ValidationError::EmptyTopic,
             database_marker: DatabaseMarker {
-                commit_sequence: 0,
-                state_digest: 0,
+                commit_sequence: 0.into(),
+                state_digest: 0.into(),
             },
         })
     );
@@ -1095,10 +1112,10 @@ fn sema_read_miss_completion_routes_through_runner_loop_to_error_reply() {
     let sema = SemaFile::new();
     let mut nexus = Nexus::new(sema.open_store());
     let nexus_input = NexusWork::sema_read_completed(SemaReadOutput::missed(ErrorReport {
-        error_message: String::from("no matching record"),
+        error_message: ErrorMessage::new("no matching record"),
         database_marker: DatabaseMarker {
-            commit_sequence: 0,
-            state_digest: 0,
+            commit_sequence: 0.into(),
+            state_digest: 0.into(),
         },
     }))
     .with_origin_route(nexus_route(7));
@@ -1109,10 +1126,10 @@ fn sema_read_miss_completion_routes_through_runner_loop_to_error_reply() {
     assert_eq!(
         signal_output.root(),
         &Output::error(ErrorReport {
-            error_message: String::from("no matching record"),
+            error_message: ErrorMessage::new("no matching record"),
             database_marker: DatabaseMarker {
-                commit_sequence: 0,
-                state_digest: 0,
+                commit_sequence: 0.into(),
+                state_digest: 0.into(),
             },
         })
     );
@@ -1134,8 +1151,8 @@ fn plane_envelopes_keep_payload_names_scoped() {
     assert_eq!(nexus_output.origin_route(), nexus_route(11));
     // The runner loop drove the full cycle to ReplyToSignal(RecordAccepted).
     assert!(matches!(
-        nexus_output.root(),
-        NexusAction::ReplyToSignal(Output::RecordAccepted(_))
+        nexus_reply_output(&nexus_output),
+        Output::RecordAccepted(_)
     ));
 
     let signal_output = SignalEngine::reply(&SignalAdmission::default(), nexus_output);
@@ -1155,16 +1172,16 @@ fn nexus_and_sema_have_explicit_input_output_languages() {
 
     let nexus_output = execute_nexus(&mut nexus, nexus_input);
     assert!(matches!(
-        nexus_output.root(),
-        NexusAction::ReplyToSignal(Output::RecordAccepted(_))
+        nexus_reply_output(&nexus_output),
+        Output::RecordAccepted(_)
     ));
 
     // Standalone SEMA completion fact also routes back to the right reply.
     let sema_output = SemaWriteOutput::recorded(SemaReceipt {
         record_identifier: record_identifier("003g"),
         database_marker: DatabaseMarker {
-            commit_sequence: 4,
-            state_digest: 127,
+            commit_sequence: 4.into(),
+            state_digest: 127.into(),
         },
     });
     let nexus_input_from_sema =
@@ -1179,12 +1196,12 @@ fn nexus_and_sema_have_explicit_input_output_languages() {
 #[test]
 fn import_export_paths_use_single_colon_namespaces() {
     let import = Import {
-        source_path: String::from("signal:sema:Magnitude"),
-        local_path: String::from("spirit:core:Magnitude"),
+        source_path: String::from("signal:sema:Magnitude").into(),
+        local_path: String::from("spirit:core:Magnitude").into(),
     };
     let export = Export {
-        local_path: String::from("spirit:core:SemaWriteOutput"),
-        public_path: String::from("spirit:sema:SemaWriteOutput"),
+        local_path: String::from("spirit:core:SemaWriteOutput").into(),
+        public_path: String::from("spirit:sema:SemaWriteOutput").into(),
     };
 
     assert_eq!(
@@ -1222,7 +1239,7 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
     assert_eq!(engine.processed_message_count(), 1);
 
     let observed = engine.handle(input_observe(Query {
-        topic_match: TopicMatch::full(vec![String::from("runtime-triad")]),
+        topic_match: TopicMatch::full(Topics::from_strings(vec![String::from("runtime-triad")])),
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
     }));
@@ -1234,7 +1251,7 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
             // not the full record set.
             assert_eq!(stashed.record_count, 1);
             assert_eq!(stashed.database_marker, record_marker);
-            stashed.stash_handle
+            stashed.stash_handle.clone()
         }
         other => panic!("expected slim RecordsStashed reply after Observe, got {other:?}"),
     };
@@ -1264,17 +1281,11 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
     // First two mail-ledger events are the Record cycle.
     assert!(matches!(
         engine.mail_ledger()[0],
-        MailLedgerEvent::Sent(SentMail {
-            mail_identifier: 1,
-            ..
-        })
+        MailLedgerEvent::Sent(ref sent) if *sent.mail_identifier.payload() == 1
     ));
     assert!(matches!(
         engine.mail_ledger()[1],
-        MailLedgerEvent::Processed(ProcessedMail {
-            mail_identifier: 1,
-            ..
-        })
+        MailLedgerEvent::Processed(ref processed) if *processed.mail_identifier.payload() == 1
     ));
 }
 
@@ -1288,7 +1299,7 @@ fn full_runtime_triad_looks_up_and_counts_through_signal_nexus_and_sema() {
         "lookup one",
     )));
     let first_identifier = match first.into_root() {
-        Output::RecordAccepted(receipt) => receipt.record_identifier,
+        Output::RecordAccepted(receipt) => receipt.record_identifier.clone(),
         other => panic!("expected first RecordAccepted, got {other:?}"),
     };
     engine.handle(input_record(entry_with_topics(

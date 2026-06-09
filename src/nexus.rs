@@ -14,12 +14,13 @@ use crate::{
             SemaEngine, WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
         },
         signal::{
-            DatabaseMarker, Entry, ErrorReport, Input, IntentEvent, IntentRecorded,
-            IntentSubscription, Kind, Magnitude, ObservedOperation, ObservedOperations,
-            ObserverFilter, ObserverRetraction, ObserverSubscription, OperationKind, Output,
-            Records, RemovalCandidateCollection, RemovalCandidatesCollection, SemaReceipt,
-            SignalRejection, StashHandle, StashedObservation, Statement, SubscriptionToken,
-            ValidationError,
+            DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport, Input, IntentEvent,
+            IntentRecorded, IntentSubscription, Kind, Magnitude, ObservedOperation,
+            ObservedOperations, ObserverFilter, ObserverRetraction, ObserverSubscription,
+            OperationKind, Output, Privacy, RecordCount, Records, RemovalArchiveRecords,
+            RemovalCandidateCollection, RemovalCandidatesCollection, RemovedIdentifiers,
+            SemaReceipt, SignalRejection, SkippedRemovalCandidates, StashHandle,
+            StashedObservation, Statement, SubscriptionToken, Topics, ValidationError,
         },
     },
     store::{Store, StoreError},
@@ -29,7 +30,7 @@ use crate::{
 use crate::{ObjectName, TraceEvent, TraceLog, schema::nexus::NexusObjectName};
 use signal_frame::SubscriptionTokenInner;
 use tokio::runtime::{Handle, RuntimeFlavor};
-use triad_runtime::{ContinuationExhausted, SubscriptionTokenIssuer};
+use triad_runtime::{ContinuationExhausted, ContinuationLimit, SubscriptionTokenIssuer};
 
 /// The stash table — the durable handle store backing the Stash effect.
 ///
@@ -86,17 +87,19 @@ impl ObserverTapTable {
     /// Close an observer tap. Returns the tap's final filtered observations when
     /// the token was registered, and `None` when it was not.
     pub fn close(&mut self, token: SubscriptionToken) -> Option<ObservedOperations> {
-        let filter = self.taps.remove(&token)?;
+        let filter = self.taps.remove(token.payload())?;
         Some(self.observed_operations(&filter))
     }
 
     fn observed_operations(&self, filter: &ObserverFilter) -> ObservedOperations {
-        self.operation_log
-            .iter()
-            .filter(|operation| filter.observes_operation(operation))
-            .cloned()
-            .map(ObservedOperation)
-            .collect()
+        ObservedOperations::new(
+            self.operation_log
+                .iter()
+                .filter(|operation| filter.observes_operation(operation))
+                .cloned()
+                .map(ObservedOperation::new)
+                .collect(),
+        )
     }
 
     pub fn len(&self) -> usize {
@@ -155,7 +158,7 @@ impl StashTable {
     pub fn put(&mut self, records: Records, database_marker: DatabaseMarker) -> StashResult {
         self.next_handle += 1;
         let handle = self.next_handle;
-        let record_count = records.len() as u64;
+        let record_count = records.payload().len() as u64;
         self.entries.insert(
             handle,
             StashEntry {
@@ -164,8 +167,8 @@ impl StashTable {
             },
         );
         StashResult {
-            stash_handle: handle,
-            record_count,
+            stash_handle: StashHandle::new(handle),
+            record_count: RecordCount::new(record_count),
             database_marker,
         }
     }
@@ -174,7 +177,7 @@ impl StashTable {
     /// marker the stash was sealed under.
     pub fn lookup(&self, handle: &StashHandle) -> Option<(Records, DatabaseMarker)> {
         self.entries
-            .get(handle)
+            .get(handle.payload())
             .map(|entry| (entry.records.clone(), entry.database_marker.clone()))
     }
 
@@ -227,11 +230,11 @@ impl Default for ClassificationPolicy {
 impl ClassificationPolicy {
     pub fn classify(&self, statement: Statement) -> Entry {
         Entry {
-            topics: vec![self.fallback_topic.clone()],
+            topics: Topics::from_strings(vec![self.fallback_topic.clone()]),
             kind: self.fallback_kind,
-            description: statement.into_payload(),
+            description: Description::new(statement.into_payload().into_payload()),
             magnitude: self.fallback_magnitude,
-            privacy: self.fallback_privacy,
+            privacy: Privacy::new(self.fallback_privacy),
         }
     }
 }
@@ -239,10 +242,12 @@ impl ClassificationPolicy {
 impl CommandSemaWrite {
     fn into_sema_write_input(self) -> SemaWriteInput {
         match self {
-            Self::Record(record) => SemaWriteInput::record(record),
-            Self::Remove(remove) => SemaWriteInput::remove(remove),
-            Self::ChangeCertainty(change) => SemaWriteInput::change_certainty(change),
-            Self::ChangeRecord(change) => SemaWriteInput::change_record(change),
+            Self::Record(record) => SemaWriteInput::record(record.into_payload()),
+            Self::Remove(remove) => SemaWriteInput::remove(remove.into_payload()),
+            Self::ChangeCertainty(change) => {
+                SemaWriteInput::change_certainty(change.into_payload())
+            }
+            Self::ChangeRecord(change) => SemaWriteInput::change_record(change.into_payload()),
         }
     }
 }
@@ -325,7 +330,7 @@ impl Nexus {
     ) -> Result<Option<IntentEvent>, StoreError> {
         Ok(self
             .store
-            .entry_by_identifier(&receipt.record_identifier)?
+            .entry_by_identifier(receipt.record_identifier.payload())?
             .map(|entry| {
                 IntentEvent::intent_recorded(IntentRecorded {
                     entry,
@@ -339,40 +344,47 @@ impl Nexus {
     fn apply_effect(&mut self, command: NexusEffectCommand) -> NexusEffectResult {
         match command {
             NexusEffectCommand::ClassifyState(statement) => {
-                let entry = self.classification_policy.classify(statement);
+                let entry = self
+                    .classification_policy
+                    .classify(statement.into_payload());
                 NexusEffectResult::state_classified(entry)
             }
-            NexusEffectCommand::Stash(StashRequest {
-                records,
-                database_marker,
-            }) => {
+            NexusEffectCommand::Stash(stash) => {
+                let StashRequest {
+                    records,
+                    database_marker,
+                } = stash.into_payload();
                 let result = self.stash_table.put(records, database_marker);
                 NexusEffectResult::stashed(result)
             }
             NexusEffectCommand::OpenIntentSubscription(_query) => {
                 let token: SubscriptionTokenInner = self.subscription_token_issuer.issue();
                 NexusEffectResult::intent_subscription_opened(IntentSubscription {
-                    subscription_token: token.value(),
+                    subscription_token: SubscriptionToken::new(token.value()),
                     database_marker: self.database_marker(),
                 })
             }
             NexusEffectCommand::CollectRemovalCandidates(collection) => {
-                self.collect_removal_candidates(collection)
+                self.collect_removal_candidates(collection.into_payload())
             }
             NexusEffectCommand::OpenObserverTap(filter) => {
                 let (token, observer_filter, observed_operations) =
-                    self.observer_tap_table.open(filter);
+                    self.observer_tap_table.open(filter.into_payload());
                 NexusEffectResult::observer_tap_opened(ObserverSubscription {
-                    subscription_token: token,
+                    subscription_token: SubscriptionToken::new(token),
                     observer_filter,
                     observed_operations,
                     database_marker: self.database_marker(),
                 })
             }
             NexusEffectCommand::CloseObserverTap(token) => {
-                let observed_operations = self.observer_tap_table.close(token).unwrap_or_default();
+                let subscription_token = token.into_payload();
+                let observed_operations = self
+                    .observer_tap_table
+                    .close(subscription_token.clone())
+                    .unwrap_or_else(|| ObservedOperations::new(Vec::new()));
                 NexusEffectResult::observer_tap_closed(ObserverRetraction {
-                    subscription_token: token,
+                    subscription_token,
                     observed_operations,
                     database_marker: self.database_marker(),
                 })
@@ -393,9 +405,9 @@ impl Nexus {
             .store
             .collect_removal_candidates(collection)
             .unwrap_or_else(|_error| RemovalCandidatesCollection {
-                archived_records: Vec::new(),
-                removed_identifiers: Vec::new(),
-                skipped_removal_candidates: Vec::new(),
+                removal_archive_records: RemovalArchiveRecords::new(Vec::new()),
+                removed_identifiers: RemovedIdentifiers::new(Vec::new()),
+                skipped_removal_candidates: SkippedRemovalCandidates::new(Vec::new()),
                 database_marker: self.database_marker(),
             });
         NexusEffectResult::removal_candidates_collected(result)
@@ -430,12 +442,80 @@ impl Nexus {
             _ => SemaEngine::observe(&self.store, input).into_root(),
         }
     }
+
+    pub async fn execute_to_reply(
+        &mut self,
+        input: nexus_schema::nexus::Nexus<NexusWork>,
+    ) -> nexus_schema::nexus::Nexus<NexusAction> {
+        let origin_route = input.origin_route();
+        let mut work = input.into_root();
+        let mut budget = ContinuationLimit::default().budget();
+        loop {
+            let action = self.step_decide(work);
+            match action {
+                NexusAction::ReplyToSignal(_) => return action.with_origin_route(origin_route),
+                NexusAction::CommandSemaWrite(command) => {
+                    let Err(exhausted) = budget.spend_next_step() else {
+                        let output = self.apply_sema_write_operation(
+                            command
+                                .into_sema_write_input()
+                                .with_origin_route(origin_route.into()),
+                        );
+                        work = NexusWork::sema_write_completed(output);
+                        continue;
+                    };
+                    return NexusAction::reply_to_signal(self.budget_exhausted_reply(exhausted))
+                        .with_origin_route(origin_route);
+                }
+                NexusAction::CommandSemaRead(command) => {
+                    let Err(exhausted) = budget.spend_next_step() else {
+                        let output = self.observe_sema_read_operation(
+                            command
+                                .into_payload()
+                                .with_origin_route(origin_route.into()),
+                        );
+                        work = NexusWork::sema_read_completed(output);
+                        continue;
+                    };
+                    return NexusAction::reply_to_signal(self.budget_exhausted_reply(exhausted))
+                        .with_origin_route(origin_route);
+                }
+                NexusAction::CommandEffect(command) => {
+                    let Err(exhausted) = budget.spend_next_step() else {
+                        let output = self.apply_effect(command.into_payload());
+                        work = NexusWork::effect_completed(output);
+                        continue;
+                    };
+                    return NexusAction::reply_to_signal(self.budget_exhausted_reply(exhausted))
+                        .with_origin_route(origin_route);
+                }
+                NexusAction::Continue(next) => {
+                    let Err(exhausted) = budget.spend_next_step() else {
+                        work = next.into_payload();
+                        continue;
+                    };
+                    return NexusAction::reply_to_signal(self.budget_exhausted_reply(exhausted))
+                        .with_origin_route(origin_route);
+                }
+            }
+        }
+    }
+
+    fn budget_exhausted_reply(&self, exhausted: ContinuationExhausted) -> Output {
+        Output::error(ErrorReport {
+            error_message: ErrorMessage::new(format!(
+                "nexus continuation budget exhausted after {} steps (limit {})",
+                exhausted.completed_step_count(),
+                exhausted.limit().count()
+            )),
+            database_marker: self.database_marker(),
+        })
+    }
 }
 
-/// Generated `NexusEngine::execute` owns the recursive runner loop.
-/// This implementation supplies the component behavior hooks: one
-/// decision step, storage write/read dispatch, effect dispatch, and the
-/// typed budget-exhausted reply.
+/// Generated `NexusEngine` owns lifecycle and one-step decision dispatch.
+/// Spirit drives the recursive runner loop in `Nexus::execute_to_reply` because
+/// the no-alias schema shape no longer emits the old multi-hook runner trait.
 impl NexusEngine for Nexus {
     fn on_start(&mut self) -> Result<(), NexusEngineStartFailure> {
         SemaEngine::on_start(&mut self.store)?;
@@ -465,41 +545,6 @@ impl NexusEngine for Nexus {
         self.step_decide(input.into_root())
             .with_origin_route(origin_route)
     }
-
-    async fn apply_sema_write(
-        &mut self,
-        origin_route: nexus_schema::OriginRoute,
-        input: CommandSemaWrite,
-    ) -> SemaWriteOutput {
-        self.apply_sema_write_operation(
-            input
-                .into_sema_write_input()
-                .with_origin_route(origin_route.into()),
-        )
-    }
-
-    async fn observe_sema_read(
-        &mut self,
-        origin_route: nexus_schema::OriginRoute,
-        input: SemaReadInput,
-    ) -> SemaReadOutput {
-        self.observe_sema_read_operation(input.with_origin_route(origin_route.into()))
-    }
-
-    async fn run_effect(&mut self, input: NexusEffectCommand) -> NexusEffectResult {
-        self.apply_effect(input)
-    }
-
-    fn budget_exhausted_reply(&self, exhausted: ContinuationExhausted) -> Output {
-        Output::error(ErrorReport {
-            error_message: format!(
-                "nexus continuation budget exhausted after {} steps (limit {})",
-                exhausted.completed_step_count(),
-                exhausted.limit().count()
-            ),
-            database_marker: self.database_marker(),
-        })
-    }
 }
 
 impl Nexus {
@@ -517,10 +562,16 @@ impl Nexus {
     /// `Record` write.
     fn step_decide(&mut self, work: NexusWork) -> NexusAction {
         match work {
-            NexusWork::SignalArrived(input) => self.decide_signal_arrival(input),
-            NexusWork::SemaWriteCompleted(output) => self.decide_sema_write_completion(output),
-            NexusWork::SemaReadCompleted(output) => self.decide_sema_read_completion(output),
-            NexusWork::EffectCompleted(result) => self.decide_effect_completion(result),
+            NexusWork::SignalArrived(input) => self.decide_signal_arrival(input.into_payload()),
+            NexusWork::SemaWriteCompleted(output) => {
+                self.decide_sema_write_completion(output.into_payload())
+            }
+            NexusWork::SemaReadCompleted(output) => {
+                self.decide_sema_read_completion(output.into_payload())
+            }
+            NexusWork::EffectCompleted(result) => {
+                self.decide_effect_completion(result.into_payload())
+            }
         }
     }
 
@@ -531,36 +582,40 @@ impl Nexus {
         self.observer_tap_table
             .observe_operation(OperationKind::from_input(&input));
         match input {
-            Input::State(statement) => {
-                NexusAction::command_effect(NexusEffectCommand::classify_state(statement))
-            }
+            Input::State(statement) => NexusAction::command_effect(
+                NexusEffectCommand::classify_state(statement.into_payload()),
+            ),
             Input::Record(record) => {
-                NexusAction::command_sema_write(CommandSemaWrite::record(record))
+                NexusAction::command_sema_write(CommandSemaWrite::record(record.into_payload()))
             }
             Input::Observe(observe) => {
-                NexusAction::command_sema_read(SemaReadInput::observe(observe))
+                NexusAction::command_sema_read(SemaReadInput::observe(observe.into_payload()))
             }
             Input::PublicRecords(selection) => NexusAction::command_sema_read(
-                SemaReadInput::observe(selection.into_public_query()),
+                SemaReadInput::observe(selection.into_payload().into_public_query()),
             ),
             Input::PrivateRecords(selection) => NexusAction::command_sema_read(
-                SemaReadInput::observe(selection.into_private_query()),
+                SemaReadInput::observe(selection.into_payload().into_private_query()),
             ),
-            Input::Lookup(lookup) => NexusAction::command_sema_read(SemaReadInput::lookup(lookup)),
-            Input::Count(count) => NexusAction::command_sema_read(SemaReadInput::count(count)),
+            Input::Lookup(lookup) => {
+                NexusAction::command_sema_read(SemaReadInput::lookup(lookup.into_payload()))
+            }
+            Input::Count(count) => {
+                NexusAction::command_sema_read(SemaReadInput::count(count.into_payload()))
+            }
             Input::Remove(remove) => {
-                NexusAction::command_sema_write(CommandSemaWrite::remove(remove))
+                NexusAction::command_sema_write(CommandSemaWrite::remove(remove.into_payload()))
             }
-            Input::ChangeCertainty(change) => {
-                NexusAction::command_sema_write(CommandSemaWrite::change_certainty(change))
-            }
-            Input::ChangeRecord(change) => {
-                NexusAction::command_sema_write(CommandSemaWrite::change_record(change))
-            }
-            Input::LookupStash(handle) => match self.stash_table.lookup(&handle) {
+            Input::ChangeCertainty(change) => NexusAction::command_sema_write(
+                CommandSemaWrite::change_certainty(change.into_payload()),
+            ),
+            Input::ChangeRecord(change) => NexusAction::command_sema_write(
+                CommandSemaWrite::change_record(change.into_payload()),
+            ),
+            Input::LookupStash(handle) => match self.stash_table.lookup(handle.payload()) {
                 Some((records, database_marker)) => NexusAction::reply_to_signal(
                     Output::records_observed(crate::schema::signal::ObservedRecords {
-                        record_set: records,
+                        record_set: crate::schema::signal::RecordSet::new(records.into_payload()),
                         database_marker,
                     }),
                 ),
@@ -570,35 +625,37 @@ impl Nexus {
                 })),
             },
             Input::CollectRemovalCandidates(collection) => NexusAction::command_effect(
-                NexusEffectCommand::collect_removal_candidates(collection),
+                NexusEffectCommand::collect_removal_candidates(collection.into_payload()),
             ),
-            Input::Tap(filter) => {
-                NexusAction::command_effect(NexusEffectCommand::open_observer_tap(filter))
-            }
-            Input::Untap(token) => {
-                NexusAction::command_effect(NexusEffectCommand::close_observer_tap(token))
-            }
-            Input::SubscribeIntent(query) => {
-                NexusAction::command_effect(NexusEffectCommand::open_intent_subscription(query))
-            }
+            Input::Tap(filter) => NexusAction::command_effect(
+                NexusEffectCommand::open_observer_tap(filter.into_payload()),
+            ),
+            Input::Untap(token) => NexusAction::command_effect(
+                NexusEffectCommand::close_observer_tap(token.into_payload()),
+            ),
+            Input::SubscribeIntent(query) => NexusAction::command_effect(
+                NexusEffectCommand::open_intent_subscription(query.into_payload()),
+            ),
         }
     }
 
     fn decide_sema_write_completion(&self, output: SemaWriteOutput) -> NexusAction {
         match output {
             SemaWriteOutput::Recorded(receipt) => {
-                NexusAction::reply_to_signal(Output::record_accepted(receipt))
+                NexusAction::reply_to_signal(Output::record_accepted(receipt.into_payload()))
             }
             SemaWriteOutput::Removed(receipt) => {
-                NexusAction::reply_to_signal(Output::record_removed(receipt))
+                NexusAction::reply_to_signal(Output::record_removed(receipt.into_payload()))
             }
             SemaWriteOutput::CertaintyChanged(receipt) => {
-                NexusAction::reply_to_signal(Output::certainty_changed(receipt))
+                NexusAction::reply_to_signal(Output::certainty_changed(receipt.into_payload()))
             }
             SemaWriteOutput::RecordChanged(receipt) => {
-                NexusAction::reply_to_signal(Output::record_changed(receipt))
+                NexusAction::reply_to_signal(Output::record_changed(receipt.into_payload()))
             }
-            SemaWriteOutput::Missed(report) => NexusAction::reply_to_signal(Output::error(report)),
+            SemaWriteOutput::Missed(report) => {
+                NexusAction::reply_to_signal(Output::error(report.into_payload()))
+            }
         }
     }
 
@@ -608,49 +665,59 @@ impl Nexus {
                 // Observe's slim-output path per Spirit 1389: recurse
                 // through Stash effect so the wire reply carries a
                 // handle, not the full record set.
+                let observed = observed.into_payload();
                 let database_marker = observed.database_marker;
-                let records = observed.record_set;
+                let records = Records::new(observed.record_set.into_payload());
                 NexusAction::command_effect(NexusEffectCommand::stash(StashRequest {
                     records,
                     database_marker,
                 }))
             }
             SemaReadOutput::Found(record) => {
-                NexusAction::reply_to_signal(Output::record_found(record))
+                NexusAction::reply_to_signal(Output::record_found(record.into_payload()))
             }
             SemaReadOutput::Counted(counted) => {
-                NexusAction::reply_to_signal(Output::records_counted(counted))
+                NexusAction::reply_to_signal(Output::records_counted(counted.into_payload()))
             }
-            SemaReadOutput::Missed(report) => NexusAction::reply_to_signal(Output::error(report)),
+            SemaReadOutput::Missed(report) => {
+                NexusAction::reply_to_signal(Output::error(report.into_payload()))
+            }
         }
     }
 
     fn decide_effect_completion(&self, result: NexusEffectResult) -> NexusAction {
         match result {
             NexusEffectResult::StateClassified(entry) => {
-                NexusAction::command_sema_write(CommandSemaWrite::record(entry))
+                NexusAction::command_sema_write(CommandSemaWrite::record(entry.into_payload()))
             }
-            NexusEffectResult::Stashed(StashResult {
-                stash_handle,
-                record_count,
-                database_marker,
-            }) => NexusAction::reply_to_signal(Output::records_stashed(StashedObservation {
-                stash_handle,
-                record_count,
-                database_marker,
-            })),
+            NexusEffectResult::Stashed(stashed) => {
+                let StashResult {
+                    stash_handle,
+                    record_count,
+                    database_marker,
+                } = stashed.into_payload();
+                NexusAction::reply_to_signal(Output::records_stashed(StashedObservation {
+                    stash_handle,
+                    record_count,
+                    database_marker,
+                }))
+            }
             NexusEffectResult::IntentSubscriptionOpened(subscription) => {
-                NexusAction::reply_to_signal(Output::subscription_started(subscription))
+                NexusAction::reply_to_signal(Output::subscription_started(
+                    subscription.into_payload(),
+                ))
             }
             NexusEffectResult::RemovalCandidatesCollected(collection) => {
-                NexusAction::reply_to_signal(Output::removal_candidates_collected(collection))
+                NexusAction::reply_to_signal(Output::removal_candidates_collected(
+                    collection.into_payload(),
+                ))
             }
-            NexusEffectResult::ObserverTapOpened(subscription) => {
-                NexusAction::reply_to_signal(Output::observation_tapped(subscription))
-            }
-            NexusEffectResult::ObserverTapClosed(retraction) => {
-                NexusAction::reply_to_signal(Output::observation_untapped(retraction))
-            }
+            NexusEffectResult::ObserverTapOpened(subscription) => NexusAction::reply_to_signal(
+                Output::observation_tapped(subscription.into_payload()),
+            ),
+            NexusEffectResult::ObserverTapClosed(retraction) => NexusAction::reply_to_signal(
+                Output::observation_untapped(retraction.into_payload()),
+            ),
         }
     }
 }

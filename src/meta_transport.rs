@@ -69,7 +69,7 @@ where
         &mut self,
         request: Configure,
     ) -> Result<(MetaOutputRoute, MetaOutput), MetaTransportError> {
-        self.exchange(&MetaInput::configure(request))
+        self.exchange(&MetaInput::configure(request.into_payload()))
     }
 
     pub fn write_input(&mut self, request: &MetaInput) -> Result<(), MetaTransportError> {

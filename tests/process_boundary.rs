@@ -335,7 +335,7 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
         Output::RecordAccepted(receipt) => {
             assert_short_record_identifier(&receipt.record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 1);
-            receipt.record_identifier
+            receipt.record_identifier.clone()
         }
         other => panic!("expected RecordAccepted, got {other:?}"),
     };
@@ -425,7 +425,7 @@ fn cli_subscription_receives_matching_intent_events_without_blocking_daemon() {
             assert_eq!(recorded.entry.topics, vec![String::from("streaming")]);
             assert_eq!(recorded.entry.kind, Kind::Decision);
             assert_eq!(recorded.entry.description, "subscriber receives this");
-            assert_eq!(recorded.sema_receipt, receipt);
+            assert_eq!(&recorded.sema_receipt, receipt.payload());
         }
         other => panic!("expected IntentRecorded event, got {other:?}"),
     }
@@ -493,7 +493,7 @@ fn cli_and_daemon_change_certainty_without_changing_record_identifier() {
         Output::RecordAccepted(receipt) => {
             assert_short_record_identifier(&receipt.record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 1);
-            receipt.record_identifier
+            receipt.record_identifier.clone()
         }
         other => panic!("expected RecordAccepted before certainty change, got {other:?}"),
     };
@@ -547,7 +547,7 @@ fn cli_and_daemon_change_record_replaces_entry_under_same_identifier() {
         Output::RecordAccepted(receipt) => {
             assert_short_record_identifier(&receipt.record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 1);
-            receipt.record_identifier
+            receipt.record_identifier.clone()
         }
         other => panic!("expected RecordAccepted before record change, got {other:?}"),
     };
@@ -699,7 +699,7 @@ fn daemon_persists_sema_file_across_a_restart() {
                 stashed.record_count, 1,
                 "the restarted daemon observes one durable record"
             );
-            stashed.stash_handle
+            stashed.stash_handle.clone()
         }
         other => panic!("expected RecordsStashed after restart, got {other:?}"),
     };
@@ -888,7 +888,7 @@ fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
 /// resolves the handle through LookupStash and reads back the descriptions.
 fn stashed_descriptions(socket_path: &Path, output: Output) -> Vec<String> {
     let stash_handle = match output {
-        Output::RecordsStashed(stashed) => stashed.stash_handle,
+        Output::RecordsStashed(stashed) => stashed.stash_handle.clone(),
         other => panic!("expected RecordsStashed, got {other:?}"),
     };
     let resolved = run_cli(socket_path, &format!("(LookupStash {})", stash_handle));
@@ -896,8 +896,8 @@ fn stashed_descriptions(socket_path: &Path, output: Output) -> Vec<String> {
         Output::RecordsObserved(records) => {
             let mut descriptions: Vec<String> = records
                 .record_set
-                .into_iter()
-                .map(|entry| entry.description)
+                .iter()
+                .map(|entry| entry.description.payload().clone())
                 .collect();
             descriptions.sort();
             descriptions

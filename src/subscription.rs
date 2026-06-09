@@ -31,6 +31,6 @@ impl SubscriptionToken for IntentSubscriptionToken {
 
 impl IntentSubscriptionToken {
     pub fn from_signal_token(token: SignalSubscriptionToken) -> Self {
-        Self(SubscriptionTokenInner::new(token))
+        Self(SubscriptionTokenInner::new(token.into_payload()))
     }
 }

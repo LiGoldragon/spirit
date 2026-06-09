@@ -51,16 +51,24 @@ pub enum WriteInput {
 }
 
 #[rustfmt::skip]
-pub type Record = Entry;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Record(Entry);
 
 #[rustfmt::skip]
-pub type Remove = RecordIdentifier;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Remove(RecordIdentifier);
 
 #[rustfmt::skip]
-pub type ChangeCertainty = CertaintyChange;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ChangeCertainty(CertaintyChange);
 
 #[rustfmt::skip]
-pub type ChangeRecord = RecordChange;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ChangeRecord(RecordChange);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -72,13 +80,19 @@ pub enum ReadInput {
 }
 
 #[rustfmt::skip]
-pub type Observe = Query;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Observe(Query);
 
 #[rustfmt::skip]
-pub type Lookup = RecordIdentifier;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Lookup(RecordIdentifier);
 
 #[rustfmt::skip]
-pub type Count = Query;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Count(Query);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -92,19 +106,29 @@ pub enum WriteOutput {
 }
 
 #[rustfmt::skip]
-pub type Recorded = SemaReceipt;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Recorded(SemaReceipt);
 
 #[rustfmt::skip]
-pub type Removed = RemoveReceipt;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Removed(RemoveReceipt);
 
 #[rustfmt::skip]
-pub type CertaintyChanged = CertaintyChangeReceipt;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct CertaintyChanged(CertaintyChangeReceipt);
 
 #[rustfmt::skip]
-pub type RecordChanged = RecordChangeReceipt;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct RecordChanged(RecordChangeReceipt);
 
 #[rustfmt::skip]
-pub type Missed = ErrorReport;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Missed(ErrorReport);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -117,13 +141,19 @@ pub enum ReadOutput {
 }
 
 #[rustfmt::skip]
-pub type Observed = ObservedRecords;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Observed(ObservedRecords);
 
 #[rustfmt::skip]
-pub type Found = FoundRecord;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Found(FoundRecord);
 
 #[rustfmt::skip]
-pub type Counted = CountedRecords;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Counted(CountedRecords);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -142,66 +172,351 @@ pub enum Output {
 }
 
 #[rustfmt::skip]
+impl Record {
+    pub fn new(payload: Entry) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Entry {
+        &self.0
+    }
+    pub fn into_payload(self) -> Entry {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Entry> for Record {
+    fn from(payload: Entry) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Remove {
+    pub fn new(payload: RecordIdentifier) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &RecordIdentifier {
+        &self.0
+    }
+    pub fn into_payload(self) -> RecordIdentifier {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<RecordIdentifier> for Remove {
+    fn from(payload: RecordIdentifier) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl ChangeCertainty {
+    pub fn new(payload: CertaintyChange) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &CertaintyChange {
+        &self.0
+    }
+    pub fn into_payload(self) -> CertaintyChange {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<CertaintyChange> for ChangeCertainty {
+    fn from(payload: CertaintyChange) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl ChangeRecord {
+    pub fn new(payload: RecordChange) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &RecordChange {
+        &self.0
+    }
+    pub fn into_payload(self) -> RecordChange {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<RecordChange> for ChangeRecord {
+    fn from(payload: RecordChange) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Observe {
+    pub fn new(payload: Query) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Query {
+        &self.0
+    }
+    pub fn into_payload(self) -> Query {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Query> for Observe {
+    fn from(payload: Query) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Lookup {
+    pub fn new(payload: RecordIdentifier) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &RecordIdentifier {
+        &self.0
+    }
+    pub fn into_payload(self) -> RecordIdentifier {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<RecordIdentifier> for Lookup {
+    fn from(payload: RecordIdentifier) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Count {
+    pub fn new(payload: Query) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Query {
+        &self.0
+    }
+    pub fn into_payload(self) -> Query {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Query> for Count {
+    fn from(payload: Query) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Recorded {
+    pub fn new(payload: SemaReceipt) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &SemaReceipt {
+        &self.0
+    }
+    pub fn into_payload(self) -> SemaReceipt {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<SemaReceipt> for Recorded {
+    fn from(payload: SemaReceipt) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Removed {
+    pub fn new(payload: RemoveReceipt) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &RemoveReceipt {
+        &self.0
+    }
+    pub fn into_payload(self) -> RemoveReceipt {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<RemoveReceipt> for Removed {
+    fn from(payload: RemoveReceipt) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl CertaintyChanged {
+    pub fn new(payload: CertaintyChangeReceipt) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &CertaintyChangeReceipt {
+        &self.0
+    }
+    pub fn into_payload(self) -> CertaintyChangeReceipt {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<CertaintyChangeReceipt> for CertaintyChanged {
+    fn from(payload: CertaintyChangeReceipt) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl RecordChanged {
+    pub fn new(payload: RecordChangeReceipt) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &RecordChangeReceipt {
+        &self.0
+    }
+    pub fn into_payload(self) -> RecordChangeReceipt {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<RecordChangeReceipt> for RecordChanged {
+    fn from(payload: RecordChangeReceipt) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Missed {
+    pub fn new(payload: ErrorReport) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ErrorReport {
+        &self.0
+    }
+    pub fn into_payload(self) -> ErrorReport {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ErrorReport> for Missed {
+    fn from(payload: ErrorReport) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Observed {
+    pub fn new(payload: ObservedRecords) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ObservedRecords {
+        &self.0
+    }
+    pub fn into_payload(self) -> ObservedRecords {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ObservedRecords> for Observed {
+    fn from(payload: ObservedRecords) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Found {
+    pub fn new(payload: FoundRecord) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &FoundRecord {
+        &self.0
+    }
+    pub fn into_payload(self) -> FoundRecord {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<FoundRecord> for Found {
+    fn from(payload: FoundRecord) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Counted {
+    pub fn new(payload: CountedRecords) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &CountedRecords {
+        &self.0
+    }
+    pub fn into_payload(self) -> CountedRecords {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<CountedRecords> for Counted {
+    fn from(payload: CountedRecords) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl WriteInput {
-    pub fn record(payload: Record) -> Self {
-        Self::Record(payload)
+    pub fn record(payload: Entry) -> Self {
+        Self::Record(Record::new(payload))
     }
-    pub fn remove(payload: Remove) -> Self {
-        Self::Remove(payload)
+    pub fn remove(payload: RecordIdentifier) -> Self {
+        Self::Remove(Remove::new(payload))
     }
-    pub fn change_certainty(payload: ChangeCertainty) -> Self {
-        Self::ChangeCertainty(payload)
+    pub fn change_certainty(payload: CertaintyChange) -> Self {
+        Self::ChangeCertainty(ChangeCertainty::new(payload))
     }
-    pub fn change_record(payload: ChangeRecord) -> Self {
-        Self::ChangeRecord(payload)
+    pub fn change_record(payload: RecordChange) -> Self {
+        Self::ChangeRecord(ChangeRecord::new(payload))
     }
 }
 
 #[rustfmt::skip]
 impl ReadInput {
-    pub fn observe(payload: Observe) -> Self {
-        Self::Observe(payload)
+    pub fn observe(payload: Query) -> Self {
+        Self::Observe(Observe::new(payload))
     }
-    pub fn lookup(payload: Lookup) -> Self {
-        Self::Lookup(payload)
+    pub fn lookup(payload: RecordIdentifier) -> Self {
+        Self::Lookup(Lookup::new(payload))
     }
-    pub fn count(payload: Count) -> Self {
-        Self::Count(payload)
+    pub fn count(payload: Query) -> Self {
+        Self::Count(Count::new(payload))
     }
 }
 
 #[rustfmt::skip]
 impl WriteOutput {
-    pub fn recorded(payload: Recorded) -> Self {
-        Self::Recorded(payload)
+    pub fn recorded(payload: SemaReceipt) -> Self {
+        Self::Recorded(Recorded::new(payload))
     }
-    pub fn removed(payload: Removed) -> Self {
-        Self::Removed(payload)
+    pub fn removed(payload: RemoveReceipt) -> Self {
+        Self::Removed(Removed::new(payload))
     }
-    pub fn certainty_changed(payload: CertaintyChanged) -> Self {
-        Self::CertaintyChanged(payload)
+    pub fn certainty_changed(payload: CertaintyChangeReceipt) -> Self {
+        Self::CertaintyChanged(CertaintyChanged::new(payload))
     }
-    pub fn record_changed(payload: RecordChanged) -> Self {
-        Self::RecordChanged(payload)
+    pub fn record_changed(payload: RecordChangeReceipt) -> Self {
+        Self::RecordChanged(RecordChanged::new(payload))
     }
-    pub fn missed(payload: Missed) -> Self {
-        Self::Missed(payload)
+    pub fn missed(payload: ErrorReport) -> Self {
+        Self::Missed(Missed::new(payload))
     }
 }
 
 #[rustfmt::skip]
 impl ReadOutput {
-    pub fn observed(payload: Observed) -> Self {
-        Self::Observed(payload)
+    pub fn observed(payload: ObservedRecords) -> Self {
+        Self::Observed(Observed::new(payload))
     }
-    pub fn found(payload: Found) -> Self {
-        Self::Found(payload)
+    pub fn found(payload: FoundRecord) -> Self {
+        Self::Found(Found::new(payload))
     }
-    pub fn counted(payload: Counted) -> Self {
-        Self::Counted(payload)
+    pub fn counted(payload: CountedRecords) -> Self {
+        Self::Counted(Counted::new(payload))
     }
-    pub fn missed(payload: Missed) -> Self {
-        Self::Missed(payload)
+    pub fn missed(payload: ErrorReport) -> Self {
+        Self::Missed(Missed::new(payload))
     }
 }
 
@@ -222,6 +537,118 @@ impl Output {
     }
     pub fn read_output(payload: ReadOutput) -> Self {
         Self::ReadOutput(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Record> for WriteInput {
+    fn from(payload: Record) -> Self {
+        Self::Record(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Remove> for WriteInput {
+    fn from(payload: Remove) -> Self {
+        Self::Remove(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<ChangeCertainty> for WriteInput {
+    fn from(payload: ChangeCertainty) -> Self {
+        Self::ChangeCertainty(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<ChangeRecord> for WriteInput {
+    fn from(payload: ChangeRecord) -> Self {
+        Self::ChangeRecord(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Observe> for ReadInput {
+    fn from(payload: Observe) -> Self {
+        Self::Observe(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Lookup> for ReadInput {
+    fn from(payload: Lookup) -> Self {
+        Self::Lookup(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Count> for ReadInput {
+    fn from(payload: Count) -> Self {
+        Self::Count(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Recorded> for WriteOutput {
+    fn from(payload: Recorded) -> Self {
+        Self::Recorded(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Removed> for WriteOutput {
+    fn from(payload: Removed) -> Self {
+        Self::Removed(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<CertaintyChanged> for WriteOutput {
+    fn from(payload: CertaintyChanged) -> Self {
+        Self::CertaintyChanged(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<RecordChanged> for WriteOutput {
+    fn from(payload: RecordChanged) -> Self {
+        Self::RecordChanged(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Missed> for WriteOutput {
+    fn from(payload: Missed) -> Self {
+        Self::Missed(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Observed> for ReadOutput {
+    fn from(payload: Observed) -> Self {
+        Self::Observed(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Found> for ReadOutput {
+    fn from(payload: Found) -> Self {
+        Self::Found(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Counted> for ReadOutput {
+    fn from(payload: Counted) -> Self {
+        Self::Counted(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Missed> for ReadOutput {
+    fn from(payload: Missed) -> Self {
+        Self::Missed(payload)
     }
 }
 
@@ -266,7 +693,84 @@ impl WriteInput {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
+impl Record {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Remove {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl ChangeCertainty {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl ChangeRecord {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
 impl ReadInput {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Observe {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Lookup {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Count {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -288,7 +792,95 @@ impl WriteOutput {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
+impl Recorded {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Removed {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl CertaintyChanged {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl RecordChanged {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Missed {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
 impl ReadOutput {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Observed {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Found {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Counted {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -604,7 +1196,16 @@ impl TraceEvent {
     PartialEq,
     Eq,
 )]
-pub struct OriginRoute(pub Integer);
+pub struct OriginRoute(Integer);
+#[rustfmt::skip]
+impl OriginRoute {
+    pub fn new(payload: Integer) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> Integer {
+        self.0
+    }
+}
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
 impl OriginRoute {

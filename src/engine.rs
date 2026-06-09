@@ -4,13 +4,16 @@ use crate::{
     nexus::Nexus,
     schema::{
         meta_signal::{ConfigureReceipt, ConfigureRequest, Output as MetaOutput},
-        nexus::{self as nexus_schema, NexusAction, NexusEngine, NexusWork},
+        nexus::{self as nexus_schema, NexusAction, NexusEffectCommand, NexusEngine, NexusWork},
+        sema::ErrorReport,
         signal::{
-            self as signal_schema, DatabaseMarker, EngineStartFailure, EngineStopFailure, Entry,
-            ErrorReport, Input, Integer, IntentEvent, MailLedgerEvent, MessageIdentifier,
-            MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook, OriginRoute,
-            Output, PrivacySelection, ProcessedMail, Query, RecordSelection, SemaReceipt, SentMail,
-            SignalEngine, SignalRejection, TopicMatch, Topics, ValidationError,
+            self as signal_schema, DatabaseMarker, Description, EngineStartFailure,
+            EngineStopFailure, Entry, ErrorMessage, Input, Integer, IntentEvent, MailIdentifier,
+            MailLedgerEvent, MessageIdentifier, MessageProcessed, MessageProcessedHook,
+            MessageSent, MessageSentHook, OriginRoute, Output, Privacy, PrivacySelection,
+            ProcessedMail, Query, RecordSelection, SemaReceipt, SentMail, ShortHeader,
+            SignalEngine, SignalRejection, StatementText, Topic, TopicMatch, Topics,
+            ValidationError,
         },
     },
     store::{Store, StoreError},
@@ -266,13 +269,13 @@ impl SignalAdmission {
             .lock()
             .expect("message identifier lock");
         *next += 1;
-        MessageIdentifier(*next)
+        MessageIdentifier::new(*next)
     }
 
     fn issue_origin_route(&self) -> OriginRoute {
         let mut next = self.next_origin_route.lock().expect("origin route lock");
         *next += 1;
-        OriginRoute(ORIGIN_ROUTE_BASE + *next)
+        OriginRoute::new(ORIGIN_ROUTE_BASE + *next)
     }
 }
 
@@ -347,7 +350,7 @@ impl SignalAccepted {
         let identifier = self.identifier();
         let nexus_input = signal_engine.triage(self.input);
         let origin_route = nexus_input.origin_route();
-        let nexus_output = NexusEngine::execute(nexus, nexus_input).await;
+        let nexus_output = nexus.execute_to_reply(nexus_input).await;
         let signal_output = signal_engine.reply(nexus_output);
         MessageProcessed::new(
             identifier,
@@ -417,22 +420,21 @@ impl MessageProcessedHook<Output> for MailLedgerHook<'_> {
 impl Input {
     pub fn validate(&self) -> Result<(), ValidationError> {
         match self {
-            Self::State(statement) => statement.validate(),
-            Self::Record(record) => record.validate(),
-            Self::Observe(observe) => observe.validate(),
-            Self::PublicRecords(selection) | Self::PrivateRecords(selection) => {
-                selection.validate()
-            }
+            Self::State(statement) => statement.payload().validate(),
+            Self::Record(record) => record.payload().validate(),
+            Self::Observe(observe) => observe.payload().validate(),
+            Self::PublicRecords(selection) => selection.payload().validate(),
+            Self::PrivateRecords(selection) => selection.payload().validate(),
             Self::Lookup(_)
             | Self::Remove(_)
             | Self::ChangeCertainty(_)
             | Self::LookupStash(_)
             | Self::Tap(_)
             | Self::Untap(_) => Ok(()),
-            Self::ChangeRecord(change) => change.validate(),
+            Self::ChangeRecord(change) => change.payload().validate(),
             Self::CollectRemovalCandidates(collection) => collection.payload().validate(),
-            Self::SubscribeIntent(query) => query.validate(),
-            Self::Count(count) => count.validate(),
+            Self::SubscribeIntent(query) => query.payload().validate(),
+            Self::Count(count) => count.payload().validate(),
         }
     }
 }
@@ -473,6 +475,18 @@ impl Query {
     }
 }
 
+impl crate::schema::signal::RemovalCandidateCollection {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        self.payload().validate()
+    }
+}
+
+impl crate::schema::signal::RecordQuery {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        self.payload().validate()
+    }
+}
+
 impl RecordSelection {
     pub fn validate(&self) -> Result<(), ValidationError> {
         self.topic_match.validate()
@@ -490,7 +504,9 @@ impl RecordSelection {
         Query {
             topic_match: self.topic_match,
             kind: self.kind,
-            privacy_selection: PrivacySelection::at_least(PrivacySelection::private_floor()),
+            privacy_selection: PrivacySelection::at_least(Privacy::new(
+                PrivacySelection::private_floor(),
+            )),
         }
     }
 }
@@ -499,11 +515,20 @@ impl TopicMatch {
     pub fn validate(&self) -> Result<(), ValidationError> {
         match self {
             Self::Any => Ok(()),
-            Self::Partial(topics) | Self::Full(topics) => {
-                if topics.is_empty() {
+            Self::Partial(topics) => {
+                if topics.payload().is_empty() {
                     return Err(ValidationError::EmptyQueryTopic);
                 }
-                if topics.iter().any(|topic| topic.trim().is_empty()) {
+                if topics.payload().iter().any(|topic| topic.trim().is_empty()) {
+                    return Err(ValidationError::EmptyQueryTopic);
+                }
+                Ok(())
+            }
+            Self::Full(topics) => {
+                if topics.payload().is_empty() {
+                    return Err(ValidationError::EmptyQueryTopic);
+                }
+                if topics.payload().iter().any(|topic| topic.trim().is_empty()) {
                     return Err(ValidationError::EmptyQueryTopic);
                 }
                 Ok(())
@@ -515,9 +540,11 @@ impl TopicMatch {
         match self {
             Self::Any => true,
             Self::Partial(partial) => partial
+                .payload()
                 .iter()
                 .any(|topic| entry_topics.iter().any(|entry_topic| entry_topic == topic)),
             Self::Full(full) => full
+                .payload()
                 .iter()
                 .all(|topic| entry_topics.iter().any(|entry_topic| entry_topic == topic)),
         }
@@ -532,16 +559,16 @@ impl PrivacySelection {
 
 impl MessageIdentifier {
     pub fn as_integer(&self) -> Integer {
-        self.0
+        self.payload()
     }
 }
 
 impl MessageSent {
     pub fn into_mail_ledger_event(self) -> MailLedgerEvent {
         MailLedgerEvent::sent(SentMail {
-            mail_identifier: self.identifier.as_integer(),
+            mail_identifier: MailIdentifier::new(self.identifier.as_integer()),
             origin_route: self.origin_route(),
-            short_header: self.short_header,
+            short_header: ShortHeader::new(self.short_header),
         })
     }
 }
@@ -549,7 +576,7 @@ impl MessageSent {
 impl MessageProcessed<Output> {
     pub fn processed_mail_event(&self) -> MailLedgerEvent {
         MailLedgerEvent::processed(ProcessedMail {
-            mail_identifier: self.identifier().as_integer(),
+            mail_identifier: MailIdentifier::new(self.identifier().as_integer()),
             origin_route: self.origin_route(),
             database_marker: self.reply.database_marker(),
         })
@@ -569,21 +596,25 @@ impl MailLedgerEvent {
 impl Output {
     pub fn database_marker(&self) -> DatabaseMarker {
         match self {
-            Self::RecordAccepted(receipt) => receipt.database_marker.clone(),
-            Self::RecordsObserved(records) => records.database_marker.clone(),
-            Self::RecordsStashed(stashed) => stashed.database_marker.clone(),
-            Self::RecordFound(record) => record.database_marker.clone(),
-            Self::RecordsCounted(records) => records.database_marker.clone(),
-            Self::RecordRemoved(receipt) => receipt.database_marker.clone(),
-            Self::CertaintyChanged(receipt) => receipt.database_marker.clone(),
-            Self::RecordChanged(receipt) => receipt.database_marker.clone(),
-            Self::RemovalCandidatesCollected(collection) => collection.database_marker.clone(),
-            Self::ObservationTapped(subscription) => subscription.database_marker.clone(),
-            Self::ObservationUntapped(retraction) => retraction.database_marker.clone(),
-            Self::SubscriptionStarted(subscription) => subscription.database_marker.clone(),
+            Self::RecordAccepted(receipt) => receipt.payload().database_marker.clone(),
+            Self::RecordsObserved(records) => records.payload().database_marker.clone(),
+            Self::RecordsStashed(stashed) => stashed.payload().database_marker.clone(),
+            Self::RecordFound(record) => record.payload().database_marker.clone(),
+            Self::RecordsCounted(records) => records.payload().database_marker.clone(),
+            Self::RecordRemoved(receipt) => receipt.payload().database_marker.clone(),
+            Self::CertaintyChanged(receipt) => receipt.payload().database_marker.clone(),
+            Self::RecordChanged(receipt) => receipt.payload().database_marker.clone(),
+            Self::RemovalCandidatesCollected(collection) => {
+                collection.payload().database_marker.clone()
+            }
+            Self::ObservationTapped(subscription) => subscription.payload().database_marker.clone(),
+            Self::ObservationUntapped(retraction) => retraction.payload().database_marker.clone(),
+            Self::SubscriptionStarted(subscription) => {
+                subscription.payload().database_marker.clone()
+            }
             Self::Event(event) => event.database_marker(),
-            Self::Error(report) => report.database_marker.clone(),
-            Self::Rejected(rejection) => rejection.database_marker.clone(),
+            Self::Error(report) => report.payload().database_marker.clone(),
+            Self::Rejected(rejection) => rejection.payload().database_marker.clone(),
         }
     }
 }
@@ -599,8 +630,8 @@ impl crate::schema::signal::IntentEvent {
 impl DatabaseMarker {
     pub fn zero() -> Self {
         Self {
-            commit_sequence: 0,
-            state_digest: 0,
+            commit_sequence: signal_schema::CommitSequence::new(0),
+            state_digest: signal_schema::StateDigest::new(0),
         }
     }
 }
@@ -618,13 +649,387 @@ impl nexus_schema::nexus::Nexus<NexusAction> {
     pub fn into_signal_output(self) -> signal_schema::signal::Signal<Output> {
         let origin_route = self.origin_route();
         match self.into_root() {
-            NexusAction::ReplyToSignal(output) => output.with_origin_route(origin_route.into()),
+            NexusAction::ReplyToSignal(output) => {
+                output.into_payload().with_origin_route(origin_route.into())
+            }
             _ => Output::error(ErrorReport {
-                error_message: String::from("nexus returned non-signal action"),
+                error_message: ErrorMessage::new("nexus returned non-signal action"),
                 database_marker: DatabaseMarker::zero(),
             })
             .with_origin_route(origin_route.into()),
         }
+    }
+}
+
+impl Topic {
+    pub fn as_str(&self) -> &str {
+        self.payload()
+    }
+
+    pub fn trim(&self) -> &str {
+        self.as_str().trim()
+    }
+}
+
+impl Topics {
+    pub fn from_strings(topics: Vec<String>) -> Self {
+        Self::new(topics.into_iter().map(Topic::new).collect())
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.payload().is_empty()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &Topic> {
+        self.payload().iter()
+    }
+}
+
+impl PartialEq<Vec<String>> for Topics {
+    fn eq(&self, other: &Vec<String>) -> bool {
+        self.payload().iter().map(Topic::payload).eq(other.iter())
+    }
+}
+
+impl std::ops::Deref for signal_schema::RecordIdentifier {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::fmt::Display for signal_schema::RecordIdentifier {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.payload().fmt(formatter)
+    }
+}
+
+impl Description {
+    pub fn trim(&self) -> &str {
+        self.payload().trim()
+    }
+}
+
+impl StatementText {
+    pub fn trim(&self) -> &str {
+        self.payload().trim()
+    }
+}
+
+impl Privacy {
+    pub fn weight(&self) -> u64 {
+        self.payload().weight()
+    }
+}
+
+impl PartialEq<&str> for Description {
+    fn eq(&self, other: &&str) -> bool {
+        self.payload() == other
+    }
+}
+
+impl PartialEq<&str> for ErrorMessage {
+    fn eq(&self, other: &&str) -> bool {
+        self.payload() == other
+    }
+}
+
+impl PartialEq<&str> for signal_schema::Statement {
+    fn eq(&self, other: &&str) -> bool {
+        self.payload().payload() == other
+    }
+}
+
+impl PartialEq<signal_schema::Magnitude> for Privacy {
+    fn eq(&self, other: &signal_schema::Magnitude) -> bool {
+        self.payload() == other
+    }
+}
+
+impl PartialEq<signal_schema::Magnitude> for signal_schema::Certainty {
+    fn eq(&self, other: &signal_schema::Magnitude) -> bool {
+        self.payload() == other
+    }
+}
+
+impl PartialEq<u64> for signal_schema::RecordCount {
+    fn eq(&self, other: &u64) -> bool {
+        self.payload() == other
+    }
+}
+
+impl PartialEq<u64> for signal_schema::StashHandle {
+    fn eq(&self, other: &u64) -> bool {
+        self.payload() == other
+    }
+}
+
+impl PartialEq<u64> for signal_schema::SubscriptionToken {
+    fn eq(&self, other: &u64) -> bool {
+        self.payload() == other
+    }
+}
+
+impl PartialOrd<u64> for signal_schema::SubscriptionToken {
+    fn partial_cmp(&self, other: &u64) -> Option<std::cmp::Ordering> {
+        self.payload().partial_cmp(other)
+    }
+}
+
+impl std::fmt::Display for signal_schema::StashHandle {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.payload().fmt(formatter)
+    }
+}
+
+impl PartialEq<u64> for signal_schema::CommitSequence {
+    fn eq(&self, other: &u64) -> bool {
+        self.payload() == other
+    }
+}
+
+impl PartialOrd for signal_schema::CommitSequence {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.payload().partial_cmp(other.payload())
+    }
+}
+
+impl std::fmt::Display for signal_schema::CommitSequence {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.payload().fmt(formatter)
+    }
+}
+
+impl PartialEq<u64> for signal_schema::StateDigest {
+    fn eq(&self, other: &u64) -> bool {
+        self.payload() == other
+    }
+}
+
+impl PartialOrd for signal_schema::StateDigest {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.payload().partial_cmp(other.payload())
+    }
+}
+
+impl Ord for signal_schema::StateDigest {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.payload().cmp(other.payload())
+    }
+}
+
+impl std::ops::Deref for signal_schema::RecordAccepted {
+    type Target = SemaReceipt;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for signal_schema::RecordsStashed {
+    type Target = signal_schema::StashedObservation;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for signal_schema::RecordsObserved {
+    type Target = signal_schema::ObservedRecords;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for signal_schema::RecordFound {
+    type Target = signal_schema::FoundRecord;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for signal_schema::RecordsCounted {
+    type Target = signal_schema::CountedRecords;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for signal_schema::SubscriptionStarted {
+    type Target = signal_schema::IntentSubscription;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for signal_schema::ObservationTapped {
+    type Target = signal_schema::ObserverSubscription;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for signal_schema::ObservationUntapped {
+    type Target = signal_schema::ObserverRetraction;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for signal_schema::ObservedOperations {
+    type Target = Vec<signal_schema::ObservedOperation>;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for signal_schema::CertaintyChanged {
+    type Target = signal_schema::CertaintyChangeReceipt;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for signal_schema::RecordChanged {
+    type Target = signal_schema::RecordChangeReceipt;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for crate::schema::sema::Recorded {
+    type Target = SemaReceipt;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for crate::schema::sema::Removed {
+    type Target = signal_schema::RemoveReceipt;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for crate::schema::sema::CertaintyChanged {
+    type Target = signal_schema::CertaintyChangeReceipt;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for crate::schema::sema::RecordChanged {
+    type Target = signal_schema::RecordChangeReceipt;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for crate::schema::sema::Observed {
+    type Target = signal_schema::ObservedRecords;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for crate::schema::sema::Found {
+    type Target = signal_schema::FoundRecord;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for crate::schema::sema::Counted {
+    type Target = signal_schema::CountedRecords;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for signal_schema::RecordSet {
+    type Target = Vec<Entry>;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl PartialEq<Vec<Entry>> for signal_schema::RecordSet {
+    fn eq(&self, other: &Vec<Entry>) -> bool {
+        self.payload() == other
+    }
+}
+
+impl std::ops::Deref for nexus_schema::ReplyToSignal {
+    type Target = Output;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for nexus_schema::CommandEffect {
+    type Target = NexusEffectCommand;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for nexus_schema::SignalArrived {
+    type Target = Input;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for nexus_schema::ChangeCertainty {
+    type Target = signal_schema::CertaintyChange;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for nexus_schema::ChangeRecord {
+    type Target = signal_schema::RecordChange;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for signal_schema::Sent {
+    type Target = SentMail;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
+    }
+}
+
+impl std::ops::Deref for signal_schema::Processed {
+    type Target = ProcessedMail;
+
+    fn deref(&self) -> &Self::Target {
+        self.payload()
     }
 }
 

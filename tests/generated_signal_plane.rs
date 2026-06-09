@@ -3,27 +3,28 @@ use signal_frame::{
     SubscriptionTokenInner,
 };
 use spirit::schema::signal::{
-    CertaintyChange, CertaintyChangeReceipt, DatabaseMarker, Entry, Input, InputRoute, IntentEvent,
-    IntentRecorded, Kind, Magnitude, MessageIdentifier, MessageRoot, OriginRoute, Output,
-    OutputRoute, Record, RecordChange, RecordChangeReceipt, RecordSelection, Rejected, SemaReceipt,
-    SignalFrameError, SignalRejection, Statement, TopicMatch, ValidationError,
+    Certainty, CertaintyChange, CertaintyChangeReceipt, DatabaseMarker, Description, Entry, Input,
+    InputRoute, IntentEvent, IntentRecorded, Kind, Magnitude, MessageIdentifier, MessageRoot,
+    OriginRoute, Output, OutputRoute, Privacy, Record, RecordChange, RecordChangeReceipt,
+    RecordIdentifier, RecordSelection, Rejected, SemaReceipt, SignalFrameError, SignalRejection,
+    Statement, StatementText, TopicMatch, Topics, ValidationError,
 };
 
 fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
     DatabaseMarker {
-        commit_sequence,
-        state_digest,
+        commit_sequence: commit_sequence.into(),
+        state_digest: state_digest.into(),
     }
 }
 
 #[test]
 fn generated_input_surface_owns_route_header_and_rkyv_frame() {
     let input = Input::record(Entry {
-        topics: vec![String::from("schema")],
+        topics: Topics::from_strings(vec![String::from("schema")]),
         kind: Kind::Constraint,
-        description: String::from("schema creates the signal plane"),
+        description: Description::new("schema creates the signal plane"),
         magnitude: Magnitude::Maximum,
-        privacy: Magnitude::Zero,
+        privacy: Privacy::new(Magnitude::Zero),
     });
 
     assert_eq!(input.route(), InputRoute::Record);
@@ -38,7 +39,7 @@ fn generated_input_surface_owns_route_header_and_rkyv_frame() {
 #[test]
 fn generated_output_surface_owns_route_header_and_rkyv_frame() {
     let output = Output::record_accepted(SemaReceipt {
-        record_identifier: String::from("003g"),
+        record_identifier: RecordIdentifier::new("003g"),
         database_marker: marker(3, 97),
     });
 
@@ -53,7 +54,7 @@ fn generated_output_surface_owns_route_header_and_rkyv_frame() {
 
 #[test]
 fn generated_state_input_surface_owns_route_header_and_rkyv_frame() {
-    let input = Input::state(Statement::new(String::from("capture this intent")));
+    let input = Input::state(Statement::new(StatementText::new("capture this intent")));
 
     assert_eq!(input.route(), InputRoute::State);
 
@@ -67,11 +68,11 @@ fn generated_state_input_surface_owns_route_header_and_rkyv_frame() {
 #[test]
 fn generated_public_private_record_shortcut_roots_own_route_header_and_rkyv_frame() {
     let public_input = Input::public_records(RecordSelection {
-        topic_match: TopicMatch::full(vec![String::from("schema")]),
+        topic_match: TopicMatch::full(Topics::from_strings(vec![String::from("schema")])),
         kind: Some(Kind::Decision),
     });
     let private_input = Input::private_records(RecordSelection {
-        topic_match: TopicMatch::partial(vec![String::from("schema")]),
+        topic_match: TopicMatch::partial(Topics::from_strings(vec![String::from("schema")])),
         kind: None,
     });
 
@@ -94,8 +95,8 @@ fn generated_public_private_record_shortcut_roots_own_route_header_and_rkyv_fram
 #[test]
 fn generated_change_certainty_surface_owns_route_header_and_rkyv_frame() {
     let input = Input::change_certainty(CertaintyChange {
-        record_identifier: String::from("003g"),
-        certainty: Magnitude::Zero,
+        record_identifier: RecordIdentifier::new("003g"),
+        certainty: Certainty::new(Magnitude::Zero),
     });
 
     assert_eq!(input.route(), InputRoute::ChangeCertainty);
@@ -110,8 +111,8 @@ fn generated_change_certainty_surface_owns_route_header_and_rkyv_frame() {
 #[test]
 fn generated_certainty_changed_output_owns_route_header_and_rkyv_frame() {
     let output = Output::certainty_changed(CertaintyChangeReceipt {
-        record_identifier: String::from("003g"),
-        certainty: Magnitude::Zero,
+        record_identifier: RecordIdentifier::new("003g"),
+        certainty: Certainty::new(Magnitude::Zero),
         database_marker: marker(4, 101),
     });
 
@@ -127,14 +128,14 @@ fn generated_certainty_changed_output_owns_route_header_and_rkyv_frame() {
 #[test]
 fn generated_record_change_surface_owns_route_header_and_rkyv_frame() {
     let replacement = Entry {
-        topics: vec![String::from("schema"), String::from("mutation")],
+        topics: Topics::from_strings(vec![String::from("schema"), String::from("mutation")]),
         kind: Kind::Correction,
-        description: String::from("record mutation is a schema-visible operation"),
+        description: Description::new("record mutation is a schema-visible operation"),
         magnitude: Magnitude::High,
-        privacy: Magnitude::Zero,
+        privacy: Privacy::new(Magnitude::Zero),
     };
     let input = Input::change_record(RecordChange {
-        record_identifier: String::from("003g"),
+        record_identifier: RecordIdentifier::new("003g"),
         entry: replacement,
     });
 
@@ -150,7 +151,7 @@ fn generated_record_change_surface_owns_route_header_and_rkyv_frame() {
 #[test]
 fn generated_record_changed_output_owns_route_header_and_rkyv_frame() {
     let output = Output::record_changed(RecordChangeReceipt {
-        record_identifier: String::from("003g"),
+        record_identifier: RecordIdentifier::new("003g"),
         database_marker: marker(4, 101),
     });
 
@@ -167,14 +168,14 @@ fn generated_record_changed_output_owns_route_header_and_rkyv_frame() {
 fn generated_streaming_surface_owns_subscription_event_frames() {
     let event = IntentEvent::intent_recorded(IntentRecorded {
         entry: Entry {
-            topics: vec![String::from("stream")],
+            topics: Topics::from_strings(vec![String::from("stream")]),
             kind: Kind::Decision,
-            description: String::from("schema emits streaming frames"),
+            description: Description::new("schema emits streaming frames"),
             magnitude: Magnitude::High,
-            privacy: Magnitude::Zero,
+            privacy: Privacy::new(Magnitude::Zero),
         },
         sema_receipt: SemaReceipt {
-            record_identifier: String::from("003g"),
+            record_identifier: RecordIdentifier::new("003g"),
             database_marker: marker(3, 97),
         },
     });
@@ -214,7 +215,7 @@ fn generated_state_input_round_trips_the_canonical_newtype_shape() {
 
     assert_eq!(
         input,
-        Input::state(Statement::new(String::from("capture this intent")))
+        Input::state(Statement::new(StatementText::new("capture this intent")))
     );
     assert_eq!(input.to_string(), "(State [capture this intent])");
 }
@@ -229,8 +230,8 @@ fn generated_change_certainty_round_trips_the_canonical_shape() {
     assert_eq!(
         input,
         Input::change_certainty(CertaintyChange {
-            record_identifier: String::from("003g"),
-            certainty: Magnitude::Zero,
+            record_identifier: RecordIdentifier::new("003g"),
+            certainty: Certainty::new(Magnitude::Zero),
         })
     );
     assert_eq!(input.to_string(), "(ChangeCertainty ([003g] Zero))");
@@ -246,13 +247,13 @@ fn generated_change_record_round_trips_the_canonical_shape() {
     assert_eq!(
         input,
         Input::change_record(RecordChange {
-            record_identifier: String::from("003g"),
+            record_identifier: RecordIdentifier::new("003g"),
             entry: Entry {
-                topics: vec![String::from("schema mutation")],
+                topics: Topics::from_strings(vec![String::from("schema mutation")]),
                 kind: Kind::Correction,
-                description: String::from("replacement"),
+                description: Description::new("replacement"),
                 magnitude: Magnitude::High,
-                privacy: Magnitude::Zero,
+                privacy: Privacy::new(Magnitude::Zero),
             },
         })
     );
@@ -275,14 +276,14 @@ fn generated_public_private_record_shortcuts_round_trip_nota() {
     assert_eq!(
         public_input,
         Input::public_records(RecordSelection {
-            topic_match: TopicMatch::full(vec![String::from("schema")]),
+            topic_match: TopicMatch::full(Topics::from_strings(vec![String::from("schema")])),
             kind: Some(Kind::Decision),
         })
     );
     assert_eq!(
         private_input,
         Input::private_records(RecordSelection {
-            topic_match: TopicMatch::partial(vec![String::from("schema")]),
+            topic_match: TopicMatch::partial(Topics::from_strings(vec![String::from("schema")])),
             kind: None,
         })
     );
@@ -301,11 +302,11 @@ fn generated_public_private_record_shortcuts_round_trip_nota() {
 fn generated_record_input_renders_bracket_bearing_strings_losslessly() {
     let description = String::from("text contains [brackets] and the pipe close marker |]");
     let input = Input::record(Entry {
-        topics: vec![String::from("schema replay")],
+        topics: Topics::from_strings(vec![String::from("schema replay")]),
         kind: Kind::Correction,
-        description: description.clone(),
+        description: Description::new(description.clone()),
         magnitude: Magnitude::High,
-        privacy: Magnitude::Zero,
+        privacy: Privacy::new(Magnitude::Zero),
     });
     let rendered = input.to_string();
 
@@ -338,33 +339,41 @@ fn generated_rejection_output_is_a_signal_schema_variant() {
 }
 
 #[test]
-fn bare_schema_bindings_are_direct_payload_aliases_not_wrappers() {
+fn bare_schema_bindings_are_explicit_payload_wrappers() {
     let record: Record = Entry {
-        topics: vec![String::from("schema")],
+        topics: Topics::from_strings(vec![String::from("schema")]),
         kind: Kind::Constraint,
-        description: String::from("alias bindings carry direct payloads"),
+        description: Description::new("alias bindings carry direct payloads"),
         magnitude: Magnitude::Maximum,
-        privacy: Magnitude::Zero,
-    };
+        privacy: Privacy::new(Magnitude::Zero),
+    }
+    .into();
     let input = Input::Record(record);
     match input {
-        Input::Record(entry) => {
-            assert_eq!(entry.description, "alias bindings carry direct payloads");
+        Input::Record(record) => {
+            assert_eq!(
+                record.payload().description,
+                "alias bindings carry direct payloads"
+            );
         }
-        other => panic!("expected direct Record payload, got {other:?}"),
+        other => panic!("expected Record wrapper payload, got {other:?}"),
     }
 
     let rejected: Rejected = SignalRejection {
         validation_error: ValidationError::EmptyTopic,
         database_marker: marker(0, 0),
-    };
+    }
+    .into();
     let output = Output::Rejected(rejected);
     match output {
         Output::Rejected(rejection) => {
-            assert_eq!(rejection.validation_error, ValidationError::EmptyTopic);
-            assert_eq!(rejection.database_marker, marker(0, 0));
+            assert_eq!(
+                rejection.payload().validation_error,
+                ValidationError::EmptyTopic
+            );
+            assert_eq!(rejection.payload().database_marker, marker(0, 0));
         }
-        other => panic!("expected direct Rejected payload, got {other:?}"),
+        other => panic!("expected Rejected wrapper payload, got {other:?}"),
     }
 }
 
@@ -388,11 +397,11 @@ fn generated_validation_error_round_trips_through_nota() {
 #[test]
 fn generated_signal_surface_rejects_unknown_header_before_body_decode() {
     let mut frame = Input::record(Entry {
-        topics: vec![String::from("schema")],
+        topics: Topics::from_strings(vec![String::from("schema")]),
         kind: Kind::Constraint,
-        description: String::from("schema rejects unknown routes"),
+        description: Description::new("schema rejects unknown routes"),
         magnitude: Magnitude::Maximum,
-        privacy: Magnitude::Zero,
+        privacy: Privacy::new(Magnitude::Zero),
     })
     .encode_signal_frame()
     .expect("encode frame");
@@ -412,19 +421,22 @@ fn generated_signal_surface_rejects_unknown_header_before_body_decode() {
 #[test]
 fn generated_signal_surface_emits_mail_sent_event() {
     let input = Input::record(Entry {
-        topics: vec![String::from("schema")],
+        topics: Topics::from_strings(vec![String::from("schema")]),
         kind: Kind::Constraint,
-        description: String::from("schema emits mail events"),
+        description: Description::new("schema emits mail events"),
         magnitude: Magnitude::Maximum,
-        privacy: Magnitude::Zero,
+        privacy: Privacy::new(Magnitude::Zero),
     });
 
-    let message = input.with_origin_route(OriginRoute(91));
-    let event = message.message_sent(MessageIdentifier(9));
+    let message = input.with_origin_route(OriginRoute::new(91));
+    let event = message.message_sent(MessageIdentifier::new(9));
 
-    assert_eq!(event.identifier, MessageIdentifier(9));
-    assert_eq!(event.origin_route(), OriginRoute(91));
-    assert_ne!(event.origin_route(), OriginRoute(event.identifier.0));
+    assert_eq!(event.identifier, MessageIdentifier::new(9));
+    assert_eq!(event.origin_route(), OriginRoute::new(91));
+    assert_ne!(
+        event.origin_route(),
+        OriginRoute::new(event.identifier.payload())
+    );
     assert_eq!(event.root, MessageRoot::Input);
     assert_eq!(event.short_header, message.root().short_header());
 }

@@ -150,7 +150,7 @@ impl ComponentDaemon for SpiritDaemon {
             .into_bytes();
         let (_route, input) = MetaInput::decode_signal_frame(&frame)?;
         let MetaInput::Configure(request) = input;
-        let reply = engine.configure_async(request).await;
+        let reply = engine.configure_async(request.into_payload()).await;
         LengthPrefixedCodec::default()
             .write_body_async(
                 connection.stream_mut(),
@@ -167,7 +167,7 @@ impl ComponentDaemon for SpiritDaemon {
 
     fn subscription_filter(input: &Input) -> Option<Self::SubscriptionFilter> {
         match input {
-            Input::SubscribeIntent(query) => Some(query.clone()),
+            Input::SubscribeIntent(query) => Some(query.payload().clone()),
             Input::State(_)
             | Input::Record(_)
             | Input::Observe(_)
@@ -187,9 +187,11 @@ impl ComponentDaemon for SpiritDaemon {
 
     fn subscription_token(output: &Output) -> Option<Self::SubscriptionToken> {
         match output {
-            Output::SubscriptionStarted(subscription) => Some(
-                IntentSubscriptionToken::from_signal_token(subscription.subscription_token),
-            ),
+            Output::SubscriptionStarted(subscription) => {
+                Some(IntentSubscriptionToken::from_signal_token(
+                    subscription.payload().subscription_token.clone(),
+                ))
+            }
             _ => None,
         }
     }
@@ -201,7 +203,9 @@ impl ComponentDaemon for SpiritDaemon {
         let Output::RecordAccepted(receipt) = output else {
             return Ok(None);
         };
-        Ok(engine.intent_recorded_event_async(receipt).await?)
+        Ok(engine
+            .intent_recorded_event_async(receipt.payload())
+            .await?)
     }
 
     fn event_matches_filter(filter: &Self::SubscriptionFilter, event: &Self::StreamEvent) -> bool {

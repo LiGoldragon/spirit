@@ -19,10 +19,12 @@ use crate::schema::{
         WriteOutput as SemaWriteOutput,
     },
     signal::{
-        ArchivedRecord, CertaintyChange, CertaintyChangeReceipt, CountedRecords, DatabaseMarker,
-        Entry, ErrorReport, FoundRecord, Magnitude, ObservedRecords, Privacy, PrivacySelection,
-        Query, RecordChange, RecordChangeReceipt, RemovalCandidateCollection,
-        RemovalCandidatesCollection, RemoveReceipt, SemaReceipt, SkippedRemovalCandidate,
+        CertaintyChange, CertaintyChangeReceipt, CountedRecords, DatabaseMarker, Entry,
+        ErrorMessage, ErrorReport, FoundRecord, Magnitude, ObservedRecords, Privacy,
+        PrivacySelection, Query, RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier,
+        RecordSet, RemovalArchiveRecord, RemovalArchiveRecords, RemovalCandidateCollection,
+        RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifier, RemovedIdentifiers,
+        SemaReceipt, SkippedRemovalCandidate, SkippedRemovalCandidates,
     },
 };
 
@@ -105,52 +107,55 @@ impl SemaEngine for Store {
     ) -> sema_schema::sema::Sema<sema_schema::sema::WriteOutput> {
         let origin_route = command.origin_route();
         let output = match command.into_root() {
-            SemaWriteInput::Record(record) => match self.record(record) {
+            SemaWriteInput::Record(record) => match self.record(record.into_payload()) {
                 Ok(identifier) => SemaWriteOutput::recorded(SemaReceipt {
-                    record_identifier: identifier,
+                    record_identifier: RecordIdentifier::new(identifier),
                     database_marker: self.database_marker(),
                 }),
                 Err(error) => SemaWriteOutput::missed(ErrorReport {
-                    error_message: error.to_string(),
+                    error_message: ErrorMessage::new(error.to_string()),
                     database_marker: self.database_marker(),
                 }),
             },
             SemaWriteInput::Remove(remove) => {
-                let record_identifier = remove;
-                match self.remove(&record_identifier) {
+                let record_identifier = remove.into_payload();
+                match self.remove(record_identifier.payload()) {
                     Ok(true) => SemaWriteOutput::removed(RemoveReceipt {
                         record_identifier,
                         database_marker: self.database_marker(),
                     }),
                     Ok(false) => SemaWriteOutput::missed(ErrorReport {
-                        error_message: String::from("record not found"),
+                        error_message: ErrorMessage::new("record not found"),
                         database_marker: self.database_marker(),
                     }),
                     Err(error) => SemaWriteOutput::missed(ErrorReport {
-                        error_message: error.to_string(),
+                        error_message: ErrorMessage::new(error.to_string()),
                         database_marker: self.database_marker(),
                     }),
                 }
             }
-            SemaWriteInput::ChangeCertainty(change) => match self.change_certainty(change) {
-                Ok(Some(receipt)) => SemaWriteOutput::certainty_changed(receipt),
-                Ok(None) => SemaWriteOutput::missed(ErrorReport {
-                    error_message: String::from("record not found"),
-                    database_marker: self.database_marker(),
-                }),
-                Err(error) => SemaWriteOutput::missed(ErrorReport {
-                    error_message: error.to_string(),
-                    database_marker: self.database_marker(),
-                }),
-            },
-            SemaWriteInput::ChangeRecord(change) => match self.change_record(change) {
+            SemaWriteInput::ChangeCertainty(change) => {
+                match self.change_certainty(change.into_payload()) {
+                    Ok(Some(receipt)) => SemaWriteOutput::certainty_changed(receipt),
+                    Ok(None) => SemaWriteOutput::missed(ErrorReport {
+                        error_message: ErrorMessage::new("record not found"),
+                        database_marker: self.database_marker(),
+                    }),
+                    Err(error) => SemaWriteOutput::missed(ErrorReport {
+                        error_message: ErrorMessage::new(error.to_string()),
+                        database_marker: self.database_marker(),
+                    }),
+                }
+            }
+            SemaWriteInput::ChangeRecord(change) => match self.change_record(change.into_payload())
+            {
                 Ok(Some(receipt)) => SemaWriteOutput::record_changed(receipt),
                 Ok(None) => SemaWriteOutput::missed(ErrorReport {
-                    error_message: String::from("record not found"),
+                    error_message: ErrorMessage::new("record not found"),
                     database_marker: self.database_marker(),
                 }),
                 Err(error) => SemaWriteOutput::missed(ErrorReport {
-                    error_message: error.to_string(),
+                    error_message: ErrorMessage::new(error.to_string()),
                     database_marker: self.database_marker(),
                 }),
             },
@@ -164,45 +169,45 @@ impl SemaEngine for Store {
     ) -> sema_schema::sema::Sema<sema_schema::sema::ReadOutput> {
         let origin_route = query.origin_route();
         let output = match query.into_root() {
-            SemaReadInput::Observe(observe) => match self.observe(&observe) {
+            SemaReadInput::Observe(observe) => match self.observe(observe.payload()) {
                 Ok(entries) if !entries.is_empty() => SemaReadOutput::observed(ObservedRecords {
-                    record_set: entries,
+                    record_set: RecordSet::new(entries),
                     database_marker: self.database_marker(),
                 }),
                 Ok(_) => SemaReadOutput::missed(ErrorReport {
-                    error_message: String::from("no matching record"),
+                    error_message: ErrorMessage::new("no matching record"),
                     database_marker: self.database_marker(),
                 }),
                 Err(error) => SemaReadOutput::missed(ErrorReport {
-                    error_message: error.to_string(),
+                    error_message: ErrorMessage::new(error.to_string()),
                     database_marker: self.database_marker(),
                 }),
             },
             SemaReadInput::Lookup(lookup) => {
-                let record_identifier = lookup;
-                match self.entry_by_identifier(&record_identifier) {
+                let record_identifier = lookup.into_payload();
+                match self.entry_by_identifier(record_identifier.payload()) {
                     Ok(Some(entry)) => SemaReadOutput::found(FoundRecord {
                         record_identifier,
                         entry,
                         database_marker: self.database_marker(),
                     }),
                     Ok(None) => SemaReadOutput::missed(ErrorReport {
-                        error_message: String::from("record not found"),
+                        error_message: ErrorMessage::new("record not found"),
                         database_marker: self.database_marker(),
                     }),
                     Err(error) => SemaReadOutput::missed(ErrorReport {
-                        error_message: error.to_string(),
+                        error_message: ErrorMessage::new(error.to_string()),
                         database_marker: self.database_marker(),
                     }),
                 }
             }
-            SemaReadInput::Count(count) => match self.count(&count) {
+            SemaReadInput::Count(count) => match self.count(count.payload()) {
                 Ok(count) => SemaReadOutput::counted(CountedRecords {
-                    record_count: count,
+                    record_count: RecordCount::new(count),
                     database_marker: self.database_marker(),
                 }),
                 Err(error) => SemaReadOutput::missed(ErrorReport {
-                    error_message: error.to_string(),
+                    error_message: ErrorMessage::new(error.to_string()),
                     database_marker: self.database_marker(),
                 }),
             },
@@ -291,7 +296,9 @@ impl Store {
                     .unwrap_or_else(|| String::from("spirit"));
                 self.path.with_file_name(format!("{stem}.archive.sema"))
             }
-            ArchiveDatabaseTarget::Path(archive_path) => PathBuf::from(archive_path.payload()),
+            ArchiveDatabaseTarget::Path(archive_path) => {
+                PathBuf::from(archive_path.payload().payload())
+            }
         }
     }
 
@@ -313,7 +320,7 @@ impl Store {
         &self,
         collection: RemovalCandidateCollection,
     ) -> Result<RemovalCandidatesCollection, StoreError> {
-        let query = collection.into_payload();
+        let query = collection.into_payload().into_payload();
         let mut archive = self.open_archive_database()?;
         let mut archived_records = Vec::new();
         let mut removed_identifiers = Vec::new();
@@ -326,29 +333,30 @@ impl Store {
             match archive.archive_record(record.clone()) {
                 Ok(()) => match self.remove(&identifier)? {
                     true => {
-                        archived_records.push(ArchivedRecord {
-                            record_identifier: identifier.clone(),
+                        archived_records.push(RemovalArchiveRecord {
+                            record_identifier: RecordIdentifier::new(identifier.clone()),
                             entry: record.entry,
                         });
-                        removed_identifiers.push(identifier);
+                        removed_identifiers
+                            .push(RemovedIdentifier::new(RecordIdentifier::new(identifier)));
                     }
                     false => skipped_candidates.push(SkippedRemovalCandidate {
-                        record_identifier: identifier.clone(),
+                        record_identifier: RecordIdentifier::new(identifier.clone()),
                         removal_candidate_skip_reason:
                             crate::schema::signal::RemovalCandidateSkipReason::RecordAlreadyRemoved,
                     }),
                 },
                 Err(_error) => skipped_candidates.push(SkippedRemovalCandidate {
-                    record_identifier: identifier.clone(),
+                    record_identifier: RecordIdentifier::new(identifier.clone()),
                     removal_candidate_skip_reason:
                         crate::schema::signal::RemovalCandidateSkipReason::ArchiveFailed,
                 }),
             }
         }
         Ok(RemovalCandidatesCollection {
-            archived_records,
-            removed_identifiers,
-            skipped_removal_candidates: skipped_candidates,
+            removal_archive_records: RemovalArchiveRecords::new(archived_records),
+            removed_identifiers: RemovedIdentifiers::new(removed_identifiers),
+            skipped_removal_candidates: SkippedRemovalCandidates::new(skipped_candidates),
             database_marker: self.database_marker(),
         })
     }
@@ -417,13 +425,14 @@ impl Store {
         change: CertaintyChange,
     ) -> Result<Option<CertaintyChangeReceipt>, StoreError> {
         let record_identifier = change.record_identifier;
-        let Some(mut entry) = self.entry_by_identifier(&record_identifier)? else {
+        let identifier_text = record_identifier.payload().clone();
+        let Some(mut entry) = self.entry_by_identifier(record_identifier.payload())? else {
             return Ok(None);
         };
-        entry.magnitude = change.certainty;
+        entry.magnitude = *change.certainty.payload();
         self.database.mutate(Mutation::new(
             self.entries,
-            StoredRecord::new(record_identifier.clone(), entry),
+            StoredRecord::new(identifier_text, entry),
         ))?;
         Ok(Some(CertaintyChangeReceipt {
             record_identifier,
@@ -437,12 +446,16 @@ impl Store {
         change: RecordChange,
     ) -> Result<Option<RecordChangeReceipt>, StoreError> {
         let record_identifier = change.record_identifier;
-        if self.entry_by_identifier(&record_identifier)?.is_none() {
+        let identifier_text = record_identifier.payload().clone();
+        if self
+            .entry_by_identifier(record_identifier.payload())?
+            .is_none()
+        {
             return Ok(None);
         }
         self.database.mutate(Mutation::new(
             self.entries,
-            StoredRecord::new(record_identifier.clone(), change.entry),
+            StoredRecord::new(identifier_text, change.entry),
         ))?;
         Ok(Some(RecordChangeReceipt {
             record_identifier,
@@ -466,8 +479,10 @@ impl Store {
     /// content hash of the committed records.
     pub fn database_marker(&self) -> DatabaseMarker {
         DatabaseMarker {
-            commit_sequence: self.commit_sequence().unwrap_or(0),
-            state_digest: self.state_digest().unwrap_or(0),
+            commit_sequence: crate::schema::signal::CommitSequence::new(
+                self.commit_sequence().unwrap_or(0),
+            ),
+            state_digest: crate::schema::signal::StateDigest::new(self.state_digest().unwrap_or(0)),
         }
     }
 
@@ -688,15 +703,15 @@ impl Query {
 
 impl PrivacySelection {
     pub fn default_observation_privacy() -> Self {
-        Self::exact(Magnitude::Zero)
+        Self::exact(Privacy::new(Magnitude::Zero))
     }
 
     pub fn matches(&self, privacy: &Privacy) -> bool {
         match self {
             Self::Any => true,
-            Self::Exact(expected) => privacy == expected,
-            Self::AtMost(maximum) => privacy.weight() <= maximum.weight(),
-            Self::AtLeast(minimum) => privacy.weight() >= minimum.weight(),
+            Self::Exact(expected) => privacy == expected.payload(),
+            Self::AtMost(maximum) => privacy.weight() <= maximum.payload().weight(),
+            Self::AtLeast(minimum) => privacy.weight() >= minimum.payload().weight(),
         }
     }
 }

@@ -86,14 +86,14 @@
 
   RemovalCandidateCollection { RecordQuery * }
   RecordQuery Query
-  ArchivedRecord { RecordIdentifier * Entry * }
-  ArchivedRecords (Vec ArchivedRecord)
+  RemovalArchiveRecord { RecordIdentifier * Entry * }
+  RemovalArchiveRecords (Vec RemovalArchiveRecord)
   RemovedIdentifier RecordIdentifier
   RemovedIdentifiers (Vec RemovedIdentifier)
   RemovalCandidateSkipReason [ArchiveFailed RecordChanged RecordAlreadyRemoved NoLongerCandidate]
   SkippedRemovalCandidate { RecordIdentifier * RemovalCandidateSkipReason * }
   SkippedRemovalCandidates (Vec SkippedRemovalCandidate)
-  RemovalCandidatesCollection { ArchivedRecords * RemovedIdentifiers * SkippedRemovalCandidates * DatabaseMarker * }
+  RemovalCandidatesCollection { RemovalArchiveRecords * RemovedIdentifiers * SkippedRemovalCandidates * DatabaseMarker * }
 
   ObserverFilter [All OperationsOnly EffectsOnly]
   ObserverSubscription { SubscriptionToken * ObserverFilter * ObservedOperations * DatabaseMarker * }

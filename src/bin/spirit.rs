@@ -3,7 +3,7 @@ use std::{env, fs, io::ErrorKind, os::unix::net::UnixStream, path::PathBuf};
 use nota_next::{Delimiter, Document, NotaBlock, NotaDecodeError};
 use spirit::{
     SignalTransport, TransportError,
-    schema::signal::{Input, Output, Statement},
+    schema::signal::{Input, Output, Statement, StatementText},
 };
 use thiserror::Error;
 use triad_runtime::{ArgumentError, ComponentArgument, ComponentCommand, FrameError};
@@ -128,7 +128,7 @@ impl LegacyStateInput {
         };
         let statement_text = NotaBlock::new(statement_text).parse_string().ok()?;
         Some(Self {
-            statement: Statement::new(statement_text),
+            statement: Statement::new(StatementText::new(statement_text)),
         })
     }
 

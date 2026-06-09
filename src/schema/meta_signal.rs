@@ -17,21 +17,29 @@ pub use crate::schema::signal::DatabaseMarker as DatabaseMarker;
 pub use nota_next::{NotaDecode, NotaDecodeError, NotaEncode, NotaSource};
 
 #[rustfmt::skip]
-pub type Configure = ConfigureRequest;
-
-#[rustfmt::skip]
-pub type Configured = ConfigureReceipt;
-
-#[rustfmt::skip]
-pub type Rejected = ConfigureRejection;
-
-#[rustfmt::skip]
-pub type ArchivePathText = String;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Configure(ConfigureRequest);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ArchivePath(pub ArchivePathText);
+pub struct Configured(ConfigureReceipt);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Rejected(ConfigureRejection);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ArchivePathText(String);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ArchivePath(ArchivePathText);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -44,7 +52,7 @@ pub enum ArchiveDatabaseTarget {
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ConfigureRequest(pub ArchiveDatabaseTarget);
+pub struct ConfigureRequest(ArchiveDatabaseTarget);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -95,6 +103,82 @@ pub enum Output {
 }
 
 #[rustfmt::skip]
+impl Configure {
+    pub fn new(payload: ConfigureRequest) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ConfigureRequest {
+        &self.0
+    }
+    pub fn into_payload(self) -> ConfigureRequest {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ConfigureRequest> for Configure {
+    fn from(payload: ConfigureRequest) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Configured {
+    pub fn new(payload: ConfigureReceipt) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ConfigureReceipt {
+        &self.0
+    }
+    pub fn into_payload(self) -> ConfigureReceipt {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ConfigureReceipt> for Configured {
+    fn from(payload: ConfigureReceipt) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Rejected {
+    pub fn new(payload: ConfigureRejection) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ConfigureRejection {
+        &self.0
+    }
+    pub fn into_payload(self) -> ConfigureRejection {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ConfigureRejection> for Rejected {
+    fn from(payload: ConfigureRejection) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl ArchivePathText {
+    pub fn new(payload: impl Into<String>) -> Self {
+        Self(payload.into())
+    }
+    pub fn payload(&self) -> &String {
+        &self.0
+    }
+    pub fn into_payload(self) -> String {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<String> for ArchivePathText {
+    fn from(payload: String) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl ArchivePath {
     pub fn new(payload: ArchivePathText) -> Self {
         Self(payload)
@@ -141,18 +225,18 @@ impl ArchiveDatabaseTarget {
 
 #[rustfmt::skip]
 impl Input {
-    pub fn configure(payload: Configure) -> Self {
-        Self::Configure(payload)
+    pub fn configure(payload: ConfigureRequest) -> Self {
+        Self::Configure(Configure::new(payload))
     }
 }
 
 #[rustfmt::skip]
 impl Output {
-    pub fn configured(payload: Configured) -> Self {
-        Self::Configured(payload)
+    pub fn configured(payload: ConfigureReceipt) -> Self {
+        Self::Configured(Configured::new(payload))
     }
-    pub fn rejected(payload: Rejected) -> Self {
-        Self::Rejected(payload)
+    pub fn rejected(payload: ConfigureRejection) -> Self {
+        Self::Rejected(Rejected::new(payload))
     }
 }
 
@@ -160,6 +244,71 @@ impl Output {
 impl From<ArchivePath> for ArchiveDatabaseTarget {
     fn from(payload: ArchivePath) -> Self {
         Self::Path(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Configure> for Input {
+    fn from(payload: Configure) -> Self {
+        Self::Configure(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Configured> for Output {
+    fn from(payload: Configured) -> Self {
+        Self::Configured(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Rejected> for Output {
+    fn from(payload: Rejected) -> Self {
+        Self::Rejected(payload)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Configure {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Configured {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Rejected {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl ArchivePathText {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
     }
 }
 

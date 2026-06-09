@@ -15,7 +15,9 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest, Output as MetaOutput};
-use spirit::schema::signal::{Entry, Input, Kind, Magnitude, Output, Query, TopicMatch};
+use spirit::schema::signal::{
+    Description, Entry, Input, Kind, Magnitude, Output, Privacy, Query, TopicMatch, Topics,
+};
 use spirit::{
     Configuration, Daemon, DaemonError, MetaSignalTransport, SignalTransport, SpiritDaemon,
 };
@@ -59,17 +61,17 @@ fn wait_for_socket(path: &Path) {
 
 fn decision_entry(description: &str) -> Entry {
     Entry {
-        topics: vec![String::from("meta-configure")],
+        topics: Topics::from_strings(vec![String::from("meta-configure")]),
         kind: Kind::Decision,
-        description: String::from(description),
+        description: Description::new(description),
         magnitude: Magnitude::Maximum,
-        privacy: Magnitude::Zero,
+        privacy: Privacy::new(Magnitude::Zero),
     }
 }
 
 fn observe_query() -> Query {
     Query {
-        topic_match: TopicMatch::full(vec![String::from("meta-configure")]),
+        topic_match: TopicMatch::full(Topics::from_strings(vec![String::from("meta-configure")])),
         kind: Some(Kind::Decision),
         privacy_selection: spirit::schema::signal::PrivacySelection::default_observation_privacy(),
     }
@@ -94,23 +96,24 @@ fn configure_sets_archive_target_and_leaves_live_database_unchanged() {
     // the SEPARATE archive database lives — it is a typed `ArchiveDatabaseTarget`,
     // not a string, and the live database path is never named in it.
     let archive_target =
-        ArchiveDatabaseTarget::path(archive_database.to_string_lossy().into_owned());
+        ArchiveDatabaseTarget::path(archive_database.to_string_lossy().into_owned().into());
     let mut meta_transport =
         MetaSignalTransport::connect(&meta_socket).expect("connect meta socket");
     let (_route, reply) = meta_transport
-        .configure(ConfigureRequest::new(archive_target.clone()))
+        .configure(ConfigureRequest::new(archive_target.clone()).into())
         .expect("exchange configure");
     match reply {
         MetaOutput::Configured(receipt) => {
             assert_eq!(
-                receipt.archive_database_target, archive_target,
+                receipt.payload().archive_database_target,
+                archive_target,
                 "receipt echoes the now-active archive target"
             );
         }
         MetaOutput::Rejected(rejection) => {
             panic!(
                 "configure rejected: {:?}",
-                rejection.configure_rejection_reason
+                rejection.payload().configure_rejection_reason
             )
         }
     }
@@ -122,7 +125,7 @@ fn configure_sets_archive_target_and_leaves_live_database_unchanged() {
     let mut working_transport =
         SignalTransport::connect(&working_socket).expect("connect working socket");
     let (_output_route, record_output) = working_transport
-        .exchange(&Input::Record(decision_entry("intent after configure")))
+        .exchange(&Input::record(decision_entry("intent after configure")))
         .expect("exchange record");
     assert!(
         matches!(record_output, Output::RecordAccepted(_)),
@@ -145,7 +148,7 @@ fn configure_sets_archive_target_and_leaves_live_database_unchanged() {
     let mut observe_transport =
         SignalTransport::connect(&working_socket).expect("reconnect working socket");
     let (_observe_route, observed) = observe_transport
-        .exchange(&Input::Observe(observe_query()))
+        .exchange(&Input::observe(observe_query()))
         .expect("exchange observe");
     let Output::RecordsStashed(stashed) = observed else {
         panic!("the live database serves the recorded intent back, got {observed:?}")
@@ -196,10 +199,10 @@ fn working_socket_rejects_a_meta_configure_frame() {
     // decoder must fail to read it as a signal Output (the two contracts are
     // distinct wire vocabularies): the daemon drops the stream on a decode
     // error, so the reply read returns an error rather than a valid Output.
-    let target = ArchiveDatabaseTarget::path(database.to_string_lossy().into_owned());
+    let target = ArchiveDatabaseTarget::path(database.to_string_lossy().into_owned().into());
     let mut meta_on_working = MetaSignalTransport::connect(&working_socket)
         .expect("connect meta transport to working socket");
-    let result = meta_on_working.configure(ConfigureRequest::new(target));
+    let result = meta_on_working.configure(ConfigureRequest::new(target).into());
     assert!(
         result.is_err(),
         "the working socket must not answer a meta Configure as a meta reply"

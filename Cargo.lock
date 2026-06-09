@@ -586,7 +586,7 @@ checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 [[package]]
 name = "schema-next"
 version = "0.1.4"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#77e71a410d03e3cc5c16cebd82202e712439e648"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#cf4cfb9f66b9982aa50bf93998664deb384197c2"
 dependencies = [
  "nota-next",
  "rkyv",
@@ -595,7 +595,7 @@ dependencies = [
 [[package]]
 name = "schema-rust-next"
 version = "0.5.2"
-source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#261c7795d80fedbca0f8e18ddfacc9065967ad8b"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#9f509205a5198ef161a3b0e23602fbe916094dff"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -749,7 +749,7 @@ dependencies = [
 
 [[package]]
 name = "spirit"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "blake3",
  "getrandom 0.3.4",

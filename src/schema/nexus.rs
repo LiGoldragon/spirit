@@ -59,16 +59,24 @@ pub use crate::schema::signal::ObserverRetraction as ObserverRetraction;
 pub use nota_next::{NotaDecode, NotaDecodeError, NotaEncode, NotaSource};
 
 #[rustfmt::skip]
-pub type SignalArrived = SignalInput;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct SignalArrived(SignalInput);
 
 #[rustfmt::skip]
-pub type SemaWriteCompleted = SemaWriteOutput;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct SemaWriteCompleted(SemaWriteOutput);
 
 #[rustfmt::skip]
-pub type SemaReadCompleted = SemaReadOutput;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct SemaReadCompleted(SemaReadOutput);
 
 #[rustfmt::skip]
-pub type EffectCompleted = NexusEffectResult;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct EffectCompleted(NexusEffectResult);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -81,28 +89,44 @@ pub enum CommandSemaWrite {
 }
 
 #[rustfmt::skip]
-pub type Record = Entry;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Record(Entry);
 
 #[rustfmt::skip]
-pub type Remove = RecordIdentifier;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Remove(RecordIdentifier);
 
 #[rustfmt::skip]
-pub type ChangeCertainty = CertaintyChange;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ChangeCertainty(CertaintyChange);
 
 #[rustfmt::skip]
-pub type ChangeRecord = RecordChange;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ChangeRecord(RecordChange);
 
 #[rustfmt::skip]
-pub type CommandSemaRead = SemaReadInput;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct CommandSemaRead(SemaReadInput);
 
 #[rustfmt::skip]
-pub type ReplyToSignal = SignalOutput;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ReplyToSignal(SignalOutput);
 
 #[rustfmt::skip]
-pub type CommandEffect = NexusEffectCommand;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct CommandEffect(NexusEffectCommand);
 
 #[rustfmt::skip]
-pub type Continue = NexusWork;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Continue(NexusWork);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -138,22 +162,34 @@ pub enum NexusEffectCommand {
 }
 
 #[rustfmt::skip]
-pub type Stash = StashRequest;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Stash(StashRequest);
 
 #[rustfmt::skip]
-pub type ClassifyState = Statement;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ClassifyState(Statement);
 
 #[rustfmt::skip]
-pub type OpenIntentSubscription = Query;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct OpenIntentSubscription(Query);
 
 #[rustfmt::skip]
-pub type CollectRemovalCandidates = RemovalCandidateCollection;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct CollectRemovalCandidates(RemovalCandidateCollection);
 
 #[rustfmt::skip]
-pub type OpenObserverTap = ObserverFilter;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct OpenObserverTap(ObserverFilter);
 
 #[rustfmt::skip]
-pub type CloseObserverTap = SubscriptionToken;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct CloseObserverTap(SubscriptionToken);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -168,22 +204,34 @@ pub enum NexusEffectResult {
 }
 
 #[rustfmt::skip]
-pub type Stashed = StashResult;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Stashed(StashResult);
 
 #[rustfmt::skip]
-pub type StateClassified = Entry;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct StateClassified(Entry);
 
 #[rustfmt::skip]
-pub type IntentSubscriptionOpened = IntentSubscription;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct IntentSubscriptionOpened(IntentSubscription);
 
 #[rustfmt::skip]
-pub type RemovalCandidatesCollected = RemovalCandidatesCollection;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct RemovalCandidatesCollected(RemovalCandidatesCollection);
 
 #[rustfmt::skip]
-pub type ObserverTapOpened = ObserverSubscription;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ObserverTapOpened(ObserverSubscription);
 
 #[rustfmt::skip]
-pub type ObserverTapClosed = ObserverRetraction;
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ObserverTapClosed(ObserverRetraction);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -224,34 +272,490 @@ pub enum Output {
 }
 
 #[rustfmt::skip]
+impl SignalArrived {
+    pub fn new(payload: SignalInput) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &SignalInput {
+        &self.0
+    }
+    pub fn into_payload(self) -> SignalInput {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<SignalInput> for SignalArrived {
+    fn from(payload: SignalInput) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl SemaWriteCompleted {
+    pub fn new(payload: SemaWriteOutput) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &SemaWriteOutput {
+        &self.0
+    }
+    pub fn into_payload(self) -> SemaWriteOutput {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<SemaWriteOutput> for SemaWriteCompleted {
+    fn from(payload: SemaWriteOutput) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl SemaReadCompleted {
+    pub fn new(payload: SemaReadOutput) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &SemaReadOutput {
+        &self.0
+    }
+    pub fn into_payload(self) -> SemaReadOutput {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<SemaReadOutput> for SemaReadCompleted {
+    fn from(payload: SemaReadOutput) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl EffectCompleted {
+    pub fn new(payload: NexusEffectResult) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &NexusEffectResult {
+        &self.0
+    }
+    pub fn into_payload(self) -> NexusEffectResult {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<NexusEffectResult> for EffectCompleted {
+    fn from(payload: NexusEffectResult) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Record {
+    pub fn new(payload: Entry) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Entry {
+        &self.0
+    }
+    pub fn into_payload(self) -> Entry {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Entry> for Record {
+    fn from(payload: Entry) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Remove {
+    pub fn new(payload: RecordIdentifier) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &RecordIdentifier {
+        &self.0
+    }
+    pub fn into_payload(self) -> RecordIdentifier {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<RecordIdentifier> for Remove {
+    fn from(payload: RecordIdentifier) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl ChangeCertainty {
+    pub fn new(payload: CertaintyChange) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &CertaintyChange {
+        &self.0
+    }
+    pub fn into_payload(self) -> CertaintyChange {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<CertaintyChange> for ChangeCertainty {
+    fn from(payload: CertaintyChange) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl ChangeRecord {
+    pub fn new(payload: RecordChange) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &RecordChange {
+        &self.0
+    }
+    pub fn into_payload(self) -> RecordChange {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<RecordChange> for ChangeRecord {
+    fn from(payload: RecordChange) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl CommandSemaRead {
+    pub fn new(payload: SemaReadInput) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &SemaReadInput {
+        &self.0
+    }
+    pub fn into_payload(self) -> SemaReadInput {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<SemaReadInput> for CommandSemaRead {
+    fn from(payload: SemaReadInput) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl ReplyToSignal {
+    pub fn new(payload: SignalOutput) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &SignalOutput {
+        &self.0
+    }
+    pub fn into_payload(self) -> SignalOutput {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<SignalOutput> for ReplyToSignal {
+    fn from(payload: SignalOutput) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl CommandEffect {
+    pub fn new(payload: NexusEffectCommand) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &NexusEffectCommand {
+        &self.0
+    }
+    pub fn into_payload(self) -> NexusEffectCommand {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<NexusEffectCommand> for CommandEffect {
+    fn from(payload: NexusEffectCommand) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Continue {
+    pub fn new(payload: NexusWork) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &NexusWork {
+        &self.0
+    }
+    pub fn into_payload(self) -> NexusWork {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<NexusWork> for Continue {
+    fn from(payload: NexusWork) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Stash {
+    pub fn new(payload: StashRequest) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &StashRequest {
+        &self.0
+    }
+    pub fn into_payload(self) -> StashRequest {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<StashRequest> for Stash {
+    fn from(payload: StashRequest) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl ClassifyState {
+    pub fn new(payload: Statement) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Statement {
+        &self.0
+    }
+    pub fn into_payload(self) -> Statement {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Statement> for ClassifyState {
+    fn from(payload: Statement) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl OpenIntentSubscription {
+    pub fn new(payload: Query) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Query {
+        &self.0
+    }
+    pub fn into_payload(self) -> Query {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Query> for OpenIntentSubscription {
+    fn from(payload: Query) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl CollectRemovalCandidates {
+    pub fn new(payload: RemovalCandidateCollection) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &RemovalCandidateCollection {
+        &self.0
+    }
+    pub fn into_payload(self) -> RemovalCandidateCollection {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<RemovalCandidateCollection> for CollectRemovalCandidates {
+    fn from(payload: RemovalCandidateCollection) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl OpenObserverTap {
+    pub fn new(payload: ObserverFilter) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ObserverFilter {
+        &self.0
+    }
+    pub fn into_payload(self) -> ObserverFilter {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ObserverFilter> for OpenObserverTap {
+    fn from(payload: ObserverFilter) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl CloseObserverTap {
+    pub fn new(payload: SubscriptionToken) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &SubscriptionToken {
+        &self.0
+    }
+    pub fn into_payload(self) -> SubscriptionToken {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<SubscriptionToken> for CloseObserverTap {
+    fn from(payload: SubscriptionToken) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Stashed {
+    pub fn new(payload: StashResult) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &StashResult {
+        &self.0
+    }
+    pub fn into_payload(self) -> StashResult {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<StashResult> for Stashed {
+    fn from(payload: StashResult) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl StateClassified {
+    pub fn new(payload: Entry) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Entry {
+        &self.0
+    }
+    pub fn into_payload(self) -> Entry {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Entry> for StateClassified {
+    fn from(payload: Entry) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl IntentSubscriptionOpened {
+    pub fn new(payload: IntentSubscription) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &IntentSubscription {
+        &self.0
+    }
+    pub fn into_payload(self) -> IntentSubscription {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<IntentSubscription> for IntentSubscriptionOpened {
+    fn from(payload: IntentSubscription) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl RemovalCandidatesCollected {
+    pub fn new(payload: RemovalCandidatesCollection) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &RemovalCandidatesCollection {
+        &self.0
+    }
+    pub fn into_payload(self) -> RemovalCandidatesCollection {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<RemovalCandidatesCollection> for RemovalCandidatesCollected {
+    fn from(payload: RemovalCandidatesCollection) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl ObserverTapOpened {
+    pub fn new(payload: ObserverSubscription) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ObserverSubscription {
+        &self.0
+    }
+    pub fn into_payload(self) -> ObserverSubscription {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ObserverSubscription> for ObserverTapOpened {
+    fn from(payload: ObserverSubscription) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl ObserverTapClosed {
+    pub fn new(payload: ObserverRetraction) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ObserverRetraction {
+        &self.0
+    }
+    pub fn into_payload(self) -> ObserverRetraction {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ObserverRetraction> for ObserverTapClosed {
+    fn from(payload: ObserverRetraction) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl CommandSemaWrite {
-    pub fn record(payload: Record) -> Self {
-        Self::Record(payload)
+    pub fn record(payload: Entry) -> Self {
+        Self::Record(Record::new(payload))
     }
-    pub fn remove(payload: Remove) -> Self {
-        Self::Remove(payload)
+    pub fn remove(payload: RecordIdentifier) -> Self {
+        Self::Remove(Remove::new(payload))
     }
-    pub fn change_certainty(payload: ChangeCertainty) -> Self {
-        Self::ChangeCertainty(payload)
+    pub fn change_certainty(payload: CertaintyChange) -> Self {
+        Self::ChangeCertainty(ChangeCertainty::new(payload))
     }
-    pub fn change_record(payload: ChangeRecord) -> Self {
-        Self::ChangeRecord(payload)
+    pub fn change_record(payload: RecordChange) -> Self {
+        Self::ChangeRecord(ChangeRecord::new(payload))
     }
 }
 
 #[rustfmt::skip]
 impl NexusWork {
-    pub fn signal_arrived(payload: SignalArrived) -> Self {
-        Self::SignalArrived(payload)
+    pub fn signal_arrived(payload: SignalInput) -> Self {
+        Self::SignalArrived(SignalArrived::new(payload))
     }
-    pub fn sema_write_completed(payload: SemaWriteCompleted) -> Self {
-        Self::SemaWriteCompleted(payload)
+    pub fn sema_write_completed(payload: SemaWriteOutput) -> Self {
+        Self::SemaWriteCompleted(SemaWriteCompleted::new(payload))
     }
-    pub fn sema_read_completed(payload: SemaReadCompleted) -> Self {
-        Self::SemaReadCompleted(payload)
+    pub fn sema_read_completed(payload: SemaReadOutput) -> Self {
+        Self::SemaReadCompleted(SemaReadCompleted::new(payload))
     }
-    pub fn effect_completed(payload: EffectCompleted) -> Self {
-        Self::EffectCompleted(payload)
+    pub fn effect_completed(payload: NexusEffectResult) -> Self {
+        Self::EffectCompleted(EffectCompleted::new(payload))
     }
 }
 
@@ -260,77 +764,77 @@ impl NexusAction {
     pub fn command_sema_write(payload: CommandSemaWrite) -> Self {
         Self::CommandSemaWrite(payload)
     }
-    pub fn command_sema_read(payload: CommandSemaRead) -> Self {
-        Self::CommandSemaRead(payload)
+    pub fn command_sema_read(payload: SemaReadInput) -> Self {
+        Self::CommandSemaRead(CommandSemaRead::new(payload))
     }
-    pub fn reply_to_signal(payload: ReplyToSignal) -> Self {
-        Self::ReplyToSignal(payload)
+    pub fn reply_to_signal(payload: SignalOutput) -> Self {
+        Self::ReplyToSignal(ReplyToSignal::new(payload))
     }
-    pub fn command_effect(payload: CommandEffect) -> Self {
-        Self::CommandEffect(payload)
+    pub fn command_effect(payload: NexusEffectCommand) -> Self {
+        Self::CommandEffect(CommandEffect::new(payload))
     }
-    pub fn r#continue(payload: Continue) -> Self {
-        Self::Continue(payload)
+    pub fn r#continue(payload: NexusWork) -> Self {
+        Self::Continue(Continue::new(payload))
     }
 }
 
 #[rustfmt::skip]
 impl NexusEffectCommand {
-    pub fn stash(payload: Stash) -> Self {
-        Self::Stash(payload)
+    pub fn stash(payload: StashRequest) -> Self {
+        Self::Stash(Stash::new(payload))
     }
-    pub fn classify_state(payload: ClassifyState) -> Self {
-        Self::ClassifyState(payload)
+    pub fn classify_state(payload: Statement) -> Self {
+        Self::ClassifyState(ClassifyState::new(payload))
     }
-    pub fn open_intent_subscription(payload: OpenIntentSubscription) -> Self {
-        Self::OpenIntentSubscription(payload)
+    pub fn open_intent_subscription(payload: Query) -> Self {
+        Self::OpenIntentSubscription(OpenIntentSubscription::new(payload))
     }
-    pub fn collect_removal_candidates(payload: CollectRemovalCandidates) -> Self {
-        Self::CollectRemovalCandidates(payload)
+    pub fn collect_removal_candidates(payload: RemovalCandidateCollection) -> Self {
+        Self::CollectRemovalCandidates(CollectRemovalCandidates::new(payload))
     }
-    pub fn open_observer_tap(payload: OpenObserverTap) -> Self {
-        Self::OpenObserverTap(payload)
+    pub fn open_observer_tap(payload: ObserverFilter) -> Self {
+        Self::OpenObserverTap(OpenObserverTap::new(payload))
     }
-    pub fn close_observer_tap(payload: CloseObserverTap) -> Self {
-        Self::CloseObserverTap(payload)
+    pub fn close_observer_tap(payload: SubscriptionToken) -> Self {
+        Self::CloseObserverTap(CloseObserverTap::new(payload))
     }
 }
 
 #[rustfmt::skip]
 impl NexusEffectResult {
-    pub fn stashed(payload: Stashed) -> Self {
-        Self::Stashed(payload)
+    pub fn stashed(payload: StashResult) -> Self {
+        Self::Stashed(Stashed::new(payload))
     }
-    pub fn state_classified(payload: StateClassified) -> Self {
-        Self::StateClassified(payload)
+    pub fn state_classified(payload: Entry) -> Self {
+        Self::StateClassified(StateClassified::new(payload))
     }
-    pub fn intent_subscription_opened(payload: IntentSubscriptionOpened) -> Self {
-        Self::IntentSubscriptionOpened(payload)
+    pub fn intent_subscription_opened(payload: IntentSubscription) -> Self {
+        Self::IntentSubscriptionOpened(IntentSubscriptionOpened::new(payload))
     }
-    pub fn removal_candidates_collected(payload: RemovalCandidatesCollected) -> Self {
-        Self::RemovalCandidatesCollected(payload)
+    pub fn removal_candidates_collected(payload: RemovalCandidatesCollection) -> Self {
+        Self::RemovalCandidatesCollected(RemovalCandidatesCollected::new(payload))
     }
-    pub fn observer_tap_opened(payload: ObserverTapOpened) -> Self {
-        Self::ObserverTapOpened(payload)
+    pub fn observer_tap_opened(payload: ObserverSubscription) -> Self {
+        Self::ObserverTapOpened(ObserverTapOpened::new(payload))
     }
-    pub fn observer_tap_closed(payload: ObserverTapClosed) -> Self {
-        Self::ObserverTapClosed(payload)
+    pub fn observer_tap_closed(payload: ObserverRetraction) -> Self {
+        Self::ObserverTapClosed(ObserverTapClosed::new(payload))
     }
 }
 
 #[rustfmt::skip]
 impl Input {
-    pub fn signal_arrived(payload: SignalArrived) -> Self {
-        Self::SignalArrived(payload)
+    pub fn signal_arrived(payload: SignalInput) -> Self {
+        Self::SignalArrived(SignalArrived::new(payload))
     }
-    pub fn sema_write_completed(payload: SemaWriteCompleted) -> Self {
-        Self::SemaWriteCompleted(payload)
+    pub fn sema_write_completed(payload: SemaWriteOutput) -> Self {
+        Self::SemaWriteCompleted(SemaWriteCompleted::new(payload))
     }
-    pub fn sema_read_completed(payload: SemaReadCompleted) -> Self {
-        Self::SemaReadCompleted(payload)
+    pub fn sema_read_completed(payload: SemaReadOutput) -> Self {
+        Self::SemaReadCompleted(SemaReadCompleted::new(payload))
     }
-    pub fn effect_completed(payload: EffectCompleted) -> Self {
-        Self::EffectCompleted(payload)
+    pub fn effect_completed(payload: NexusEffectResult) -> Self {
+        Self::EffectCompleted(EffectCompleted::new(payload))
     }
 }
 
@@ -339,17 +843,73 @@ impl Output {
     pub fn command_sema_write(payload: CommandSemaWrite) -> Self {
         Self::CommandSemaWrite(payload)
     }
-    pub fn command_sema_read(payload: CommandSemaRead) -> Self {
-        Self::CommandSemaRead(payload)
+    pub fn command_sema_read(payload: SemaReadInput) -> Self {
+        Self::CommandSemaRead(CommandSemaRead::new(payload))
     }
-    pub fn reply_to_signal(payload: ReplyToSignal) -> Self {
-        Self::ReplyToSignal(payload)
+    pub fn reply_to_signal(payload: SignalOutput) -> Self {
+        Self::ReplyToSignal(ReplyToSignal::new(payload))
     }
-    pub fn command_effect(payload: CommandEffect) -> Self {
-        Self::CommandEffect(payload)
+    pub fn command_effect(payload: NexusEffectCommand) -> Self {
+        Self::CommandEffect(CommandEffect::new(payload))
     }
-    pub fn r#continue(payload: Continue) -> Self {
-        Self::Continue(payload)
+    pub fn r#continue(payload: NexusWork) -> Self {
+        Self::Continue(Continue::new(payload))
+    }
+}
+
+#[rustfmt::skip]
+impl From<Record> for CommandSemaWrite {
+    fn from(payload: Record) -> Self {
+        Self::Record(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Remove> for CommandSemaWrite {
+    fn from(payload: Remove) -> Self {
+        Self::Remove(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<ChangeCertainty> for CommandSemaWrite {
+    fn from(payload: ChangeCertainty) -> Self {
+        Self::ChangeCertainty(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<ChangeRecord> for CommandSemaWrite {
+    fn from(payload: ChangeRecord) -> Self {
+        Self::ChangeRecord(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<SignalArrived> for NexusWork {
+    fn from(payload: SignalArrived) -> Self {
+        Self::SignalArrived(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<SemaWriteCompleted> for NexusWork {
+    fn from(payload: SemaWriteCompleted) -> Self {
+        Self::SemaWriteCompleted(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<SemaReadCompleted> for NexusWork {
+    fn from(payload: SemaReadCompleted) -> Self {
+        Self::SemaReadCompleted(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<EffectCompleted> for NexusWork {
+    fn from(payload: EffectCompleted) -> Self {
+        Self::EffectCompleted(payload)
     }
 }
 
@@ -361,6 +921,146 @@ impl From<CommandSemaWrite> for NexusAction {
 }
 
 #[rustfmt::skip]
+impl From<CommandSemaRead> for NexusAction {
+    fn from(payload: CommandSemaRead) -> Self {
+        Self::CommandSemaRead(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<ReplyToSignal> for NexusAction {
+    fn from(payload: ReplyToSignal) -> Self {
+        Self::ReplyToSignal(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<CommandEffect> for NexusAction {
+    fn from(payload: CommandEffect) -> Self {
+        Self::CommandEffect(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Continue> for NexusAction {
+    fn from(payload: Continue) -> Self {
+        Self::Continue(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Stash> for NexusEffectCommand {
+    fn from(payload: Stash) -> Self {
+        Self::Stash(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<ClassifyState> for NexusEffectCommand {
+    fn from(payload: ClassifyState) -> Self {
+        Self::ClassifyState(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<OpenIntentSubscription> for NexusEffectCommand {
+    fn from(payload: OpenIntentSubscription) -> Self {
+        Self::OpenIntentSubscription(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<CollectRemovalCandidates> for NexusEffectCommand {
+    fn from(payload: CollectRemovalCandidates) -> Self {
+        Self::CollectRemovalCandidates(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<OpenObserverTap> for NexusEffectCommand {
+    fn from(payload: OpenObserverTap) -> Self {
+        Self::OpenObserverTap(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<CloseObserverTap> for NexusEffectCommand {
+    fn from(payload: CloseObserverTap) -> Self {
+        Self::CloseObserverTap(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Stashed> for NexusEffectResult {
+    fn from(payload: Stashed) -> Self {
+        Self::Stashed(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<StateClassified> for NexusEffectResult {
+    fn from(payload: StateClassified) -> Self {
+        Self::StateClassified(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<IntentSubscriptionOpened> for NexusEffectResult {
+    fn from(payload: IntentSubscriptionOpened) -> Self {
+        Self::IntentSubscriptionOpened(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<RemovalCandidatesCollected> for NexusEffectResult {
+    fn from(payload: RemovalCandidatesCollected) -> Self {
+        Self::RemovalCandidatesCollected(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<ObserverTapOpened> for NexusEffectResult {
+    fn from(payload: ObserverTapOpened) -> Self {
+        Self::ObserverTapOpened(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<ObserverTapClosed> for NexusEffectResult {
+    fn from(payload: ObserverTapClosed) -> Self {
+        Self::ObserverTapClosed(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<SignalArrived> for Input {
+    fn from(payload: SignalArrived) -> Self {
+        Self::SignalArrived(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<SemaWriteCompleted> for Input {
+    fn from(payload: SemaWriteCompleted) -> Self {
+        Self::SemaWriteCompleted(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<SemaReadCompleted> for Input {
+    fn from(payload: SemaReadCompleted) -> Self {
+        Self::SemaReadCompleted(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<EffectCompleted> for Input {
+    fn from(payload: EffectCompleted) -> Self {
+        Self::EffectCompleted(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl From<CommandSemaWrite> for Output {
     fn from(payload: CommandSemaWrite) -> Self {
         Self::CommandSemaWrite(payload)
@@ -368,8 +1068,168 @@ impl From<CommandSemaWrite> for Output {
 }
 
 #[rustfmt::skip]
+impl From<CommandSemaRead> for Output {
+    fn from(payload: CommandSemaRead) -> Self {
+        Self::CommandSemaRead(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<ReplyToSignal> for Output {
+    fn from(payload: ReplyToSignal) -> Self {
+        Self::ReplyToSignal(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<CommandEffect> for Output {
+    fn from(payload: CommandEffect) -> Self {
+        Self::CommandEffect(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Continue> for Output {
+    fn from(payload: Continue) -> Self {
+        Self::Continue(payload)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl SignalArrived {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl SemaWriteCompleted {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl SemaReadCompleted {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl EffectCompleted {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
 #[cfg(feature = "nota-text")]
 impl CommandSemaWrite {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Record {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Remove {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl ChangeCertainty {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl ChangeRecord {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl CommandSemaRead {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl ReplyToSignal {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl CommandEffect {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Continue {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -413,7 +1273,139 @@ impl NexusEffectCommand {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
+impl Stash {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl ClassifyState {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl OpenIntentSubscription {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl CollectRemovalCandidates {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl OpenObserverTap {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl CloseObserverTap {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
 impl NexusEffectResult {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Stashed {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl StateClassified {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl IntentSubscriptionOpened {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl RemovalCandidatesCollected {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl ObserverTapOpened {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl ObserverTapClosed {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -672,7 +1664,16 @@ impl TraceEvent {
     PartialEq,
     Eq,
 )]
-pub struct OriginRoute(pub Integer);
+pub struct OriginRoute(Integer);
+#[rustfmt::skip]
+impl OriginRoute {
+    pub fn new(payload: Integer) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> Integer {
+        self.0
+    }
+}
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
 impl OriginRoute {
@@ -738,15 +1739,6 @@ impl NexusAction {
 impl triad_runtime::NexusWork for NexusWork {}
 
 #[rustfmt::skip]
-impl triad_runtime::SemaWriteInput for CommandSemaWrite {}
-
-#[rustfmt::skip]
-impl triad_runtime::NexusEffectCommand for CommandEffect {}
-
-#[rustfmt::skip]
-impl triad_runtime::NexusEffectResult for EffectCompleted {}
-
-#[rustfmt::skip]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EngineStartFailure {
     ResourceBusy(String),
@@ -790,32 +1782,6 @@ impl std::fmt::Display for EngineStopFailure {
 impl std::error::Error for EngineStopFailure {}
 
 #[rustfmt::skip]
-pub type NexusRunnerNextStep = triad_runtime::NextStep<
-    ReplyToSignal,
-    CommandSemaWrite,
-    CommandSemaRead,
-    CommandEffect,
-    NexusWork,
->;
-#[rustfmt::skip]
-impl triad_runtime::NexusAction for NexusAction {
-    type Reply = ReplyToSignal;
-    type SemaWrite = CommandSemaWrite;
-    type SemaRead = CommandSemaRead;
-    type Effect = CommandEffect;
-    type Work = NexusWork;
-    fn into_next_step(self) -> NexusRunnerNextStep {
-        match self {
-            Self::CommandSemaWrite(input) => triad_runtime::NextStep::SemaWrite(input),
-            Self::CommandSemaRead(input) => triad_runtime::NextStep::SemaRead(input),
-            Self::ReplyToSignal(output) => triad_runtime::NextStep::Reply(output),
-            Self::CommandEffect(effect) => triad_runtime::NextStep::RunEffect(effect),
-            Self::Continue(work) => triad_runtime::NextStep::Continue(work),
-        }
-    }
-}
-
-#[rustfmt::skip]
 pub trait NexusEngine: Send {
     fn on_start(&mut self) -> Result<(), EngineStartFailure> {
         Ok(())
@@ -830,27 +1796,6 @@ pub trait NexusEngine: Send {
     fn trace_nexus_decided(&self) {
         self.trace_nexus_activation(NexusObjectName::Decided);
     }
-    fn continuation_limit(&self) -> triad_runtime::ContinuationLimit {
-        triad_runtime::ContinuationLimit::default()
-    }
-    fn apply_sema_write(
-        &mut self,
-        origin_route: OriginRoute,
-        input: CommandSemaWrite,
-    ) -> impl std::future::Future<Output = SemaWriteCompleted> + Send + '_;
-    fn observe_sema_read(
-        &mut self,
-        origin_route: OriginRoute,
-        input: CommandSemaRead,
-    ) -> impl std::future::Future<Output = SemaReadCompleted> + Send + '_;
-    fn run_effect(
-        &mut self,
-        input: CommandEffect,
-    ) -> impl std::future::Future<Output = EffectCompleted> + Send + '_;
-    fn budget_exhausted_reply(
-        &self,
-        exhausted: triad_runtime::ContinuationExhausted,
-    ) -> ReplyToSignal;
     fn decide(
         &mut self,
         input: nexus::Nexus<nexus::Work>,
@@ -858,85 +1803,13 @@ pub trait NexusEngine: Send {
     fn execute(
         &mut self,
         input: nexus::Nexus<nexus::Work>,
-    ) -> impl std::future::Future<Output = nexus::Nexus<nexus::Action>> + Send + '_
-    where
-        Self: Sized,
-    {
+    ) -> impl std::future::Future<Output = nexus::Nexus<nexus::Action>> + Send + '_ {
         async move {
             self.trace_nexus_entered();
-            let origin_route = input.origin_route();
-            let first_work = input.into_root();
-            let runner = triad_runtime::Runner::new(self.continuation_limit());
-            let mut runner_adapter = NexusRunnerAdapter::new(self, origin_route);
-            let reply = runner.drive(&mut runner_adapter, first_work).await;
-            let output = NexusAction::reply_to_signal(reply)
-                .with_origin_route(origin_route);
+            let output = self.decide(input);
             self.trace_nexus_decided();
             output
         }
-    }
-}
-
-#[rustfmt::skip]
-struct NexusRunnerAdapter<'engine, Engine> {
-    engine: &'engine mut Engine,
-    origin_route: OriginRoute,
-}
-#[rustfmt::skip]
-impl<'engine, Engine> NexusRunnerAdapter<'engine, Engine> {
-    fn new(engine: &'engine mut Engine, origin_route: OriginRoute) -> Self {
-        Self { engine, origin_route }
-    }
-}
-#[rustfmt::skip]
-impl<'engine, Engine> triad_runtime::RunnerEngines
-for NexusRunnerAdapter<'engine, Engine>
-where
-    Engine: NexusEngine,
-{
-    type Reply = ReplyToSignal;
-    type SemaWrite = CommandSemaWrite;
-    type SemaRead = CommandSemaRead;
-    type Effect = CommandEffect;
-    type Work = NexusWork;
-    fn decide_next_step(
-        &mut self,
-        work: Self::Work,
-    ) -> triad_runtime::runner::RunnerNextStep<Self> {
-        let action = NexusEngine::decide(
-                self.engine,
-                work.with_origin_route(self.origin_route),
-            )
-            .into_root();
-        triad_runtime::NexusAction::into_next_step(action)
-    }
-    async fn apply_sema_write(&mut self, write: Self::SemaWrite) -> Self::Work {
-        let output: SemaWriteCompleted = NexusEngine::apply_sema_write(
-                self.engine,
-                self.origin_route,
-                write,
-            )
-            .await;
-        NexusWork::sema_write_completed(output)
-    }
-    async fn observe_sema_read(&mut self, read: Self::SemaRead) -> Self::Work {
-        let output: SemaReadCompleted = NexusEngine::observe_sema_read(
-                self.engine,
-                self.origin_route,
-                read,
-            )
-            .await;
-        NexusWork::sema_read_completed(output)
-    }
-    async fn run_effect(&mut self, effect: Self::Effect) -> Self::Work {
-        let output: EffectCompleted = NexusEngine::run_effect(self.engine, effect).await;
-        NexusWork::effect_completed(output)
-    }
-    fn budget_exhausted_reply(
-        &self,
-        exhausted: triad_runtime::ContinuationExhausted,
-    ) -> Self::Reply {
-        NexusEngine::budget_exhausted_reply(self.engine, exhausted)
     }
 }
 

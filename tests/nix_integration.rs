@@ -101,26 +101,29 @@ use std::{
 
 use spirit::Configuration;
 use spirit::schema::signal::{
-    DatabaseMarker, Entry, ErrorReport, Kind, Magnitude, Output, OutputRoute, SemaReceipt,
-    SignalRejection, ValidationError,
+    DatabaseMarker, Description, Entry, Kind, Magnitude, Output, OutputRoute, Privacy,
+    RecordIdentifier, SignalRejection, Topics, ValidationError,
 };
 use tempfile::TempDir;
 
-fn assert_short_record_identifier(identifier: &str) {
+fn assert_short_record_identifier(identifier: &RecordIdentifier) {
     assert!(
-        (4..=7).contains(&identifier.len()),
-        "record identifier should use a four-to-seven-character code: {identifier}"
+        (4..=7).contains(&identifier.payload().len()),
+        "record identifier should use a four-to-seven-character code: {:?}",
+        identifier.payload()
     );
     assert!(
         identifier
+            .payload()
             .chars()
             .all(|character| character.is_ascii_digit() || character.is_ascii_lowercase()),
-        "record identifier should be lower-base36: {identifier}"
+        "record identifier should be lower-base36: {:?}",
+        identifier.payload()
     );
 }
 
-fn record_identifier_argument(identifier: &str) -> String {
-    format!("[{identifier}]")
+fn record_identifier_argument(identifier: &RecordIdentifier) -> String {
+    format!("[{}]", identifier.payload())
 }
 
 // ---------------------------------------------------------------------------
@@ -375,18 +378,18 @@ fn run_cli_for_output(binaries: &NixBuiltBinaries, socket: &Path, nota_argument:
 
 fn entry(description: &str) -> Entry {
     Entry {
-        topics: vec![String::from("nix-integration")],
+        topics: Topics::from_strings(vec![String::from("nix-integration")]),
         kind: Kind::Decision,
-        description: String::from(description),
+        description: Description::new(description),
         magnitude: Magnitude::Maximum,
-        privacy: Magnitude::Zero,
+        privacy: Privacy::new(Magnitude::Zero),
     }
 }
 
 fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
     DatabaseMarker {
-        commit_sequence,
-        state_digest,
+        commit_sequence: commit_sequence.into(),
+        state_digest: state_digest.into(),
     }
 }
 
@@ -438,12 +441,9 @@ fn nix_built_spirit_cli_records_through_real_socket_to_nix_built_daemon() {
 
     // SCHEMA-TYPED ASSERTION: not on the string, on the parsed schema-emitted variant.
     match output {
-        Output::RecordAccepted(SemaReceipt {
-            record_identifier,
-            database_marker,
-        }) => {
-            assert_short_record_identifier(&record_identifier);
-            assert_eq!(database_marker.commit_sequence, 1);
+        Output::RecordAccepted(receipt) => {
+            assert_short_record_identifier(&receipt.record_identifier);
+            assert_eq!(receipt.database_marker.commit_sequence, 1);
         }
         other => panic!("expected schema-emitted RecordAccepted, got {other:?}"),
     }
@@ -467,7 +467,7 @@ fn nix_built_daemon_rejects_invalid_input_through_schema_emitted_rejection() {
 
     assert_eq!(
         output,
-        Output::Rejected(SignalRejection {
+        Output::rejected(SignalRejection {
             validation_error: ValidationError::EmptyTopic,
             database_marker: marker(0, 0),
         }),
@@ -493,7 +493,7 @@ fn nix_built_daemon_persists_state_across_two_cli_invocations() {
         "(Record ([nix-integration] Decision [first commit] Maximum Zero))",
     );
     let first_marker = match first {
-        Output::RecordAccepted(receipt) => receipt.database_marker,
+        Output::RecordAccepted(receipt) => receipt.database_marker.clone(),
         other => panic!("expected RecordAccepted, got {other:?}"),
     };
 
@@ -503,7 +503,7 @@ fn nix_built_daemon_persists_state_across_two_cli_invocations() {
         "(Record ([nix-integration] Decision [second commit] Maximum Zero))",
     );
     let second_marker = match second {
-        Output::RecordAccepted(receipt) => receipt.database_marker,
+        Output::RecordAccepted(receipt) => receipt.database_marker.clone(),
         other => panic!("expected RecordAccepted, got {other:?}"),
     };
 
@@ -551,7 +551,7 @@ fn nix_built_daemon_observes_recorded_entries_back_through_query() {
                 stashed.database_marker.commit_sequence, 1,
                 "Observe does not advance the schema-emitted CommitSequence"
             );
-            stashed.stash_handle
+            stashed.stash_handle.clone()
         }
         other => panic!("expected schema-emitted RecordsStashed, got {other:?}"),
     };
@@ -593,13 +593,10 @@ fn nix_built_daemon_returns_missed_when_no_matching_record_exists() {
     );
 
     match output {
-        Output::Error(ErrorReport {
-            error_message,
-            database_marker,
-        }) => {
+        Output::Error(report) => {
             // The schema-emitted ErrorMessage carries the SEMA "no matching record" string.
-            assert_eq!(error_message, "no matching record");
-            assert_eq!(database_marker, marker(0, 0));
+            assert_eq!(report.payload().error_message, "no matching record");
+            assert_eq!(report.payload().database_marker, marker(0, 0));
         }
         other => panic!("expected schema-emitted Output::Error, got {other:?}"),
     }
@@ -624,7 +621,7 @@ fn nix_built_daemon_handles_back_to_back_inputs_through_one_socket() {
             format!("(Record ([nix-integration] Decision [{description}] Maximum Zero))");
         let output = run_cli_for_output(&binaries, daemon.socket(), &nota_input);
         match output {
-            Output::RecordAccepted(receipt) => markers.push(receipt.database_marker),
+            Output::RecordAccepted(receipt) => markers.push(receipt.database_marker.clone()),
             other => panic!("expected RecordAccepted for {description}, got {other:?}"),
         }
     }
@@ -634,7 +631,7 @@ fn nix_built_daemon_handles_back_to_back_inputs_through_one_socket() {
     assert_eq!(markers[1].commit_sequence, 2);
     assert_eq!(markers[2].commit_sequence, 3);
     // Each digest distinct — proving Record actually changed state, not just the counter.
-    let digests: Vec<_> = markers.iter().map(|m| m.state_digest).collect();
+    let digests: Vec<_> = markers.iter().map(|m| m.state_digest.clone()).collect();
     let mut sorted = digests.clone();
     sorted.sort();
     sorted.dedup();
@@ -786,7 +783,7 @@ fn nix_built_daemon_alias_state_across_separate_cli_processes() {
     let stash_handle = match observed {
         Output::RecordsStashed(stashed) => {
             assert_eq!(stashed.record_count, 1);
-            stashed.stash_handle
+            stashed.stash_handle.clone()
         }
         other => panic!("expected RecordsStashed across separate CLI processes, got {other:?}"),
     };

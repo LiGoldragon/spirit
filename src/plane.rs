@@ -2,37 +2,37 @@ use crate::schema::{nexus, sema, signal};
 
 impl From<signal::OriginRoute> for nexus::OriginRoute {
     fn from(origin_route: signal::OriginRoute) -> Self {
-        Self(origin_route.0)
+        Self::new(origin_route.payload())
     }
 }
 
 impl From<nexus::OriginRoute> for signal::OriginRoute {
     fn from(origin_route: nexus::OriginRoute) -> Self {
-        Self(origin_route.0)
+        Self::new(origin_route.payload())
     }
 }
 
 impl From<nexus::OriginRoute> for sema::OriginRoute {
     fn from(origin_route: nexus::OriginRoute) -> Self {
-        Self(origin_route.0)
+        Self::new(origin_route.payload())
     }
 }
 
 impl From<signal::OriginRoute> for sema::OriginRoute {
     fn from(origin_route: signal::OriginRoute) -> Self {
-        Self(origin_route.0)
+        Self::new(origin_route.payload())
     }
 }
 
 impl From<sema::OriginRoute> for signal::OriginRoute {
     fn from(origin_route: sema::OriginRoute) -> Self {
-        Self(origin_route.0)
+        Self::new(origin_route.payload())
     }
 }
 
 impl From<sema::OriginRoute> for nexus::OriginRoute {
     fn from(origin_route: sema::OriginRoute) -> Self {
-        Self(origin_route.0)
+        Self::new(origin_route.payload())
     }
 }
 
