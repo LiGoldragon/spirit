@@ -64,6 +64,41 @@ impl DaemonProcess {
         process
     }
 
+    fn spawn_from_configuration_writer(socket_path: &Path, database_path: &Path) -> Self {
+        let configuration_path = socket_path.with_extension("config.rkyv");
+        let meta_socket_path = Self::meta_socket_path(socket_path);
+        let request = format!(
+            "(ConfigurationWriteRequest [{}] (Some [{}]) [{}] None [{}])",
+            socket_path.display(),
+            meta_socket_path.display(),
+            database_path.display(),
+            configuration_path.display()
+        );
+        let output = Command::new(env!("CARGO_BIN_EXE_spirit-write-configuration"))
+            .arg(request)
+            .output()
+            .expect("run configuration writer");
+        assert!(
+            output.status.success(),
+            "configuration writer stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout =
+            String::from_utf8(output.stdout).expect("configuration writer stdout is UTF-8");
+        assert_eq!(
+            stdout.trim(),
+            format!("(ConfigurationWritten [{}])", configuration_path.display())
+        );
+        let child = Command::new(env!("CARGO_BIN_EXE_spirit-daemon"))
+            .arg(configuration_path)
+            .spawn()
+            .expect("spawn daemon from writer-built configuration");
+        let process = Self { child };
+        wait_for_socket(socket_path);
+        wait_for_socket(&meta_socket_path);
+        process
+    }
+
     #[cfg(feature = "testing-trace")]
     fn spawn_with_trace(
         socket_path: &Path,
@@ -258,6 +293,27 @@ fn run_cli_with_trace(
         String::from_utf8_lossy(&output.stderr)
     );
     TraceCliOutput::from_stdout(output.stdout)
+}
+
+#[test]
+fn configuration_writer_prebuilds_binary_archive_for_daemon_startup() {
+    let temp = TempDir::new().expect("tempdir");
+    let socket_path = temp.path().join("written.sock");
+    let database_path = temp.path().join("written.sema");
+
+    let _daemon = DaemonProcess::spawn_from_configuration_writer(&socket_path, &database_path);
+
+    let recorded = run_cli(
+        &socket_path,
+        "(Record ([configuration writer] Constraint [daemon starts from prebuilt archive] Maximum Zero))",
+    );
+    match recorded {
+        Output::RecordAccepted(receipt) => {
+            assert_short_record_identifier(&receipt.record_identifier);
+            assert_eq!(receipt.database_marker.commit_sequence, 1);
+        }
+        other => panic!("expected RecordAccepted from writer-started daemon, got {other:?}"),
+    }
 }
 
 #[test]

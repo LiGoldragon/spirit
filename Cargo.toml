@@ -1,6 +1,6 @@
 [package]
 name         = "spirit"
-version      = "0.3.1"
+version      = "0.3.2"
 edition      = "2024"
 rust-version = "1.88"
 license      = "MIT OR Apache-2.0"
@@ -22,6 +22,11 @@ name = "spirit-daemon"
 path = "src/bin/spirit-daemon.rs"
 
 [[bin]]
+name = "spirit-write-configuration"
+path = "src/bin/spirit-write-configuration.rs"
+required-features = ["nota-text"]
+
+[[bin]]
 name = "spirit-migrate-production"
 path = "src/bin/spirit-migrate-production.rs"
 required-features = ["production-migration"]
@@ -38,7 +43,7 @@ required-features = ["nota-text"]
 
 [features]
 default = []
-nota-text = ["dep:nota-next"]
+nota-text = ["dep:nota-next", "signal-spirit/nota-text"]
 production-migration = ["nota-text"]
 testing-trace = []
 

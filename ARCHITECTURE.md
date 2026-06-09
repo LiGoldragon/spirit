@@ -162,10 +162,12 @@ The daemon:
 9. writes it back.
 
 The daemon does not parse NOTA at startup and does not need `nota-next` for
-its binary-only build. A text launcher or test can write the binary
-configuration file; production configuration should later become another
-typed binary signal surface differentiated by the root message enumerator,
-not a NOTA side channel.
+its binary-only build. `spirit-write-configuration` is the packaged text-edge
+helper for launch/deploy tooling: it accepts a typed
+`ConfigurationWriteRequest` NOTA record and writes the binary configuration
+archive before `spirit-daemon` starts. Production configuration should later
+become another typed binary signal surface differentiated by the root message
+enumerator, not a daemon NOTA side channel.
 
 The binary configuration carries the daemon's meta slot as `meta_socket_path`.
 The field is optional in the data type because the shared

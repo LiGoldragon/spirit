@@ -143,6 +143,10 @@
           substituteInPlace $out/vendor-sources/triad-runtime/Cargo.toml \
             --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }' 'signal-frame = { path = "../signal-frame" }'
 
+          substituteInPlace $out/vendor-sources/signal-frame/Cargo.toml \
+            --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota-next = { path = "../nota-next", optional = true }' \
+            --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next = { path = "../nota-next" }'
+
           substituteInPlace $out/vendor-sources/signal-spirit/Cargo.toml \
             --replace-fail '{ git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main", default-features = false }' '{ path = "../signal-frame", default-features = false }' \
             --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' '{ path = "../nota-next", optional = true }' \
@@ -241,6 +245,10 @@
           cargoArtifacts = notaTextCargoArtifacts;
           cargoExtraArgs = "--features nota-text --bin spirit";
         });
+        configurationWriterPackage = craneLib.buildPackage (commonArguments // {
+          cargoArtifacts = notaTextCargoArtifacts;
+          cargoExtraArgs = "--features nota-text --bin spirit-write-configuration";
+        });
         traceDaemonPackage = craneLib.buildPackage (commonArguments // {
           cargoArtifacts = testingTraceCargoArtifacts;
           cargoExtraArgs = "--features testing-trace --bin spirit-daemon";
@@ -253,11 +261,13 @@
           mkdir -p "$out/bin"
           ln -s "${cliPackage}/bin/spirit" "$out/bin/spirit"
           ln -s "${daemonPackage}/bin/spirit-daemon" "$out/bin/spirit-daemon"
+          ln -s "${configurationWriterPackage}/bin/spirit-write-configuration" "$out/bin/spirit-write-configuration"
         '';
         traceCombinedPackage = pkgs.runCommand "spirit-trace" { } ''
           mkdir -p "$out/bin"
           ln -s "${traceCliPackage}/bin/spirit" "$out/bin/spirit"
           ln -s "${traceDaemonPackage}/bin/spirit-daemon" "$out/bin/spirit-daemon"
+          ln -s "${configurationWriterPackage}/bin/spirit-write-configuration" "$out/bin/spirit-write-configuration"
         '';
         nixIntegrationRunner = pkgs.writeShellApplication {
           name = "spirit-nix-integration-tests";
@@ -272,6 +282,7 @@
         packages.default = combinedPackage;
         packages.cli = cliPackage;
         packages.daemon = daemonPackage;
+        packages.configuration-writer = configurationWriterPackage;
         packages.trace = traceCombinedPackage;
         packages."trace-cli" = traceCliPackage;
         packages."trace-daemon" = traceDaemonPackage;
@@ -296,6 +307,10 @@
           test-nota-text = craneLib.cargoTest (commonArguments // {
             cargoArtifacts = notaTextCargoArtifacts;
             cargoExtraArgs = "--features nota-text";
+          });
+          test-configuration-writer-process-boundary = craneLib.cargoTest (commonArguments // {
+            cargoArtifacts = notaTextCargoArtifacts;
+            cargoExtraArgs = "--features nota-text --test process_boundary configuration_writer_prebuilds_binary_archive_for_daemon_startup -- --exact";
           });
           test-testing-trace = craneLib.cargoTest (commonArguments // {
             cargoArtifacts = testingTraceCargoArtifacts;

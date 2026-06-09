@@ -30,12 +30,13 @@ module directly; `OUT_DIR` is not part of the runtime schema surface.
 
 ## Run
 
-Start a daemon with one argument: the path to a binary rkyv `Configuration`
-file. The configuration carries the Unix socket path and `.sema` database path.
-The daemon does not parse NOTA at startup; tests and launchers create the
-binary file with `Configuration::write_binary_file`.
+Create a startup archive with the text-edge writer, then start the daemon with
+one argument: the path to the binary rkyv `SpiritDaemonConfiguration` file. The
+configuration carries the Unix socket path, required meta socket path, and
+`.sema` database path. The daemon does not parse NOTA at startup.
 
 ```sh
+spirit-write-configuration "(ConfigurationWriteRequest [/tmp/spirit.sock] (Some [/tmp/spirit-meta.sock]) [/tmp/spirit.sema] None [/tmp/spirit.config.rkyv])"
 spirit-daemon /tmp/spirit.config.rkyv
 ```
 

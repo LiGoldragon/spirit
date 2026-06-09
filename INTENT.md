@@ -99,7 +99,7 @@ owner-only meta request hook, and stream filter/event policy.
 
 *SEMA is durable.* `Store` maps generated SEMA roots onto `sema-engine` keyed-record operations over a `.sema` file. Record identifiers are production-compatible short/base36 string keys, not sequential numeric counters; migration imports production identifiers unchanged, and fresh records mint unused short keys. Each `Record` asserts a keyed `StoredRecord`, each `ChangeCertainty` and `ChangeRecord` mutates the same key, each `Remove` retracts that key, and `Observe`/`Lookup`/`Count` read through sema-engine query plans. SEMA replies carry generated `DatabaseMarker` values so Signal replies report the state commit sequence and digest.
 
-*The daemon's single argument is a path to a binary rkyv `SpiritDaemonConfiguration` object from the `signal-spirit` contract.* Text-facing launchers may create that file, but the daemon startup path only decodes binary state. The daemon wraps the decoded contract value in its local `Configuration` runtime object so it can implement `BindingSurface` without moving runtime behavior into the contract crate.
+*The daemon's single argument is a path to a binary rkyv `SpiritDaemonConfiguration` object from the `signal-spirit` contract.* The packaged `spirit-write-configuration` text-edge helper may create that file from a typed NOTA request for launch/deploy tooling, but the daemon startup path only decodes binary state. The daemon wraps the decoded contract value in its local `Configuration` runtime object so it can implement `BindingSurface` without moving runtime behavior into the contract crate.
 
 *The daemon configuration carries the meta slot.* Per Spirit record `pb1g`
 (High certainty), every component needs a meta slot because configuration and

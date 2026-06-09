@@ -687,6 +687,7 @@ name = "signal-frame"
 version = "0.2.1"
 source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#166bda84dc63bf8461fff11a41c43d6a1c92a941"
 dependencies = [
+ "nota-next",
  "paste",
  "rkyv",
  "signal-frame-macros",
@@ -717,6 +718,7 @@ name = "signal-spirit"
 version = "0.5.1"
 source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=main#87b45edba170df04922e2cae01453ae814b13d0b"
 dependencies = [
+ "nota-next",
  "rkyv",
  "signal-frame",
  "thiserror",
@@ -747,7 +749,7 @@ dependencies = [
 
 [[package]]
 name = "spirit"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "blake3",
  "getrandom 0.3.4",
@@ -920,6 +922,7 @@ name = "version-projection"
 version = "0.1.0"
 source = "git+https://github.com/LiGoldragon/version-projection.git?branch=main#f00b239f75aca30098a60b30e877faafe8625d77"
 dependencies = [
+ "nota-next",
  "rkyv",
  "thiserror",
 ]

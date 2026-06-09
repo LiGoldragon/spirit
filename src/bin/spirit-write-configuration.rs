@@ -1,0 +1,202 @@
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
+
+use nota_next::{Delimiter, NotaBlock, NotaDecode, NotaDecodeError, NotaEncode, NotaSource};
+use signal_spirit::{
+    ConfigurationPath, SpiritDaemonConfiguration, SpiritDaemonConfigurationArchiveError,
+};
+use thiserror::Error;
+use triad_runtime::{ArgumentError, ComponentArgument, ComponentCommand};
+
+fn main() {
+    if let Err(error) = ConfigurationWriterCli::from_environment().run() {
+        eprintln!("spirit-write-configuration: {error}");
+        std::process::exit(1);
+    }
+}
+
+struct ConfigurationWriterCli {
+    command: ComponentCommand,
+}
+
+struct ConfigurationWriterInputSource {
+    text: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ConfigurationWriteRequest {
+    socket_path: ConfigurationWriterPath,
+    meta_socket_path: Option<ConfigurationWriterPath>,
+    database_path: ConfigurationWriterPath,
+    trace_socket_path: Option<ConfigurationWriterPath>,
+    output_path: ConfigurationWriterPath,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, NotaDecode, NotaEncode)]
+struct ConfigurationWriterPath(String);
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ConfigurationWriteOutput {
+    output_path: ConfigurationWriterPath,
+}
+
+impl ConfigurationWriterCli {
+    fn from_environment() -> Self {
+        Self {
+            command: ComponentCommand::from_environment(),
+        }
+    }
+
+    fn run(&self) -> Result<(), ConfigurationWriterCliError> {
+        let source = self.source()?;
+        let request = source.parse_request()?;
+        let output = request.write()?;
+        println!("{}", output.to_nota());
+        Ok(())
+    }
+
+    fn source(&self) -> Result<ConfigurationWriterInputSource, ConfigurationWriterCliError> {
+        match self.command.nota_argument()? {
+            ComponentArgument::InlineNota(argument) => {
+                Ok(ConfigurationWriterInputSource::new(argument.into_string()))
+            }
+            ComponentArgument::NotaFile(file) => {
+                let path = file.into_path();
+                fs::read_to_string(&path)
+                    .map(ConfigurationWriterInputSource::new)
+                    .map_err(|source| ConfigurationWriterCliError::ReadNotaFile { path, source })
+            }
+            ComponentArgument::SignalFile(file) => {
+                Err(ConfigurationWriterCliError::UnsupportedSignalFile {
+                    path: file.into_path(),
+                })
+            }
+        }
+    }
+}
+
+impl ConfigurationWriterInputSource {
+    fn new(text: String) -> Self {
+        Self { text }
+    }
+
+    fn parse_request(&self) -> Result<ConfigurationWriteRequest, NotaDecodeError> {
+        NotaSource::new(&self.text).parse()
+    }
+}
+
+impl ConfigurationWriteRequest {
+    fn write(self) -> Result<ConfigurationWriteOutput, ConfigurationWriterCliError> {
+        let output_path = self.output_path.clone();
+        let configuration = self.configuration();
+        fs::write(output_path.as_path(), configuration.to_rkyv_bytes()?).map_err(|source| {
+            ConfigurationWriterCliError::WriteArchive {
+                path: output_path.path_buf(),
+                source,
+            }
+        })?;
+        Ok(ConfigurationWriteOutput { output_path })
+    }
+
+    fn configuration(self) -> SpiritDaemonConfiguration {
+        let mut configuration = SpiritDaemonConfiguration::new(
+            self.socket_path.into_configuration_path(),
+            self.database_path.into_configuration_path(),
+        );
+        if let Some(meta_socket_path) = self.meta_socket_path {
+            configuration =
+                configuration.with_meta_socket_path(meta_socket_path.into_configuration_path());
+        }
+        if let Some(trace_socket_path) = self.trace_socket_path {
+            configuration =
+                configuration.with_trace_socket_path(trace_socket_path.into_configuration_path());
+        }
+        configuration
+    }
+}
+
+impl NotaDecode for ConfigurationWriteRequest {
+    fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        let body = NotaBlock::new(block)
+            .expect_body(Delimiter::Parenthesis, "ConfigurationWriteRequest")?;
+        let objects = body.root_objects();
+        if objects.len() != 6 {
+            return Err(NotaDecodeError::ExpectedRootCount {
+                type_name: "ConfigurationWriteRequest",
+                expected: 6,
+                found: objects.len(),
+            });
+        }
+        match objects[0].demote_to_string() {
+            Some("ConfigurationWriteRequest") => {}
+            Some(variant) => {
+                return Err(NotaDecodeError::UnknownVariant {
+                    enum_name: "ConfigurationWriteRequest",
+                    variant: variant.to_owned(),
+                });
+            }
+            None => {
+                return Err(NotaDecodeError::ExpectedAtom {
+                    type_name: "ConfigurationWriteRequest",
+                });
+            }
+        }
+        Ok(Self {
+            socket_path: ConfigurationWriterPath::from_nota_block(&objects[1])?,
+            meta_socket_path: Option::<ConfigurationWriterPath>::from_nota_block(&objects[2])?,
+            database_path: ConfigurationWriterPath::from_nota_block(&objects[3])?,
+            trace_socket_path: Option::<ConfigurationWriterPath>::from_nota_block(&objects[4])?,
+            output_path: ConfigurationWriterPath::from_nota_block(&objects[5])?,
+        })
+    }
+}
+
+impl NotaEncode for ConfigurationWriteOutput {
+    fn to_nota(&self) -> String {
+        Delimiter::Parenthesis.wrap([
+            String::from("ConfigurationWritten"),
+            self.output_path.to_nota(),
+        ])
+    }
+}
+
+impl ConfigurationWriterPath {
+    fn as_path(&self) -> &Path {
+        Path::new(&self.0)
+    }
+
+    fn path_buf(&self) -> PathBuf {
+        self.as_path().to_path_buf()
+    }
+
+    fn into_configuration_path(self) -> ConfigurationPath {
+        ConfigurationPath::new(self.0)
+    }
+}
+
+#[derive(Debug, Error)]
+enum ConfigurationWriterCliError {
+    #[error(transparent)]
+    Argument(#[from] ArgumentError),
+    #[error("read NOTA file {}: {source}", path.display())]
+    ReadNotaFile {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+    #[error(
+        "signal-encoded configuration writer requests are not implemented yet for {}",
+        path.display()
+    )]
+    UnsupportedSignalFile { path: PathBuf },
+    #[error(transparent)]
+    Decode(#[from] NotaDecodeError),
+    #[error(transparent)]
+    Archive(#[from] SpiritDaemonConfigurationArchiveError),
+    #[error("write binary configuration archive {}: {source}", path.display())]
+    WriteArchive {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+}
