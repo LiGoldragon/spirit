@@ -1,5 +1,5 @@
 {}
-[State Record Observe Lookup Count Remove ChangeCertainty ChangeRecord LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream)]
+[State Record Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty ChangeRecord LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream)]
 [RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged RecordChanged RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted (Event IntentEvent) Error Rejected]
 {
   SourcePath String
@@ -12,6 +12,8 @@
   State Statement
   Record Entry
   Observe Query
+  PublicRecords RecordSelection
+  PrivateRecords RecordSelection
   Lookup RecordIdentifier
   Count Query
   Remove RecordIdentifier
@@ -96,7 +98,7 @@
   ObserverFilter [All OperationsOnly EffectsOnly]
   ObserverSubscription { SubscriptionToken * ObserverFilter * ObservedOperations * DatabaseMarker * }
   ObserverRetraction { SubscriptionToken * ObservedOperations * DatabaseMarker * }
-  OperationKind [State Record Observe Lookup Count Remove ChangeCertainty ChangeRecord LookupStash CollectRemovalCandidates Tap Untap SubscribeIntent]
+  OperationKind [State Record Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty ChangeRecord LookupStash CollectRemovalCandidates Tap Untap SubscribeIntent]
   ObservedOperation { OperationKind * }
   ObservedOperations (Vec ObservedOperation)
 
@@ -106,6 +108,7 @@
   CertaintyChangeReceipt { RecordIdentifier * Certainty * DatabaseMarker * }
   RecordChange { RecordIdentifier * Entry * }
   RecordChangeReceipt { RecordIdentifier * DatabaseMarker * }
+  RecordSelection { TopicMatch * kind (Optional Kind) }
   Query { TopicMatch * kind (Optional Kind) privacy_selection PrivacySelection }
   Records (Vec Entry)
   RecordSet (Vec Entry)

@@ -56,6 +56,12 @@ pub type Record = Entry;
 pub type Observe = Query;
 
 #[rustfmt::skip]
+pub type PublicRecords = RecordSelection;
+
+#[rustfmt::skip]
+pub type PrivateRecords = RecordSelection;
+
+#[rustfmt::skip]
 pub type Lookup = RecordIdentifier;
 
 #[rustfmt::skip]
@@ -472,6 +478,8 @@ pub enum OperationKind {
     State,
     Record,
     Observe,
+    PublicRecords,
+    PrivateRecords,
     Lookup,
     Count,
     Remove,
@@ -544,6 +552,14 @@ pub struct RecordChangeReceipt {
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct RecordSelection {
+    pub topic_match: TopicMatch,
+    pub kind: Option<Kind>,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Query {
     pub topic_match: TopicMatch,
     pub kind: Option<Kind>,
@@ -606,6 +622,8 @@ pub enum Input {
     State(State),
     Record(Record),
     Observe(Observe),
+    PublicRecords(PublicRecords),
+    PrivateRecords(PrivateRecords),
     Lookup(Lookup),
     Count(Count),
     Remove(Remove),
@@ -746,6 +764,12 @@ impl Input {
     }
     pub fn observe(payload: Observe) -> Self {
         Self::Observe(payload)
+    }
+    pub fn public_records(payload: PublicRecords) -> Self {
+        Self::PublicRecords(payload)
+    }
+    pub fn private_records(payload: PrivateRecords) -> Self {
+        Self::PrivateRecords(payload)
     }
     pub fn lookup(payload: Lookup) -> Self {
         Self::Lookup(payload)
@@ -1251,6 +1275,17 @@ impl RecordChangeReceipt {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
+impl RecordSelection {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
 impl Query {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -1341,16 +1376,18 @@ pub mod short_header {
     pub const INPUT_STATE: u64 = 0x0000000000000000;
     pub const INPUT_RECORD: u64 = 0x0001000000000000;
     pub const INPUT_OBSERVE: u64 = 0x0002000000000000;
-    pub const INPUT_LOOKUP: u64 = 0x0003000000000000;
-    pub const INPUT_COUNT: u64 = 0x0004000000000000;
-    pub const INPUT_REMOVE: u64 = 0x0005000000000000;
-    pub const INPUT_CHANGE_CERTAINTY: u64 = 0x0006000000000000;
-    pub const INPUT_CHANGE_RECORD: u64 = 0x0007000000000000;
-    pub const INPUT_LOOKUP_STASH: u64 = 0x0008000000000000;
-    pub const INPUT_COLLECT_REMOVAL_CANDIDATES: u64 = 0x0009000000000000;
-    pub const INPUT_TAP: u64 = 0x000A000000000000;
-    pub const INPUT_UNTAP: u64 = 0x000B000000000000;
-    pub const INPUT_SUBSCRIBE_INTENT: u64 = 0x000C000000000000;
+    pub const INPUT_PUBLIC_RECORDS: u64 = 0x0003000000000000;
+    pub const INPUT_PRIVATE_RECORDS: u64 = 0x0004000000000000;
+    pub const INPUT_LOOKUP: u64 = 0x0005000000000000;
+    pub const INPUT_COUNT: u64 = 0x0006000000000000;
+    pub const INPUT_REMOVE: u64 = 0x0007000000000000;
+    pub const INPUT_CHANGE_CERTAINTY: u64 = 0x0008000000000000;
+    pub const INPUT_CHANGE_RECORD: u64 = 0x0009000000000000;
+    pub const INPUT_LOOKUP_STASH: u64 = 0x000A000000000000;
+    pub const INPUT_COLLECT_REMOVAL_CANDIDATES: u64 = 0x000B000000000000;
+    pub const INPUT_TAP: u64 = 0x000C000000000000;
+    pub const INPUT_UNTAP: u64 = 0x000D000000000000;
+    pub const INPUT_SUBSCRIBE_INTENT: u64 = 0x000E000000000000;
     pub const OUTPUT_RECORD_ACCEPTED: u64 = 0x0100000000000000;
     pub const OUTPUT_RECORDS_OBSERVED: u64 = 0x0101000000000000;
     pub const OUTPUT_RECORDS_STASHED: u64 = 0x0102000000000000;
@@ -1419,6 +1456,8 @@ pub enum InputRoute {
     State,
     Record,
     Observe,
+    PublicRecords,
+    PrivateRecords,
     Lookup,
     Count,
     Remove,
@@ -1468,6 +1507,8 @@ impl Input {
             Self::State(_) => InputRoute::State,
             Self::Record(_) => InputRoute::Record,
             Self::Observe(_) => InputRoute::Observe,
+            Self::PublicRecords(_) => InputRoute::PublicRecords,
+            Self::PrivateRecords(_) => InputRoute::PrivateRecords,
             Self::Lookup(_) => InputRoute::Lookup,
             Self::Count(_) => InputRoute::Count,
             Self::Remove(_) => InputRoute::Remove,
@@ -1485,6 +1526,8 @@ impl Input {
             Self::State(_) => short_header::INPUT_STATE,
             Self::Record(_) => short_header::INPUT_RECORD,
             Self::Observe(_) => short_header::INPUT_OBSERVE,
+            Self::PublicRecords(_) => short_header::INPUT_PUBLIC_RECORDS,
+            Self::PrivateRecords(_) => short_header::INPUT_PRIVATE_RECORDS,
             Self::Lookup(_) => short_header::INPUT_LOOKUP,
             Self::Count(_) => short_header::INPUT_COUNT,
             Self::Remove(_) => short_header::INPUT_REMOVE,
@@ -1504,6 +1547,8 @@ impl Input {
             short_header::INPUT_STATE => Ok(InputRoute::State),
             short_header::INPUT_RECORD => Ok(InputRoute::Record),
             short_header::INPUT_OBSERVE => Ok(InputRoute::Observe),
+            short_header::INPUT_PUBLIC_RECORDS => Ok(InputRoute::PublicRecords),
+            short_header::INPUT_PRIVATE_RECORDS => Ok(InputRoute::PrivateRecords),
             short_header::INPUT_LOOKUP => Ok(InputRoute::Lookup),
             short_header::INPUT_COUNT => Ok(InputRoute::Count),
             short_header::INPUT_REMOVE => Ok(InputRoute::Remove),
@@ -1685,6 +1730,8 @@ impl signal_frame::SignalOperationHeads for Input {
         "State",
         "Record",
         "Observe",
+        "PublicRecords",
+        "PrivateRecords",
         "Lookup",
         "Count",
         "Remove",
@@ -1793,6 +1840,8 @@ impl SignalObjectName {
                     InputRoute::State => "SignalInputState",
                     InputRoute::Record => "SignalInputRecord",
                     InputRoute::Observe => "SignalInputObserve",
+                    InputRoute::PublicRecords => "SignalInputPublicRecords",
+                    InputRoute::PrivateRecords => "SignalInputPrivateRecords",
                     InputRoute::Lookup => "SignalInputLookup",
                     InputRoute::Count => "SignalInputCount",
                     InputRoute::Remove => "SignalInputRemove",

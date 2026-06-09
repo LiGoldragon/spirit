@@ -128,6 +128,8 @@ impl OperationKind {
             Input::State(_) => Self::State,
             Input::Record(_) => Self::Record,
             Input::Observe(_) => Self::Observe,
+            Input::PublicRecords(_) => Self::PublicRecords,
+            Input::PrivateRecords(_) => Self::PrivateRecords,
             Input::Lookup(_) => Self::Lookup,
             Input::Count(_) => Self::Count,
             Input::Remove(_) => Self::Remove,
@@ -538,6 +540,12 @@ impl Nexus {
             Input::Observe(observe) => {
                 NexusAction::command_sema_read(SemaReadInput::observe(observe))
             }
+            Input::PublicRecords(selection) => NexusAction::command_sema_read(
+                SemaReadInput::observe(selection.into_public_query()),
+            ),
+            Input::PrivateRecords(selection) => NexusAction::command_sema_read(
+                SemaReadInput::observe(selection.into_private_query()),
+            ),
             Input::Lookup(lookup) => NexusAction::command_sema_read(SemaReadInput::lookup(lookup)),
             Input::Count(count) => NexusAction::command_sema_read(SemaReadInput::count(count)),
             Input::Remove(remove) => {

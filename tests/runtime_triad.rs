@@ -11,9 +11,9 @@ use spirit::{
         signal::{
             CertaintyChange, DatabaseMarker, Entry, ErrorReport, Input, Kind, Magnitude,
             MailLedgerEvent, MessageIdentifier, MessageSent, MessageSentHook, OriginRoute, Output,
-            PrivacySelection, ProcessedMail, Query, RecordChange, RecordIdentifier, SemaReceipt,
-            SentMail, SignalEngine, SignalRejection, StashHandle, Statement, TopicMatch,
-            ValidationError,
+            PrivacySelection, ProcessedMail, Query, RecordChange, RecordIdentifier,
+            RecordSelection, SemaReceipt, SentMail, SignalEngine, SignalRejection, StashHandle,
+            Statement, TopicMatch, ValidationError,
         },
     },
 };
@@ -119,6 +119,13 @@ fn privacy_query(privacy_selection: PrivacySelection) -> Query {
     }
 }
 
+fn record_selection() -> RecordSelection {
+    RecordSelection {
+        topic_match: TopicMatch::Any,
+        kind: Some(Kind::Decision),
+    }
+}
+
 fn route(offset: u64) -> OriginRoute {
     OriginRoute(1_000_000 + offset)
 }
@@ -169,6 +176,14 @@ fn input_state(statement: &str) -> Input {
 
 fn input_observe(query: Query) -> Input {
     Input::observe(query)
+}
+
+fn input_public_records(selection: RecordSelection) -> Input {
+    Input::public_records(selection)
+}
+
+fn input_private_records(selection: RecordSelection) -> Input {
+    Input::private_records(selection)
 }
 
 fn input_lookup(record_identifier: RecordIdentifier) -> Input {
@@ -840,6 +855,67 @@ fn sema_engine_queries_privacy_as_directional_magnitude() {
             assert_eq!(records.record_set[0].description, "private");
         }
         other => panic!("expected high privacy query to observe private record, got {other:?}"),
+    }
+}
+
+#[test]
+fn public_private_record_shortcuts_project_to_privacy_queries_through_nexus() {
+    let sema = SemaFile::new();
+    let mut engine = sema.engine();
+
+    let public_record = engine.handle(input_record(entry("public shortcut target")));
+    match public_record.root() {
+        Output::RecordAccepted(receipt) => {
+            assert_eq!(receipt.database_marker.commit_sequence, 1);
+        }
+        other => panic!("expected public RecordAccepted, got {other:?}"),
+    };
+    let private_record = engine.handle(input_record(entry_with_privacy(
+        "private shortcut target",
+        Magnitude::High,
+    )));
+    let private_marker = match private_record.root() {
+        Output::RecordAccepted(receipt) => receipt.database_marker.clone(),
+        other => panic!("expected private RecordAccepted, got {other:?}"),
+    };
+
+    let public_observed = engine.handle(input_public_records(record_selection()));
+    let public_stash = match public_observed.root() {
+        Output::RecordsStashed(stashed) => {
+            assert_eq!(stashed.record_count, 1);
+            assert_eq!(stashed.database_marker, private_marker);
+            stashed.stash_handle
+        }
+        other => panic!("expected public shortcut to stash matching records, got {other:?}"),
+    };
+    let private_observed = engine.handle(input_private_records(record_selection()));
+    let private_stash = match private_observed.root() {
+        Output::RecordsStashed(stashed) => {
+            assert_eq!(stashed.record_count, 1);
+            assert_eq!(stashed.database_marker, private_marker);
+            stashed.stash_handle
+        }
+        other => panic!("expected private shortcut to stash matching records, got {other:?}"),
+    };
+
+    let public_records = engine.handle(input_lookup_stash(public_stash));
+    match public_records.root() {
+        Output::RecordsObserved(records) => {
+            assert_eq!(records.record_set.len(), 1);
+            assert_eq!(records.record_set[0].description, "public shortcut target");
+            assert_eq!(records.record_set[0].privacy, Magnitude::Zero);
+        }
+        other => panic!("expected public shortcut stash lookup to return records, got {other:?}"),
+    }
+
+    let private_records = engine.handle(input_lookup_stash(private_stash));
+    match private_records.root() {
+        Output::RecordsObserved(records) => {
+            assert_eq!(records.record_set.len(), 1);
+            assert_eq!(records.record_set[0].description, "private shortcut target");
+            assert_eq!(records.record_set[0].privacy, Magnitude::High);
+        }
+        other => panic!("expected private shortcut stash lookup to return records, got {other:?}"),
     }
 }
 

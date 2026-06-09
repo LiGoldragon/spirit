@@ -5,8 +5,8 @@ use signal_frame::{
 use spirit::schema::signal::{
     CertaintyChange, CertaintyChangeReceipt, DatabaseMarker, Entry, Input, InputRoute, IntentEvent,
     IntentRecorded, Kind, Magnitude, MessageIdentifier, MessageRoot, OriginRoute, Output,
-    OutputRoute, Record, RecordChange, RecordChangeReceipt, Rejected, SemaReceipt,
-    SignalFrameError, SignalRejection, Statement, ValidationError,
+    OutputRoute, Record, RecordChange, RecordChangeReceipt, RecordSelection, Rejected, SemaReceipt,
+    SignalFrameError, SignalRejection, Statement, TopicMatch, ValidationError,
 };
 
 fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
@@ -62,6 +62,33 @@ fn generated_state_input_surface_owns_route_header_and_rkyv_frame() {
 
     assert_eq!(route, InputRoute::State);
     assert_eq!(decoded, input);
+}
+
+#[test]
+fn generated_public_private_record_shortcut_roots_own_route_header_and_rkyv_frame() {
+    let public_input = Input::public_records(RecordSelection {
+        topic_match: TopicMatch::full(vec![String::from("schema")]),
+        kind: Some(Kind::Decision),
+    });
+    let private_input = Input::private_records(RecordSelection {
+        topic_match: TopicMatch::partial(vec![String::from("schema")]),
+        kind: None,
+    });
+
+    assert_eq!(public_input.route(), InputRoute::PublicRecords);
+    assert_eq!(private_input.route(), InputRoute::PrivateRecords);
+
+    let public_frame = public_input.encode_signal_frame().expect("encode frame");
+    let private_frame = private_input.encode_signal_frame().expect("encode frame");
+    let (public_route, public_decoded) =
+        Input::decode_signal_frame(&public_frame).expect("decode public frame");
+    let (private_route, private_decoded) =
+        Input::decode_signal_frame(&private_frame).expect("decode private frame");
+
+    assert_eq!(public_route, InputRoute::PublicRecords);
+    assert_eq!(private_route, InputRoute::PrivateRecords);
+    assert_eq!(public_decoded, public_input);
+    assert_eq!(private_decoded, private_input);
 }
 
 #[test]
@@ -231,7 +258,41 @@ fn generated_change_record_round_trips_the_canonical_shape() {
     );
     assert_eq!(
         input.to_string(),
-        "(ChangeRecord ([003g] ([[schema mutation]] Correction [replacement] High Zero)))"
+        "(ChangeRecord ([003g] ([[schema mutation]] Correction replacement High Zero)))"
+    );
+}
+
+#[cfg(feature = "nota-text")]
+#[test]
+fn generated_public_private_record_shortcuts_round_trip_nota() {
+    let public_input = "(PublicRecords ((Full [schema]) (Some Decision)))"
+        .parse::<Input>()
+        .expect("parse public records input");
+    let private_input = "(PrivateRecords ((Partial [schema]) None))"
+        .parse::<Input>()
+        .expect("parse private records input");
+
+    assert_eq!(
+        public_input,
+        Input::public_records(RecordSelection {
+            topic_match: TopicMatch::full(vec![String::from("schema")]),
+            kind: Some(Kind::Decision),
+        })
+    );
+    assert_eq!(
+        private_input,
+        Input::private_records(RecordSelection {
+            topic_match: TopicMatch::partial(vec![String::from("schema")]),
+            kind: None,
+        })
+    );
+    assert_eq!(
+        public_input.to_string(),
+        "(PublicRecords ((Full [schema]) (Some Decision)))"
+    );
+    assert_eq!(
+        private_input.to_string(),
+        "(PrivateRecords ((Partial [schema]) None))"
     );
 }
 

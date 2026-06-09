@@ -9,8 +9,8 @@ use crate::{
             self as signal_schema, DatabaseMarker, EngineStartFailure, EngineStopFailure, Entry,
             ErrorReport, Input, Integer, IntentEvent, MailLedgerEvent, MessageIdentifier,
             MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook, OriginRoute,
-            Output, ProcessedMail, Query, SemaReceipt, SentMail, SignalEngine, SignalRejection,
-            TopicMatch, Topics, ValidationError,
+            Output, PrivacySelection, ProcessedMail, Query, RecordSelection, SemaReceipt, SentMail,
+            SignalEngine, SignalRejection, TopicMatch, Topics, ValidationError,
         },
     },
     store::{Store, StoreError},
@@ -420,6 +420,9 @@ impl Input {
             Self::State(statement) => statement.validate(),
             Self::Record(record) => record.validate(),
             Self::Observe(observe) => observe.validate(),
+            Self::PublicRecords(selection) | Self::PrivateRecords(selection) => {
+                selection.validate()
+            }
             Self::Lookup(_)
             | Self::Remove(_)
             | Self::ChangeCertainty(_)
@@ -470,6 +473,28 @@ impl Query {
     }
 }
 
+impl RecordSelection {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        self.topic_match.validate()
+    }
+
+    pub fn into_public_query(self) -> Query {
+        Query {
+            topic_match: self.topic_match,
+            kind: self.kind,
+            privacy_selection: PrivacySelection::default_observation_privacy(),
+        }
+    }
+
+    pub fn into_private_query(self) -> Query {
+        Query {
+            topic_match: self.topic_match,
+            kind: self.kind,
+            privacy_selection: PrivacySelection::at_least(PrivacySelection::private_floor()),
+        }
+    }
+}
+
 impl TopicMatch {
     pub fn validate(&self) -> Result<(), ValidationError> {
         match self {
@@ -496,6 +521,12 @@ impl TopicMatch {
                 .iter()
                 .all(|topic| entry_topics.iter().any(|entry_topic| entry_topic == topic)),
         }
+    }
+}
+
+impl PrivacySelection {
+    pub fn private_floor() -> signal_schema::Magnitude {
+        signal_schema::Magnitude::Minimum
     }
 }
 

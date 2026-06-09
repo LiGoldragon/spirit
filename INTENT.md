@@ -55,6 +55,15 @@ entry's certainty/magnitude, while record changes replace the full stored
 `Entry`. Replies carry `CertaintyChangeReceipt` or `RecordChangeReceipt` with the updated
 database marker.
 
+*Public/private record query shortcuts are ergonomic Signal operations.*
+Generated `Input::PublicRecords(RecordSelection)` and
+`Input::PrivateRecords(RecordSelection)` expose common privacy-scoped reads
+without making callers spell the full `Query` object every time. Nexus lowers
+those shortcut roots into schema-declared `CommandSemaRead(Observe(Query))`:
+`PublicRecords` uses exact-`Zero` privacy, and `PrivateRecords` uses non-zero
+privacy (`AtLeast Minimum`). SEMA still owns the canonical `Query` predicate
+and durable read behavior.
+
 *Nexus is the recursive runner payload keeper and the internal feature catalog.*
 Signal triage produces a generated `nexus::Nexus<nexus::Work>` envelope;
 `triad-runtime::Runner` owns the continuation budget and repeated dispatch.

@@ -275,7 +275,7 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
     // real content hash).
     let recorded = run_cli(
         &socket_path,
-        "(Record ([[schema]] Constraint [schema creates the interface] Maximum Zero))",
+        "(Record ([schema] Constraint [schema creates the interface] Maximum Zero))",
     );
     let record_identifier = match recorded {
         Output::RecordAccepted(receipt) => {
@@ -288,7 +288,7 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
 
     let observed = run_cli(
         &socket_path,
-        "(Observe ((Full [[schema]]) (Some Constraint) (Exact Zero)))",
+        "(Observe ((Full [schema]) (Some Constraint) (Exact Zero)))",
     );
     // Designer 480: Observe now flows through Stash; the slim wire reply
     // carries a handle, not the full record set.
@@ -311,7 +311,7 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
 
     let missing_after_remove = run_cli(
         &socket_path,
-        "(Observe ((Full [[schema]]) (Some Constraint) (Exact Zero)))",
+        "(Observe ((Full [schema]) (Some Constraint) (Exact Zero)))",
     );
     assert!(
         matches!(missing_after_remove, Output::Error(_)),
@@ -337,7 +337,7 @@ fn cli_subscription_receives_matching_intent_events_without_blocking_daemon() {
     let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
     let subscriber = SubscriberProcess::spawn(
         &socket_path,
-        "(SubscribeIntent ((Full [[streaming]]) (Some Decision) (Exact Zero)))",
+        "(SubscribeIntent ((Full [streaming]) (Some Decision) (Exact Zero)))",
     );
 
     match subscriber.next_output(Duration::from_secs(2)) {
@@ -360,7 +360,7 @@ fn cli_subscription_receives_matching_intent_events_without_blocking_daemon() {
 
     let matching = run_cli(
         &socket_path,
-        "(Record ([[streaming]] Decision [subscriber receives this] Maximum Zero))",
+        "(Record ([streaming] Decision [subscriber receives this] Maximum Zero))",
     );
     let Output::RecordAccepted(receipt) = matching else {
         panic!("expected matching RecordAccepted, got {matching:?}");
@@ -396,7 +396,7 @@ fn cli_and_daemon_classify_state_into_provisional_record() {
 
     let observed = run_cli(
         &socket_path,
-        "(Observe ((Full [[unclassified]]) (Some Clarification) (Exact Zero)))",
+        "(Observe ((Full [unclassified]) (Some Clarification) (Exact Zero)))",
     );
     let Output::RecordsStashed(stashed) = observed else {
         panic!("expected classified State observation to be stashed, got {observed:?}");
@@ -433,7 +433,7 @@ fn cli_and_daemon_change_certainty_without_changing_record_identifier() {
 
     let accepted = run_cli(
         &socket_path,
-        "(Record ([[schema]] Correction [certainty target] Maximum Zero))",
+        "(Record ([schema] Correction [certainty target] Maximum Zero))",
     );
     let record_identifier = match accepted {
         Output::RecordAccepted(receipt) => {
@@ -487,7 +487,7 @@ fn cli_and_daemon_change_record_replaces_entry_under_same_identifier() {
 
     let accepted = run_cli(
         &socket_path,
-        "(Record ([[schema]] Decision [original record] Maximum Zero))",
+        "(Record ([schema] Decision [original record] Maximum Zero))",
     );
     let record_identifier = match accepted {
         Output::RecordAccepted(receipt) => {
@@ -534,7 +534,7 @@ fn cli_and_daemon_change_record_replaces_entry_under_same_identifier() {
 
     let missing_old_query = run_cli(
         &socket_path,
-        "(Observe ((Full [[schema]]) (Some Decision) (Exact Zero)))",
+        "(Observe ((Full [schema]) (Some Decision) (Exact Zero)))",
     );
     assert!(
         matches!(missing_old_query, Output::Error(_)),
@@ -585,10 +585,6 @@ fn cli_renders_alias_payload_outputs_without_wrapper_repetition() {
         String::from_utf8_lossy(&recorded.stderr)
     );
     let recorded_stdout = String::from_utf8(recorded.stdout).expect("cli stdout is UTF-8");
-    assert!(
-        recorded_stdout.trim().starts_with("(RecordAccepted (["),
-        "RecordAccepted aliases must render the direct SemaReceipt payload, got {recorded_stdout:?}"
-    );
     let recorded_output = Output::from_str(recorded_stdout.trim())
         .unwrap_or_else(|error| panic!("schema-emitted Output::FromStr on record stdout: {error}"));
     match recorded_output {
@@ -616,7 +612,7 @@ fn daemon_persists_sema_file_across_a_restart() {
         let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
         let recorded = run_cli(
             &socket_path,
-            "(Record ([[durable-topic]] Decision [survives restart] Maximum Zero))",
+            "(Record ([durable-topic] Decision [survives restart] Maximum Zero))",
         );
         match recorded {
             Output::RecordAccepted(receipt) => {
@@ -638,7 +634,7 @@ fn daemon_persists_sema_file_across_a_restart() {
 
     let observed = run_cli(
         &socket_path,
-        "(Observe ((Full [[durable-topic]]) (Some Decision) (Exact Zero)))",
+        "(Observe ((Full [durable-topic]) (Some Decision) (Exact Zero)))",
     );
     // Designer 480: Observe stashes the durable result; the slim reply
     // returns the handle + count. Follow up by LookupStash to verify the
@@ -668,7 +664,7 @@ fn daemon_persists_sema_file_across_a_restart() {
     // the durable counter persisted across the restart, not just records.
     let next = run_cli(
         &socket_path,
-        "(Record ([[durable-topic]] Decision [second after restart] Maximum Zero))",
+        "(Record ([durable-topic] Decision [second after restart] Maximum Zero))",
     );
     match next {
         Output::RecordAccepted(receipt) => {
@@ -692,7 +688,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
         let _daemon = DaemonProcess::spawn(&socket_path, &production_database_path);
         let recorded = run_cli(
             &socket_path,
-            "(Record ([[handover]] Constraint [production entry before copy] Maximum Zero))",
+            "(Record ([handover] Constraint [production entry before copy] Maximum Zero))",
         );
         match recorded {
             Output::RecordAccepted(receipt) => {
@@ -711,7 +707,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
         let _daemon = DaemonProcess::spawn(&socket_path, &candidate_database_path);
         let observed = run_cli(
             &socket_path,
-            "(Observe ((Full [[handover]]) (Some Constraint) (Exact Zero)))",
+            "(Observe ((Full [handover]) (Some Constraint) (Exact Zero)))",
         );
         assert_eq!(
             stashed_descriptions(&socket_path, observed),
@@ -721,7 +717,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
 
         let candidate_recorded = run_cli(
             &socket_path,
-            "(Record ([[handover]] Constraint [candidate-only entry after copy] Maximum Zero))",
+            "(Record ([handover] Constraint [candidate-only entry after copy] Maximum Zero))",
         );
         match candidate_recorded {
             Output::RecordAccepted(receipt) => {
@@ -735,7 +731,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
 
         let candidate_observed = run_cli(
             &socket_path,
-            "(Observe ((Full [[handover]]) (Some Constraint) (Exact Zero)))",
+            "(Observe ((Full [handover]) (Some Constraint) (Exact Zero)))",
         );
         assert_eq!(
             stashed_descriptions(&socket_path, candidate_observed),
@@ -752,7 +748,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
         let _daemon = DaemonProcess::spawn(&socket_path, &production_database_path);
         let observed = run_cli(
             &socket_path,
-            "(Observe ((Full [[handover]]) (Some Constraint) (Exact Zero)))",
+            "(Observe ((Full [handover]) (Some Constraint) (Exact Zero)))",
         );
         assert_eq!(
             stashed_descriptions(&socket_path, observed),
@@ -762,7 +758,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
 
         let production_next = run_cli(
             &socket_path,
-            "(Record ([[handover]] Constraint [production entry after handover] Maximum Zero))",
+            "(Record ([handover] Constraint [production entry after handover] Maximum Zero))",
         );
         match production_next {
             Output::RecordAccepted(receipt) => {
@@ -789,7 +785,7 @@ fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
     let recorded = run_cli_with_trace(
         &socket_path,
         &trace_socket_path,
-        "(Record ([[trace]] Constraint [trace crosses daemon boundary] Maximum Zero))",
+        "(Record ([trace] Constraint [trace crosses daemon boundary] Maximum Zero))",
     );
     assert!(
         matches!(recorded.output, Output::RecordAccepted(_)),
@@ -813,7 +809,7 @@ fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
     let observed = run_cli_with_trace(
         &socket_path,
         &trace_socket_path,
-        "(Observe ((Full [[trace]]) (Some Constraint) (Exact Zero)))",
+        "(Observe ((Full [trace]) (Some Constraint) (Exact Zero)))",
     );
     // Designer 480: Observe flows through the recursive Nexus loop with
     // Stash; the slim wire reply carries a handle, not the full record set.

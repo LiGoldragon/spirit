@@ -340,6 +340,13 @@ entry's `Magnitude` through the `Certainty` alias, while record changes replace
 the full stored `Entry` under the same `RecordIdentifier`. The reply is
 `CertaintyChangeReceipt` or `RecordChangeReceipt` with a new database marker.
 
+`PublicRecords` and `PrivateRecords` are ergonomic privacy-scoped read
+shortcuts. Signal admits a generated `RecordSelection` payload — topic match
+plus optional kind, without a privacy field. Nexus projects it to the canonical
+SEMA `Observe(Query)` command: public means exact `Zero` privacy, private means
+`AtLeast Minimum` privacy. This keeps the friendly working-signal verbs visible
+while preserving one SEMA predicate implementation.
+
 `CollectRemovalCandidates` is the peer-callable archiving operation ported from
 old persona-spirit. Signal admits a `RemovalCandidateCollection { RecordQuery }`
 (the peer supplies only the candidate selection; the destination comes from

@@ -80,12 +80,14 @@ fn signal_schema_input_uses_exported_object_variant_names() {
 
     // The active production Input enum body — compact exported objects.
     witness.must_contain(
-        "[State Record Observe Lookup Count Remove ChangeCertainty ChangeRecord LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream)]",
+        "[State Record Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty ChangeRecord LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream)]",
         "4",
     );
     witness.must_contain("State Statement", "4");
     witness.must_contain("Record Entry", "4");
     witness.must_contain("Observe Query", "4");
+    witness.must_contain("PublicRecords RecordSelection", "4");
+    witness.must_contain("PrivateRecords RecordSelection", "4");
     witness.must_contain("Lookup RecordIdentifier", "4");
     witness.must_contain("Count Query", "4");
     witness.must_contain("Remove RecordIdentifier", "4");
@@ -186,12 +188,14 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     sema_witness.must_round_trip_as_schema_source();
 
     signal_witness.must_contain(
-        "[State Record Observe Lookup Count Remove ChangeCertainty ChangeRecord LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream)]",
+        "[State Record Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty ChangeRecord LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream)]",
         "4",
     );
     signal_witness.must_contain("State Statement", "4");
     signal_witness.must_contain("Record Entry", "4");
     signal_witness.must_contain("Observe Query", "4");
+    signal_witness.must_contain("PublicRecords RecordSelection", "4");
+    signal_witness.must_contain("PrivateRecords RecordSelection", "4");
     signal_witness.must_contain("Lookup RecordIdentifier", "4");
     signal_witness.must_contain("ChangeCertainty CertaintyChange", "4");
     signal_witness.must_contain("ChangeRecord RecordChange", "4");
@@ -244,9 +248,13 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     signal_witness.must_contain("State(State)", "4");
     signal_witness.must_contain("pub type Record = Entry;", "4");
     signal_witness.must_contain("pub type Observe = Query;", "4");
+    signal_witness.must_contain("pub type PublicRecords = RecordSelection;", "4");
+    signal_witness.must_contain("pub type PrivateRecords = RecordSelection;", "4");
     signal_witness.must_contain("pub type Lookup = RecordIdentifier;", "4");
     signal_witness.must_contain("Record(Record)", "4");
     signal_witness.must_contain("Observe(Observe)", "4");
+    signal_witness.must_contain("PublicRecords(PublicRecords)", "4");
+    signal_witness.must_contain("PrivateRecords(PrivateRecords)", "4");
     signal_witness.must_contain("Lookup(Lookup)", "4");
     signal_witness.must_contain("Count(Count)", "4");
     signal_witness.must_contain("Remove(Remove)", "4");

@@ -171,6 +171,8 @@ impl ComponentDaemon for SpiritDaemon {
             Input::State(_)
             | Input::Record(_)
             | Input::Observe(_)
+            | Input::PublicRecords(_)
+            | Input::PrivateRecords(_)
             | Input::Lookup(_)
             | Input::Count(_)
             | Input::Remove(_)
