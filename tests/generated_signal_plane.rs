@@ -250,7 +250,7 @@ fn generated_record_input_renders_bracket_bearing_strings_losslessly() {
 
     assert_eq!(
         rendered,
-        "(Record ([[schema replay]] Correction [||text contains [brackets] and the pipe close marker |]||] High Zero))"
+        "(Record ([[schema replay]] Correction [|text contains [brackets] and the pipe close marker \\|]|] High Zero))"
     );
     let reparsed = rendered
         .parse::<Input>()
