@@ -73,11 +73,11 @@
     "nota-next-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1780879264,
-        "narHash": "sha256-tFf9hWj2RQt9odaMoMd64taGWsVLTUdONIDFbiVdp6o=",
+        "lastModified": 1781005074,
+        "narHash": "sha256-FvregqE0LmrSTfW2RXuLwXD5YAd4cBkYSHRMRswhjAY=",
         "owner": "LiGoldragon",
         "repo": "nota-next",
-        "rev": "ae5c25cd42b65512be941b274922c9e17bf67176",
+        "rev": "d8862b6145445d20caeb973de4851f318cf43591",
         "type": "github"
       },
       "original": {
