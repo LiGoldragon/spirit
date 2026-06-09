@@ -53,7 +53,7 @@ pub mod schema {
     pub mod daemon;
 }
 
-pub use config::ConfigurationError;
+pub use config::{Configuration, ConfigurationError};
 pub use daemon::{Daemon, SpiritDaemon, SpiritDaemonError};
 pub use engine::{Engine, MailLedger, MailLedgerHook, SignalAccepted, SignalAdmission};
 pub use meta_transport::{

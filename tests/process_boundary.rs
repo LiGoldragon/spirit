@@ -9,11 +9,10 @@ use std::{
     time::{Duration, Instant},
 };
 
+use spirit::Configuration;
 #[cfg(feature = "testing-trace")]
 use spirit::TraceEvent;
-use spirit::schema::signal::{
-    Configuration, IntentEvent, Kind, Magnitude, Output, RecordIdentifier,
-};
+use spirit::schema::signal::{IntentEvent, Kind, Magnitude, Output, RecordIdentifier};
 use tempfile::TempDir;
 
 struct DaemonProcess {

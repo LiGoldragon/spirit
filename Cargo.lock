@@ -714,8 +714,8 @@ dependencies = [
 
 [[package]]
 name = "signal-spirit"
-version = "0.5.0"
-source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=main#3c6fd6c3b18cead6f3585cfaec5ca73b7531c359"
+version = "0.5.1"
+source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=main#87b45edba170df04922e2cae01453ae814b13d0b"
 dependencies = [
  "rkyv",
  "signal-frame",
@@ -747,7 +747,7 @@ dependencies = [
 
 [[package]]
 name = "spirit"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "blake3",
  "getrandom 0.3.4",

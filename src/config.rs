@@ -1,31 +1,34 @@
-//! Daemon-side behaviour for the schema-emitted `Configuration`.
+//! Daemon-side runtime wrapper for the contract-owned configuration.
 //!
-//! The `Configuration` data type is emitted from `schema/signal.schema` into
-//! `crate::schema::signal` — the daemon owns its contract surface locally rather
-//! than depending on the `signal-spirit` contract crate (see the crate docs).
-//! This module attaches the runtime behaviour to that emitted type: constructors
-//! for launchers and tests, path accessors, the binary rkyv read/write the
-//! daemon decodes from its single startup argument, and the
-//! `triad_runtime::BindingSurface` impl the emitted daemon spine reads to bind
-//! listeners and open the store. No NOTA is linked here — the daemon stays
-//! binary-only; the emitted type's `nota-text` surface is opt-in for text
-//! clients only.
+//! The archived daemon configuration type lives in `signal-spirit`; this
+//! wrapper holds the imported wire object plus daemon-local `PathBuf` views and
+//! implements the `triad_runtime::BindingSurface` trait the emitted daemon spine
+//! reads to bind listeners and open the store. No NOTA is linked here.
 
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
+use signal_spirit::{ConfigurationPath, SpiritDaemonConfiguration};
 use thiserror::Error;
 use triad_runtime::BindingSurface;
 
-use crate::schema::signal::Configuration;
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Configuration {
+    raw: SpiritDaemonConfiguration,
+    socket_path: PathBuf,
+    meta_socket_path: Option<PathBuf>,
+    database_path: PathBuf,
+    trace_socket_path: Option<PathBuf>,
+}
 
 impl Configuration {
     pub fn new(socket_path: impl AsRef<Path>, database_path: impl AsRef<Path>) -> Self {
-        Self {
-            socket_path: socket_path.as_ref().to_string_lossy().into_owned(),
-            meta_socket_path: None,
-            database_path: database_path.as_ref().to_string_lossy().into_owned(),
-            trace_socket_path: None,
-        }
+        Self::from_raw(SpiritDaemonConfiguration::new(
+            ConfigurationPath::new(socket_path.as_ref().to_string_lossy().into_owned()),
+            ConfigurationPath::new(database_path.as_ref().to_string_lossy().into_owned()),
+        ))
     }
 
     pub fn new_with_trace(
@@ -33,33 +36,49 @@ impl Configuration {
         database_path: impl AsRef<Path>,
         trace_socket_path: impl AsRef<Path>,
     ) -> Self {
+        Self::new(socket_path, database_path).with_trace_socket_path(trace_socket_path)
+    }
+
+    pub fn with_meta_socket_path(self, meta_socket_path: impl AsRef<Path>) -> Self {
+        Self::from_raw(self.raw.with_meta_socket_path(ConfigurationPath::new(
+            meta_socket_path.as_ref().to_string_lossy().into_owned(),
+        )))
+    }
+
+    pub fn with_trace_socket_path(self, trace_socket_path: impl AsRef<Path>) -> Self {
+        Self::from_raw(self.raw.with_trace_socket_path(ConfigurationPath::new(
+            trace_socket_path.as_ref().to_string_lossy().into_owned(),
+        )))
+    }
+
+    pub fn from_raw(raw: SpiritDaemonConfiguration) -> Self {
         Self {
-            socket_path: socket_path.as_ref().to_string_lossy().into_owned(),
-            meta_socket_path: None,
-            database_path: database_path.as_ref().to_string_lossy().into_owned(),
-            trace_socket_path: Some(trace_socket_path.as_ref().to_string_lossy().into_owned()),
+            socket_path: PathBuf::from(raw.socket_path()),
+            meta_socket_path: raw.meta_socket_path().map(PathBuf::from),
+            database_path: PathBuf::from(raw.database_path()),
+            trace_socket_path: raw.trace_socket_path().map(PathBuf::from),
+            raw,
         }
     }
 
-    pub fn with_meta_socket_path(mut self, meta_socket_path: impl AsRef<Path>) -> Self {
-        self.meta_socket_path = Some(meta_socket_path.as_ref().to_string_lossy().into_owned());
-        self
+    pub fn raw(&self) -> &SpiritDaemonConfiguration {
+        &self.raw
     }
 
     pub fn socket_path(&self) -> &Path {
-        Path::new(&self.socket_path)
+        &self.socket_path
     }
 
     pub fn meta_socket_path(&self) -> Option<&Path> {
-        self.meta_socket_path.as_deref().map(Path::new)
+        self.meta_socket_path.as_deref()
     }
 
     pub fn database_path(&self) -> &Path {
-        Path::new(&self.database_path)
+        &self.database_path
     }
 
     pub fn trace_socket_path(&self) -> Option<&Path> {
-        self.trace_socket_path.as_deref().map(Path::new)
+        self.trace_socket_path.as_deref()
     }
 
     pub fn from_binary_path(path: impl AsRef<Path>) -> Result<Self, ConfigurationError> {
@@ -68,13 +87,14 @@ impl Configuration {
     }
 
     pub fn from_binary_bytes(bytes: &[u8]) -> Result<Self, ConfigurationError> {
-        rkyv::from_bytes::<Self, rkyv::rancor::Error>(bytes)
+        SpiritDaemonConfiguration::from_rkyv_bytes(bytes)
+            .map(Self::from_raw)
             .map_err(|_| ConfigurationError::ArchiveDecode)
     }
 
     pub fn to_binary_bytes(&self) -> Result<Vec<u8>, ConfigurationError> {
-        rkyv::to_bytes::<rkyv::rancor::Error>(self)
-            .map(|bytes| bytes.to_vec())
+        self.raw
+            .to_rkyv_bytes()
             .map_err(|_| ConfigurationError::ArchiveEncode)
     }
 

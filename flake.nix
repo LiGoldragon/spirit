@@ -126,7 +126,7 @@
             --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "vendor-sources/triad-runtime" }' \
             --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust-next = { path = "vendor-sources/schema-rust-next" }' \
             --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "vendor-sources/schema-next" }' \
-            --replace-fail 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main", optional = true }' 'signal-spirit = { path = "vendor-sources/signal-spirit", optional = true }'
+            --replace-fail 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main" }' 'signal-spirit = { path = "vendor-sources/signal-spirit" }'
 
           substituteInPlace $out/vendor-sources/schema-rust-next/Cargo.toml \
             --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "../schema-next" }' \

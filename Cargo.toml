@@ -1,6 +1,6 @@
 [package]
 name         = "spirit"
-version      = "0.3.0"
+version      = "0.3.1"
 edition      = "2024"
 rust-version = "1.88"
 license      = "MIT OR Apache-2.0"
@@ -39,7 +39,7 @@ required-features = ["nota-text"]
 [features]
 default = []
 nota-text = ["dep:nota-next"]
-production-migration = ["dep:signal-spirit", "nota-text"]
+production-migration = ["nota-text"]
 testing-trace = []
 
 [[test]]
@@ -59,7 +59,7 @@ blake3 = "1"
 getrandom = "0.3"
 sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main" }
 signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }
-signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main", optional = true }
+signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main" }
 thiserror = "2"
 tokio = { version = "1.47", features = ["io-util", "net", "rt-multi-thread", "sync"] }
 triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }

@@ -115,6 +115,4 @@
   Kind [Decision Principle Correction Clarification Constraint]
   Magnitude [Zero Minimum VeryLow Low Medium High VeryHigh Maximum]
 
-  ConfigurationPath String
-  Configuration { socket_path ConfigurationPath meta_socket_path (Optional ConfigurationPath) database_path ConfigurationPath trace_socket_path (Optional ConfigurationPath) }
 }

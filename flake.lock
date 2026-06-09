@@ -220,11 +220,11 @@
     "signal-spirit-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1780884196,
-        "narHash": "sha256-5VcS+F6i7+atlHHrdVthTHH7NdnshtX/z/vefWUBPAo=",
+        "lastModified": 1781024911,
+        "narHash": "sha256-Va5mFI7gJzTmKOwkpMH/avNkSB0uQTxHm2IRRiB8TMk=",
         "owner": "LiGoldragon",
         "repo": "signal-spirit",
-        "rev": "3c6fd6c3b18cead6f3585cfaec5ca73b7531c359",
+        "rev": "87b45edba170df04922e2cae01453ae814b13d0b",
         "type": "github"
       },
       "original": {
