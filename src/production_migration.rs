@@ -9,7 +9,7 @@ use thiserror::Error;
 
 use crate::{
     Store, StoreError,
-    schema::signal::{Entry, Kind, Magnitude, Topic},
+    schema::signal::{Description, Entry, Kind, Magnitude, Privacy, Topics},
 };
 
 const PRODUCTION_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(5);
@@ -147,17 +147,18 @@ impl EngineRecord for ProductionStoredRecord {
 impl ProductionStampedEntry {
     fn into_new_entry(self) -> Entry {
         Entry {
-            topics: self
-                .entry
-                .topics
-                .as_slice()
-                .iter()
-                .map(|topic| topic.as_str().to_owned())
-                .collect::<Vec<Topic>>(),
+            topics: Topics::from_strings(
+                self.entry
+                    .topics
+                    .as_slice()
+                    .iter()
+                    .map(|topic| topic.as_str().to_owned())
+                    .collect(),
+            ),
             kind: Self::kind_from(self.entry.kind),
-            description: self.entry.description.as_str().to_owned(),
+            description: Description::new(self.entry.description.as_str().to_owned()),
             magnitude: Self::magnitude_from(self.entry.certainty),
-            privacy: Self::magnitude_from(self.entry.privacy),
+            privacy: Privacy::new(Self::magnitude_from(self.entry.privacy)),
         }
     }
 

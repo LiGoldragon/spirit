@@ -15,8 +15,9 @@ use sema_engine::{
 use spirit::{
     Configuration, SignalTransport, Store,
     schema::signal::{
-        CertaintyChange, Entry, Input, Kind, Magnitude, ObserverFilter, Output, PrivacySelection,
-        Query, RecordChange, Statement, Topic, TopicMatch,
+        Certainty, CertaintyChange, Description, Entry, Input, Kind, Magnitude, ObserverFilter,
+        Output, Privacy, PrivacySelection, Query, RecordChange, RecordIdentifier, Statement,
+        StatementText, TopicMatch, Topics,
     },
 };
 #[cfg(feature = "production-migration")]
@@ -241,17 +242,18 @@ impl EngineRecord for ProductionStoredRecord {
 impl ProductionStampedEntry {
     fn into_new_entry(self) -> Entry {
         Entry {
-            topics: self
-                .entry
-                .topics
-                .as_slice()
-                .iter()
-                .map(|topic| topic.as_str().to_owned())
-                .collect::<Vec<Topic>>(),
+            topics: Topics::from_strings(
+                self.entry
+                    .topics
+                    .as_slice()
+                    .iter()
+                    .map(|topic| topic.as_str().to_owned())
+                    .collect(),
+            ),
             kind: Self::kind_from(self.entry.kind),
-            description: self.entry.description.as_str().to_owned(),
+            description: Description::new(self.entry.description.as_str().to_owned()),
             magnitude: Self::magnitude_from(self.entry.certainty),
-            privacy: Self::magnitude_from(self.entry.privacy),
+            privacy: Privacy::new(Self::magnitude_from(self.entry.privacy)),
         }
     }
 
@@ -338,11 +340,13 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
     );
 
     for record_identifier in &migrated_identifiers {
-        match sandbox.run_input(Input::lookup(record_identifier.clone())) {
+        match sandbox.run_input(Input::lookup(RecordIdentifier::new(
+            record_identifier.clone(),
+        ))) {
             Output::RecordFound(found) => {
-                assert_eq!(&found.record_identifier, record_identifier);
+                assert_eq!(found.record_identifier.payload(), record_identifier);
                 assert!(
-                    !found.entry.description.is_empty(),
+                    !found.entry.description.trim().is_empty(),
                     "migrated production record should resolve by its original identifier"
                 );
             }
@@ -362,7 +366,7 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
     match sandbox.run_input(Input::count(all_records_query.clone())) {
         Output::RecordsCounted(counted) => {
             assert_eq!(
-                counted.record_count as usize,
+                *counted.record_count.payload() as usize,
                 production_records.len(),
                 "new spirit should count every migrated production record"
             );
@@ -373,11 +377,11 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
     let all_records_stash = match sandbox.run_input(Input::observe(all_records_query)) {
         Output::RecordsStashed(stashed) => {
             assert_eq!(
-                stashed.record_count as usize,
+                *stashed.record_count.payload() as usize,
                 production_records.len(),
                 "new spirit should observe every migrated production record"
             );
-            stashed.stash_handle
+            stashed.stash_handle.clone()
         }
         other => panic!("expected all-record RecordsStashed after migration, got {other:?}"),
     };
@@ -401,7 +405,7 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
         .filter(|record| record.matches_topic(&observed_topic))
         .count();
     let observed_query = Query {
-        topic_match: TopicMatch::partial(vec![observed_topic]),
+        topic_match: TopicMatch::partial(Topics::from_strings(vec![observed_topic])),
         kind: None,
         privacy_selection: PrivacySelection::Any,
     };
@@ -409,7 +413,8 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
     match sandbox.run_input(Input::count(observed_query.clone())) {
         Output::RecordsCounted(counted) => {
             assert_eq!(
-                counted.record_count as usize, expected_topic_count,
+                *counted.record_count.payload() as usize,
+                expected_topic_count,
                 "new spirit should count migrated production records by topic"
             );
         }
@@ -419,10 +424,11 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
     let stash_handle = match sandbox.run_input(Input::observe(observed_query)) {
         Output::RecordsStashed(stashed) => {
             assert_eq!(
-                stashed.record_count as usize, expected_topic_count,
+                *stashed.record_count.payload() as usize,
+                expected_topic_count,
                 "new spirit should observe migrated production records by topic"
             );
-            stashed.stash_handle
+            stashed.stash_handle.clone()
         }
         other => panic!("expected RecordsStashed for migrated production records, got {other:?}"),
     };
@@ -438,10 +444,12 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
         other => panic!("expected RecordsObserved from stash lookup, got {other:?}"),
     }
 
-    match sandbox.run_input(Input::lookup(first_migrated_identifier)) {
+    match sandbox.run_input(Input::lookup(RecordIdentifier::new(
+        first_migrated_identifier,
+    ))) {
         Output::RecordFound(found) => {
             assert!(
-                !found.entry.description.is_empty(),
+                !found.entry.description.trim().is_empty(),
                 "first migrated production record should resolve by its original identifier"
             );
         }
@@ -450,19 +458,21 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
     }
 
     let mutation = sandbox.run_input(Input::record(Entry {
-        topics: vec![String::from("sandbox-migration-check")],
+        topics: Topics::from_strings(vec![String::from("sandbox-migration-check")]),
         kind: Kind::Decision,
-        description: String::from("new spirit can write to migrated production database"),
+        description: Description::new(String::from(
+            "new spirit can write to migrated production database",
+        )),
         magnitude: Magnitude::High,
-        privacy: Magnitude::Zero,
+        privacy: Privacy::new(Magnitude::Zero),
     }));
     let record_identifier = match mutation {
-        Output::RecordAccepted(receipt) => receipt.record_identifier,
+        Output::RecordAccepted(receipt) => receipt.record_identifier.clone(),
         other => panic!("expected RecordAccepted for sandbox mutation, got {other:?}"),
     };
     match sandbox.run_input(Input::change_certainty(CertaintyChange {
         record_identifier: record_identifier.clone(),
-        certainty: Magnitude::Medium,
+        certainty: Certainty::new(Magnitude::Medium),
     })) {
         Output::CertaintyChanged(receipt) => {
             assert_eq!(receipt.record_identifier, record_identifier);
@@ -473,11 +483,13 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
     match sandbox.run_input(Input::change_record(RecordChange {
         record_identifier: record_identifier.clone(),
         entry: Entry {
-            topics: vec![String::from("sandbox-migration-check")],
+            topics: Topics::from_strings(vec![String::from("sandbox-migration-check")]),
             kind: Kind::Correction,
-            description: String::from("new spirit can mutate migrated production records"),
+            description: Description::new(String::from(
+                "new spirit can mutate migrated production records",
+            )),
             magnitude: Magnitude::VeryHigh,
-            privacy: Magnitude::Zero,
+            privacy: Privacy::new(Magnitude::Zero),
         },
     })) {
         Output::RecordChanged(receipt) => {
@@ -487,13 +499,13 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
     }
     match sandbox.run_input(Input::remove(record_identifier.clone())) {
         Output::RecordRemoved(receipt) => {
-            assert_eq!(receipt.record_identifier, record_identifier);
+            assert_eq!(receipt.payload().record_identifier, record_identifier);
         }
         other => panic!("expected RecordRemoved for sandbox cleanup, got {other:?}"),
     }
 
-    match sandbox.run_input(Input::state(Statement::new(String::from(
-        "sandbox migration state classification",
+    match sandbox.run_input(Input::state(Statement::new(StatementText::new(
+        String::from("sandbox migration state classification"),
     )))) {
         Output::RecordAccepted(receipt) => {
             assert_ne!(receipt.record_identifier, record_identifier);
@@ -549,16 +561,21 @@ fn production_migration_binary_preserves_ids_and_writes_queryable_new_store() {
     };
     match sandbox.run_input(Input::count(all_records_query)) {
         Output::RecordsCounted(counted) => {
-            assert_eq!(counted.record_count as usize, production_records.len());
+            assert_eq!(
+                *counted.record_count.payload() as usize,
+                production_records.len()
+            );
         }
         other => panic!("expected count of migrated production records, got {other:?}"),
     }
 
     for record in production_records {
         let production_identifier = record.record_identifier();
-        match sandbox.run_input(Input::lookup(production_identifier.clone())) {
+        match sandbox.run_input(Input::lookup(RecordIdentifier::new(
+            production_identifier.clone(),
+        ))) {
             Output::RecordFound(found) => {
-                assert_eq!(found.record_identifier, production_identifier);
+                assert_eq!(found.record_identifier.payload(), &production_identifier);
             }
             other => {
                 panic!(
