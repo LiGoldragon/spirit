@@ -7,6 +7,13 @@
 //! the runtime shim around those generated interfaces. `build.rs` verifies the
 //! generated modules are fresh.
 //!
+//! Because those types are emitted into this crate, the daemon **owns its
+//! contract surface locally** and does not depend on the `signal-spirit`
+//! contract crate for any live wire type. `signal-spirit` is linked only behind
+//! the `production-migration` feature, where `production_migration` reads the
+//! deployed `persona-spirit` record shape — never as the source of the daemon's
+//! served wire types.
+//!
 //! Plane envelopes make cross-plane mis-wiring a type error. A SEMA store
 //! accepts only `sema::Sema<sema::WriteInput>` for durable writes and
 //! `sema::Sema<sema::ReadInput>` for reads; a Nexus envelope with the same

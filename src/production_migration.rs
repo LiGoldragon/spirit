@@ -1,3 +1,13 @@
+//! Production-database migration: import the deployed `persona-spirit` records
+//! into the new Spirit `.sema` store.
+//!
+//! This is the **only** place the `spirit` crate links the `signal-spirit`
+//! contract crate (for the historical `RecordIdentifier` / `Entry` shapes). The
+//! live daemon emits its own wire types from `schema/*.schema` into
+//! `crate::schema::signal` at build time, so it never depends on `signal-spirit`
+//! for serving — which is why this module is gated behind the
+//! `production-migration` feature and stays out of the binary-only build.
+
 use std::path::{Path, PathBuf};
 
 use nota_next::{NotaDecode, NotaEncode};
