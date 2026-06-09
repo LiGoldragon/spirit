@@ -143,7 +143,7 @@ pub type StatementText = String;
 pub type ErrorMessage = String;
 
 #[rustfmt::skip]
-pub type RecordIdentifier = Integer;
+pub type RecordIdentifier = String;
 
 #[rustfmt::skip]
 pub type CommitSequence = Integer;
@@ -318,6 +318,7 @@ pub type Processed = ProcessedMail;
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum TopicMatch {
+    Any,
     Partial(Partial),
     Full(Full),
 }

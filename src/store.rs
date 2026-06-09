@@ -1,12 +1,12 @@
 use std::{
+    collections::BTreeSet,
     fmt,
     path::{Path, PathBuf},
 };
 
 use sema_engine::{
-    Engine as SemaDatabase, EngineOpen, IdentifiedAssertion, IdentifiedMutation,
-    IdentifiedQueryPlan, IdentifiedRetraction, IdentifiedTableDescriptor, IdentifiedTableReference,
-    RecordIdentifier as EngineRecordIdentifier, SchemaVersion, TableName,
+    Assertion, Engine as SemaDatabase, EngineOpen, EngineRecord, Mutation, QueryPlan, RecordKey,
+    Retraction, SchemaVersion, TableDescriptor, TableName, TableReference,
 };
 use thiserror::Error;
 
@@ -31,22 +31,44 @@ use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
 
 const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(1);
 const ENTRIES_TABLE: TableName = TableName::new("records");
+const RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH: usize = 4;
+const RECORD_IDENTIFIER_MAXIMUM_CODE_LENGTH: usize = 7;
+const RECORD_IDENTIFIER_CODE_RADIX: u64 = 36;
+const RANDOM_IDENTIFIER_ATTEMPTS_PER_LENGTH: usize = 128;
 
-/// The SEMA durable store: a sema-engine identified table written to a
-/// `*.sema` file.
+/// The SEMA durable store: a sema-engine keyed table written to a `*.sema`
+/// file.
 ///
 /// SEMA means database work. `Store` maps generated SEMA roots onto
-/// sema-engine operations; sema-engine owns the database handle, numeric
-/// identifier allocation, durable commit sequence, and typed rkyv table
-/// access. Query predicate semantics stay here because they are
-/// Spirit-specific SEMA behavior, not generic daemon plumbing.
+/// sema-engine operations; sema-engine owns the database handle, durable
+/// commit sequence, and typed rkyv table access. Spirit owns the
+/// production-compatible short/base36 record identifiers because migration must
+/// preserve them as stable keys. Query predicate semantics stay here because
+/// they are Spirit-specific SEMA behavior, not generic daemon plumbing.
 pub struct Store {
     database: SemaDatabase,
-    entries: IdentifiedTableReference<Entry>,
+    entries: TableReference<StoredRecord>,
     path: PathBuf,
     archive_target: ArchiveDatabaseTarget,
     #[cfg(feature = "testing-trace")]
     trace_log: TraceLog,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+struct StoredRecord {
+    record_identifier: String,
+    entry: Entry,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RecordIdentifierMint {
+    used_identifiers: BTreeSet<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct RecordIdentifierCodeRange {
+    first_value: u64,
+    value_count: u64,
 }
 
 impl fmt::Debug for Store {
@@ -95,7 +117,7 @@ impl SemaEngine for Store {
             },
             SemaWriteInput::Remove(remove) => {
                 let record_identifier = remove;
-                match self.remove(record_identifier) {
+                match self.remove(&record_identifier) {
                     Ok(true) => SemaWriteOutput::removed(RemoveReceipt {
                         record_identifier,
                         database_marker: self.database_marker(),
@@ -158,7 +180,7 @@ impl SemaEngine for Store {
             },
             SemaReadInput::Lookup(lookup) => {
                 let record_identifier = lookup;
-                match self.entry_by_identifier(record_identifier) {
+                match self.entry_by_identifier(&record_identifier) {
                     Ok(Some(entry)) => SemaReadOutput::found(FoundRecord {
                         record_identifier,
                         entry,
@@ -199,8 +221,7 @@ impl Store {
         let path = path.into();
         let mut database =
             SemaDatabase::open(EngineOpen::new(path.clone(), SPIRIT_SCHEMA_VERSION))?;
-        let entries =
-            database.register_identified_table(IdentifiedTableDescriptor::new(ENTRIES_TABLE))?;
+        let entries = database.register_table(TableDescriptor::new(ENTRIES_TABLE))?;
         Ok(Self {
             database,
             entries,
@@ -298,28 +319,27 @@ impl Store {
         let mut removed_identifiers = Vec::new();
         let mut skipped_candidates = Vec::new();
         for record in self.records()? {
-            let identifier = record.identifier().value();
-            let entry = record.into_value();
-            if !entry.matches(&query) {
+            let identifier = record.record_identifier.clone();
+            if !record.entry.matches(&query) {
                 continue;
             }
-            match archive.archive_entry(entry.clone()) {
-                Ok(()) => match self.remove(identifier)? {
+            match archive.archive_record(record.clone()) {
+                Ok(()) => match self.remove(&identifier)? {
                     true => {
                         archived_records.push(ArchivedRecord {
-                            record_identifier: identifier,
-                            entry,
+                            record_identifier: identifier.clone(),
+                            entry: record.entry,
                         });
                         removed_identifiers.push(identifier);
                     }
                     false => skipped_candidates.push(SkippedRemovalCandidate {
-                        record_identifier: identifier,
+                        record_identifier: identifier.clone(),
                         removal_candidate_skip_reason:
                             crate::schema::signal::RemovalCandidateSkipReason::RecordAlreadyRemoved,
                     }),
                 },
                 Err(_error) => skipped_candidates.push(SkippedRemovalCandidate {
-                    record_identifier: identifier,
+                    record_identifier: identifier.clone(),
                     removal_candidate_skip_reason:
                         crate::schema::signal::RemovalCandidateSkipReason::ArchiveFailed,
                 }),
@@ -340,45 +360,52 @@ impl Store {
         ArchiveDatabase::open(self.archive_database_path())
     }
 
-    fn record(&self, entry: Entry) -> Result<u64, StoreError> {
-        Ok(self
-            .database
-            .assert_identified(IdentifiedAssertion::new(self.entries, entry))?
-            .identifier()
-            .value())
+    pub fn import_record(
+        &self,
+        record_identifier: String,
+        entry: Entry,
+    ) -> Result<String, StoreError> {
+        self.database.assert(Assertion::new(
+            self.entries,
+            StoredRecord::new(record_identifier.clone(), entry),
+        ))?;
+        Ok(record_identifier)
+    }
+
+    fn record(&self, entry: Entry) -> Result<String, StoreError> {
+        let record_identifier = self.next_record_identifier()?;
+        self.import_record(record_identifier.clone(), entry)?;
+        Ok(record_identifier)
     }
 
     fn observe(&self, query: &Query) -> Result<Vec<Entry>, StoreError> {
         Ok(self
             .records()?
             .into_iter()
-            .map(|record| record.into_value())
-            .filter(|entry| entry.matches(query))
+            .filter(|record| record.entry.matches(query))
+            .map(StoredRecord::into_entry)
             .collect())
     }
 
-    pub fn entry_by_identifier(&self, identifier: u64) -> Result<Option<Entry>, StoreError> {
+    pub fn entry_by_identifier(&self, identifier: &str) -> Result<Option<Entry>, StoreError> {
         Ok(self
             .database
-            .match_identified(IdentifiedQueryPlan::identifier(
-                self.entries,
-                EngineRecordIdentifier::new(identifier),
-            ))?
-            .into_records()
-            .into_iter()
+            .match_records(QueryPlan::key(self.entries, RecordKey::new(identifier)))?
+            .records()
+            .iter()
             .next()
-            .map(|record| record.into_value()))
+            .map(StoredRecord::entry))
     }
 
     fn count(&self, query: &Query) -> Result<u64, StoreError> {
         Ok(self.observe(query)?.len() as u64)
     }
 
-    fn remove(&self, identifier: u64) -> Result<bool, StoreError> {
-        match self.database.retract_identified(IdentifiedRetraction::new(
-            self.entries,
-            EngineRecordIdentifier::new(identifier),
-        )) {
+    fn remove(&self, identifier: &str) -> Result<bool, StoreError> {
+        match self
+            .database
+            .retract(Retraction::new(self.entries, RecordKey::new(identifier)))
+        {
             Ok(_receipt) => Ok(true),
             Err(sema_engine::Error::RecordNotFound { .. }) => Ok(false),
             Err(error) => Err(StoreError::Database(error)),
@@ -390,14 +417,13 @@ impl Store {
         change: CertaintyChange,
     ) -> Result<Option<CertaintyChangeReceipt>, StoreError> {
         let record_identifier = change.record_identifier;
-        let Some(mut entry) = self.entry_by_identifier(record_identifier)? else {
+        let Some(mut entry) = self.entry_by_identifier(&record_identifier)? else {
             return Ok(None);
         };
         entry.magnitude = change.certainty;
-        self.database.mutate_identified(IdentifiedMutation::new(
+        self.database.mutate(Mutation::new(
             self.entries,
-            EngineRecordIdentifier::new(record_identifier),
-            entry,
+            StoredRecord::new(record_identifier.clone(), entry),
         ))?;
         Ok(Some(CertaintyChangeReceipt {
             record_identifier,
@@ -411,13 +437,12 @@ impl Store {
         change: RecordChange,
     ) -> Result<Option<RecordChangeReceipt>, StoreError> {
         let record_identifier = change.record_identifier;
-        if self.entry_by_identifier(record_identifier)?.is_none() {
+        if self.entry_by_identifier(&record_identifier)?.is_none() {
             return Ok(None);
         }
-        self.database.mutate_identified(IdentifiedMutation::new(
+        self.database.mutate(Mutation::new(
             self.entries,
-            EngineRecordIdentifier::new(record_identifier),
-            change.entry,
+            StoredRecord::new(record_identifier.clone(), change.entry),
         ))?;
         Ok(Some(RecordChangeReceipt {
             record_identifier,
@@ -464,9 +489,9 @@ impl Store {
         let mut hasher = blake3::Hasher::new();
         hasher.update(&commit_sequence.to_le_bytes());
         for record in records {
-            let archive = rkyv::to_bytes::<rkyv::rancor::Error>(record.value())
+            let archive = rkyv::to_bytes::<rkyv::rancor::Error>(&record)
                 .map_err(|_| StoreError::ArchiveEncode)?;
-            hasher.update(&record.identifier().value().to_le_bytes());
+            hasher.update(record.record_identifier.as_bytes());
             hasher.update(&archive);
         }
         let digest = hasher.finalize();
@@ -475,15 +500,133 @@ impl Store {
         Ok(u64::from_le_bytes(head))
     }
 
-    fn records(&self) -> Result<Vec<sema_engine::IdentifiedRecord<Entry>>, StoreError> {
+    fn records(&self) -> Result<Vec<StoredRecord>, StoreError> {
         Ok(self
             .database
-            .match_identified(IdentifiedQueryPlan::all(self.entries))?
-            .into_records())
+            .match_records(QueryPlan::all(self.entries))?
+            .records()
+            .to_vec())
+    }
+
+    fn next_record_identifier(&self) -> Result<String, StoreError> {
+        RecordIdentifierMint::from_records(&self.records()?).next_identifier()
     }
 }
 
-/// The SEPARATE archive database: a sema-engine identified table over its own
+impl StoredRecord {
+    fn new(record_identifier: String, entry: Entry) -> Self {
+        Self {
+            record_identifier,
+            entry,
+        }
+    }
+
+    fn into_entry(self) -> Entry {
+        self.entry
+    }
+
+    fn entry(&self) -> Entry {
+        self.entry.clone()
+    }
+}
+
+impl EngineRecord for StoredRecord {
+    fn record_key(&self) -> RecordKey {
+        RecordKey::new(self.record_identifier.clone())
+    }
+}
+
+impl RecordIdentifierMint {
+    fn from_records(records: &[StoredRecord]) -> Self {
+        Self {
+            used_identifiers: records
+                .iter()
+                .map(|record| record.record_identifier.clone())
+                .collect(),
+        }
+    }
+
+    fn next_identifier(&self) -> Result<String, StoreError> {
+        for code_length in
+            RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH..=RECORD_IDENTIFIER_MAXIMUM_CODE_LENGTH
+        {
+            if let Some(identifier) = self.identifier_for_code_length(code_length)? {
+                return Ok(identifier);
+            }
+        }
+        Err(StoreError::IdentifierMint(format!(
+            "no available record identifier code between {RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH} and {RECORD_IDENTIFIER_MAXIMUM_CODE_LENGTH} characters"
+        )))
+    }
+
+    fn identifier_for_code_length(&self, code_length: usize) -> Result<Option<String>, StoreError> {
+        let range = RecordIdentifierCodeRange::new(code_length);
+        for _ in 0..RANDOM_IDENTIFIER_ATTEMPTS_PER_LENGTH {
+            let identifier = range.random_identifier()?;
+            if !self.used_identifiers.contains(&identifier) {
+                return Ok(Some(identifier));
+            }
+        }
+        Ok(range.first_available_identifier(&self.used_identifiers))
+    }
+}
+
+impl RecordIdentifierCodeRange {
+    fn new(code_length: usize) -> Self {
+        let first_value = if code_length == RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH {
+            0
+        } else {
+            Self::radix_power(code_length - 1)
+        };
+        let next_length_first_value = Self::radix_power(code_length);
+        Self {
+            first_value,
+            value_count: next_length_first_value - first_value,
+        }
+    }
+
+    fn random_identifier(self) -> Result<String, StoreError> {
+        let mut bytes = [0_u8; 8];
+        getrandom::fill(&mut bytes)
+            .map_err(|error| StoreError::IdentifierMint(error.to_string()))?;
+        let offset = u64::from_be_bytes(bytes) % self.value_count;
+        Ok(Self::code_from_value(self.first_value + offset))
+    }
+
+    fn first_available_identifier(self, used_identifiers: &BTreeSet<String>) -> Option<String> {
+        let last_value = self.first_value + self.value_count;
+        (self.first_value..last_value)
+            .map(Self::code_from_value)
+            .find(|identifier| !used_identifiers.contains(identifier))
+    }
+
+    fn code_from_value(mut value: u64) -> String {
+        let mut digits = Vec::new();
+        while value > 0 {
+            let digit = (value % RECORD_IDENTIFIER_CODE_RADIX) as u8;
+            digits.push(Self::digit_character(digit));
+            value /= RECORD_IDENTIFIER_CODE_RADIX;
+        }
+        while digits.len() < RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH {
+            digits.push('0');
+        }
+        digits.iter().rev().collect()
+    }
+
+    fn digit_character(digit: u8) -> char {
+        match digit {
+            0..=9 => char::from(b'0' + digit),
+            10..=35 => char::from(b'a' + digit - 10),
+            _ => unreachable!("base36 digit is constrained by modulo"),
+        }
+    }
+
+    fn radix_power(exponent: usize) -> u64 {
+        (0..exponent).fold(1, |value, _| value * RECORD_IDENTIFIER_CODE_RADIX)
+    }
+}
+
+/// The SEPARATE archive database: a sema-engine keyed table over its own
 /// `*.sema` file, distinct from the live intent log.
 ///
 /// `CollectRemovalCandidates` opens one of these on demand at the
@@ -493,14 +636,13 @@ impl Store {
 /// records the live log let go.
 struct ArchiveDatabase {
     database: SemaDatabase,
-    entries: IdentifiedTableReference<Entry>,
+    entries: TableReference<StoredRecord>,
 }
 
 impl ArchiveDatabase {
     fn open(path: impl Into<PathBuf>) -> Result<Self, StoreError> {
         let mut database = SemaDatabase::open(EngineOpen::new(path.into(), SPIRIT_SCHEMA_VERSION))?;
-        let entries =
-            database.register_identified_table(IdentifiedTableDescriptor::new(ENTRIES_TABLE))?;
+        let entries = database.register_table(TableDescriptor::new(ENTRIES_TABLE))?;
         Ok(Self { database, entries })
     }
 
@@ -508,9 +650,8 @@ impl ArchiveDatabase {
     /// separate archive database. The archive allocates its own identifier; the
     /// original live identifier travels in the `CollectRemovalCandidates` reply,
     /// not in the archive's identifier space.
-    fn archive_entry(&mut self, entry: Entry) -> Result<(), StoreError> {
-        self.database
-            .assert_identified(IdentifiedAssertion::new(self.entries, entry))?;
+    fn archive_record(&mut self, record: StoredRecord) -> Result<(), StoreError> {
+        self.database.assert(Assertion::new(self.entries, record))?;
         Ok(())
     }
 }
@@ -522,6 +663,9 @@ pub enum StoreError {
 
     #[error("failed to encode record rkyv archive")]
     ArchiveEncode,
+
+    #[error("failed to mint record identifier: {0}")]
+    IdentifierMint(String),
 }
 
 impl Entry {

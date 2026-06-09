@@ -21,6 +21,11 @@ required-features = ["nota-text"]
 name = "spirit-daemon"
 path = "src/bin/spirit-daemon.rs"
 
+[[bin]]
+name = "spirit-migrate-production"
+path = "src/bin/spirit-migrate-production.rs"
+required-features = ["production-migration"]
+
 [[test]]
 name = "nix_integration"
 path = "tests/nix_integration.rs"
@@ -34,6 +39,7 @@ required-features = ["nota-text"]
 [features]
 default = []
 nota-text = ["dep:nota-next"]
+production-migration = ["dep:signal-spirit", "nota-text"]
 testing-trace = []
 
 [[test]]
@@ -45,8 +51,10 @@ required-features = ["testing-trace"]
 nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }
 rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
 blake3 = "1"
+getrandom = "0.3"
 sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main" }
 signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }
+signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main", optional = true }
 thiserror = "2"
 tokio = { version = "1.47", features = ["io-util", "net", "rt-multi-thread", "sync"] }
 triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }
@@ -56,7 +64,6 @@ schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git"
 
 [dev-dependencies]
 schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }
-signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main" }
 tempfile = "3"
 
 [lints.rust]

@@ -472,25 +472,23 @@ impl Query {
 
 impl TopicMatch {
     pub fn validate(&self) -> Result<(), ValidationError> {
-        let topics = self.topics();
-        if topics.is_empty() {
-            return Err(ValidationError::EmptyQueryTopic);
-        }
-        if topics.iter().any(|topic| topic.trim().is_empty()) {
-            return Err(ValidationError::EmptyQueryTopic);
-        }
-        Ok(())
-    }
-
-    pub fn topics(&self) -> &Topics {
         match self {
-            Self::Partial(partial) => partial,
-            Self::Full(full) => full,
+            Self::Any => Ok(()),
+            Self::Partial(topics) | Self::Full(topics) => {
+                if topics.is_empty() {
+                    return Err(ValidationError::EmptyQueryTopic);
+                }
+                if topics.iter().any(|topic| topic.trim().is_empty()) {
+                    return Err(ValidationError::EmptyQueryTopic);
+                }
+                Ok(())
+            }
         }
     }
 
     pub fn matches(&self, entry_topics: &Topics) -> bool {
         match self {
+            Self::Any => true,
             Self::Partial(partial) => partial
                 .iter()
                 .any(|topic| entry_topics.iter().any(|entry_topic| entry_topic == topic)),

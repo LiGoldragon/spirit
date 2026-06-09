@@ -75,6 +75,23 @@ fn entry_with_privacy(description: &str, privacy: Magnitude) -> Entry {
     }
 }
 
+fn record_identifier(code: &str) -> RecordIdentifier {
+    String::from(code)
+}
+
+fn assert_short_record_identifier(identifier: &RecordIdentifier) {
+    assert!(
+        (4..=7).contains(&identifier.len()),
+        "record identifier should use a four-to-seven-character code: {identifier}"
+    );
+    assert!(
+        identifier
+            .chars()
+            .all(|character| character.is_ascii_digit() || character.is_ascii_lowercase()),
+        "record identifier should be lower-base36: {identifier}"
+    );
+}
+
 fn query() -> Query {
     full_query(&["runtime-triad"], Some(Kind::Decision))
 }
@@ -269,7 +286,7 @@ fn nexus_runner_loop_routes_record_input_to_sema_write_command_then_back_to_repl
     assert_eq!(nexus_output.origin_route(), nexus_route(1));
     match nexus_output.root() {
         NexusAction::ReplyToSignal(Output::RecordAccepted(receipt)) => {
-            assert_eq!(receipt.record_identifier, 1);
+            assert_short_record_identifier(&receipt.record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 1);
         }
         other => panic!("expected ReplyToSignal(RecordAccepted), got {other:?}"),
@@ -288,7 +305,7 @@ fn nexus_runner_moves_sema_work_through_multi_thread_runtime_boundary() {
 
     match record_output.root() {
         NexusAction::ReplyToSignal(Output::RecordAccepted(receipt)) => {
-            assert_eq!(receipt.record_identifier, 1);
+            assert_short_record_identifier(&receipt.record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 1);
         }
         other => panic!("expected multi-thread RecordAccepted, got {other:?}"),
@@ -319,7 +336,7 @@ fn nexus_classifies_state_into_provisional_record_through_sema_write() {
 
     match nexus_output.root() {
         NexusAction::ReplyToSignal(Output::RecordAccepted(receipt)) => {
-            assert_eq!(receipt.record_identifier, 1);
+            assert_short_record_identifier(&receipt.record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 1);
         }
         other => panic!("expected State to classify into RecordAccepted, got {other:?}"),
@@ -347,15 +364,17 @@ fn nexus_classifies_state_into_provisional_record_through_sema_write() {
 fn nexus_change_certainty_is_visible_as_schema_declared_write_command() {
     let sema = SemaFile::new();
     let mut nexus = Nexus::new(sema.open_store());
-    let nexus_input = nexus_signal_arrived(input_change_certainty(1, Magnitude::Zero))
-        .with_origin_route(nexus_route(5));
+    let identifier = record_identifier("003g");
+    let nexus_input =
+        nexus_signal_arrived(input_change_certainty(identifier.clone(), Magnitude::Zero))
+            .with_origin_route(nexus_route(5));
 
     let first_action = NexusEngine::decide(&mut nexus, nexus_input);
 
     assert_eq!(first_action.origin_route(), nexus_route(5));
     match first_action.root() {
         NexusAction::CommandSemaWrite(CommandSemaWrite::ChangeCertainty(change)) => {
-            assert_eq!(change.record_identifier, 1);
+            assert_eq!(change.record_identifier, identifier);
             assert_eq!(change.certainty, Magnitude::Zero);
         }
         other => panic!(
@@ -368,16 +387,18 @@ fn nexus_change_certainty_is_visible_as_schema_declared_write_command() {
 fn nexus_change_record_is_visible_as_schema_declared_write_command() {
     let sema = SemaFile::new();
     let mut nexus = Nexus::new(sema.open_store());
+    let identifier = record_identifier("003g");
     let replacement = entry_with_topics(&["runtime-triad", "replacement"], "replacement record");
-    let nexus_input = nexus_signal_arrived(input_change_record(1, replacement.clone()))
-        .with_origin_route(nexus_route(6));
+    let nexus_input =
+        nexus_signal_arrived(input_change_record(identifier.clone(), replacement.clone()))
+            .with_origin_route(nexus_route(6));
 
     let first_action = NexusEngine::decide(&mut nexus, nexus_input);
 
     assert_eq!(first_action.origin_route(), nexus_route(6));
     match first_action.root() {
         NexusAction::CommandSemaWrite(CommandSemaWrite::ChangeRecord(change)) => {
-            assert_eq!(change.record_identifier, 1);
+            assert_eq!(change.record_identifier, identifier);
             assert_eq!(change.entry, replacement);
         }
         other => {
@@ -413,28 +434,38 @@ fn nexus_state_classification_is_visible_as_schema_declared_effect_command() {
 fn sema_engine_changes_certainty_without_changing_record_identifier() {
     let sema = SemaFile::new();
     let mut store = sema.open_store();
-    SemaEngine::apply(
+    let recorded = SemaEngine::apply(
         &mut store,
         sema_write_message(sema_record(entry("certainty target")), 1),
     );
+    let record_identifier = match recorded.into_root() {
+        SemaWriteOutput::Recorded(receipt) => receipt.record_identifier,
+        other => panic!("expected initial Recorded receipt, got {other:?}"),
+    };
 
     let changed = SemaEngine::apply(
         &mut store,
-        sema_write_message(sema_change_certainty(1, Magnitude::Zero), 2),
+        sema_write_message(
+            sema_change_certainty(record_identifier.clone(), Magnitude::Zero),
+            2,
+        ),
     );
     match changed.root() {
         SemaWriteOutput::CertaintyChanged(receipt) => {
-            assert_eq!(receipt.record_identifier, 1);
+            assert_eq!(receipt.record_identifier, record_identifier);
             assert_eq!(receipt.certainty, Magnitude::Zero);
             assert_eq!(receipt.database_marker.commit_sequence, 2);
         }
         other => panic!("expected CertaintyChanged receipt, got {other:?}"),
     }
 
-    let found = SemaEngine::observe(&store, sema_read_message(sema_lookup(1), 3));
+    let found = SemaEngine::observe(
+        &store,
+        sema_read_message(sema_lookup(record_identifier.clone()), 3),
+    );
     match found.root() {
         SemaReadOutput::Found(record) => {
-            assert_eq!(record.record_identifier, 1);
+            assert_eq!(record.record_identifier, record_identifier);
             assert_eq!(record.entry.description, "certainty target");
             assert_eq!(record.entry.magnitude, Magnitude::Zero);
         }
@@ -446,28 +477,38 @@ fn sema_engine_changes_certainty_without_changing_record_identifier() {
 fn sema_engine_changes_record_without_changing_record_identifier() {
     let sema = SemaFile::new();
     let mut store = sema.open_store();
-    SemaEngine::apply(
+    let recorded = SemaEngine::apply(
         &mut store,
         sema_write_message(sema_record(entry("original target")), 1),
     );
+    let record_identifier = match recorded.into_root() {
+        SemaWriteOutput::Recorded(receipt) => receipt.record_identifier,
+        other => panic!("expected initial Recorded receipt, got {other:?}"),
+    };
 
     let replacement = entry_with_topics(&["runtime-triad", "replacement"], "replacement target");
     let changed = SemaEngine::apply(
         &mut store,
-        sema_write_message(sema_change_record(1, replacement.clone()), 2),
+        sema_write_message(
+            sema_change_record(record_identifier.clone(), replacement.clone()),
+            2,
+        ),
     );
     match changed.root() {
         SemaWriteOutput::RecordChanged(receipt) => {
-            assert_eq!(receipt.record_identifier, 1);
+            assert_eq!(receipt.record_identifier, record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 2);
         }
         other => panic!("expected RecordChanged receipt, got {other:?}"),
     }
 
-    let found = SemaEngine::observe(&store, sema_read_message(sema_lookup(1), 3));
+    let found = SemaEngine::observe(
+        &store,
+        sema_read_message(sema_lookup(record_identifier.clone()), 3),
+    );
     match found.root() {
         SemaReadOutput::Found(record) => {
-            assert_eq!(record.record_identifier, 1);
+            assert_eq!(record.record_identifier, record_identifier);
             assert_eq!(record.entry, replacement);
         }
         other => panic!("expected changed record lookup, got {other:?}"),
@@ -550,7 +591,7 @@ fn sema_engine_writes_durable_records_and_returns_schema_objects() {
     assert_eq!(response.origin_route(), sema_route(1));
     match response.root() {
         SemaWriteOutput::Recorded(receipt) => {
-            assert_eq!(receipt.record_identifier, 1);
+            assert_short_record_identifier(&receipt.record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 1);
             assert_ne!(
                 receipt.database_marker.state_digest, 0,
@@ -575,7 +616,7 @@ fn engine_lifecycle_runs_generated_trait_hooks_without_actor_mailboxes() {
 
     match output.root() {
         Output::RecordAccepted(receipt) => {
-            assert_eq!(receipt.record_identifier, 1);
+            assert_short_record_identifier(&receipt.record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 1);
         }
         other => panic!("expected lifecycle-wrapped engine to accept record, got {other:?}"),
@@ -594,7 +635,7 @@ fn nexus_engine_trait_runs_nexus_decision_through_sema_state() {
     assert_eq!(nexus_output.origin_route(), nexus_route(20));
     match nexus_output.root() {
         NexusAction::ReplyToSignal(Output::RecordAccepted(receipt)) => {
-            assert_eq!(receipt.record_identifier, 1);
+            assert_short_record_identifier(&receipt.record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 1);
         }
         other => panic!("expected NexusEngine to return a Signal reply root, got {other:?}"),
@@ -626,7 +667,7 @@ fn signal_engine_trait_triages_signal_roots_to_nexus_and_back() {
     assert_eq!(signal_output.origin_route(), route(21));
     match signal_output.root() {
         Output::RecordAccepted(receipt) => {
-            assert_eq!(receipt.record_identifier, 1);
+            assert_short_record_identifier(&receipt.record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 1);
         }
         other => panic!("expected SignalEngine to return a Signal output root, got {other:?}"),
@@ -676,7 +717,7 @@ fn sema_store_persists_records_across_reopen_of_the_same_sema_file() {
     );
     match after.root() {
         SemaWriteOutput::Recorded(receipt) => {
-            assert_eq!(receipt.record_identifier, 3);
+            assert_short_record_identifier(&receipt.record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 3);
         }
         other => panic!("expected Recorded after reopen, got {other:?}"),
@@ -806,25 +847,37 @@ fn sema_engine_queries_privacy_as_directional_magnitude() {
 fn sema_engine_lookup_and_count_are_read_plane_operations() {
     let sema = SemaFile::new();
     let mut store = sema.open_store();
-    SemaEngine::apply(
+    let first = SemaEngine::apply(
         &mut store,
         sema_write_message(
             sema_record(entry_with_topics(&["runtime-triad", "schema"], "first")),
             1,
         ),
     );
-    SemaEngine::apply(
+    let first_identifier = match first.into_root() {
+        SemaWriteOutput::Recorded(receipt) => receipt.record_identifier,
+        other => panic!("expected first Recorded receipt, got {other:?}"),
+    };
+    let second = SemaEngine::apply(
         &mut store,
         sema_write_message(
             sema_record(entry_with_topics(&["runtime-triad"], "second")),
             2,
         ),
     );
+    let second_identifier = match second.into_root() {
+        SemaWriteOutput::Recorded(receipt) => receipt.record_identifier,
+        other => panic!("expected second Recorded receipt, got {other:?}"),
+    };
+    assert_ne!(first_identifier, second_identifier);
 
-    let found = SemaEngine::observe(&store, sema_read_message(sema_lookup(2), 3));
+    let found = SemaEngine::observe(
+        &store,
+        sema_read_message(sema_lookup(second_identifier.clone()), 3),
+    );
     match found.root() {
         SemaReadOutput::Found(record) => {
-            assert_eq!(record.record_identifier, 2);
+            assert_eq!(record.record_identifier, second_identifier);
             assert_eq!(record.entry.description, "second");
             assert_eq!(record.database_marker.commit_sequence, 2);
         }
@@ -883,15 +936,22 @@ fn sema_engine_observes_through_shared_reference_for_parallel_readers() {
 fn sema_engine_removes_records_and_advances_database_work_marker() {
     let sema = SemaFile::new();
     let mut store = sema.open_store();
-    SemaEngine::apply(
+    let recorded = SemaEngine::apply(
         &mut store,
         sema_write_message(sema_record(entry("remove target")), 1),
     );
+    let record_identifier = match recorded.into_root() {
+        SemaWriteOutput::Recorded(receipt) => receipt.record_identifier,
+        other => panic!("expected initial Recorded receipt, got {other:?}"),
+    };
 
-    let removed = SemaEngine::apply(&mut store, sema_write_message(sema_remove(1), 2));
+    let removed = SemaEngine::apply(
+        &mut store,
+        sema_write_message(sema_remove(record_identifier.clone()), 2),
+    );
     let removed_marker = match removed.root() {
         SemaWriteOutput::Removed(receipt) => {
-            assert_eq!(receipt.record_identifier, 1);
+            assert_eq!(receipt.record_identifier, record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 2);
             receipt.database_marker.clone()
         }
@@ -916,7 +976,7 @@ fn nexus_runs_sema_while_holding_mail_then_replies_through_schema_objects() {
     assert_eq!(recorded.origin_route(), route(1));
     match recorded.root() {
         Output::RecordAccepted(receipt) => {
-            assert_eq!(receipt.record_identifier, 1);
+            assert_short_record_identifier(&receipt.record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 1);
         }
         other => panic!("expected RecordAccepted, got {other:?}"),
@@ -1025,7 +1085,7 @@ fn nexus_and_sema_have_explicit_input_output_languages() {
 
     // Standalone SEMA completion fact also routes back to the right reply.
     let sema_output = SemaWriteOutput::recorded(SemaReceipt {
-        record_identifier: 3,
+        record_identifier: record_identifier("003g"),
         database_marker: DatabaseMarker {
             commit_sequence: 4,
             state_digest: 127,
@@ -1076,7 +1136,7 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
     assert_eq!(recorded.origin_route(), route(1));
     let record_marker = match recorded.root() {
         Output::RecordAccepted(receipt) => {
-            assert_eq!(receipt.record_identifier, 1);
+            assert_short_record_identifier(&receipt.record_identifier);
             receipt.database_marker.clone()
         }
         other => panic!("expected RecordAccepted, got {other:?}"),
@@ -1147,19 +1207,23 @@ fn full_runtime_triad_looks_up_and_counts_through_signal_nexus_and_sema() {
     let sema = SemaFile::new();
     let mut engine = sema.engine();
 
-    engine.handle(input_record(entry_with_topics(
+    let first = engine.handle(input_record(entry_with_topics(
         &["runtime-triad", "schema"],
         "lookup one",
     )));
+    let first_identifier = match first.into_root() {
+        Output::RecordAccepted(receipt) => receipt.record_identifier,
+        other => panic!("expected first RecordAccepted, got {other:?}"),
+    };
     engine.handle(input_record(entry_with_topics(
         &["runtime-triad"],
         "lookup two",
     )));
 
-    let found = engine.handle(input_lookup(1));
+    let found = engine.handle(input_lookup(first_identifier.clone()));
     match found.root() {
         Output::RecordFound(record) => {
-            assert_eq!(record.record_identifier, 1);
+            assert_eq!(record.record_identifier, first_identifier);
             assert_eq!(record.entry.description, "lookup one");
             assert_eq!(record.database_marker.commit_sequence, 2);
         }

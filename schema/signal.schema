@@ -43,7 +43,7 @@
   Description String
   StatementText String
   ErrorMessage String
-  RecordIdentifier Integer
+  RecordIdentifier String
   CommitSequence Integer
   StateDigest Integer
   RecordCount Integer
@@ -72,7 +72,7 @@
   Sent SentMail
   Processed ProcessedMail
 
-  TopicMatch [(Partial Partial) (Full Full)]
+  TopicMatch [Any (Partial Partial) (Full Full)]
   Partial Topics
   Full Topics
   Privacy Magnitude

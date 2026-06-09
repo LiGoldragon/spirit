@@ -49,11 +49,10 @@ and normalizes it to the generated input before binary framing.
 `Input::ChangeRecord(RecordChange)` replaces a stored entry under the same
 identifier. Nexus exposes both operations as schema-declared
 `CommandSemaWrite(ChangeCertainty)` and `CommandSemaWrite(ChangeRecord)` objects
-instead of hidden branches. SEMA applies both with
-`sema-engine::Engine::mutate_identified`, preserving the existing
-`RecordIdentifier`; certainty changes mutate only the stored entry's
-certainty/magnitude, while record changes replace the full stored `Entry`.
-Replies carry `CertaintyChangeReceipt` or `RecordChangeReceipt` with the updated
+instead of hidden branches. SEMA applies both as keyed mutations, preserving
+the existing `RecordIdentifier`; certainty changes mutate only the stored
+entry's certainty/magnitude, while record changes replace the full stored
+`Entry`. Replies carry `CertaintyChangeReceipt` or `RecordChangeReceipt` with the updated
 database marker.
 
 *Nexus is the recursive runner payload keeper and the internal feature catalog.*
@@ -89,7 +88,7 @@ subscription registry / retained writer plumbing. Spirit owns only binary
 configuration decoding, engine construction, one working-input hook, the
 owner-only meta request hook, and stream filter/event policy.
 
-*SEMA is durable.* `Store` maps generated SEMA roots onto `sema-engine` identified-record operations over a `.sema` file. Each `Record` calls `Engine::assert_identified`, each `ChangeCertainty` and `ChangeRecord` call `Engine::mutate_identified`, each `Remove` calls `Engine::retract_identified`, and `Observe`/`Lookup`/`Count` read through `Engine::match_identified`. SEMA replies carry generated `DatabaseMarker` values so Signal replies report the state commit sequence and digest.
+*SEMA is durable.* `Store` maps generated SEMA roots onto `sema-engine` keyed-record operations over a `.sema` file. Record identifiers are production-compatible short/base36 string keys, not sequential numeric counters; migration imports production identifiers unchanged, and fresh records mint unused short keys. Each `Record` asserts a keyed `StoredRecord`, each `ChangeCertainty` and `ChangeRecord` mutates the same key, each `Remove` retracts that key, and `Observe`/`Lookup`/`Count` read through sema-engine query plans. SEMA replies carry generated `DatabaseMarker` values so Signal replies report the state commit sequence and digest.
 
 *The daemon's single argument is a path to a binary rkyv `Configuration` object.* Text-facing launchers may create that file, but the daemon startup path only decodes binary state.
 

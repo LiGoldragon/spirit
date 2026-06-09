@@ -323,7 +323,7 @@ impl Nexus {
     ) -> Result<Option<IntentEvent>, StoreError> {
         Ok(self
             .store
-            .entry_by_identifier(receipt.record_identifier)?
+            .entry_by_identifier(&receipt.record_identifier)?
             .map(|entry| {
                 IntentEvent::intent_recorded(IntentRecorded {
                     entry,

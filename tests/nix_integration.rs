@@ -108,6 +108,23 @@ use spirit::{
 };
 use tempfile::TempDir;
 
+fn assert_short_record_identifier(identifier: &str) {
+    assert!(
+        (4..=7).contains(&identifier.len()),
+        "record identifier should use a four-to-seven-character code: {identifier}"
+    );
+    assert!(
+        identifier
+            .chars()
+            .all(|character| character.is_ascii_digit() || character.is_ascii_lowercase()),
+        "record identifier should be lower-base36: {identifier}"
+    );
+}
+
+fn record_identifier_argument(identifier: &str) -> String {
+    format!("[{identifier}]")
+}
+
 // ---------------------------------------------------------------------------
 // Nix-build harness: locate the schema-driven binaries.
 // ---------------------------------------------------------------------------
@@ -427,7 +444,7 @@ fn nix_built_spirit_cli_records_through_real_socket_to_nix_built_daemon() {
             record_identifier,
             database_marker,
         }) => {
-            assert_eq!(record_identifier, 1);
+            assert_short_record_identifier(&record_identifier);
             assert_eq!(database_marker.commit_sequence, 1);
         }
         other => panic!("expected schema-emitted RecordAccepted, got {other:?}"),
@@ -653,7 +670,11 @@ fn nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant()
         daemon.socket(),
         "(Record ([[nix-integration]] Decision [variant tour] Maximum Zero))",
     );
-    assert!(matches!(recorded, Output::RecordAccepted(_)));
+    let recorded_identifier = match &recorded {
+        Output::RecordAccepted(receipt) => receipt.record_identifier.clone(),
+        other => panic!("expected RecordAccepted, got {other:?}"),
+    };
+    assert_short_record_identifier(&recorded_identifier);
     assert_eq!(
         recorded.route(),
         OutputRoute::RecordAccepted,
@@ -661,7 +682,14 @@ fn nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant()
     );
 
     // Variant 2: RecordRemoved.
-    let removed = run_cli_for_output(&binaries, daemon.socket(), "(Remove 1)");
+    let removed = run_cli_for_output(
+        &binaries,
+        daemon.socket(),
+        &format!(
+            "(Remove {})",
+            record_identifier_argument(&recorded_identifier)
+        ),
+    );
     assert!(matches!(removed, Output::RecordRemoved(_)));
     assert_eq!(removed.route(), OutputRoute::RecordRemoved);
 
@@ -670,10 +698,21 @@ fn nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant()
         daemon.socket(),
         "(Record ([[nix-integration]] Decision [variant tour] Maximum Zero))",
     );
-    assert!(matches!(rerecorded, Output::RecordAccepted(_)));
+    let rerecorded_identifier = match &rerecorded {
+        Output::RecordAccepted(receipt) => receipt.record_identifier.clone(),
+        other => panic!("expected second RecordAccepted, got {other:?}"),
+    };
+    assert_short_record_identifier(&rerecorded_identifier);
 
     // Variant 3: CertaintyChanged.
-    let changed = run_cli_for_output(&binaries, daemon.socket(), "(ChangeCertainty (2 Zero))");
+    let changed = run_cli_for_output(
+        &binaries,
+        daemon.socket(),
+        &format!(
+            "(ChangeCertainty ({} Zero))",
+            record_identifier_argument(&rerecorded_identifier)
+        ),
+    );
     assert!(matches!(changed, Output::CertaintyChanged(_)));
     assert_eq!(changed.route(), OutputRoute::CertaintyChanged);
 

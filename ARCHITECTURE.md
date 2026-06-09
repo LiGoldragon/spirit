@@ -334,12 +334,11 @@ daemon never opens SEMA directly to publish events.
 `ChangeCertainty` and `ChangeRecord` are production mutation parity slices.
 Signal admits the generated `CertaintyChange` or `RecordChange` payload. Nexus
 emits the schema-declared `CommandSemaWrite(ChangeCertainty(...))` or
-`CommandSemaWrite(ChangeRecord(...))`. SEMA looks up the identified record and
-writes back through `Engine::mutate_identified`; certainty changes mutate only
-the stored entry's `Magnitude` through the `Certainty` alias, while record
-changes replace the full stored `Entry` under the same `RecordIdentifier`. The
-reply is `CertaintyChangeReceipt` or `RecordChangeReceipt` with a new database
-marker.
+`CommandSemaWrite(ChangeRecord(...))`. SEMA looks up the keyed record and
+writes back through a keyed mutation; certainty changes mutate only the stored
+entry's `Magnitude` through the `Certainty` alias, while record changes replace
+the full stored `Entry` under the same `RecordIdentifier`. The reply is
+`CertaintyChangeReceipt` or `RecordChangeReceipt` with a new database marker.
 
 `CollectRemovalCandidates` is the peer-callable archiving operation ported from
 old persona-spirit. Signal admits a `RemovalCandidateCollection { RecordQuery }`
@@ -379,24 +378,25 @@ durable state to the component database file (records 1007/1008). The store
 uses `sema-engine` over a `*.sema` file:
 
 - `Store::open(path)` creates or opens the `.sema` file through
-  `sema_engine::Engine` and registers the identified `records` family.
+  `sema_engine::Engine` and registers the keyed `records` table.
 - `SemaEngine::apply(sema::Sema<sema::WriteInput>) ->
   sema::Sema<sema::WriteOutput>` is the mutation surface. A `Record` becomes
-  `Engine::assert_identified`, so sema-engine allocates the numeric
+  a keyed assertion: Spirit mints an unused short/base36 string
   `RecordIdentifier`, persists the `Entry`, and advances the durable
-  `CommitSequence`. A `ChangeCertainty` becomes
-  `Engine::mutate_identified`, preserving the numeric identifier while
-  replacing the stored `Entry` value and advancing the durable sequence once.
-  A `Remove` becomes `Engine::retract_identified`, deleting the identified
-  record and advancing the same durable sequence when a record was present.
+  `CommitSequence`. A production migration can instead import a copied
+  production identifier unchanged. `ChangeCertainty` and `ChangeRecord` mutate
+  the stored `Entry` at that same key and advance the durable sequence once. A
+  `Remove` retracts that key and advances the same durable sequence when a
+  record was present.
 - `SemaEngine::observe(sema::Sema<sema::ReadInput>) ->
   sema::Sema<sema::ReadOutput>` is the read surface. `Observe(Query)` reads
-  identified records through sema-engine and applies Spirit's schema-specific
-  topic/kind/privacy predicate, `Lookup(RecordIdentifier)` uses
-  `IdentifiedQueryPlan::identifier`, and `Count(Query)` returns the number of
-  matching records without mutating state. The `&self` receiver lets parallel
-  readers share the store reference; `tests/runtime_triad.rs` has a
-  scoped-thread witness for this shape.
+  keyed records through sema-engine and applies Spirit's schema-specific
+  topic/kind/privacy predicate, `Lookup(RecordIdentifier)` uses a key query,
+  and `Count(Query)` returns the number of matching records without mutating
+  state. `TopicMatch::Any` is the all-record query used by the production
+  migration sandbox witness. The `&self` receiver lets parallel readers share
+  the store reference; `tests/runtime_triad.rs` has a scoped-thread witness for
+  this shape.
 - Entries carry `Topics`, a generated vector alias, plus generated
   `Privacy`. Privacy is a directional `Magnitude`: `Zero` is open/public, and
   higher magnitudes narrow the intended audience. Queries carry
@@ -422,7 +422,7 @@ mail.
 The database lifecycle is owned by sema-engine. The daemon opens one `Store`
 for the process and shares it behind the `Nexus` mutex; `Store` owns the
 schema-specific SEMA mapping, while sema-engine owns the database handle,
-identified table, durable counters, and commit log.
+typed table, durable counters, and commit log.
 
 ### Reuse
 
@@ -500,7 +500,7 @@ attaches behavior to those nouns or to state-owning runtime objects:
   `SemaEngine::apply`, writing the durable `.sema` database through
   sema-engine.
 - `sema::Sema<sema::ReadInput>` is observed by `Store` through generated
-  `SemaEngine::observe`, reading identified records through sema-engine.
+  `SemaEngine::observe`, reading keyed records through sema-engine.
 - `sema::Sema<sema::WriteOutput>` or `sema::Sema<sema::ReadOutput>` becomes
   `nexus::Work::SemaWriteCompleted` or `nexus::Work::SemaReadCompleted`, then generated
   `signal::Signal<signal::Output>` carrying a `DatabaseMarker`.

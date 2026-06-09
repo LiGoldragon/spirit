@@ -38,7 +38,7 @@ fn generated_input_surface_owns_route_header_and_rkyv_frame() {
 #[test]
 fn generated_output_surface_owns_route_header_and_rkyv_frame() {
     let output = Output::record_accepted(SemaReceipt {
-        record_identifier: 7,
+        record_identifier: String::from("003g"),
         database_marker: marker(3, 97),
     });
 
@@ -67,7 +67,7 @@ fn generated_state_input_surface_owns_route_header_and_rkyv_frame() {
 #[test]
 fn generated_change_certainty_surface_owns_route_header_and_rkyv_frame() {
     let input = Input::change_certainty(CertaintyChange {
-        record_identifier: 7,
+        record_identifier: String::from("003g"),
         certainty: Magnitude::Zero,
     });
 
@@ -83,7 +83,7 @@ fn generated_change_certainty_surface_owns_route_header_and_rkyv_frame() {
 #[test]
 fn generated_certainty_changed_output_owns_route_header_and_rkyv_frame() {
     let output = Output::certainty_changed(CertaintyChangeReceipt {
-        record_identifier: 7,
+        record_identifier: String::from("003g"),
         certainty: Magnitude::Zero,
         database_marker: marker(4, 101),
     });
@@ -107,7 +107,7 @@ fn generated_record_change_surface_owns_route_header_and_rkyv_frame() {
         privacy: Magnitude::Zero,
     };
     let input = Input::change_record(RecordChange {
-        record_identifier: 7,
+        record_identifier: String::from("003g"),
         entry: replacement,
     });
 
@@ -123,7 +123,7 @@ fn generated_record_change_surface_owns_route_header_and_rkyv_frame() {
 #[test]
 fn generated_record_changed_output_owns_route_header_and_rkyv_frame() {
     let output = Output::record_changed(RecordChangeReceipt {
-        record_identifier: 7,
+        record_identifier: String::from("003g"),
         database_marker: marker(4, 101),
     });
 
@@ -147,7 +147,7 @@ fn generated_streaming_surface_owns_subscription_event_frames() {
             privacy: Magnitude::Zero,
         },
         sema_receipt: SemaReceipt {
-            record_identifier: 7,
+            record_identifier: String::from("003g"),
             database_marker: marker(3, 97),
         },
     });
@@ -195,31 +195,31 @@ fn generated_state_input_round_trips_the_canonical_newtype_shape() {
 #[cfg(feature = "nota-text")]
 #[test]
 fn generated_change_certainty_round_trips_the_canonical_shape() {
-    let input = "(ChangeCertainty (7 Zero))"
+    let input = "(ChangeCertainty ([003g] Zero))"
         .parse::<Input>()
         .expect("parse change certainty input");
 
     assert_eq!(
         input,
         Input::change_certainty(CertaintyChange {
-            record_identifier: 7,
+            record_identifier: String::from("003g"),
             certainty: Magnitude::Zero,
         })
     );
-    assert_eq!(input.to_string(), "(ChangeCertainty (7 Zero))");
+    assert_eq!(input.to_string(), "(ChangeCertainty ([003g] Zero))");
 }
 
 #[cfg(feature = "nota-text")]
 #[test]
 fn generated_change_record_round_trips_the_canonical_shape() {
-    let input = "(ChangeRecord (7 ([[schema mutation]] Correction [replacement] High Zero)))"
+    let input = "(ChangeRecord ([003g] ([[schema mutation]] Correction [replacement] High Zero)))"
         .parse::<Input>()
         .expect("parse change record input");
 
     assert_eq!(
         input,
         Input::change_record(RecordChange {
-            record_identifier: 7,
+            record_identifier: String::from("003g"),
             entry: Entry {
                 topics: vec![String::from("schema mutation")],
                 kind: Kind::Correction,
@@ -231,8 +231,31 @@ fn generated_change_record_round_trips_the_canonical_shape() {
     );
     assert_eq!(
         input.to_string(),
-        "(ChangeRecord (7 ([[schema mutation]] Correction [replacement] High Zero)))"
+        "(ChangeRecord ([003g] ([[schema mutation]] Correction [replacement] High Zero)))"
     );
+}
+
+#[cfg(feature = "nota-text")]
+#[test]
+fn generated_record_input_renders_bracket_bearing_strings_losslessly() {
+    let description = String::from("text contains [brackets] and the pipe close marker |]");
+    let input = Input::record(Entry {
+        topics: vec![String::from("schema replay")],
+        kind: Kind::Correction,
+        description: description.clone(),
+        magnitude: Magnitude::High,
+        privacy: Magnitude::Zero,
+    });
+    let rendered = input.to_string();
+
+    assert_eq!(
+        rendered,
+        "(Record ([[schema replay]] Correction [||text contains [brackets] and the pipe close marker |]||] High Zero))"
+    );
+    let reparsed = rendered
+        .parse::<Input>()
+        .expect("generated Input should parse its own bracket-safe NOTA");
+    assert_eq!(reparsed, input);
 }
 
 #[test]

@@ -31,6 +31,8 @@ pub mod engine;
 pub mod meta_transport;
 pub mod nexus;
 mod plane;
+#[cfg(feature = "production-migration")]
+pub mod production_migration;
 pub mod store;
 pub mod subscription;
 #[cfg(feature = "testing-trace")]
@@ -58,6 +60,11 @@ pub use meta_transport::{
     MetaFrameError, MetaInputRoute, MetaOutputRoute, MetaSignalTransport, MetaTransportError,
 };
 pub use nexus::{Nexus, StashTable};
+#[cfg(feature = "production-migration")]
+pub use production_migration::{
+    ProductionMigration, ProductionMigrationCompleted, ProductionMigrationError,
+    ProductionMigrationOutput, ProductionMigrationRequest,
+};
 pub use schema::daemon::{ComponentDaemon, DaemonCommand, DaemonEntry, DaemonError, ListenerTier};
 pub use store::{Store, StoreError};
 #[cfg(feature = "testing-trace")]

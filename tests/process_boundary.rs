@@ -13,7 +13,7 @@ use std::{
 use spirit::TraceEvent;
 use spirit::{
     Configuration,
-    schema::signal::{IntentEvent, Kind, Magnitude, Output},
+    schema::signal::{IntentEvent, Kind, Magnitude, Output, RecordIdentifier},
 };
 use tempfile::TempDir;
 
@@ -169,6 +169,23 @@ fn run_cli(socket_path: &Path, nota_argument: &str) -> Output {
     })
 }
 
+fn assert_short_record_identifier(identifier: &RecordIdentifier) {
+    assert!(
+        (4..=7).contains(&identifier.len()),
+        "record identifier should use a four-to-seven-character code: {identifier}"
+    );
+    assert!(
+        identifier
+            .chars()
+            .all(|character| character.is_ascii_digit() || character.is_ascii_lowercase()),
+        "record identifier should be lower-base36: {identifier}"
+    );
+}
+
+fn record_identifier_argument(identifier: &RecordIdentifier) -> String {
+    format!("[{identifier}]")
+}
+
 #[cfg(feature = "testing-trace")]
 #[derive(Debug)]
 struct TraceCliOutput {
@@ -260,13 +277,14 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
         &socket_path,
         "(Record ([[schema]] Constraint [schema creates the interface] Maximum Zero))",
     );
-    match recorded {
+    let record_identifier = match recorded {
         Output::RecordAccepted(receipt) => {
-            assert_eq!(receipt.record_identifier, 1);
+            assert_short_record_identifier(&receipt.record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 1);
+            receipt.record_identifier
         }
         other => panic!("expected RecordAccepted, got {other:?}"),
-    }
+    };
 
     let observed = run_cli(
         &socket_path,
@@ -279,7 +297,13 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
         "the daemon stashes the observed records and returns a slim handle, got {observed:?}"
     );
 
-    let removed = run_cli(&socket_path, "(Remove 1)");
+    let removed = run_cli(
+        &socket_path,
+        &format!(
+            "(Remove {})",
+            record_identifier_argument(&record_identifier)
+        ),
+    );
     assert!(
         matches!(removed, Output::RecordRemoved(_)),
         "the daemon removes the recorded entry, got {removed:?}"
@@ -364,7 +388,7 @@ fn cli_and_daemon_classify_state_into_provisional_record() {
     let accepted = run_cli(&socket_path, "(State ([daemon raw intent]))");
     match accepted {
         Output::RecordAccepted(receipt) => {
-            assert_eq!(receipt.record_identifier, 1);
+            assert_short_record_identifier(&receipt.record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 1);
         }
         other => panic!("expected State to classify into RecordAccepted, got {other:?}"),
@@ -411,28 +435,41 @@ fn cli_and_daemon_change_certainty_without_changing_record_identifier() {
         &socket_path,
         "(Record ([[schema]] Correction [certainty target] Maximum Zero))",
     );
-    match accepted {
+    let record_identifier = match accepted {
         Output::RecordAccepted(receipt) => {
-            assert_eq!(receipt.record_identifier, 1);
+            assert_short_record_identifier(&receipt.record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 1);
+            receipt.record_identifier
         }
         other => panic!("expected RecordAccepted before certainty change, got {other:?}"),
-    }
+    };
 
-    let changed = run_cli(&socket_path, "(ChangeCertainty (1 Zero))");
+    let changed = run_cli(
+        &socket_path,
+        &format!(
+            "(ChangeCertainty ({} Zero))",
+            record_identifier_argument(&record_identifier)
+        ),
+    );
     match changed {
         Output::CertaintyChanged(receipt) => {
-            assert_eq!(receipt.record_identifier, 1);
+            assert_eq!(receipt.record_identifier, record_identifier);
             assert_eq!(receipt.certainty, Magnitude::Zero);
             assert_eq!(receipt.database_marker.commit_sequence, 2);
         }
         other => panic!("expected CertaintyChanged, got {other:?}"),
     }
 
-    let found = run_cli(&socket_path, "(Lookup 1)");
+    let found = run_cli(
+        &socket_path,
+        &format!(
+            "(Lookup {})",
+            record_identifier_argument(&record_identifier)
+        ),
+    );
     match found {
         Output::RecordFound(record) => {
-            assert_eq!(record.record_identifier, 1);
+            assert_eq!(record.record_identifier, record_identifier);
             assert_eq!(record.entry.description, "certainty target");
             assert_eq!(record.entry.magnitude, Magnitude::Zero);
         }
@@ -452,30 +489,40 @@ fn cli_and_daemon_change_record_replaces_entry_under_same_identifier() {
         &socket_path,
         "(Record ([[schema]] Decision [original record] Maximum Zero))",
     );
-    match accepted {
+    let record_identifier = match accepted {
         Output::RecordAccepted(receipt) => {
-            assert_eq!(receipt.record_identifier, 1);
+            assert_short_record_identifier(&receipt.record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 1);
+            receipt.record_identifier
         }
         other => panic!("expected RecordAccepted before record change, got {other:?}"),
-    }
+    };
 
     let changed = run_cli(
         &socket_path,
-        "(ChangeRecord (1 ([[schema mutation]] Correction [replacement record] High Zero)))",
+        &format!(
+            "(ChangeRecord ({} ([[schema mutation]] Correction [replacement record] High Zero)))",
+            record_identifier_argument(&record_identifier)
+        ),
     );
     match changed {
         Output::RecordChanged(receipt) => {
-            assert_eq!(receipt.record_identifier, 1);
+            assert_eq!(receipt.record_identifier, record_identifier);
             assert_eq!(receipt.database_marker.commit_sequence, 2);
         }
         other => panic!("expected RecordChanged, got {other:?}"),
     }
 
-    let found = run_cli(&socket_path, "(Lookup 1)");
+    let found = run_cli(
+        &socket_path,
+        &format!(
+            "(Lookup {})",
+            record_identifier_argument(&record_identifier)
+        ),
+    );
     match found {
         Output::RecordFound(record) => {
-            assert_eq!(record.record_identifier, 1);
+            assert_eq!(record.record_identifier, record_identifier);
             assert_eq!(record.entry.topics, vec![String::from("schema mutation")]);
             assert_eq!(record.entry.kind, Kind::Correction);
             assert_eq!(record.entry.description, "replacement record");
@@ -539,15 +586,18 @@ fn cli_renders_alias_payload_outputs_without_wrapper_repetition() {
     );
     let recorded_stdout = String::from_utf8(recorded.stdout).expect("cli stdout is UTF-8");
     assert!(
-        recorded_stdout.trim().starts_with("(RecordAccepted (1 (1 "),
+        recorded_stdout.trim().starts_with("(RecordAccepted (["),
         "RecordAccepted aliases must render the direct SemaReceipt payload, got {recorded_stdout:?}"
     );
     let recorded_output = Output::from_str(recorded_stdout.trim())
         .unwrap_or_else(|error| panic!("schema-emitted Output::FromStr on record stdout: {error}"));
-    assert!(
-        matches!(recorded_output, Output::RecordAccepted(_)),
-        "parsed record reply should be direct Output::RecordAccepted payload"
-    );
+    match recorded_output {
+        Output::RecordAccepted(receipt) => {
+            assert_short_record_identifier(&receipt.record_identifier);
+            assert_eq!(receipt.database_marker.commit_sequence, 1);
+        }
+        other => panic!("parsed record reply should be direct RecordAccepted payload: {other:?}"),
+    }
 }
 
 #[test]
@@ -646,7 +696,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
         );
         match recorded {
             Output::RecordAccepted(receipt) => {
-                assert_eq!(receipt.record_identifier, 1);
+                assert_short_record_identifier(&receipt.record_identifier);
                 assert_eq!(receipt.database_marker.commit_sequence, 1);
             }
             other => panic!("expected production seed record, got {other:?}"),
@@ -690,8 +740,8 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
         assert_eq!(
             stashed_descriptions(&socket_path, candidate_observed),
             vec![
-                String::from("production entry before copy"),
                 String::from("candidate-only entry after copy"),
+                String::from("production entry before copy"),
             ],
             "candidate writes land only in the copied database"
         );
@@ -793,11 +843,15 @@ fn stashed_descriptions(socket_path: &Path, output: Output) -> Vec<String> {
     };
     let resolved = run_cli(socket_path, &format!("(LookupStash {})", stash_handle));
     match resolved {
-        Output::RecordsObserved(records) => records
-            .record_set
-            .into_iter()
-            .map(|entry| entry.description)
-            .collect(),
+        Output::RecordsObserved(records) => {
+            let mut descriptions: Vec<String> = records
+                .record_set
+                .into_iter()
+                .map(|entry| entry.description)
+                .collect();
+            descriptions.sort();
+            descriptions
+        }
         other => panic!("expected RecordsObserved from LookupStash, got {other:?}"),
     }
 }
