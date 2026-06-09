@@ -1,4 +1,4 @@
-use spirit::{Configuration, DaemonCommand, DaemonError, SpiritDaemon};
+use spirit::{DaemonCommand, DaemonError, SpiritDaemon, schema::signal::Configuration};
 use triad_runtime::ArgumentError;
 
 struct TemporaryConfiguration {

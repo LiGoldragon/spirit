@@ -47,6 +47,11 @@ name = "instrumentation_logging"
 path = "tests/instrumentation_logging.rs"
 required-features = ["testing-trace"]
 
+[[test]]
+name = "production_database_sandbox"
+path = "tests/production_database_sandbox.rs"
+required-features = ["production-migration"]
+
 [dependencies]
 nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }
 rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }

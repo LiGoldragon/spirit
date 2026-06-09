@@ -616,6 +616,19 @@ pub enum Magnitude {
 }
 
 #[rustfmt::skip]
+pub type ConfigurationPath = String;
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Configuration {
+    pub socket_path: ConfigurationPath,
+    pub meta_socket_path: Option<ConfigurationPath>,
+    pub database_path: ConfigurationPath,
+    pub trace_socket_path: Option<ConfigurationPath>,
+}
+
+#[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum Input {
@@ -1314,6 +1327,17 @@ impl Magnitude {
     }
     pub fn to_nota(self) -> String {
         <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Configuration {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
     }
 }
 

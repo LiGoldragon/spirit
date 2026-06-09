@@ -1,42 +1,29 @@
+//! Daemon-side behaviour for the schema-emitted `Configuration`.
+//!
+//! The `Configuration` data type is emitted from `schema/signal.schema` into
+//! `crate::schema::signal` — the daemon owns its contract surface locally rather
+//! than depending on the `signal-spirit` contract crate (see the crate docs).
+//! This module attaches the runtime behaviour to that emitted type: constructors
+//! for launchers and tests, path accessors, the binary rkyv read/write the
+//! daemon decodes from its single startup argument, and the
+//! `triad_runtime::BindingSurface` impl the emitted daemon spine reads to bind
+//! listeners and open the store. No NOTA is linked here — the daemon stays
+//! binary-only; the emitted type's `nota-text` surface is opt-in for text
+//! clients only.
+
 use std::{fs, path::Path};
 
 use thiserror::Error;
 use triad_runtime::BindingSurface;
 
-/// Daemon configuration loaded from a binary rkyv file.
-///
-/// The daemon intentionally does not decode NOTA at startup. Text-facing
-/// launchers or tests can produce this binary object, but the daemon itself
-/// only receives the binary configuration path. The meta socket is stored as
-/// an `Option` because the shared daemon trait exposes that shape; Spirit's
-/// generated daemon rejects `None` before serving.
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, Eq, PartialEq)]
-pub struct Configuration {
-    socket_path: ConfigurationPath,
-    meta_socket_path: Option<ConfigurationPath>,
-    database_path: ConfigurationPath,
-    trace_socket_path: Option<ConfigurationPath>,
-}
-
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, Eq, PartialEq)]
-pub struct ConfigurationPath(String);
-
-impl ConfigurationPath {
-    pub fn new(path: impl AsRef<Path>) -> Self {
-        Self(path.as_ref().to_string_lossy().into_owned())
-    }
-
-    pub fn as_path(&self) -> &Path {
-        Path::new(&self.0)
-    }
-}
+use crate::schema::signal::Configuration;
 
 impl Configuration {
     pub fn new(socket_path: impl AsRef<Path>, database_path: impl AsRef<Path>) -> Self {
         Self {
-            socket_path: ConfigurationPath::new(socket_path),
+            socket_path: socket_path.as_ref().to_string_lossy().into_owned(),
             meta_socket_path: None,
-            database_path: ConfigurationPath::new(database_path),
+            database_path: database_path.as_ref().to_string_lossy().into_owned(),
             trace_socket_path: None,
         }
     }
@@ -47,36 +34,32 @@ impl Configuration {
         trace_socket_path: impl AsRef<Path>,
     ) -> Self {
         Self {
-            socket_path: ConfigurationPath::new(socket_path),
+            socket_path: socket_path.as_ref().to_string_lossy().into_owned(),
             meta_socket_path: None,
-            database_path: ConfigurationPath::new(database_path),
-            trace_socket_path: Some(ConfigurationPath::new(trace_socket_path)),
+            database_path: database_path.as_ref().to_string_lossy().into_owned(),
+            trace_socket_path: Some(trace_socket_path.as_ref().to_string_lossy().into_owned()),
         }
     }
 
     pub fn with_meta_socket_path(mut self, meta_socket_path: impl AsRef<Path>) -> Self {
-        self.meta_socket_path = Some(ConfigurationPath::new(meta_socket_path));
+        self.meta_socket_path = Some(meta_socket_path.as_ref().to_string_lossy().into_owned());
         self
     }
 
     pub fn socket_path(&self) -> &Path {
-        self.socket_path.as_path()
+        Path::new(&self.socket_path)
     }
 
     pub fn meta_socket_path(&self) -> Option<&Path> {
-        self.meta_socket_path
-            .as_ref()
-            .map(ConfigurationPath::as_path)
+        self.meta_socket_path.as_deref().map(Path::new)
     }
 
     pub fn database_path(&self) -> &Path {
-        self.database_path.as_path()
+        Path::new(&self.database_path)
     }
 
     pub fn trace_socket_path(&self) -> Option<&Path> {
-        self.trace_socket_path
-            .as_ref()
-            .map(ConfigurationPath::as_path)
+        self.trace_socket_path.as_deref().map(Path::new)
     }
 
     pub fn from_binary_path(path: impl AsRef<Path>) -> Result<Self, ConfigurationError> {

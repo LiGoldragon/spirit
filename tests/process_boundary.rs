@@ -11,9 +11,8 @@ use std::{
 
 #[cfg(feature = "testing-trace")]
 use spirit::TraceEvent;
-use spirit::{
-    Configuration,
-    schema::signal::{IntentEvent, Kind, Magnitude, Output, RecordIdentifier},
+use spirit::schema::signal::{
+    Configuration, IntentEvent, Kind, Magnitude, Output, RecordIdentifier,
 };
 use tempfile::TempDir;
 

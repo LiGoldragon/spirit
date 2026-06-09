@@ -13,10 +13,10 @@ use sema_engine::{
     TableDescriptor, TableName,
 };
 use spirit::{
-    Configuration, SignalTransport, Store,
+    SignalTransport, Store,
     schema::signal::{
-        CertaintyChange, Entry, Input, Kind, Magnitude, ObserverFilter, Output, PrivacySelection,
-        Query, RecordChange, Statement, Topic, TopicMatch,
+        CertaintyChange, Configuration, Entry, Input, Kind, Magnitude, ObserverFilter, Output,
+        PrivacySelection, Query, RecordChange, Statement, Topic, TopicMatch,
     },
 };
 #[cfg(feature = "production-migration")]

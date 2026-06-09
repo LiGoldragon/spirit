@@ -17,7 +17,8 @@ use std::time::{Duration, Instant};
 use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest, Output as MetaOutput};
 use spirit::schema::signal::{Entry, Input, Kind, Magnitude, Output, Query, TopicMatch};
 use spirit::{
-    Configuration, Daemon, DaemonError, MetaSignalTransport, SignalTransport, SpiritDaemon,
+    Daemon, DaemonError, MetaSignalTransport, SignalTransport, SpiritDaemon,
+    schema::signal::Configuration,
 };
 use tempfile::TempDir;
 
