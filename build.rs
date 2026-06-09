@@ -1,11 +1,3 @@
-// Build-time contract emission. Spirit emits its own wire/plane types from the
-// crate-local `schema/*.schema` files into checked-in `src/schema/*.rs` via
-// schema-rust-next, so the daemon owns local generated copies of its contract
-// surface and serves those directly — it does NOT depend on the `signal-spirit`
-// contract crate for live wire types (that crate is migration-only; see lib.rs).
-// `write_or_check` regenerates the artifacts under SPIRIT_UPDATE_SCHEMA_ARTIFACTS,
-// otherwise it verifies the checked-in artifacts are fresh.
-
 use std::{env, path::PathBuf};
 
 use schema_rust_next::{

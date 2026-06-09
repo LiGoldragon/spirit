@@ -59,9 +59,6 @@ blake3 = "1"
 getrandom = "0.3"
 sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main" }
 signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }
-# Migration-only: the daemon emits its live wire types from schema/*.schema (see
-# build.rs); signal-spirit is linked solely by the `production-migration` feature
-# to read the deployed persona-spirit record shape, never for the live wire surface.
 signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main", optional = true }
 thiserror = "2"
 tokio = { version = "1.47", features = ["io-util", "net", "rt-multi-thread", "sync"] }
