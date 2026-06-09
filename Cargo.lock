@@ -594,7 +594,7 @@ dependencies = [
 
 [[package]]
 name = "schema-rust-next"
-version = "0.5.1"
+version = "0.5.2"
 source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#7282446ed3f41663d9e9ef1753a9a2b3514cf829"
 dependencies = [
  "prettyplease",
@@ -883,7 +883,7 @@ dependencies = [
 
 [[package]]
 name = "triad-runtime"
-version = "0.6.0"
+version = "0.6.1"
 source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#ae2e81755f8f1536329f372bdcc78dbbcd065999"
 dependencies = [
  "kameo",

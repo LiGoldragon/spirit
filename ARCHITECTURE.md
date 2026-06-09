@@ -168,7 +168,7 @@ not a NOTA side channel.
 
 The binary configuration carries the daemon's meta slot as `meta_socket_path`.
 The field is optional in the data type because the shared
-`DaemonConfiguration` trait asks for `Option<&Path>`, but Spirit treats absence
+`BindingSurface` trait asks for `Option<&Path>`, but Spirit treats absence
 as a startup error (`MissingMetaSocket`) and binds no working listener without
 it. When the path is present, the daemon binds a SECOND listener on it — the
 owner-only meta-signal surface — distinct from the ordinary working socket, so

@@ -1,7 +1,7 @@
 use std::{fs, path::Path};
 
 use thiserror::Error;
-use triad_runtime::DaemonConfiguration;
+use triad_runtime::BindingSurface;
 
 /// Daemon configuration loaded from a binary rkyv file.
 ///
@@ -100,7 +100,7 @@ impl Configuration {
     }
 }
 
-impl DaemonConfiguration for Configuration {
+impl BindingSurface for Configuration {
     fn socket_path(&self) -> &Path {
         Configuration::socket_path(self)
     }

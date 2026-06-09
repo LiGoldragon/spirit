@@ -105,7 +105,7 @@ owner-only meta request hook, and stream filter/event policy.
 (High certainty), every component needs a meta slot because configuration and
 policy authority must not live on the ordinary working signal. Spirit's
 `Configuration` stores `meta_socket_path` as an `Option` because the shared
-`DaemonConfiguration` trait uses that shape, but the generated Spirit daemon
+`BindingSurface` trait uses that shape, but the generated Spirit daemon
 rejects `None` with `MissingMetaSocket` before serving either socket. If no
 separate `meta-signal-spirit` repo exists for a later slice, the meta signal
 surface belongs inside this daemon repo instead of being omitted.
