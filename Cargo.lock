@@ -695,6 +695,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "signal-spirit"
+version = "0.5.0"
+source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=main#3c6fd6c3b18cead6f3585cfaec5ca73b7531c359"
+dependencies = [
+ "rkyv",
+ "signal-frame",
+ "thiserror",
+ "version-projection",
+]
+
+[[package]]
 name = "simdutf8"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -727,6 +738,7 @@ dependencies = [
  "schema-rust-next",
  "sema-engine",
  "signal-frame",
+ "signal-spirit",
  "tempfile",
  "thiserror",
  "tokio",
@@ -882,6 +894,15 @@ checksum = "d258b83ceec21034727ecee8c382cfa6c3e133699b0742c64571814fb420c9f7"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "version-projection"
+version = "0.1.0"
+source = "git+https://github.com/LiGoldragon/version-projection.git?branch=main#f00b239f75aca30098a60b30e877faafe8625d77"
+dependencies = [
+ "rkyv",
+ "thiserror",
 ]
 
 [[package]]
