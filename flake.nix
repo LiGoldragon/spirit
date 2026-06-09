@@ -41,6 +41,14 @@
       url = "github:LiGoldragon/triad-runtime";
       flake = false;
     };
+    signal-spirit-source = {
+      url = "github:LiGoldragon/signal-spirit";
+      flake = false;
+    };
+    version-projection-source = {
+      url = "github:LiGoldragon/version-projection";
+      flake = false;
+    };
   };
 
   outputs = { self, nixpkgs, flake-utils, fenix, crane
@@ -52,6 +60,8 @@
     , signal-frame-source
     , signal-sema-source
     , triad-runtime-source
+    , signal-spirit-source
+    , version-projection-source
   }:
     flake-utils.lib.eachDefaultSystem (system:
       let
@@ -92,6 +102,8 @@
           signalFrameSource = signal-frame-source;
           signalSemaSource = signal-sema-source;
           triadRuntimeSource = triad-runtime-source;
+          signalSpiritSource = signal-spirit-source;
+          versionProjectionSource = version-projection-source;
         } ''
           cp -R ${cleanSource} $out
           chmod -R u+w $out
@@ -104,6 +116,8 @@
           cp -R "$signalFrameSource" $out/vendor-sources/signal-frame
           cp -R "$signalSemaSource" $out/vendor-sources/signal-sema
           cp -R "$triadRuntimeSource" $out/vendor-sources/triad-runtime
+          cp -R "$signalSpiritSource" $out/vendor-sources/signal-spirit
+          cp -R "$versionProjectionSource" $out/vendor-sources/version-projection
 
           substituteInPlace $out/Cargo.toml \
             --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota-next = { path = "vendor-sources/nota-next", optional = true }' \
@@ -111,7 +125,8 @@
             --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }' 'signal-frame = { path = "vendor-sources/signal-frame" }' \
             --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "vendor-sources/triad-runtime" }' \
             --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust-next = { path = "vendor-sources/schema-rust-next" }' \
-            --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "vendor-sources/schema-next" }'
+            --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "vendor-sources/schema-next" }' \
+            --replace-fail 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main", optional = true }' 'signal-spirit = { path = "vendor-sources/signal-spirit", optional = true }'
 
           substituteInPlace $out/vendor-sources/schema-rust-next/Cargo.toml \
             --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "../schema-next" }' \
@@ -128,6 +143,16 @@
           substituteInPlace $out/vendor-sources/triad-runtime/Cargo.toml \
             --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }' 'signal-frame = { path = "../signal-frame" }'
 
+          substituteInPlace $out/vendor-sources/signal-spirit/Cargo.toml \
+            --replace-fail '{ git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main", default-features = false }' '{ path = "../signal-frame", default-features = false }' \
+            --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' '{ path = "../nota-next", optional = true }' \
+            --replace-fail '{ git = "https://github.com/LiGoldragon/version-projection.git", branch = "main", default-features = false }' '{ path = "../version-projection", default-features = false }' \
+            --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' '{ path = "../nota-next" }'
+
+          substituteInPlace $out/vendor-sources/version-projection/Cargo.toml \
+            --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' '{ path = "../nota-next", optional = true }' \
+            --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' '{ path = "../nota-next" }'
+
           mkdir -p $out/.cargo
           cat >> $out/.cargo/config.toml <<'EOF'
           paths = [
@@ -141,6 +166,8 @@
             "vendor-sources/signal-frame/macros",
             "vendor-sources/signal-sema",
             "vendor-sources/triad-runtime",
+            "vendor-sources/signal-spirit",
+            "vendor-sources/version-projection",
           ]
           EOF
 
@@ -170,6 +197,12 @@
 
           [patch."https://github.com/LiGoldragon/triad-runtime.git?branch=main"]
           triad-runtime = { path = "vendor-sources/triad-runtime" }
+
+          [patch."https://github.com/LiGoldragon/signal-spirit.git?branch=main"]
+          signal-spirit = { path = "vendor-sources/signal-spirit" }
+
+          [patch."https://github.com/LiGoldragon/version-projection.git?branch=main"]
+          version-projection = { path = "vendor-sources/version-projection" }
           EOF
 
           sed -i '\|^source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#|d' $out/Cargo.lock
@@ -180,6 +213,8 @@
           sed -i '\|^source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#|d' $out/Cargo.lock
           sed -i '\|^source = "git+https://github.com/LiGoldragon/signal-sema.git?branch=main#|d' $out/Cargo.lock
           sed -i '\|^source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#|d' $out/Cargo.lock
+          sed -i '\|^source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=main#|d' $out/Cargo.lock
+          sed -i '\|^source = "git+https://github.com/LiGoldragon/version-projection.git?branch=main#|d' $out/Cargo.lock
         '';
         cargoVendorDirectory = craneLib.vendorCargoDeps { inherit src; };
         commonArguments = {

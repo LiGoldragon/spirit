@@ -99,7 +99,9 @@
         "sema-source": "sema-source",
         "signal-frame-source": "signal-frame-source",
         "signal-sema-source": "signal-sema-source",
-        "triad-runtime-source": "triad-runtime-source"
+        "signal-spirit-source": "signal-spirit-source",
+        "triad-runtime-source": "triad-runtime-source",
+        "version-projection-source": "version-projection-source"
       }
     },
     "rust-analyzer-src": {
@@ -215,6 +217,22 @@
         "type": "github"
       }
     },
+    "signal-spirit-source": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1780884196,
+        "narHash": "sha256-5VcS+F6i7+atlHHrdVthTHH7NdnshtX/z/vefWUBPAo=",
+        "owner": "LiGoldragon",
+        "repo": "signal-spirit",
+        "rev": "3c6fd6c3b18cead6f3585cfaec5ca73b7531c359",
+        "type": "github"
+      },
+      "original": {
+        "owner": "LiGoldragon",
+        "repo": "signal-spirit",
+        "type": "github"
+      }
+    },
     "systems": {
       "locked": {
         "lastModified": 1681028828,
@@ -243,6 +261,22 @@
       "original": {
         "owner": "LiGoldragon",
         "repo": "triad-runtime",
+        "type": "github"
+      }
+    },
+    "version-projection-source": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1780889041,
+        "narHash": "sha256-vSbk2SmDg9o12yr3sl8nJ2AKkz/QPfFC9Sbfasb63ho=",
+        "owner": "LiGoldragon",
+        "repo": "version-projection",
+        "rev": "f00b239f75aca30098a60b30e877faafe8625d77",
+        "type": "github"
+      },
+      "original": {
+        "owner": "LiGoldragon",
+        "repo": "version-projection",
         "type": "github"
       }
     }
