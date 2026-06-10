@@ -14,14 +14,16 @@ use crate::{
             SemaEngine, WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
         },
         signal::{
-            Categories, Category, Certainty, DatabaseMarker, Description, Entry, ErrorMessage,
-            ErrorReport, Importance, Input, IntentEvent, IntentRecorded, IntentSubscription, Kind,
-            Magnitude, ObservedOperation, ObservedOperations, ObserverFilter, ObserverRetraction,
+            Categories, Category, Certainty, ClarificationReceipt, DatabaseMarker, Description,
+            Entry, ErrorMessage, ErrorReport, Importance, Input, IntentClarified, IntentEvent,
+            IntentRecorded, IntentRetired, IntentSubscription, IntentSuperseded, Kind, Magnitude,
+            ObservedOperation, ObservedOperations, ObserverFilter, ObserverRetraction,
             ObserverSubscription, OperationKind, Output, Privacy, RecordCount, Records,
             RemovalArchiveRecords, RemovalCandidateCollection, RemovalCandidatesCollection,
-            RemovedIdentifiers, SemaReceipt, SignalRejection, SkippedRemovalCandidates,
-            StashHandle, StashedObservation, Statement, SubscriptionToken, ValidationError,
-            VersionReport, VersionText, Weight,
+            RemovedIdentifiers, RetirementReceipt, SemaReceipt, SignalRejection,
+            SkippedRemovalCandidates, StashHandle, StashedObservation, Statement,
+            SubscriptionToken, SupersessionReceipt, ValidationError, VersionReport, VersionText,
+            Weight,
         },
     },
     store::{Store, StoreError},
@@ -131,6 +133,10 @@ impl OperationKind {
         match input {
             Input::State(_) => Self::State,
             Input::Record(_) => Self::Record,
+            Input::Propose(_) => Self::Propose,
+            Input::Clarify(_) => Self::Clarify,
+            Input::Supersede(_) => Self::Supersede,
+            Input::Retire(_) => Self::Retire,
             Input::Observe(_) => Self::Observe,
             Input::PublicRecords(_) => Self::PublicRecords,
             Input::PrivateRecords(_) => Self::PrivateRecords,
@@ -345,6 +351,45 @@ impl Nexus {
             }))
     }
 
+    pub fn intent_clarified_event(
+        &self,
+        receipt: &ClarificationReceipt,
+    ) -> Result<Option<IntentEvent>, StoreError> {
+        Ok(self
+            .store
+            .entry_by_identifier(receipt.record_identifier.payload())?
+            .map(|entry| {
+                IntentEvent::intent_clarified(IntentClarified {
+                    record_identifier: receipt.record_identifier.clone(),
+                    entry,
+                    database_marker: receipt.database_marker.clone(),
+                })
+            }))
+    }
+
+    pub fn intent_superseded_event(
+        &self,
+        receipt: &SupersessionReceipt,
+    ) -> Result<Option<IntentEvent>, StoreError> {
+        Ok(self
+            .store
+            .entry_by_identifier(receipt.sema_receipt.record_identifier.payload())?
+            .map(|entry| {
+                IntentEvent::intent_superseded(IntentSuperseded {
+                    retired_identifiers: receipt.retired_identifiers.clone(),
+                    entry,
+                    sema_receipt: receipt.sema_receipt.clone(),
+                })
+            }))
+    }
+
+    pub fn intent_retired_event(&self, receipt: &RetirementReceipt) -> IntentEvent {
+        IntentEvent::intent_retired(IntentRetired {
+            record_identifier: receipt.record_identifier.clone(),
+            database_marker: receipt.database_marker.clone(),
+        })
+    }
+
     /// Apply a Nexus-local effect, producing the matching effect result
     /// that the runner re-enters as `NexusWork::EffectCompleted`.
     fn apply_effect(&mut self, command: NexusEffectCommand) -> NexusEffectResult {
@@ -355,6 +400,31 @@ impl Nexus {
                     .classify(statement.into_payload());
                 NexusEffectResult::state_classified(entry)
             }
+            NexusEffectCommand::Propose(propose) => {
+                match self.store.propose(propose.into_payload()) {
+                    Ok(receipt) => NexusEffectResult::proposed(receipt),
+                    Err(error) => self.operation_failed(error.to_string()),
+                }
+            }
+            NexusEffectCommand::Clarify(clarify) => {
+                match self.store.clarify(clarify.into_payload()) {
+                    Ok(Some(receipt)) => NexusEffectResult::clarified(receipt),
+                    Ok(None) => self.operation_failed("record not found"),
+                    Err(error) => self.operation_failed(error.to_string()),
+                }
+            }
+            NexusEffectCommand::Supersede(supersede) => {
+                match self.store.supersede(supersede.into_payload()) {
+                    Ok(Some(receipt)) => NexusEffectResult::superseded(receipt),
+                    Ok(None) => self.operation_failed("supersede target not found"),
+                    Err(error) => self.operation_failed(error.to_string()),
+                }
+            }
+            NexusEffectCommand::Retire(retire) => match self.store.retire(retire.into_payload()) {
+                Ok(Some(receipt)) => NexusEffectResult::retired(receipt),
+                Ok(None) => self.operation_failed("record not found"),
+                Err(error) => self.operation_failed(error.to_string()),
+            },
             NexusEffectCommand::Stash(stash) => {
                 let StashRequest {
                     records,
@@ -417,6 +487,13 @@ impl Nexus {
                 database_marker: self.database_marker(),
             });
         NexusEffectResult::removal_candidates_collected(result)
+    }
+
+    fn operation_failed(&self, message: impl Into<String>) -> NexusEffectResult {
+        NexusEffectResult::operation_failed(ErrorReport {
+            error_message: ErrorMessage::new(message.into()),
+            database_marker: self.database_marker(),
+        })
     }
 
     /// Run a SEMA write without pinning synchronous database work onto a
@@ -601,6 +678,18 @@ impl Nexus {
             Input::Record(record) => {
                 NexusAction::command_sema_write(CommandSemaWrite::record(record.into_payload()))
             }
+            Input::Propose(propose) => {
+                NexusAction::command_effect(NexusEffectCommand::propose(propose.into_payload()))
+            }
+            Input::Clarify(clarify) => {
+                NexusAction::command_effect(NexusEffectCommand::clarify(clarify.into_payload()))
+            }
+            Input::Supersede(supersede) => {
+                NexusAction::command_effect(NexusEffectCommand::supersede(supersede.into_payload()))
+            }
+            Input::Retire(retire) => {
+                NexusAction::command_effect(NexusEffectCommand::retire(retire.into_payload()))
+            }
             Input::Observe(observe) => {
                 NexusAction::command_sema_read(SemaReadInput::observe(observe.into_payload()))
             }
@@ -714,6 +803,21 @@ impl Nexus {
         match result {
             NexusEffectResult::StateClassified(entry) => {
                 NexusAction::command_sema_write(CommandSemaWrite::record(entry.into_payload()))
+            }
+            NexusEffectResult::Proposed(receipt) => {
+                NexusAction::reply_to_signal(Output::proposed(receipt.into_payload()))
+            }
+            NexusEffectResult::Clarified(receipt) => {
+                NexusAction::reply_to_signal(Output::clarified(receipt.into_payload()))
+            }
+            NexusEffectResult::Superseded(receipt) => {
+                NexusAction::reply_to_signal(Output::superseded(receipt.into_payload()))
+            }
+            NexusEffectResult::Retired(receipt) => {
+                NexusAction::reply_to_signal(Output::retired(receipt.into_payload()))
+            }
+            NexusEffectResult::OperationFailed(report) => {
+                NexusAction::reply_to_signal(Output::error(report.into_payload()))
             }
             NexusEffectResult::Stashed(stashed) => {
                 let StashResult {

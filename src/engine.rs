@@ -13,7 +13,8 @@ use crate::{
             MailIdentifier, MailLedgerEvent, MessageIdentifier, MessageProcessed,
             MessageProcessedHook, MessageSent, MessageSentHook, OriginRoute, Output, Privacy,
             PrivacySelection, ProcessedMail, Query, RecordSelection, SemaReceipt, SentMail,
-            ShortHeader, SignalEngine, SignalRejection, StatementText, TextMatch, ValidationError,
+            ShortHeader, SignalEngine, SignalRejection, StatementText, SupersessionReceipt,
+            TextMatch, ValidationError,
         },
     },
     store::{Store, StoreError},
@@ -220,6 +221,38 @@ impl Engine {
     ) -> Result<Option<IntentEvent>, StoreError> {
         self.intent_recorded_event(receipt)
     }
+
+    pub fn intent_clarified_event(
+        &self,
+        receipt: &signal_schema::ClarificationReceipt,
+    ) -> Result<Option<IntentEvent>, StoreError> {
+        self.nexus.intent_clarified_event(receipt)
+    }
+
+    pub async fn intent_clarified_event_async(
+        &self,
+        receipt: &signal_schema::ClarificationReceipt,
+    ) -> Result<Option<IntentEvent>, StoreError> {
+        self.intent_clarified_event(receipt)
+    }
+
+    pub fn intent_superseded_event(
+        &self,
+        receipt: &SupersessionReceipt,
+    ) -> Result<Option<IntentEvent>, StoreError> {
+        self.nexus.intent_superseded_event(receipt)
+    }
+
+    pub async fn intent_superseded_event_async(
+        &self,
+        receipt: &SupersessionReceipt,
+    ) -> Result<Option<IntentEvent>, StoreError> {
+        self.intent_superseded_event(receipt)
+    }
+
+    pub fn intent_retired_event(&self, receipt: &signal_schema::RetirementReceipt) -> IntentEvent {
+        self.nexus.intent_retired_event(receipt)
+    }
 }
 
 impl SignalAdmission {
@@ -422,11 +455,15 @@ impl Input {
         match self {
             Self::State(statement) => statement.payload().validate(),
             Self::Record(record) => record.payload().validate(),
+            Self::Propose(propose) => propose.payload().validate(),
+            Self::Clarify(clarify) => clarify.payload().validate(),
+            Self::Supersede(supersede) => supersede.payload().validate(),
             Self::Observe(observe) => observe.payload().validate(),
             Self::PublicRecords(selection) => selection.payload().validate(),
             Self::PrivateRecords(selection) => selection.payload().validate(),
             Self::Lookup(_)
             | Self::Remove(_)
+            | Self::Retire(_)
             | Self::ChangeCertainty(_)
             | Self::BumpWeight(_)
             | Self::LookupStash(_)
@@ -465,6 +502,24 @@ impl Entry {
 impl crate::schema::signal::RecordChange {
     pub fn validate(&self) -> Result<(), ValidationError> {
         self.entry.validate()
+    }
+}
+
+impl crate::schema::signal::Clarification {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        if self.description.trim().is_empty() {
+            return Err(ValidationError::EmptyDescription);
+        }
+        Ok(())
+    }
+}
+
+impl crate::schema::signal::Supersession {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        if self.retired_identifiers.payload().is_empty() {
+            return Err(ValidationError::EmptyDescription);
+        }
+        self.replacement.validate()
     }
 }
 
@@ -642,6 +697,11 @@ impl Output {
     pub fn database_marker(&self) -> DatabaseMarker {
         match self {
             Self::RecordAccepted(receipt) => receipt.payload().database_marker.clone(),
+            Self::Proposed(receipt) => receipt.payload().database_marker.clone(),
+            Self::Clarified(receipt) => receipt.payload().database_marker.clone(),
+            Self::Superseded(receipt) => receipt.payload().sema_receipt.database_marker.clone(),
+            Self::Retired(receipt) => receipt.payload().database_marker.clone(),
+            Self::GuardianRejected(rejection) => rejection.payload().database_marker.clone(),
             Self::RecordsObserved(records) => records.payload().database_marker.clone(),
             Self::RecordsStashed(stashed) => stashed.payload().database_marker.clone(),
             Self::RecordFound(record) => record.payload().database_marker.clone(),
@@ -670,6 +730,9 @@ impl crate::schema::signal::IntentEvent {
     pub fn database_marker(&self) -> DatabaseMarker {
         match self {
             Self::IntentRecorded(recorded) => recorded.sema_receipt.database_marker.clone(),
+            Self::IntentClarified(clarified) => clarified.database_marker.clone(),
+            Self::IntentSuperseded(superseded) => superseded.sema_receipt.database_marker.clone(),
+            Self::IntentRetired(retired) => retired.database_marker.clone(),
         }
     }
 }

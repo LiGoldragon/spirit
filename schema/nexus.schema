@@ -10,6 +10,14 @@
   DatabaseMarker spirit:signal:DatabaseMarker
   Statement spirit:signal:Statement
   Entry spirit:signal:Entry
+  Clarification spirit:signal:Clarification
+  Supersession spirit:signal:Supersession
+  Retirement spirit:signal:Retirement
+  SemaReceipt spirit:signal:SemaReceipt
+  ClarificationReceipt spirit:signal:ClarificationReceipt
+  SupersessionReceipt spirit:signal:SupersessionReceipt
+  RetirementReceipt spirit:signal:RetirementReceipt
+  ErrorReport spirit:signal:ErrorReport
   Query spirit:signal:Query
   SubscriptionToken spirit:signal:SubscriptionToken
   IntentSubscription spirit:signal:IntentSubscription
@@ -45,16 +53,25 @@
   NexusWork [(SignalArrived) (SemaWriteCompleted) (SemaReadCompleted) (EffectCompleted)]
   NexusAction [(CommandSemaWrite) (CommandSemaRead) (ReplyToSignal) (CommandEffect) (Continue)]
 
-  NexusEffectCommand [(Stash) (ClassifyState) (OpenIntentSubscription) (CollectRemovalCandidates) (OpenObserverTap) (CloseObserverTap)]
+  NexusEffectCommand [(Stash) (ClassifyState) (Propose) (Clarify) (Supersede) (Retire) (OpenIntentSubscription) (CollectRemovalCandidates) (OpenObserverTap) (CloseObserverTap)]
   Stash StashRequest
   ClassifyState Statement
+  Propose Entry
+  Clarify Clarification
+  Supersede Supersession
+  Retire Retirement
   OpenIntentSubscription Query
   CollectRemovalCandidates RemovalCandidateCollection
   OpenObserverTap ObserverFilter
   CloseObserverTap SubscriptionToken
-  NexusEffectResult [(Stashed) (StateClassified) (IntentSubscriptionOpened) (RemovalCandidatesCollected) (ObserverTapOpened) (ObserverTapClosed)]
+  NexusEffectResult [(Stashed) (StateClassified) (Proposed) (Clarified) (Superseded) (Retired) (OperationFailed) (IntentSubscriptionOpened) (RemovalCandidatesCollected) (ObserverTapOpened) (ObserverTapClosed)]
   Stashed StashResult
   StateClassified Entry
+  Proposed SemaReceipt
+  Clarified ClarificationReceipt
+  Superseded SupersessionReceipt
+  Retired RetirementReceipt
+  OperationFailed ErrorReport
   IntentSubscriptionOpened IntentSubscription
   RemovalCandidatesCollected RemovalCandidatesCollection
   ObserverTapOpened ObserverSubscription

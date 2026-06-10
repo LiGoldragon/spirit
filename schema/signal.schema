@@ -1,6 +1,6 @@
 {}
-[State Record Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpWeight ChangeRecord LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version]
-[RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged WeightBumped RecordChanged RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted VersionReported (Event IntentEvent) Error Rejected]
+[State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpWeight ChangeRecord LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version]
+[RecordAccepted Proposed Clarified Superseded Retired GuardianRejected RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged WeightBumped RecordChanged RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted VersionReported (Event IntentEvent) Error Rejected]
 {
   SourcePath String
   LocalPath String
@@ -11,6 +11,10 @@
 
   State Statement
   Record Entry
+  Propose Entry
+  Clarify Clarification
+  Supersede Supersession
+  Retire Retirement
   Observe Query
   PublicRecords RecordSelection
   PrivateRecords RecordSelection
@@ -27,6 +31,11 @@
   SubscribeIntent Query
 
   RecordAccepted SemaReceipt
+  Proposed SemaReceipt
+  Clarified ClarificationReceipt
+  Superseded SupersessionReceipt
+  Retired RetirementReceipt
+  GuardianRejected GuardianRejection
   RecordsObserved ObservedRecords
   RecordsStashed StashedObservation
   RecordFound FoundRecord
@@ -59,6 +68,7 @@
   MailIdentifier Integer
   ShortHeader Integer
   VersionText String
+  Explanation String
 
   DatabaseMarker { CommitSequence * StateDigest * }
   SemaReceipt { RecordIdentifier * DatabaseMarker * }
@@ -74,7 +84,10 @@
   VersionReported VersionReport
   VersionReport { VersionText * DatabaseMarker * }
   IntentRecorded { Entry * SemaReceipt * }
-  IntentEvent [(IntentRecorded IntentRecorded belongs IntentEventStream)]
+  IntentClarified { RecordIdentifier * Entry * DatabaseMarker * }
+  IntentSuperseded { RetiredIdentifiers * Entry * SemaReceipt * }
+  IntentRetired { RecordIdentifier * DatabaseMarker * }
+  IntentEvent [(IntentRecorded IntentRecorded belongs IntentEventStream) (IntentClarified IntentClarified belongs IntentEventStream) (IntentSuperseded IntentSuperseded belongs IntentEventStream) (IntentRetired IntentRetired belongs IntentEventStream)]
   IntentEventStream (Stream { token SubscriptionToken opened SubscriptionStarted event IntentEvent close SubscriptionToken })
   ValidationError [EmptyCategory EmptyDescription EmptyQueryCategory EmptyKeyword EmptySearchText StashHandleNotFound]
   SentMail { MailIdentifier * OriginRoute * ShortHeader * }
@@ -126,7 +139,7 @@
   ObserverFilter [All OperationsOnly EffectsOnly]
   ObserverSubscription { SubscriptionToken * ObserverFilter * ObservedOperations * DatabaseMarker * }
   ObserverRetraction { SubscriptionToken * ObservedOperations * DatabaseMarker * }
-  OperationKind [State Record Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpWeight ChangeRecord LookupStash CollectRemovalCandidates Tap Untap SubscribeIntent Version]
+  OperationKind [State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpWeight ChangeRecord LookupStash CollectRemovalCandidates Tap Untap SubscribeIntent Version]
   ObservedOperation { OperationKind * }
   ObservedOperations (Vec ObservedOperation)
 
@@ -138,6 +151,16 @@
   WeightBumpReceipt { RecordIdentifier * Weight * DatabaseMarker * }
   RecordChange { RecordIdentifier * Entry * }
   RecordChangeReceipt { RecordIdentifier * DatabaseMarker * }
+  Clarification { RecordIdentifier * Description * }
+  ClarificationReceipt { RecordIdentifier * DatabaseMarker * }
+  Supersession { RetiredIdentifiers * replacement Entry }
+  SupersessionReceipt { RetiredIdentifiers * SemaReceipt * }
+  Retirement { RecordIdentifier * }
+  RetirementReceipt { RecordIdentifier * DatabaseMarker * }
+  RetiredIdentifier RecordIdentifier
+  RetiredIdentifiers (Vec RetiredIdentifier)
+  GuardianRejectionReason [Duplicate Contradiction Compound NonIntent UnclearPrivacy UnclearCategory ClarifyTramples ClarifyLosesMeaning SupersedeTargetMissing RetrievalInsufficient HarnessUnavailable HarnessMalformed HarnessTimedOut]
+  GuardianRejection { GuardianRejectionReason * RecordSet * Explanation * DatabaseMarker * }
   RecordSelection { CategoryMatch * kind (Optional Kind) }
   Query { CategoryMatch * keyword_match KeywordMatch text_match TextMatch kind (Optional Kind) privacy_selection PrivacySelection certainty_selection CertaintySelection importance_selection ImportanceSelection weight_selection WeightSelection }
   Records (Vec ObservedRecord)

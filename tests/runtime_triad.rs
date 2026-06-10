@@ -10,12 +10,13 @@ use spirit::{
         },
         signal::{
             Categories, CategoryMatch, Certainty, CertaintyChange, CertaintySelection,
-            DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport, ImportanceSelection,
-            Input, Keyword, KeywordMatch, Keywords, Kind, Magnitude, MailLedgerEvent,
-            MessageIdentifier, MessageSent, MessageSentHook, OriginRoute, Output, Privacy,
-            PrivacySelection, Query, RecordChange, RecordIdentifier, RecordSelection, SearchText,
-            SemaReceipt, SentMail, SignalEngine, SignalRejection, StashHandle, Statement,
-            StatementText, TextMatch, ValidationError, WeightBump, WeightSelection,
+            Clarification, DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport,
+            ImportanceSelection, Input, Keyword, KeywordMatch, Keywords, Kind, Magnitude,
+            MailLedgerEvent, MessageIdentifier, MessageSent, MessageSentHook, OriginRoute, Output,
+            Privacy, PrivacySelection, Query, RecordChange, RecordIdentifier, RecordSelection,
+            RetiredIdentifier, RetiredIdentifiers, Retirement, SearchText, SemaReceipt, SentMail,
+            SignalEngine, SignalRejection, StashHandle, Statement, StatementText, Supersession,
+            TextMatch, ValidationError, WeightBump, WeightSelection,
         },
     },
 };
@@ -231,6 +232,10 @@ fn input_record(entry: Entry) -> Input {
     Input::record(entry)
 }
 
+fn input_propose(entry: Entry) -> Input {
+    Input::propose(entry)
+}
+
 fn input_state(statement: &str) -> Input {
     Input::state(Statement::new(StatementText::new(statement)))
 }
@@ -249,6 +254,26 @@ fn input_private_records(selection: RecordSelection) -> Input {
 
 fn input_lookup(record_identifier: RecordIdentifier) -> Input {
     Input::lookup(record_identifier)
+}
+
+fn input_clarify(record_identifier: RecordIdentifier, description: &str) -> Input {
+    Input::clarify(Clarification {
+        record_identifier,
+        description: Description::new(description),
+    })
+}
+
+fn input_supersede(record_identifier: RecordIdentifier, replacement: Entry) -> Input {
+    Input::supersede(Supersession {
+        retired_identifiers: RetiredIdentifiers::new(vec![RetiredIdentifier::new(
+            record_identifier,
+        )]),
+        replacement,
+    })
+}
+
+fn input_retire(record_identifier: RecordIdentifier) -> Input {
+    Input::retire(Retirement::new(record_identifier))
 }
 
 fn input_count(query: Query) -> Input {
@@ -573,6 +598,63 @@ fn sema_engine_changes_certainty_without_changing_record_identifier() {
 }
 
 #[test]
+fn nexus_write_operations_are_visible_as_schema_declared_effect_commands() {
+    let sema = SemaFile::new();
+    let mut nexus = Nexus::new(sema.open_store());
+    let identifier = record_identifier("003g");
+
+    let propose = NexusEngine::decide(
+        &mut nexus,
+        nexus_signal_arrived(input_propose(entry("proposed arrow")))
+            .with_origin_route(nexus_route(8)),
+    );
+    match propose.root() {
+        NexusAction::CommandEffect(effect) => {
+            assert!(matches!(effect.payload(), NexusEffectCommand::Propose(_)));
+        }
+        other => panic!("expected Propose to become CommandEffect(Propose), got {other:?}"),
+    }
+
+    let clarify = NexusEngine::decide(
+        &mut nexus,
+        nexus_signal_arrived(input_clarify(identifier.clone(), "clearer arrow"))
+            .with_origin_route(nexus_route(9)),
+    );
+    match clarify.root() {
+        NexusAction::CommandEffect(effect) => {
+            assert!(matches!(effect.payload(), NexusEffectCommand::Clarify(_)));
+        }
+        other => panic!("expected Clarify to become CommandEffect(Clarify), got {other:?}"),
+    }
+
+    let supersede = NexusEngine::decide(
+        &mut nexus,
+        nexus_signal_arrived(input_supersede(
+            identifier.clone(),
+            entry("replacement arrow"),
+        ))
+        .with_origin_route(nexus_route(10)),
+    );
+    match supersede.root() {
+        NexusAction::CommandEffect(effect) => {
+            assert!(matches!(effect.payload(), NexusEffectCommand::Supersede(_)));
+        }
+        other => panic!("expected Supersede to become CommandEffect(Supersede), got {other:?}"),
+    }
+
+    let retire = NexusEngine::decide(
+        &mut nexus,
+        nexus_signal_arrived(input_retire(identifier)).with_origin_route(nexus_route(11)),
+    );
+    match retire.root() {
+        NexusAction::CommandEffect(effect) => {
+            assert!(matches!(effect.payload(), NexusEffectCommand::Retire(_)));
+        }
+        other => panic!("expected Retire to become CommandEffect(Retire), got {other:?}"),
+    }
+}
+
+#[test]
 fn sema_engine_bumps_record_weight_without_changing_record_identifier() {
     let sema = SemaFile::new();
     let mut store = sema.open_store();
@@ -654,6 +736,83 @@ fn sema_engine_changes_record_without_changing_record_identifier() {
         }
         other => panic!("expected changed record lookup, got {other:?}"),
     }
+}
+
+#[test]
+fn signal_write_operations_propose_clarify_supersede_and_retire() {
+    let sema = SemaFile::new();
+    let mut engine = sema.engine();
+
+    let proposed = engine.handle(input_propose(entry("initial forward arrow")));
+    let original_identifier = match proposed.root() {
+        Output::Proposed(receipt) => receipt.payload().record_identifier.clone(),
+        other => panic!("expected Proposed receipt, got {other:?}"),
+    };
+
+    let clarified = engine.handle(input_clarify(
+        original_identifier.clone(),
+        "clearer forward arrow",
+    ));
+    match clarified.root() {
+        Output::Clarified(receipt) => {
+            assert_eq!(receipt.payload().record_identifier, original_identifier);
+        }
+        other => panic!("expected Clarified receipt, got {other:?}"),
+    }
+    match engine
+        .handle(input_lookup(original_identifier.clone()))
+        .into_root()
+    {
+        Output::RecordFound(found) => {
+            assert_eq!(found.entry.description, "clearer forward arrow");
+            assert_eq!(found.record_identifier, original_identifier);
+        }
+        other => panic!("expected clarified record lookup, got {other:?}"),
+    }
+
+    let superseded = engine.handle(input_supersede(
+        original_identifier.clone(),
+        entry("replacement forward arrow"),
+    ));
+    let replacement_identifier = match superseded.root() {
+        Output::Superseded(receipt) => {
+            assert_eq!(receipt.payload().retired_identifiers.payload().len(), 1);
+            assert_eq!(
+                receipt.payload().retired_identifiers.payload()[0].payload(),
+                &original_identifier
+            );
+            receipt.payload().sema_receipt.record_identifier.clone()
+        }
+        other => panic!("expected Superseded receipt, got {other:?}"),
+    };
+    assert!(matches!(
+        engine.handle(input_lookup(original_identifier)).into_root(),
+        Output::Error(_)
+    ));
+    match engine
+        .handle(input_lookup(replacement_identifier.clone()))
+        .into_root()
+    {
+        Output::RecordFound(found) => {
+            assert_eq!(found.entry.description, "replacement forward arrow");
+            assert_eq!(found.record_identifier, replacement_identifier);
+        }
+        other => panic!("expected replacement lookup, got {other:?}"),
+    }
+
+    let retired = engine.handle(input_retire(replacement_identifier.clone()));
+    match retired.root() {
+        Output::Retired(receipt) => {
+            assert_eq!(receipt.payload().record_identifier, replacement_identifier);
+        }
+        other => panic!("expected Retired receipt, got {other:?}"),
+    }
+    assert!(matches!(
+        engine
+            .handle(input_lookup(replacement_identifier))
+            .into_root(),
+        Output::Error(_)
+    ));
 }
 
 #[test]

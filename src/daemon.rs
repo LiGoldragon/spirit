@@ -170,6 +170,10 @@ impl ComponentDaemon for SpiritDaemon {
             Input::SubscribeIntent(query) => Some(query.payload().clone()),
             Input::State(_)
             | Input::Record(_)
+            | Input::Propose(_)
+            | Input::Clarify(_)
+            | Input::Supersede(_)
+            | Input::Retire(_)
             | Input::Observe(_)
             | Input::PublicRecords(_)
             | Input::PrivateRecords(_)
@@ -202,12 +206,22 @@ impl ComponentDaemon for SpiritDaemon {
         engine: &Self::Engine,
         output: &Output,
     ) -> Result<Option<Self::StreamEvent>, Self::Error> {
-        let Output::RecordAccepted(receipt) = output else {
-            return Ok(None);
-        };
-        Ok(engine
-            .intent_recorded_event_async(receipt.payload())
-            .await?)
+        match output {
+            Output::RecordAccepted(receipt) => Ok(engine
+                .intent_recorded_event_async(receipt.payload())
+                .await?),
+            Output::Proposed(receipt) => Ok(engine
+                .intent_recorded_event_async(receipt.payload())
+                .await?),
+            Output::Clarified(receipt) => Ok(engine
+                .intent_clarified_event_async(receipt.payload())
+                .await?),
+            Output::Superseded(receipt) => Ok(engine
+                .intent_superseded_event_async(receipt.payload())
+                .await?),
+            Output::Retired(receipt) => Ok(Some(engine.intent_retired_event(receipt.payload()))),
+            _ => Ok(None),
+        }
     }
 
     fn event_matches_filter(filter: &Self::SubscriptionFilter, event: &Self::StreamEvent) -> bool {
@@ -247,6 +261,9 @@ impl Query {
     pub fn matches_intent_event(&self, event: &IntentEvent) -> bool {
         match event {
             IntentEvent::IntentRecorded(recorded) => recorded.entry.matches(self),
+            IntentEvent::IntentClarified(clarified) => clarified.entry.matches(self),
+            IntentEvent::IntentSuperseded(superseded) => superseded.entry.matches(self),
+            IntentEvent::IntentRetired(_retired) => false,
         }
     }
 }

@@ -32,6 +32,22 @@ pub use crate::schema::signal::Statement as Statement;
 #[rustfmt::skip]
 pub use crate::schema::signal::Entry as Entry;
 #[rustfmt::skip]
+pub use crate::schema::signal::Clarification as Clarification;
+#[rustfmt::skip]
+pub use crate::schema::signal::Supersession as Supersession;
+#[rustfmt::skip]
+pub use crate::schema::signal::Retirement as Retirement;
+#[rustfmt::skip]
+pub use crate::schema::signal::SemaReceipt as SemaReceipt;
+#[rustfmt::skip]
+pub use crate::schema::signal::ClarificationReceipt as ClarificationReceipt;
+#[rustfmt::skip]
+pub use crate::schema::signal::SupersessionReceipt as SupersessionReceipt;
+#[rustfmt::skip]
+pub use crate::schema::signal::RetirementReceipt as RetirementReceipt;
+#[rustfmt::skip]
+pub use crate::schema::signal::ErrorReport as ErrorReport;
+#[rustfmt::skip]
 pub use crate::schema::signal::Query as Query;
 #[rustfmt::skip]
 pub use crate::schema::signal::SubscriptionToken as SubscriptionToken;
@@ -163,6 +179,10 @@ pub enum NexusAction {
 pub enum NexusEffectCommand {
     Stash(Stash),
     ClassifyState(ClassifyState),
+    Propose(Propose),
+    Clarify(Clarify),
+    Supersede(Supersede),
+    Retire(Retire),
     OpenIntentSubscription(OpenIntentSubscription),
     CollectRemovalCandidates(CollectRemovalCandidates),
     OpenObserverTap(OpenObserverTap),
@@ -178,6 +198,26 @@ pub struct Stash(StashRequest);
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ClassifyState(Statement);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Propose(Entry);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Clarify(Clarification);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Supersede(Supersession);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Retire(Retirement);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -205,6 +245,11 @@ pub struct CloseObserverTap(SubscriptionToken);
 pub enum NexusEffectResult {
     Stashed(Stashed),
     StateClassified(StateClassified),
+    Proposed(Proposed),
+    Clarified(Clarified),
+    Superseded(Superseded),
+    Retired(Retired),
+    OperationFailed(OperationFailed),
     IntentSubscriptionOpened(IntentSubscriptionOpened),
     RemovalCandidatesCollected(RemovalCandidatesCollected),
     ObserverTapOpened(ObserverTapOpened),
@@ -220,6 +265,31 @@ pub struct Stashed(StashResult);
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct StateClassified(Entry);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Proposed(SemaReceipt);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Clarified(ClarificationReceipt);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Superseded(SupersessionReceipt);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Retired(RetirementReceipt);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct OperationFailed(ErrorReport);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -565,6 +635,82 @@ impl From<Statement> for ClassifyState {
 }
 
 #[rustfmt::skip]
+impl Propose {
+    pub fn new(payload: Entry) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Entry {
+        &self.0
+    }
+    pub fn into_payload(self) -> Entry {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Entry> for Propose {
+    fn from(payload: Entry) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Clarify {
+    pub fn new(payload: Clarification) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Clarification {
+        &self.0
+    }
+    pub fn into_payload(self) -> Clarification {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Clarification> for Clarify {
+    fn from(payload: Clarification) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Supersede {
+    pub fn new(payload: Supersession) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Supersession {
+        &self.0
+    }
+    pub fn into_payload(self) -> Supersession {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Supersession> for Supersede {
+    fn from(payload: Supersession) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Retire {
+    pub fn new(payload: Retirement) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Retirement {
+        &self.0
+    }
+    pub fn into_payload(self) -> Retirement {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Retirement> for Retire {
+    fn from(payload: Retirement) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl OpenIntentSubscription {
     pub fn new(payload: Query) -> Self {
         Self(payload)
@@ -674,6 +820,101 @@ impl StateClassified {
 #[rustfmt::skip]
 impl From<Entry> for StateClassified {
     fn from(payload: Entry) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Proposed {
+    pub fn new(payload: SemaReceipt) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &SemaReceipt {
+        &self.0
+    }
+    pub fn into_payload(self) -> SemaReceipt {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<SemaReceipt> for Proposed {
+    fn from(payload: SemaReceipt) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Clarified {
+    pub fn new(payload: ClarificationReceipt) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ClarificationReceipt {
+        &self.0
+    }
+    pub fn into_payload(self) -> ClarificationReceipt {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ClarificationReceipt> for Clarified {
+    fn from(payload: ClarificationReceipt) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Superseded {
+    pub fn new(payload: SupersessionReceipt) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &SupersessionReceipt {
+        &self.0
+    }
+    pub fn into_payload(self) -> SupersessionReceipt {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<SupersessionReceipt> for Superseded {
+    fn from(payload: SupersessionReceipt) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Retired {
+    pub fn new(payload: RetirementReceipt) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &RetirementReceipt {
+        &self.0
+    }
+    pub fn into_payload(self) -> RetirementReceipt {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<RetirementReceipt> for Retired {
+    fn from(payload: RetirementReceipt) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl OperationFailed {
+    pub fn new(payload: ErrorReport) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ErrorReport {
+        &self.0
+    }
+    pub fn into_payload(self) -> ErrorReport {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ErrorReport> for OperationFailed {
+    fn from(payload: ErrorReport) -> Self {
         Self::new(payload)
     }
 }
@@ -816,6 +1057,18 @@ impl NexusEffectCommand {
     pub fn classify_state(payload: Statement) -> Self {
         Self::ClassifyState(ClassifyState::new(payload))
     }
+    pub fn propose(payload: Entry) -> Self {
+        Self::Propose(Propose::new(payload))
+    }
+    pub fn clarify(payload: Clarification) -> Self {
+        Self::Clarify(Clarify::new(payload))
+    }
+    pub fn supersede(payload: Supersession) -> Self {
+        Self::Supersede(Supersede::new(payload))
+    }
+    pub fn retire(payload: Retirement) -> Self {
+        Self::Retire(Retire::new(payload))
+    }
     pub fn open_intent_subscription(payload: Query) -> Self {
         Self::OpenIntentSubscription(OpenIntentSubscription::new(payload))
     }
@@ -837,6 +1090,21 @@ impl NexusEffectResult {
     }
     pub fn state_classified(payload: Entry) -> Self {
         Self::StateClassified(StateClassified::new(payload))
+    }
+    pub fn proposed(payload: SemaReceipt) -> Self {
+        Self::Proposed(Proposed::new(payload))
+    }
+    pub fn clarified(payload: ClarificationReceipt) -> Self {
+        Self::Clarified(Clarified::new(payload))
+    }
+    pub fn superseded(payload: SupersessionReceipt) -> Self {
+        Self::Superseded(Superseded::new(payload))
+    }
+    pub fn retired(payload: RetirementReceipt) -> Self {
+        Self::Retired(Retired::new(payload))
+    }
+    pub fn operation_failed(payload: ErrorReport) -> Self {
+        Self::OperationFailed(OperationFailed::new(payload))
     }
     pub fn intent_subscription_opened(payload: IntentSubscription) -> Self {
         Self::IntentSubscriptionOpened(IntentSubscriptionOpened::new(payload))
@@ -1000,6 +1268,34 @@ impl From<ClassifyState> for NexusEffectCommand {
 }
 
 #[rustfmt::skip]
+impl From<Propose> for NexusEffectCommand {
+    fn from(payload: Propose) -> Self {
+        Self::Propose(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Clarify> for NexusEffectCommand {
+    fn from(payload: Clarify) -> Self {
+        Self::Clarify(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Supersede> for NexusEffectCommand {
+    fn from(payload: Supersede) -> Self {
+        Self::Supersede(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Retire> for NexusEffectCommand {
+    fn from(payload: Retire) -> Self {
+        Self::Retire(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl From<OpenIntentSubscription> for NexusEffectCommand {
     fn from(payload: OpenIntentSubscription) -> Self {
         Self::OpenIntentSubscription(payload)
@@ -1038,6 +1334,41 @@ impl From<Stashed> for NexusEffectResult {
 impl From<StateClassified> for NexusEffectResult {
     fn from(payload: StateClassified) -> Self {
         Self::StateClassified(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Proposed> for NexusEffectResult {
+    fn from(payload: Proposed) -> Self {
+        Self::Proposed(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Clarified> for NexusEffectResult {
+    fn from(payload: Clarified) -> Self {
+        Self::Clarified(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Superseded> for NexusEffectResult {
+    fn from(payload: Superseded) -> Self {
+        Self::Superseded(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Retired> for NexusEffectResult {
+    fn from(payload: Retired) -> Self {
+        Self::Retired(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<OperationFailed> for NexusEffectResult {
+    fn from(payload: OperationFailed) -> Self {
+        Self::OperationFailed(payload)
     }
 }
 
@@ -1343,6 +1674,50 @@ impl ClassifyState {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
+impl Propose {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Clarify {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Supersede {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Retire {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
 impl OpenIntentSubscription {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -1410,6 +1785,61 @@ impl Stashed {
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
 impl StateClassified {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Proposed {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Clarified {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Superseded {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Retired {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl OperationFailed {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }

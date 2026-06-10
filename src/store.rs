@@ -19,15 +19,15 @@ use crate::schema::{
         WriteOutput as SemaWriteOutput,
     },
     signal::{
-        Certainty, CertaintyChange, CertaintyChangeReceipt, CertaintySelection, CountedRecords,
-        DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport, FoundRecord, Importance,
-        ImportanceSelection, Keyword, KeywordMatch, Keywords, Magnitude, ObservedRecord,
-        ObservedRecords, Privacy, PrivacySelection, Query, RecordChange, RecordChangeReceipt,
-        RecordCount, RecordIdentifier, RecordSet, RemovalArchiveRecord, RemovalArchiveRecords,
-        RemovalCandidateCollection, RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifier,
-        RemovedIdentifiers, SearchText, SemaReceipt, SkippedRemovalCandidate,
-        SkippedRemovalCandidates, TextMatch, Weight, WeightBump, WeightBumpReceipt,
-        WeightSelection,
+        Certainty, CertaintyChange, CertaintyChangeReceipt, CertaintySelection, Clarification,
+        ClarificationReceipt, CountedRecords, DatabaseMarker, Description, Entry, ErrorMessage,
+        ErrorReport, FoundRecord, Importance, ImportanceSelection, Keyword, KeywordMatch, Keywords,
+        Magnitude, ObservedRecord, ObservedRecords, Privacy, PrivacySelection, Query, RecordChange,
+        RecordChangeReceipt, RecordCount, RecordIdentifier, RecordSet, RemovalArchiveRecord,
+        RemovalArchiveRecords, RemovalCandidateCollection, RemovalCandidatesCollection,
+        RemoveReceipt, RemovedIdentifier, RemovedIdentifiers, Retirement, RetirementReceipt,
+        SearchText, SemaReceipt, SkippedRemovalCandidate, SkippedRemovalCandidates, Supersession,
+        SupersessionReceipt, TextMatch, Weight, WeightBump, WeightBumpReceipt, WeightSelection,
     },
 };
 
@@ -400,6 +400,14 @@ impl Store {
         Ok(record_identifier)
     }
 
+    pub fn propose(&self, entry: Entry) -> Result<SemaReceipt, StoreError> {
+        let record_identifier = RecordIdentifier::new(self.record(entry)?);
+        Ok(SemaReceipt {
+            record_identifier,
+            database_marker: self.database_marker(),
+        })
+    }
+
     fn observe(&self, query: &Query) -> Result<Vec<ObservedRecord>, StoreError> {
         let mut records = self
             .records()?
@@ -442,6 +450,17 @@ impl Store {
             Err(sema_engine::Error::RecordNotFound { .. }) => Ok(false),
             Err(error) => Err(StoreError::Database(error)),
         }
+    }
+
+    pub fn retire(&self, retirement: Retirement) -> Result<Option<RetirementReceipt>, StoreError> {
+        let record_identifier = retirement.into_payload();
+        if !self.remove(record_identifier.payload())? {
+            return Ok(None);
+        }
+        Ok(Some(RetirementReceipt {
+            record_identifier,
+            database_marker: self.database_marker(),
+        }))
     }
 
     fn change_certainty(
@@ -503,6 +522,53 @@ impl Store {
         Ok(Some(RecordChangeReceipt {
             record_identifier,
             database_marker: self.database_marker(),
+        }))
+    }
+
+    pub fn clarify(
+        &self,
+        clarification: Clarification,
+    ) -> Result<Option<ClarificationReceipt>, StoreError> {
+        let record_identifier = clarification.record_identifier;
+        let identifier_text = record_identifier.payload().clone();
+        let Some(mut entry) = self.entry_by_identifier(record_identifier.payload())? else {
+            return Ok(None);
+        };
+        entry.description = clarification.description;
+        self.database.mutate(Mutation::new(
+            self.entries,
+            StoredRecord::new(identifier_text, entry),
+        ))?;
+        Ok(Some(ClarificationReceipt {
+            record_identifier,
+            database_marker: self.database_marker(),
+        }))
+    }
+
+    pub fn supersede(
+        &self,
+        supersession: Supersession,
+    ) -> Result<Option<SupersessionReceipt>, StoreError> {
+        if supersession
+            .retired_identifiers
+            .payload()
+            .iter()
+            .any(|identifier| {
+                self.entry_by_identifier(identifier.payload().payload())
+                    .is_ok_and(|entry| entry.is_none())
+            })
+        {
+            return Ok(None);
+        }
+        let retired_identifiers = supersession.retired_identifiers;
+        let replacement = supersession.replacement;
+        for identifier in retired_identifiers.payload() {
+            self.remove(identifier.payload().payload())?;
+        }
+        let sema_receipt = self.propose(replacement)?;
+        Ok(Some(SupersessionReceipt {
+            retired_identifiers,
+            sema_receipt,
         }))
     }
 
