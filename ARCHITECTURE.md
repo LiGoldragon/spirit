@@ -62,7 +62,7 @@ Signal/Nexus/SEMA event sequence that returns over the trace socket.
 The current plane schemas intentionally keep braces strict as NOTA key-value
 maps. The Signal namespace contains pairs such as `Topic String`,
 `RecordSet (Vec ObservedRecord)`, and
-`Entry { Topics * Kind * Description * Certainty * Weight * Privacy * }`; it does not
+`Entry { Topics * Kind * Description * Certainty * Importance * Privacy * }`; it does not
 contain declarations that repeat their own name inside the value.
 Inside a struct map, `Topics *` derives the `topics` field from the existing
 `Topics` type, and explicit bindings such as `kind (Optional Kind)` stay only
@@ -420,18 +420,18 @@ uses `sema-engine` over a `*.sema` file:
   the store reference; `tests/runtime_triad.rs` has a scoped-thread witness for
   this shape.
 - Entries carry `Topics`, a generated vector alias, generated `Certainty`,
-  generated `Weight`, and generated `Privacy`. Privacy is a directional
+  generated `Importance`, and generated `Privacy`. Privacy is a directional
   `Magnitude`: `Zero` is open/public, and higher magnitudes narrow the intended
   audience. Certainty is a directional `Magnitude`: `Zero` is the recoverable
-  removal-candidate state. Weight is a separate directional `Magnitude` for
-  importance/repetition; observation sorts higher weight first. Queries carry
+  removal-candidate state. Importance is a separate directional `Magnitude` for
+  importance/repetition; observation sorts higher importance first. Queries carry
   `TopicMatch::{Partial,Full}`, an optional `Kind`, generated
   `PrivacySelection`, generated `CertaintySelection`, and generated
-  `WeightSelection`:
+  `ImportanceSelection`:
   `Partial` accepts any requested topic, `Full` requires every requested topic,
   `None` in the kind position searches by topic and privacy, default privacy
   selection is exact `Zero`, ordinary certainty selection is
-  `AtLeastCertainty Minimum`, and ordinary weight selection is `Any`. The same
+  `AtLeastCertainty Minimum`, and ordinary importance selection is `Any`. The same
   query noun drives both `Observe` and `Count`, while `Lookup` uses the
   generated `RecordIdentifier` alias.
 - sema-engine's transaction model gives crash-consistency: a store reopened

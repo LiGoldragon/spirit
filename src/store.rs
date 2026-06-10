@@ -20,19 +20,19 @@ use crate::schema::{
     },
     signal::{
         Certainty, CertaintyChange, CertaintyChangeReceipt, CertaintySelection, CountedRecords,
-        DatabaseMarker, Entry, ErrorMessage, ErrorReport, FoundRecord, Magnitude, ObservedRecord,
-        ObservedRecords, Privacy, PrivacySelection, Query, RecordChange, RecordChangeReceipt,
-        RecordCount, RecordIdentifier, RecordSet, RemovalArchiveRecord, RemovalArchiveRecords,
-        RemovalCandidateCollection, RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifier,
-        RemovedIdentifiers, SemaReceipt, SkippedRemovalCandidate, SkippedRemovalCandidates, Weight,
-        WeightSelection,
+        DatabaseMarker, Entry, ErrorMessage, ErrorReport, FoundRecord, Importance,
+        ImportanceSelection, Magnitude, ObservedRecord, ObservedRecords, Privacy, PrivacySelection,
+        Query, RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier, RecordSet,
+        RemovalArchiveRecord, RemovalArchiveRecords, RemovalCandidateCollection,
+        RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifier, RemovedIdentifiers,
+        SemaReceipt, SkippedRemovalCandidate, SkippedRemovalCandidates,
     },
 };
 
 #[cfg(feature = "testing-trace")]
 use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
 
-const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(2);
+const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(3);
 const ENTRIES_TABLE: TableName = TableName::new("records");
 const RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH: usize = 4;
 const RECORD_IDENTIFIER_MAXIMUM_CODE_LENGTH: usize = 7;
@@ -393,7 +393,7 @@ impl Store {
             .into_iter()
             .filter(|record| record.entry.matches(query))
             .collect::<Vec<_>>();
-        records.sort_by_key(|record| std::cmp::Reverse(record.entry.importance_weight()));
+        records.sort_by_key(|record| std::cmp::Reverse(record.entry.importance_rank()));
         Ok(records
             .into_iter()
             .map(StoredRecord::into_observed_record)
@@ -696,12 +696,12 @@ impl Entry {
         query.matches(self)
     }
 
-    pub fn certainty_weight(&self) -> u64 {
-        self.certainty.payload().weight()
+    pub fn certainty_rank(&self) -> u64 {
+        self.certainty.payload().rank()
     }
 
-    pub fn importance_weight(&self) -> u64 {
-        self.weight.payload().weight()
+    pub fn importance_rank(&self) -> u64 {
+        self.importance.payload().rank()
     }
 }
 
@@ -711,7 +711,7 @@ impl Query {
             && self.kind.as_ref().is_none_or(|kind| &entry.kind == kind)
             && self.privacy_selection.matches(&entry.privacy)
             && self.certainty_selection.matches(&entry.certainty)
-            && self.weight_selection.matches(&entry.weight)
+            && self.importance_selection.matches(&entry.importance)
     }
 }
 
@@ -724,8 +724,10 @@ impl PrivacySelection {
         match self {
             Self::Any => true,
             Self::Exact(expected) => privacy == expected.payload(),
-            Self::AtMost(maximum) => privacy.weight() <= maximum.payload().weight(),
-            Self::AtLeast(minimum) => privacy.weight() >= minimum.payload().weight(),
+            Self::AtMost(maximum) => privacy.payload().rank() <= maximum.payload().payload().rank(),
+            Self::AtLeast(minimum) => {
+                privacy.payload().rank() >= minimum.payload().payload().rank()
+            }
         }
     }
 }
@@ -745,33 +747,37 @@ impl CertaintySelection {
             Self::Any => true,
             Self::ExactCertainty(expected) => certainty == expected.payload().payload(),
             Self::AtMostCertainty(maximum) => {
-                certainty.weight() <= maximum.payload().payload().weight()
+                certainty.rank() <= maximum.payload().payload().rank()
             }
             Self::AtLeastCertainty(minimum) => {
-                certainty.weight() >= minimum.payload().payload().weight()
+                certainty.rank() >= minimum.payload().payload().rank()
             }
         }
     }
 }
 
-impl WeightSelection {
-    pub fn default_observation_weight() -> Self {
+impl ImportanceSelection {
+    pub fn default_observation_importance() -> Self {
         Self::Any
     }
 
-    pub fn matches(&self, weight: &Weight) -> bool {
-        let weight = weight.payload();
+    pub fn matches(&self, importance: &Importance) -> bool {
+        let importance = importance.payload();
         match self {
             Self::Any => true,
-            Self::ExactWeight(expected) => weight == expected.payload().payload(),
-            Self::AtMostWeight(maximum) => weight.weight() <= maximum.payload().payload().weight(),
-            Self::AtLeastWeight(minimum) => weight.weight() >= minimum.payload().payload().weight(),
+            Self::ExactImportance(expected) => importance == expected.payload().payload(),
+            Self::AtMostImportance(maximum) => {
+                importance.rank() <= maximum.payload().payload().rank()
+            }
+            Self::AtLeastImportance(minimum) => {
+                importance.rank() >= minimum.payload().payload().rank()
+            }
         }
     }
 }
 
 impl Magnitude {
-    pub fn weight(&self) -> u64 {
+    pub fn rank(&self) -> u64 {
         match self {
             Self::Zero => 0,
             Self::Minimum => 1,

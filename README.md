@@ -66,14 +66,14 @@ Entries carry a vector of topics. Queries use generated `TopicMatch` values:
 `(Partial [schema runtime])` matches any requested topic, while
 `(Full [schema runtime])` requires every requested topic. The query kind is
 optional: `(Some Decision)` filters by kind and `None` searches only by topic.
-The full generated query also carries privacy, certainty, and weight selectors.
+The full generated query also carries privacy, certainty, and importance selectors.
 The CLI accepts the common three-field query shorthand and fills the certainty
-selector with `AtLeastCertainty Minimum` and the weight selector with `Any`, so
+selector with `AtLeastCertainty Minimum` and the importance selector with `Any`, so
 ordinary `Observe` and `Count` hide zero-certainty removal candidates. Use the
 explicit four-field form with `ExactCertainty Zero` when reviewing candidates,
-or the five-field form to add a `WeightSelection`. Certainty and weight are
-separate stored axes: certainty names confidence/currentness, while weight names
-importance/repetition and is used for filtering and high-weight-first retrieval.
+or the five-field form to add an `ImportanceSelection`. Certainty and importance are
+separate stored axes: certainty names confidence/currentness, while importance names
+importance/repetition and is used for filtering and high-importance-first retrieval.
 
 ## Runtime triad
 

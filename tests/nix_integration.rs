@@ -381,7 +381,7 @@ fn entry(description: &str) -> Entry {
         kind: Kind::Decision,
         description: Description::new(description),
         certainty: Magnitude::Maximum.into(),
-        weight: Magnitude::Minimum.into(),
+        importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
     }
 }
@@ -514,7 +514,7 @@ fn nix_built_daemon_persists_state_across_two_cli_invocations() {
         second_marker.commit_sequence
     );
     // The state digest also evolves (different records contribute
-    // different magnitude weights into the digest fold).
+    // different magnitude importances into the digest fold).
     assert_ne!(
         first_marker.state_digest, second_marker.state_digest,
         "schema-emitted StateDigest must reflect the new record"

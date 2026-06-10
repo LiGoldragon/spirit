@@ -11,8 +11,8 @@
 
 use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest};
 use spirit::schema::signal::{
-    CertaintySelection, Description, Entry, Input, Kind, Magnitude, Output, Privacy,
-    PrivacySelection, Query, RemovalCandidateCollection, TopicMatch, Topics, WeightSelection,
+    CertaintySelection, Description, Entry, ImportanceSelection, Input, Kind, Magnitude, Output,
+    Privacy, PrivacySelection, Query, RemovalCandidateCollection, TopicMatch, Topics,
 };
 use spirit::{Engine, Store};
 use tempfile::TempDir;
@@ -27,7 +27,7 @@ fn entry_with_certainty(topic: &str, description: &str, magnitude: Magnitude) ->
         kind: Kind::Decision,
         description: Description::new(description),
         certainty: magnitude.into(),
-        weight: Magnitude::Minimum.into(),
+        importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
     }
 }
@@ -38,7 +38,7 @@ fn topic_query(topic: &str) -> Query {
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
-        weight_selection: WeightSelection::default_observation_weight(),
+        importance_selection: ImportanceSelection::default_observation_importance(),
     }
 }
 
@@ -48,7 +48,7 @@ fn removal_candidate_query(topic: &str) -> Query {
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::removal_candidate_certainty(),
-        weight_selection: WeightSelection::default_observation_weight(),
+        importance_selection: ImportanceSelection::default_observation_importance(),
     }
 }
 

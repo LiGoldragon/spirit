@@ -8,12 +8,12 @@ use crate::{
         sema::ErrorReport,
         signal::{
             self as signal_schema, CertaintySelection, DatabaseMarker, Description,
-            EngineStartFailure, EngineStopFailure, Entry, ErrorMessage, Input, Integer,
-            IntentEvent, MailIdentifier, MailLedgerEvent, MessageIdentifier, MessageProcessed,
-            MessageProcessedHook, MessageSent, MessageSentHook, OriginRoute, Output, Privacy,
-            PrivacySelection, ProcessedMail, Query, RecordSelection, SemaReceipt, SentMail,
-            ShortHeader, SignalEngine, SignalRejection, StatementText, Topic, TopicMatch, Topics,
-            ValidationError, WeightSelection,
+            EngineStartFailure, EngineStopFailure, Entry, ErrorMessage, ImportanceSelection, Input,
+            Integer, IntentEvent, MailIdentifier, MailLedgerEvent, MessageIdentifier,
+            MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook, OriginRoute,
+            Output, Privacy, PrivacySelection, ProcessedMail, Query, RecordSelection, SemaReceipt,
+            SentMail, ShortHeader, SignalEngine, SignalRejection, StatementText, Topic, TopicMatch,
+            Topics, ValidationError,
         },
     },
     store::{Store, StoreError},
@@ -499,7 +499,7 @@ impl RecordSelection {
             kind: self.kind,
             privacy_selection: PrivacySelection::default_observation_privacy(),
             certainty_selection: CertaintySelection::default_observation_certainty(),
-            weight_selection: WeightSelection::default_observation_weight(),
+            importance_selection: ImportanceSelection::default_observation_importance(),
         }
     }
 
@@ -511,7 +511,7 @@ impl RecordSelection {
                 PrivacySelection::private_floor(),
             )),
             certainty_selection: CertaintySelection::default_observation_certainty(),
-            weight_selection: WeightSelection::default_observation_weight(),
+            importance_selection: ImportanceSelection::default_observation_importance(),
         }
     }
 }
@@ -724,8 +724,8 @@ impl StatementText {
 }
 
 impl Privacy {
-    pub fn weight(&self) -> u64 {
-        self.payload().weight()
+    pub fn rank(&self) -> u64 {
+        self.payload().rank()
     }
 }
 

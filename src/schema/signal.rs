@@ -472,7 +472,7 @@ pub struct Certainty(Magnitude);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Weight(Magnitude);
+pub struct Importance(Magnitude);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -527,27 +527,27 @@ pub struct AtLeastCertainty(Certainty);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub enum WeightSelection {
+pub enum ImportanceSelection {
     Any,
-    ExactWeight(ExactWeight),
-    AtMostWeight(AtMostWeight),
-    AtLeastWeight(AtLeastWeight),
+    ExactImportance(ExactImportance),
+    AtMostImportance(AtMostImportance),
+    AtLeastImportance(AtLeastImportance),
 }
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ExactWeight(Weight);
+pub struct ExactImportance(Importance);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct AtMostWeight(Weight);
+pub struct AtMostImportance(Importance);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct AtLeastWeight(Weight);
+pub struct AtLeastImportance(Importance);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -710,7 +710,7 @@ pub struct Entry {
     pub kind: Kind,
     pub description: Description,
     pub certainty: Certainty,
-    pub weight: Weight,
+    pub importance: Importance,
     pub privacy: Privacy,
 }
 
@@ -768,7 +768,7 @@ pub struct Query {
     pub kind: Option<Kind>,
     pub privacy_selection: PrivacySelection,
     pub certainty_selection: CertaintySelection,
-    pub weight_selection: WeightSelection,
+    pub importance_selection: ImportanceSelection,
 }
 
 #[rustfmt::skip]
@@ -1876,7 +1876,7 @@ impl From<Magnitude> for Certainty {
 }
 
 #[rustfmt::skip]
-impl Weight {
+impl Importance {
     pub fn new(payload: Magnitude) -> Self {
         Self(payload)
     }
@@ -1888,7 +1888,7 @@ impl Weight {
     }
 }
 #[rustfmt::skip]
-impl From<Magnitude> for Weight {
+impl From<Magnitude> for Importance {
     fn from(payload: Magnitude) -> Self {
         Self::new(payload)
     }
@@ -2009,58 +2009,58 @@ impl From<Certainty> for AtLeastCertainty {
 }
 
 #[rustfmt::skip]
-impl ExactWeight {
-    pub fn new(payload: Weight) -> Self {
+impl ExactImportance {
+    pub fn new(payload: Importance) -> Self {
         Self(payload)
     }
-    pub fn payload(&self) -> &Weight {
+    pub fn payload(&self) -> &Importance {
         &self.0
     }
-    pub fn into_payload(self) -> Weight {
+    pub fn into_payload(self) -> Importance {
         self.0
     }
 }
 #[rustfmt::skip]
-impl From<Weight> for ExactWeight {
-    fn from(payload: Weight) -> Self {
+impl From<Importance> for ExactImportance {
+    fn from(payload: Importance) -> Self {
         Self::new(payload)
     }
 }
 
 #[rustfmt::skip]
-impl AtMostWeight {
-    pub fn new(payload: Weight) -> Self {
+impl AtMostImportance {
+    pub fn new(payload: Importance) -> Self {
         Self(payload)
     }
-    pub fn payload(&self) -> &Weight {
+    pub fn payload(&self) -> &Importance {
         &self.0
     }
-    pub fn into_payload(self) -> Weight {
+    pub fn into_payload(self) -> Importance {
         self.0
     }
 }
 #[rustfmt::skip]
-impl From<Weight> for AtMostWeight {
-    fn from(payload: Weight) -> Self {
+impl From<Importance> for AtMostImportance {
+    fn from(payload: Importance) -> Self {
         Self::new(payload)
     }
 }
 
 #[rustfmt::skip]
-impl AtLeastWeight {
-    pub fn new(payload: Weight) -> Self {
+impl AtLeastImportance {
+    pub fn new(payload: Importance) -> Self {
         Self(payload)
     }
-    pub fn payload(&self) -> &Weight {
+    pub fn payload(&self) -> &Importance {
         &self.0
     }
-    pub fn into_payload(self) -> Weight {
+    pub fn into_payload(self) -> Importance {
         self.0
     }
 }
 #[rustfmt::skip]
-impl From<Weight> for AtLeastWeight {
-    fn from(payload: Weight) -> Self {
+impl From<Importance> for AtLeastImportance {
+    fn from(payload: Importance) -> Self {
         Self::new(payload)
     }
 }
@@ -2328,15 +2328,15 @@ impl CertaintySelection {
 }
 
 #[rustfmt::skip]
-impl WeightSelection {
-    pub fn exact_weight(payload: Weight) -> Self {
-        Self::ExactWeight(ExactWeight::new(payload))
+impl ImportanceSelection {
+    pub fn exact_importance(payload: Importance) -> Self {
+        Self::ExactImportance(ExactImportance::new(payload))
     }
-    pub fn at_most_weight(payload: Weight) -> Self {
-        Self::AtMostWeight(AtMostWeight::new(payload))
+    pub fn at_most_importance(payload: Importance) -> Self {
+        Self::AtMostImportance(AtMostImportance::new(payload))
     }
-    pub fn at_least_weight(payload: Weight) -> Self {
-        Self::AtLeastWeight(AtLeastWeight::new(payload))
+    pub fn at_least_importance(payload: Importance) -> Self {
+        Self::AtLeastImportance(AtLeastImportance::new(payload))
     }
 }
 
@@ -2519,23 +2519,23 @@ impl From<AtLeastCertainty> for CertaintySelection {
 }
 
 #[rustfmt::skip]
-impl From<ExactWeight> for WeightSelection {
-    fn from(payload: ExactWeight) -> Self {
-        Self::ExactWeight(payload)
+impl From<ExactImportance> for ImportanceSelection {
+    fn from(payload: ExactImportance) -> Self {
+        Self::ExactImportance(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<AtMostWeight> for WeightSelection {
-    fn from(payload: AtMostWeight) -> Self {
-        Self::AtMostWeight(payload)
+impl From<AtMostImportance> for ImportanceSelection {
+    fn from(payload: AtMostImportance) -> Self {
+        Self::AtMostImportance(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<AtLeastWeight> for WeightSelection {
-    fn from(payload: AtLeastWeight) -> Self {
-        Self::AtLeastWeight(payload)
+impl From<AtLeastImportance> for ImportanceSelection {
+    fn from(payload: AtLeastImportance) -> Self {
+        Self::AtLeastImportance(payload)
     }
 }
 
@@ -3583,7 +3583,7 @@ impl Certainty {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
-impl Weight {
+impl Importance {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -3682,7 +3682,7 @@ impl AtLeastCertainty {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
-impl WeightSelection {
+impl ImportanceSelection {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -3693,7 +3693,7 @@ impl WeightSelection {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
-impl ExactWeight {
+impl ExactImportance {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -3704,7 +3704,7 @@ impl ExactWeight {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
-impl AtMostWeight {
+impl AtMostImportance {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -3715,7 +3715,7 @@ impl AtMostWeight {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
-impl AtLeastWeight {
+impl AtLeastImportance {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }

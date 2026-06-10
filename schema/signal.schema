@@ -83,7 +83,7 @@
   Full Topics
   Privacy Magnitude
   Certainty Magnitude
-  Weight Magnitude
+  Importance Magnitude
   PrivacySelection [Any (Exact) (AtMost) (AtLeast)]
   Exact Privacy
   AtMost Privacy
@@ -92,10 +92,10 @@
   ExactCertainty Certainty
   AtMostCertainty Certainty
   AtLeastCertainty Certainty
-  WeightSelection [Any (ExactWeight) (AtMostWeight) (AtLeastWeight)]
-  ExactWeight Weight
-  AtMostWeight Weight
-  AtLeastWeight Weight
+  ImportanceSelection [Any (ExactImportance) (AtMostImportance) (AtLeastImportance)]
+  ExactImportance Importance
+  AtMostImportance Importance
+  AtLeastImportance Importance
 
   RemovalCandidateCollection { RecordQuery * }
   RecordQuery Query
@@ -115,14 +115,14 @@
   ObservedOperation { OperationKind * }
   ObservedOperations (Vec ObservedOperation)
 
-  Entry { Topics * Kind * Description * Certainty * Weight * Privacy * }
+  Entry { Topics * Kind * Description * Certainty * Importance * Privacy * }
   Statement { StatementText * }
   CertaintyChange { RecordIdentifier * Certainty * }
   CertaintyChangeReceipt { RecordIdentifier * Certainty * DatabaseMarker * }
   RecordChange { RecordIdentifier * Entry * }
   RecordChangeReceipt { RecordIdentifier * DatabaseMarker * }
   RecordSelection { TopicMatch * kind (Optional Kind) }
-  Query { TopicMatch * kind (Optional Kind) privacy_selection PrivacySelection certainty_selection CertaintySelection weight_selection WeightSelection }
+  Query { TopicMatch * kind (Optional Kind) privacy_selection PrivacySelection certainty_selection CertaintySelection importance_selection ImportanceSelection }
   Records (Vec ObservedRecord)
   RecordSet (Vec ObservedRecord)
   Kind [Decision Principle Correction Clarification Constraint]

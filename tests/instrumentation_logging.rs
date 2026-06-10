@@ -4,9 +4,9 @@ use spirit::{
         nexus::NexusObjectName,
         sema::SemaObjectName,
         signal::{
-            CertaintySelection, DatabaseMarker, Description, Entry, Input, Kind, Magnitude, Output,
-            Privacy, PrivacySelection, Query, SignalObjectName, SignalRejection, TopicMatch,
-            Topics, ValidationError, WeightSelection,
+            CertaintySelection, DatabaseMarker, Description, Entry, ImportanceSelection, Input,
+            Kind, Magnitude, Output, Privacy, PrivacySelection, Query, SignalObjectName,
+            SignalRejection, TopicMatch, Topics, ValidationError,
         },
     },
 };
@@ -36,7 +36,7 @@ fn entry(description: &str) -> Entry {
         kind: Kind::Decision,
         description: Description::new(description),
         certainty: Magnitude::Maximum.into(),
-        weight: Magnitude::Minimum.into(),
+        importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
     }
 }
@@ -58,7 +58,7 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
-        weight_selection: WeightSelection::default_observation_weight(),
+        importance_selection: ImportanceSelection::default_observation_importance(),
     }));
     // Designer 480: Observe now flows through Stash (operator 287 §
     // "Acceptance Tests"). The slim wire reply carries a handle, not the

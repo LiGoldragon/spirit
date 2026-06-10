@@ -16,8 +16,8 @@ use std::time::{Duration, Instant};
 
 use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest, Output as MetaOutput};
 use spirit::schema::signal::{
-    Description, Entry, Input, Kind, Magnitude, Output, Privacy, Query, TopicMatch, Topics,
-    WeightSelection,
+    Description, Entry, ImportanceSelection, Input, Kind, Magnitude, Output, Privacy, Query,
+    TopicMatch, Topics,
 };
 use spirit::{
     Configuration, Daemon, DaemonError, MetaSignalTransport, SignalTransport, SpiritDaemon,
@@ -66,7 +66,7 @@ fn decision_entry(description: &str) -> Entry {
         kind: Kind::Decision,
         description: Description::new(description),
         certainty: Magnitude::Maximum.into(),
-        weight: Magnitude::Minimum.into(),
+        importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
     }
 }
@@ -78,7 +78,7 @@ fn observe_query() -> Query {
         privacy_selection: spirit::schema::signal::PrivacySelection::default_observation_privacy(),
         certainty_selection:
             spirit::schema::signal::CertaintySelection::default_observation_certainty(),
-        weight_selection: WeightSelection::default_observation_weight(),
+        importance_selection: ImportanceSelection::default_observation_importance(),
     }
 }
 

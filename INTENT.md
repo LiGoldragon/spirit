@@ -69,14 +69,14 @@ without making callers spell the full `Query` object every time. Nexus lowers
 those shortcut roots into schema-declared `CommandSemaRead(Observe(Query))`:
 `PublicRecords` uses exact-`Zero` privacy, and `PrivateRecords` uses non-zero
 privacy (`AtLeast Minimum`). Both project to ordinary observation certainty
-(`AtLeastCertainty Minimum`) and unconstrained weight, so zero-certainty removal
+(`AtLeastCertainty Minimum`) and unconstrained importance, so zero-certainty removal
 candidates stay out of normal query surfaces. SEMA still owns the canonical
 `Query` predicate and durable read behavior.
 
-*Certainty and weight are separate axes.* `Entry` stores `Certainty` and
-`Weight` separately. Certainty names confidence/currentness: `Zero` nominates a
-record for removal while direct `Lookup` remains possible. Weight names
-importance/repetition and drives retrieval order/filtering. Weight must not be
+*Certainty and importance are separate axes.* `Entry` stores `Certainty` and
+`Importance` separately. Certainty names confidence/currentness: `Zero` nominates a
+record for removal while direct `Lookup` remains possible. Importance names
+importance/repetition and drives retrieval order/filtering. Importance must not be
 overloaded onto certainty.
 
 *Nexus is the recursive runner payload keeper and the internal feature catalog.*

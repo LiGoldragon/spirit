@@ -4,8 +4,8 @@ use nota_next::{Delimiter, Document, NotaBlock, NotaDecode, NotaDecodeError};
 use spirit::{
     SignalTransport, TransportError,
     schema::signal::{
-        CertaintySelection, Input, Kind, Output, PrivacySelection, Query,
-        RemovalCandidateCollection, Statement, StatementText, TopicMatch, WeightSelection,
+        CertaintySelection, ImportanceSelection, Input, Kind, Output, PrivacySelection, Query,
+        RemovalCandidateCollection, Statement, StatementText, TopicMatch,
     },
 };
 use thiserror::Error;
@@ -220,34 +220,34 @@ impl LegacyQueryInput {
         let Some(fields) = payload.as_delimited(Delimiter::Parenthesis) else {
             return Ok(None);
         };
-        let (topic_match, kind, privacy_selection, certainty_selection, weight_selection) =
+        let (topic_match, kind, privacy_selection, certainty_selection, importance_selection) =
             match fields {
                 [topic_match, kind, privacy_selection] => (
                     topic_match,
                     kind,
                     privacy_selection,
                     certainty_selection,
-                    WeightSelection::default_observation_weight(),
+                    ImportanceSelection::default_observation_importance(),
                 ),
                 [topic_match, kind, privacy_selection, certainty_selection] => (
                     topic_match,
                     kind,
                     privacy_selection,
                     CertaintySelection::from_nota_block(certainty_selection)?,
-                    WeightSelection::default_observation_weight(),
+                    ImportanceSelection::default_observation_importance(),
                 ),
                 [
                     topic_match,
                     kind,
                     privacy_selection,
                     certainty_selection,
-                    weight_selection,
+                    importance_selection,
                 ] => (
                     topic_match,
                     kind,
                     privacy_selection,
                     CertaintySelection::from_nota_block(certainty_selection)?,
-                    WeightSelection::from_nota_block(weight_selection)?,
+                    ImportanceSelection::from_nota_block(importance_selection)?,
                 ),
                 _ => return Ok(None),
             };
@@ -256,7 +256,7 @@ impl LegacyQueryInput {
             kind: Option::<Kind>::from_nota_block(kind)?,
             privacy_selection: PrivacySelection::from_nota_block(privacy_selection)?,
             certainty_selection,
-            weight_selection,
+            importance_selection,
         }))
     }
 
