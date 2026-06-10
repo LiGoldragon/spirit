@@ -19,6 +19,7 @@ const PRODUCTION_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(5);
 const SPIRIT_STORE_V1_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(1);
 const SPIRIT_STORE_V2_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(2);
 const SPIRIT_STORE_V3_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(3);
+const SPIRIT_STORE_V4_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(4);
 const RECORDS_TABLE: TableName = TableName::new("records");
 
 #[derive(Debug, Clone, PartialEq, Eq, NotaDecode, NotaEncode)]
@@ -229,9 +230,10 @@ impl SpiritStoreUpgrade {
             )),
             Err(StoreError::Database(sema_engine::Error::Sema(
                 StorageKernelError::SchemaVersionMismatch { expected, found },
-            ))) if expected == SPIRIT_STORE_V3_SCHEMA_VERSION
+            ))) if expected == SPIRIT_STORE_V4_SCHEMA_VERSION
                 && (found == SPIRIT_STORE_V1_SCHEMA_VERSION
-                    || found == SPIRIT_STORE_V2_SCHEMA_VERSION) =>
+                    || found == SPIRIT_STORE_V2_SCHEMA_VERSION
+                    || found == SPIRIT_STORE_V3_SCHEMA_VERSION) =>
             {
                 self.upgrade_previous_store(database_path, found)
             }
@@ -247,7 +249,10 @@ impl SpiritStoreUpgrade {
         let records = if previous_schema_version == SPIRIT_STORE_V1_SCHEMA_VERSION {
             SpiritStorePreviousRecords::from_v1(SpiritStoreV1Database::open(&database_path)?)
         } else {
-            SpiritStorePreviousRecords::from_v2(SpiritStoreV2Database::open(&database_path)?)
+            SpiritStorePreviousRecords::from_v2(SpiritStoreV2Database::open(
+                &database_path,
+                previous_schema_version,
+            )?)
         }?;
         let temporary_path = Self::temporary_path(&database_path);
         if temporary_path.exists() {
@@ -269,7 +274,7 @@ impl SpiritStoreUpgrade {
     }
 
     fn temporary_path(database_path: &Path) -> PathBuf {
-        database_path.with_extension(format!("schema-3-migrating-{}.sema", std::process::id()))
+        database_path.with_extension(format!("schema-4-migrating-{}.sema", std::process::id()))
     }
 
     fn backup_path(database_path: &Path) -> PathBuf {
@@ -318,9 +323,8 @@ impl SpiritStoreV1Database {
 }
 
 impl SpiritStoreV2Database {
-    fn open(path: &Path) -> Result<Self, ProductionMigrationError> {
-        let mut database =
-            SemaDatabase::open(EngineOpen::new(path, SPIRIT_STORE_V2_SCHEMA_VERSION))?;
+    fn open(path: &Path, schema_version: SchemaVersion) -> Result<Self, ProductionMigrationError> {
+        let mut database = SemaDatabase::open(EngineOpen::new(path, schema_version))?;
         let records = database.register_table(TableDescriptor::new(RECORDS_TABLE))?;
         Ok(Self { database, records })
     }
@@ -425,6 +429,7 @@ impl SpiritStoreV1Entry {
             description: self.description,
             certainty: Certainty::new(self.magnitude),
             importance: Importance::new(Magnitude::Minimum),
+            weight: 1_u64.into(),
             privacy: self.privacy,
         }
     }
@@ -438,6 +443,7 @@ impl SpiritStoreV2Entry {
             description: self.description,
             certainty: self.certainty,
             importance: self.importance,
+            weight: 1_u64.into(),
             privacy: self.privacy,
         }
     }
@@ -458,6 +464,7 @@ impl ProductionStampedEntry {
             description: Description::new(self.entry.description.as_str().to_owned()),
             certainty: Certainty::new(Self::magnitude_from(self.entry.certainty)),
             importance: Importance::new(Magnitude::Minimum),
+            weight: 1_u64.into(),
             privacy: Privacy::new(Self::magnitude_from(self.entry.privacy)),
         }
     }

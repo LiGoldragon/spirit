@@ -3,10 +3,12 @@
   Query spirit:signal:Query
   RecordIdentifier spirit:signal:RecordIdentifier
   CertaintyChange spirit:signal:CertaintyChange
+  WeightBump spirit:signal:WeightBump
   RecordChange spirit:signal:RecordChange
   SemaReceipt spirit:signal:SemaReceipt
   RemoveReceipt spirit:signal:RemoveReceipt
   CertaintyChangeReceipt spirit:signal:CertaintyChangeReceipt
+  WeightBumpReceipt spirit:signal:WeightBumpReceipt
   RecordChangeReceipt spirit:signal:RecordChangeReceipt
   ObservedRecords spirit:signal:ObservedRecords
   FoundRecord spirit:signal:FoundRecord
@@ -16,10 +18,11 @@
 [WriteInput ReadInput]
 [WriteOutput ReadOutput]
 {
-  WriteInput [(Record) (Remove) (ChangeCertainty) (ChangeRecord)]
+  WriteInput [(Record) (Remove) (ChangeCertainty) (BumpWeight) (ChangeRecord)]
   Record Entry
   Remove RecordIdentifier
   ChangeCertainty CertaintyChange
+  BumpWeight WeightBump
   ChangeRecord RecordChange
 
   ReadInput [(Observe) (Lookup) (Count)]
@@ -27,10 +30,11 @@
   Lookup RecordIdentifier
   Count Query
 
-  WriteOutput [(Recorded) (Removed) (CertaintyChanged) (RecordChanged) (Missed)]
+  WriteOutput [(Recorded) (Removed) (CertaintyChanged) (WeightBumped) (RecordChanged) (Missed)]
   Recorded SemaReceipt
   Removed RemoveReceipt
   CertaintyChanged CertaintyChangeReceipt
+  WeightBumped WeightBumpReceipt
   RecordChanged RecordChangeReceipt
   Missed ErrorReport
 

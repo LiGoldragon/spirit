@@ -177,6 +177,7 @@ impl ComponentDaemon for SpiritDaemon {
             | Input::Count(_)
             | Input::Remove(_)
             | Input::ChangeCertainty(_)
+            | Input::BumpWeight(_)
             | Input::ChangeRecord(_)
             | Input::LookupStash(_)
             | Input::CollectRemovalCandidates(_)

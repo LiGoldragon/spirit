@@ -30,6 +30,7 @@ use tempfile::TempDir;
 const PRODUCTION_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(5);
 const SPIRIT_STORE_V1_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(1);
 const SPIRIT_STORE_V2_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(2);
+const SPIRIT_STORE_V3_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(3);
 const RECORDS_TABLE: TableName = TableName::new("records");
 
 struct ProductionSandbox {
@@ -227,12 +228,15 @@ impl SpiritStoreV1Database {
 
 impl SpiritStoreV2Database {
     fn create(path: &Path) -> Self {
-        let mut database =
-            SemaDatabase::open(EngineOpen::new(path, SPIRIT_STORE_V2_SCHEMA_VERSION))
-                .expect("create schema-v2 spirit database");
+        Self::create_with_schema_version(path, SPIRIT_STORE_V2_SCHEMA_VERSION)
+    }
+
+    fn create_with_schema_version(path: &Path, schema_version: SchemaVersion) -> Self {
+        let mut database = SemaDatabase::open(EngineOpen::new(path, schema_version))
+            .expect("create schema-v2/v3 spirit database");
         let records = database
             .register_table(TableDescriptor::new(RECORDS_TABLE))
-            .expect("register schema-v2 records table");
+            .expect("register schema-v2/v3 records table");
         Self { database, records }
     }
 
@@ -348,6 +352,7 @@ impl ProductionStampedEntry {
             description: Description::new(self.entry.description.as_str().to_owned()),
             certainty: Self::magnitude_from(self.entry.certainty).into(),
             importance: Magnitude::Minimum.into(),
+            weight: 1_u64.into(),
             privacy: Privacy::new(Self::magnitude_from(self.entry.privacy)),
         }
     }
@@ -458,6 +463,7 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
         privacy_selection: PrivacySelection::Any,
         certainty_selection: CertaintySelection::Any,
         importance_selection: ImportanceSelection::default_observation_importance(),
+        weight_selection: spirit::schema::signal::WeightSelection::default_observation_weight(),
     };
 
     match sandbox.run_input(Input::count(all_records_query.clone())) {
@@ -507,6 +513,7 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
         privacy_selection: PrivacySelection::Any,
         certainty_selection: CertaintySelection::Any,
         importance_selection: ImportanceSelection::default_observation_importance(),
+        weight_selection: spirit::schema::signal::WeightSelection::default_observation_weight(),
     };
 
     match sandbox.run_input(Input::count(observed_query.clone())) {
@@ -564,6 +571,7 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
         )),
         certainty: Magnitude::High.into(),
         importance: Magnitude::Minimum.into(),
+        weight: 1_u64.into(),
         privacy: Privacy::new(Magnitude::Zero),
     }));
     let record_identifier = match mutation {
@@ -590,6 +598,7 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
             )),
             certainty: Magnitude::VeryHigh.into(),
             importance: Magnitude::Minimum.into(),
+            weight: 1_u64.into(),
             privacy: Privacy::new(Magnitude::Zero),
         },
     })) {
@@ -660,11 +669,11 @@ fn store_upgrade_binary_preserves_ids_and_adds_default_importance() {
         .parse::<SpiritStoreUpgradeOutput>()
         .expect("upgrade stdout is typed NOTA");
     let SpiritStoreUpgradeOutput::Upgraded(completed) = decoded else {
-        panic!("expected an actual schema-v1 to schema-v3 upgrade, got {decoded:?}");
+        panic!("expected an actual schema-v1 to schema-v4 upgrade, got {decoded:?}");
     };
     assert_eq!(completed.record_count(), 1);
 
-    let store = Store::open(&database_path).expect("open upgraded schema-v3 store");
+    let store = Store::open(&database_path).expect("open upgraded schema-v4 store");
     let upgraded = store
         .entry_by_identifier("wxyz")
         .expect("read upgraded store")
@@ -672,6 +681,7 @@ fn store_upgrade_binary_preserves_ids_and_adds_default_importance() {
     assert_eq!(upgraded.description, "old store record");
     assert_eq!(upgraded.certainty, Magnitude::High);
     assert_eq!(upgraded.importance.payload(), &Magnitude::Minimum);
+    assert_eq!(upgraded.weight.payload(), &1);
     assert_eq!(upgraded.privacy, Magnitude::Zero);
 }
 
@@ -710,11 +720,11 @@ fn store_upgrade_binary_preserves_schema_v2_importance() {
         .parse::<SpiritStoreUpgradeOutput>()
         .expect("upgrade stdout is typed NOTA");
     let SpiritStoreUpgradeOutput::Upgraded(completed) = decoded else {
-        panic!("expected an actual schema-v2 to schema-v3 upgrade, got {decoded:?}");
+        panic!("expected an actual schema-v2 to schema-v4 upgrade, got {decoded:?}");
     };
     assert_eq!(completed.record_count(), 1);
 
-    let store = Store::open(&database_path).expect("open upgraded schema-v3 store");
+    let store = Store::open(&database_path).expect("open upgraded schema-v4 store");
     let upgraded = store
         .entry_by_identifier("v2id")
         .expect("read upgraded store")
@@ -722,6 +732,61 @@ fn store_upgrade_binary_preserves_schema_v2_importance() {
     assert_eq!(upgraded.description, "schema v2 store record");
     assert_eq!(upgraded.certainty, Magnitude::Medium);
     assert_eq!(upgraded.importance.payload(), &Magnitude::High);
+    assert_eq!(upgraded.weight.payload(), &1);
+    assert_eq!(upgraded.privacy, Magnitude::Zero);
+}
+
+#[cfg(feature = "production-migration")]
+#[test]
+fn store_upgrade_binary_preserves_schema_v3_importance_and_adds_weight() {
+    let directory = TempDir::new().expect("create upgrade sandbox");
+    let database_path = directory.path().join("spirit.sema");
+    let old_database = SpiritStoreV2Database::create_with_schema_version(
+        &database_path,
+        SPIRIT_STORE_V3_SCHEMA_VERSION,
+    );
+    old_database.assert_record(SpiritStoreV2Record {
+        record_identifier: String::from("v3id"),
+        entry: SpiritStoreV2Entry {
+            topics: Topics::from_strings(vec![String::from("upgrade")]),
+            kind: Kind::Principle,
+            description: Description::new(String::from("schema v3 store record")),
+            certainty: Certainty::new(Magnitude::High),
+            importance: Magnitude::VeryHigh.into(),
+            privacy: Privacy::new(Magnitude::Zero),
+        },
+    });
+    drop(old_database);
+
+    let request =
+        SpiritStoreUpgradeRequest::new(database_path.to_string_lossy().into_owned()).to_nota();
+    let output = Command::new(env!("CARGO_BIN_EXE_spirit-upgrade-store"))
+        .arg(request)
+        .output()
+        .expect("run store upgrade binary");
+    assert!(
+        output.status.success(),
+        "upgrade stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("upgrade stdout UTF-8");
+    let decoded = NotaSource::new(stdout.trim())
+        .parse::<SpiritStoreUpgradeOutput>()
+        .expect("upgrade stdout is typed NOTA");
+    let SpiritStoreUpgradeOutput::Upgraded(completed) = decoded else {
+        panic!("expected an actual schema-v3 to schema-v4 upgrade, got {decoded:?}");
+    };
+    assert_eq!(completed.record_count(), 1);
+
+    let store = Store::open(&database_path).expect("open upgraded schema-v4 store");
+    let upgraded = store
+        .entry_by_identifier("v3id")
+        .expect("read upgraded store")
+        .expect("upgraded record keeps original identifier");
+    assert_eq!(upgraded.description, "schema v3 store record");
+    assert_eq!(upgraded.certainty, Magnitude::High);
+    assert_eq!(upgraded.importance.payload(), &Magnitude::VeryHigh);
+    assert_eq!(upgraded.weight.payload(), &1);
     assert_eq!(upgraded.privacy, Magnitude::Zero);
 }
 
@@ -760,6 +825,7 @@ fn production_migration_binary_preserves_ids_and_writes_queryable_new_store() {
         privacy_selection: PrivacySelection::Any,
         certainty_selection: CertaintySelection::Any,
         importance_selection: ImportanceSelection::default_observation_importance(),
+        weight_selection: spirit::schema::signal::WeightSelection::default_observation_weight(),
     };
     match sandbox.run_input(Input::count(all_records_query)) {
         Output::RecordsCounted(counted) => {

@@ -428,6 +428,7 @@ impl Input {
             Self::Lookup(_)
             | Self::Remove(_)
             | Self::ChangeCertainty(_)
+            | Self::BumpWeight(_)
             | Self::LookupStash(_)
             | Self::Tap(_)
             | Self::Untap(_)
@@ -500,6 +501,7 @@ impl RecordSelection {
             privacy_selection: PrivacySelection::default_observation_privacy(),
             certainty_selection: CertaintySelection::default_observation_certainty(),
             importance_selection: ImportanceSelection::default_observation_importance(),
+            weight_selection: signal_schema::WeightSelection::default_observation_weight(),
         }
     }
 
@@ -512,6 +514,7 @@ impl RecordSelection {
             )),
             certainty_selection: CertaintySelection::default_observation_certainty(),
             importance_selection: ImportanceSelection::default_observation_importance(),
+            weight_selection: signal_schema::WeightSelection::default_observation_weight(),
         }
     }
 }
@@ -608,6 +611,7 @@ impl Output {
             Self::RecordsCounted(records) => records.payload().database_marker.clone(),
             Self::RecordRemoved(receipt) => receipt.payload().database_marker.clone(),
             Self::CertaintyChanged(receipt) => receipt.payload().database_marker.clone(),
+            Self::WeightBumped(receipt) => receipt.payload().database_marker.clone(),
             Self::RecordChanged(receipt) => receipt.payload().database_marker.clone(),
             Self::RemovalCandidatesCollected(collection) => {
                 collection.payload().database_marker.clone()

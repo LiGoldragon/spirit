@@ -42,6 +42,8 @@ pub use crate::schema::signal::RecordIdentifier as RecordIdentifier;
 #[rustfmt::skip]
 pub use crate::schema::signal::CertaintyChange as CertaintyChange;
 #[rustfmt::skip]
+pub use crate::schema::signal::WeightBump as WeightBump;
+#[rustfmt::skip]
 pub use crate::schema::signal::RecordChange as RecordChange;
 #[rustfmt::skip]
 pub use crate::schema::signal::RemovalCandidateCollection as RemovalCandidateCollection;
@@ -85,6 +87,7 @@ pub enum CommandSemaWrite {
     Record(Record),
     Remove(Remove),
     ChangeCertainty(ChangeCertainty),
+    BumpWeight(BumpWeight),
     ChangeRecord(ChangeRecord),
 }
 
@@ -102,6 +105,11 @@ pub struct Remove(RecordIdentifier);
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ChangeCertainty(CertaintyChange);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct BumpWeight(WeightBump);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -400,6 +408,25 @@ impl ChangeCertainty {
 #[rustfmt::skip]
 impl From<CertaintyChange> for ChangeCertainty {
     fn from(payload: CertaintyChange) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl BumpWeight {
+    pub fn new(payload: WeightBump) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &WeightBump {
+        &self.0
+    }
+    pub fn into_payload(self) -> WeightBump {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<WeightBump> for BumpWeight {
+    fn from(payload: WeightBump) -> Self {
         Self::new(payload)
     }
 }
@@ -738,6 +765,9 @@ impl CommandSemaWrite {
     pub fn change_certainty(payload: CertaintyChange) -> Self {
         Self::ChangeCertainty(ChangeCertainty::new(payload))
     }
+    pub fn bump_weight(payload: WeightBump) -> Self {
+        Self::BumpWeight(BumpWeight::new(payload))
+    }
     pub fn change_record(payload: RecordChange) -> Self {
         Self::ChangeRecord(ChangeRecord::new(payload))
     }
@@ -875,6 +905,13 @@ impl From<Remove> for CommandSemaWrite {
 impl From<ChangeCertainty> for CommandSemaWrite {
     fn from(payload: ChangeCertainty) -> Self {
         Self::ChangeCertainty(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<BumpWeight> for CommandSemaWrite {
+    fn from(payload: BumpWeight) -> Self {
+        Self::BumpWeight(payload)
     }
 }
 
@@ -1175,6 +1212,17 @@ impl Remove {
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
 impl ChangeCertainty {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl BumpWeight {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }

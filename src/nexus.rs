@@ -21,7 +21,7 @@ use crate::{
             RemovalArchiveRecords, RemovalCandidateCollection, RemovalCandidatesCollection,
             RemovedIdentifiers, SemaReceipt, SignalRejection, SkippedRemovalCandidates,
             StashHandle, StashedObservation, Statement, SubscriptionToken, Topics, ValidationError,
-            VersionReport, VersionText,
+            VersionReport, VersionText, Weight,
         },
     },
     store::{Store, StoreError},
@@ -138,6 +138,7 @@ impl OperationKind {
             Input::Count(_) => Self::Count,
             Input::Remove(_) => Self::Remove,
             Input::ChangeCertainty(_) => Self::ChangeCertainty,
+            Input::BumpWeight(_) => Self::BumpWeight,
             Input::ChangeRecord(_) => Self::ChangeRecord,
             Input::LookupStash(_) => Self::LookupStash,
             Input::CollectRemovalCandidates(_) => Self::CollectRemovalCandidates,
@@ -237,6 +238,7 @@ impl ClassificationPolicy {
             description: Description::new(statement.into_payload().into_payload()),
             certainty: Certainty::new(self.fallback_magnitude),
             importance: Importance::new(Magnitude::Minimum),
+            weight: Weight::default_reaffirmation(),
             privacy: Privacy::new(self.fallback_privacy),
         }
     }
@@ -250,6 +252,7 @@ impl CommandSemaWrite {
             Self::ChangeCertainty(change) => {
                 SemaWriteInput::change_certainty(change.into_payload())
             }
+            Self::BumpWeight(change) => SemaWriteInput::bump_weight(change.into_payload()),
             Self::ChangeRecord(change) => SemaWriteInput::change_record(change.into_payload()),
         }
     }
@@ -619,6 +622,9 @@ impl Nexus {
             Input::ChangeCertainty(change) => NexusAction::command_sema_write(
                 CommandSemaWrite::change_certainty(change.into_payload()),
             ),
+            Input::BumpWeight(change) => NexusAction::command_sema_write(
+                CommandSemaWrite::bump_weight(change.into_payload()),
+            ),
             Input::ChangeRecord(change) => NexusAction::command_sema_write(
                 CommandSemaWrite::change_record(change.into_payload()),
             ),
@@ -665,6 +671,9 @@ impl Nexus {
             }
             SemaWriteOutput::CertaintyChanged(receipt) => {
                 NexusAction::reply_to_signal(Output::certainty_changed(receipt.into_payload()))
+            }
+            SemaWriteOutput::WeightBumped(receipt) => {
+                NexusAction::reply_to_signal(Output::weight_bumped(receipt.into_payload()))
             }
             SemaWriteOutput::RecordChanged(receipt) => {
                 NexusAction::reply_to_signal(Output::record_changed(receipt.into_payload()))

@@ -44,7 +44,7 @@ Call it from the CLI:
 
 ```sh
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Record ([schema] Constraint [schema creates the interface] Maximum Minimum Zero))"
+  spirit "(Record ([schema] Constraint [schema creates the interface] Maximum Minimum 1 Zero))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
   spirit "(Observe ((Full [schema]) (Some Constraint) (Exact Zero)))"
@@ -66,14 +66,16 @@ Entries carry a vector of topics. Queries use generated `TopicMatch` values:
 `(Partial [schema runtime])` matches any requested topic, while
 `(Full [schema runtime])` requires every requested topic. The query kind is
 optional: `(Some Decision)` filters by kind and `None` searches only by topic.
-The full generated query also carries privacy, certainty, and importance selectors.
-The CLI accepts the common three-field query shorthand and fills the certainty
-selector with `AtLeastCertainty Minimum` and the importance selector with `Any`, so
-ordinary `Observe` and `Count` hide zero-certainty removal candidates. Use the
-explicit four-field form with `ExactCertainty Zero` when reviewing candidates,
-or the five-field form to add an `ImportanceSelection`. Certainty and importance are
-separate stored axes: certainty names confidence/currentness, while importance names
-importance/repetition and is used for filtering and high-importance-first retrieval.
+The full generated query also carries privacy, certainty, importance, and weight
+selectors. The CLI accepts the common three-field query shorthand and fills the
+certainty selector with `AtLeastCertainty Minimum`, the importance selector with
+`Any`, and the weight selector with `Any`, so ordinary `Observe` and `Count` hide
+zero-certainty removal candidates. Use the explicit four-field form with
+`ExactCertainty Zero` when reviewing candidates, the five-field form to add an
+`ImportanceSelection`, or the six-field form to add a `WeightSelection`.
+Certainty, importance, and weight are separate stored axes: certainty names
+confidence/currentness, importance names intrinsic significance, and weight
+counts reaffirmation.
 
 ## Runtime triad
 

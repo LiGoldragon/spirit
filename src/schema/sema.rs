@@ -18,6 +18,8 @@ pub use crate::schema::signal::RecordIdentifier as RecordIdentifier;
 #[rustfmt::skip]
 pub use crate::schema::signal::CertaintyChange as CertaintyChange;
 #[rustfmt::skip]
+pub use crate::schema::signal::WeightBump as WeightBump;
+#[rustfmt::skip]
 pub use crate::schema::signal::RecordChange as RecordChange;
 #[rustfmt::skip]
 pub use crate::schema::signal::SemaReceipt as SemaReceipt;
@@ -25,6 +27,8 @@ pub use crate::schema::signal::SemaReceipt as SemaReceipt;
 pub use crate::schema::signal::RemoveReceipt as RemoveReceipt;
 #[rustfmt::skip]
 pub use crate::schema::signal::CertaintyChangeReceipt as CertaintyChangeReceipt;
+#[rustfmt::skip]
+pub use crate::schema::signal::WeightBumpReceipt as WeightBumpReceipt;
 #[rustfmt::skip]
 pub use crate::schema::signal::RecordChangeReceipt as RecordChangeReceipt;
 #[rustfmt::skip]
@@ -47,6 +51,7 @@ pub enum WriteInput {
     Record(Record),
     Remove(Remove),
     ChangeCertainty(ChangeCertainty),
+    BumpWeight(BumpWeight),
     ChangeRecord(ChangeRecord),
 }
 
@@ -64,6 +69,11 @@ pub struct Remove(RecordIdentifier);
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ChangeCertainty(CertaintyChange);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct BumpWeight(WeightBump);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -101,6 +111,7 @@ pub enum WriteOutput {
     Recorded(Recorded),
     Removed(Removed),
     CertaintyChanged(CertaintyChanged),
+    WeightBumped(WeightBumped),
     RecordChanged(RecordChanged),
     Missed(Missed),
 }
@@ -119,6 +130,11 @@ pub struct Removed(RemoveReceipt);
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct CertaintyChanged(CertaintyChangeReceipt);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct WeightBumped(WeightBumpReceipt);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -224,6 +240,25 @@ impl ChangeCertainty {
 #[rustfmt::skip]
 impl From<CertaintyChange> for ChangeCertainty {
     fn from(payload: CertaintyChange) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl BumpWeight {
+    pub fn new(payload: WeightBump) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &WeightBump {
+        &self.0
+    }
+    pub fn into_payload(self) -> WeightBump {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<WeightBump> for BumpWeight {
+    fn from(payload: WeightBump) -> Self {
         Self::new(payload)
     }
 }
@@ -362,6 +397,25 @@ impl From<CertaintyChangeReceipt> for CertaintyChanged {
 }
 
 #[rustfmt::skip]
+impl WeightBumped {
+    pub fn new(payload: WeightBumpReceipt) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &WeightBumpReceipt {
+        &self.0
+    }
+    pub fn into_payload(self) -> WeightBumpReceipt {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<WeightBumpReceipt> for WeightBumped {
+    fn from(payload: WeightBumpReceipt) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl RecordChanged {
     pub fn new(payload: RecordChangeReceipt) -> Self {
         Self(payload)
@@ -467,6 +521,9 @@ impl WriteInput {
     pub fn change_certainty(payload: CertaintyChange) -> Self {
         Self::ChangeCertainty(ChangeCertainty::new(payload))
     }
+    pub fn bump_weight(payload: WeightBump) -> Self {
+        Self::BumpWeight(BumpWeight::new(payload))
+    }
     pub fn change_record(payload: RecordChange) -> Self {
         Self::ChangeRecord(ChangeRecord::new(payload))
     }
@@ -495,6 +552,9 @@ impl WriteOutput {
     }
     pub fn certainty_changed(payload: CertaintyChangeReceipt) -> Self {
         Self::CertaintyChanged(CertaintyChanged::new(payload))
+    }
+    pub fn weight_bumped(payload: WeightBumpReceipt) -> Self {
+        Self::WeightBumped(WeightBumped::new(payload))
     }
     pub fn record_changed(payload: RecordChangeReceipt) -> Self {
         Self::RecordChanged(RecordChanged::new(payload))
@@ -562,6 +622,13 @@ impl From<ChangeCertainty> for WriteInput {
 }
 
 #[rustfmt::skip]
+impl From<BumpWeight> for WriteInput {
+    fn from(payload: BumpWeight) -> Self {
+        Self::BumpWeight(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl From<ChangeRecord> for WriteInput {
     fn from(payload: ChangeRecord) -> Self {
         Self::ChangeRecord(payload)
@@ -607,6 +674,13 @@ impl From<Removed> for WriteOutput {
 impl From<CertaintyChanged> for WriteOutput {
     fn from(payload: CertaintyChanged) -> Self {
         Self::CertaintyChanged(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<WeightBumped> for WriteOutput {
+    fn from(payload: WeightBumped) -> Self {
+        Self::WeightBumped(payload)
     }
 }
 
@@ -726,6 +800,17 @@ impl ChangeCertainty {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
+impl BumpWeight {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
 impl ChangeRecord {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -815,6 +900,17 @@ impl Removed {
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
 impl CertaintyChanged {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl WeightBumped {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -959,6 +1055,7 @@ pub enum WriteInputRoute {
     Record,
     Remove,
     ChangeCertainty,
+    BumpWeight,
     ChangeRecord,
 }
 
@@ -969,6 +1066,7 @@ impl WriteInput {
             Self::Record(_) => WriteInputRoute::Record,
             Self::Remove(_) => WriteInputRoute::Remove,
             Self::ChangeCertainty(_) => WriteInputRoute::ChangeCertainty,
+            Self::BumpWeight(_) => WriteInputRoute::BumpWeight,
             Self::ChangeRecord(_) => WriteInputRoute::ChangeRecord,
         }
     }
@@ -1019,6 +1117,7 @@ pub enum WriteOutputRoute {
     Recorded,
     Removed,
     CertaintyChanged,
+    WeightBumped,
     RecordChanged,
     Missed,
 }
@@ -1030,6 +1129,7 @@ impl WriteOutput {
             Self::Recorded(_) => WriteOutputRoute::Recorded,
             Self::Removed(_) => WriteOutputRoute::Removed,
             Self::CertaintyChanged(_) => WriteOutputRoute::CertaintyChanged,
+            Self::WeightBumped(_) => WriteOutputRoute::WeightBumped,
             Self::RecordChanged(_) => WriteOutputRoute::RecordChanged,
             Self::Missed(_) => WriteOutputRoute::Missed,
         }
@@ -1098,6 +1198,7 @@ impl SemaObjectName {
                     WriteInputRoute::Record => "SemaWriteInputRecord",
                     WriteInputRoute::Remove => "SemaWriteInputRemove",
                     WriteInputRoute::ChangeCertainty => "SemaWriteInputChangeCertainty",
+                    WriteInputRoute::BumpWeight => "SemaWriteInputBumpWeight",
                     WriteInputRoute::ChangeRecord => "SemaWriteInputChangeRecord",
                 }
             }
@@ -1115,6 +1216,7 @@ impl SemaObjectName {
                     WriteOutputRoute::CertaintyChanged => {
                         "SemaWriteOutputCertaintyChanged"
                     }
+                    WriteOutputRoute::WeightBumped => "SemaWriteOutputWeightBumped",
                     WriteOutputRoute::RecordChanged => "SemaWriteOutputRecordChanged",
                     WriteOutputRoute::Missed => "SemaWriteOutputMissed",
                 }

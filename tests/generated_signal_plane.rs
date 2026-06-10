@@ -25,6 +25,7 @@ fn generated_input_surface_owns_route_header_and_rkyv_frame() {
         description: Description::new("schema creates the signal plane"),
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
+        weight: 1_u64.into(),
         privacy: Privacy::new(Magnitude::Zero),
     });
 
@@ -158,6 +159,7 @@ fn generated_record_change_surface_owns_route_header_and_rkyv_frame() {
         description: Description::new("record mutation is a schema-visible operation"),
         certainty: Magnitude::High.into(),
         importance: Magnitude::Minimum.into(),
+        weight: 1_u64.into(),
         privacy: Privacy::new(Magnitude::Zero),
     };
     let input = Input::change_record(RecordChange {
@@ -199,6 +201,7 @@ fn generated_streaming_surface_owns_subscription_event_frames() {
             description: Description::new("schema emits streaming frames"),
             certainty: Magnitude::High.into(),
             importance: Magnitude::Minimum.into(),
+            weight: 1_u64.into(),
             privacy: Privacy::new(Magnitude::Zero),
         },
         sema_receipt: SemaReceipt {
@@ -292,7 +295,7 @@ fn generated_change_certainty_round_trips_the_canonical_shape() {
 #[test]
 fn generated_change_record_round_trips_the_canonical_shape() {
     let input =
-        "(ChangeRecord (003g ([[schema mutation]] Correction replacement High Minimum Zero)))"
+        "(ChangeRecord (003g ([[schema mutation]] Correction replacement High Minimum 1 Zero)))"
             .parse::<Input>()
             .expect("parse change record input");
 
@@ -306,13 +309,14 @@ fn generated_change_record_round_trips_the_canonical_shape() {
                 description: Description::new("replacement"),
                 certainty: Magnitude::High.into(),
                 importance: Magnitude::Minimum.into(),
+                weight: 1_u64.into(),
                 privacy: Privacy::new(Magnitude::Zero),
             },
         })
     );
     assert_eq!(
         input.to_string(),
-        "(ChangeRecord (003g ([[schema mutation]] Correction replacement High Minimum Zero)))"
+        "(ChangeRecord (003g ([[schema mutation]] Correction replacement High Minimum 1 Zero)))"
     );
 }
 
@@ -360,13 +364,14 @@ fn generated_record_input_renders_bracket_bearing_strings_losslessly() {
         description: Description::new(description.clone()),
         certainty: Magnitude::High.into(),
         importance: Magnitude::Minimum.into(),
+        weight: 1_u64.into(),
         privacy: Privacy::new(Magnitude::Zero),
     });
     let rendered = input.to_string();
 
     assert_eq!(
         rendered,
-        "(Record ([[schema replay]] Correction [|text contains [brackets] and the pipe close marker \\|]|] High Minimum Zero))"
+        "(Record ([[schema replay]] Correction [|text contains [brackets] and the pipe close marker \\|]|] High Minimum 1 Zero))"
     );
     let reparsed = rendered
         .parse::<Input>()
@@ -400,6 +405,7 @@ fn bare_schema_bindings_are_explicit_payload_wrappers() {
         description: Description::new("alias bindings carry direct payloads"),
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
+        weight: 1_u64.into(),
         privacy: Privacy::new(Magnitude::Zero),
     }
     .into();
@@ -457,6 +463,7 @@ fn generated_signal_surface_rejects_unknown_header_before_body_decode() {
         description: Description::new("schema rejects unknown routes"),
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
+        weight: 1_u64.into(),
         privacy: Privacy::new(Magnitude::Zero),
     })
     .encode_signal_frame()
@@ -482,6 +489,7 @@ fn generated_signal_surface_emits_mail_sent_event() {
         description: Description::new("schema emits mail events"),
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
+        weight: 1_u64.into(),
         privacy: Privacy::new(Magnitude::Zero),
     });
 

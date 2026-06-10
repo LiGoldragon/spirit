@@ -25,14 +25,15 @@ use crate::schema::{
         Query, RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier, RecordSet,
         RemovalArchiveRecord, RemovalArchiveRecords, RemovalCandidateCollection,
         RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifier, RemovedIdentifiers,
-        SemaReceipt, SkippedRemovalCandidate, SkippedRemovalCandidates,
+        SemaReceipt, SkippedRemovalCandidate, SkippedRemovalCandidates, Weight, WeightBump,
+        WeightBumpReceipt, WeightSelection,
     },
 };
 
 #[cfg(feature = "testing-trace")]
 use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
 
-const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(3);
+const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(4);
 const ENTRIES_TABLE: TableName = TableName::new("records");
 const RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH: usize = 4;
 const RECORD_IDENTIFIER_MAXIMUM_CODE_LENGTH: usize = 7;
@@ -148,6 +149,17 @@ impl SemaEngine for Store {
                     }),
                 }
             }
+            SemaWriteInput::BumpWeight(change) => match self.bump_weight(change.into_payload()) {
+                Ok(Some(receipt)) => SemaWriteOutput::weight_bumped(receipt),
+                Ok(None) => SemaWriteOutput::missed(ErrorReport {
+                    error_message: ErrorMessage::new("record not found"),
+                    database_marker: self.database_marker(),
+                }),
+                Err(error) => SemaWriteOutput::missed(ErrorReport {
+                    error_message: ErrorMessage::new(error.to_string()),
+                    database_marker: self.database_marker(),
+                }),
+            },
             SemaWriteInput::ChangeRecord(change) => match self.change_record(change.into_payload())
             {
                 Ok(Some(receipt)) => SemaWriteOutput::record_changed(receipt),
@@ -393,7 +405,13 @@ impl Store {
             .into_iter()
             .filter(|record| record.entry.matches(query))
             .collect::<Vec<_>>();
-        records.sort_by_key(|record| std::cmp::Reverse(record.entry.importance_rank()));
+        records.sort_by_key(|record| {
+            std::cmp::Reverse((
+                record.entry.certainty_rank(),
+                record.entry.weight_rank(),
+                record.entry.importance_rank(),
+            ))
+        });
         Ok(records
             .into_iter()
             .map(StoredRecord::into_observed_record)
@@ -442,6 +460,25 @@ impl Store {
         Ok(Some(CertaintyChangeReceipt {
             record_identifier,
             certainty: change.certainty,
+            database_marker: self.database_marker(),
+        }))
+    }
+
+    fn bump_weight(&self, change: WeightBump) -> Result<Option<WeightBumpReceipt>, StoreError> {
+        let record_identifier = change.into_payload();
+        let identifier_text = record_identifier.payload().clone();
+        let Some(mut entry) = self.entry_by_identifier(record_identifier.payload())? else {
+            return Ok(None);
+        };
+        entry.weight = entry.weight.next();
+        let weight = entry.weight.clone();
+        self.database.mutate(Mutation::new(
+            self.entries,
+            StoredRecord::new(identifier_text, entry),
+        ))?;
+        Ok(Some(WeightBumpReceipt {
+            record_identifier,
+            weight,
             database_marker: self.database_marker(),
         }))
     }
@@ -703,6 +740,10 @@ impl Entry {
     pub fn importance_rank(&self) -> u64 {
         self.importance.payload().rank()
     }
+
+    pub fn weight_rank(&self) -> u64 {
+        self.weight.rank()
+    }
 }
 
 impl Query {
@@ -712,6 +753,7 @@ impl Query {
             && self.privacy_selection.matches(&entry.privacy)
             && self.certainty_selection.matches(&entry.certainty)
             && self.importance_selection.matches(&entry.importance)
+            && self.weight_selection.matches(&entry.weight)
     }
 }
 
@@ -756,6 +798,20 @@ impl CertaintySelection {
     }
 }
 
+impl Weight {
+    pub fn default_reaffirmation() -> Self {
+        Self::new(1)
+    }
+
+    pub fn rank(&self) -> u64 {
+        *self.payload()
+    }
+
+    pub fn next(&self) -> Self {
+        Self::new(self.payload().saturating_add(1))
+    }
+}
+
 impl ImportanceSelection {
     pub fn default_observation_importance() -> Self {
         Self::Any
@@ -772,6 +828,21 @@ impl ImportanceSelection {
             Self::AtLeastImportance(minimum) => {
                 importance.rank() >= minimum.payload().payload().rank()
             }
+        }
+    }
+}
+
+impl WeightSelection {
+    pub fn default_observation_weight() -> Self {
+        Self::Any
+    }
+
+    pub fn matches(&self, weight: &Weight) -> bool {
+        match self {
+            Self::Any => true,
+            Self::ExactWeight(expected) => weight == expected.payload(),
+            Self::AtMostWeight(maximum) => weight.rank() <= maximum.payload().rank(),
+            Self::AtLeastWeight(minimum) => weight.rank() >= minimum.payload().rank(),
         }
     }
 }

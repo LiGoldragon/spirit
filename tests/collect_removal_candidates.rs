@@ -28,6 +28,7 @@ fn entry_with_certainty(topic: &str, description: &str, magnitude: Magnitude) ->
         description: Description::new(description),
         certainty: magnitude.into(),
         importance: Magnitude::Minimum.into(),
+        weight: 1_u64.into(),
         privacy: Privacy::new(Magnitude::Zero),
     }
 }
@@ -39,6 +40,7 @@ fn topic_query(topic: &str) -> Query {
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
+        weight_selection: spirit::schema::signal::WeightSelection::default_observation_weight(),
     }
 }
 
@@ -49,6 +51,7 @@ fn removal_candidate_query(topic: &str) -> Query {
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::removal_candidate_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
+        weight_selection: spirit::schema::signal::WeightSelection::default_observation_weight(),
     }
 }
 

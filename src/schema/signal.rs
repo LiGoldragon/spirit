@@ -100,6 +100,11 @@ pub struct ChangeCertainty(CertaintyChange);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct BumpWeight(WeightBump);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ChangeRecord(RecordChange);
 
 #[rustfmt::skip]
@@ -161,6 +166,11 @@ pub struct RecordRemoved(RemoveReceipt);
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct CertaintyChanged(CertaintyChangeReceipt);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct WeightBumped(WeightBumpReceipt);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -477,6 +487,11 @@ pub struct Importance(Magnitude);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Weight(Integer);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum PrivacySelection {
     Any,
     Exact(Exact),
@@ -548,6 +563,31 @@ pub struct AtMostImportance(Importance);
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct AtLeastImportance(Importance);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum WeightSelection {
+    Any,
+    ExactWeight(ExactWeight),
+    AtMostWeight(AtMostWeight),
+    AtLeastWeight(AtLeastWeight),
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ExactWeight(Weight);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct AtMostWeight(Weight);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct AtLeastWeight(Weight);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -683,6 +723,7 @@ pub enum OperationKind {
     Count,
     Remove,
     ChangeCertainty,
+    BumpWeight,
     ChangeRecord,
     LookupStash,
     CollectRemovalCandidates,
@@ -711,6 +752,7 @@ pub struct Entry {
     pub description: Description,
     pub certainty: Certainty,
     pub importance: Importance,
+    pub weight: Weight,
     pub privacy: Privacy,
 }
 
@@ -733,6 +775,20 @@ pub struct CertaintyChange {
 pub struct CertaintyChangeReceipt {
     pub record_identifier: RecordIdentifier,
     pub certainty: Certainty,
+    pub database_marker: DatabaseMarker,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct WeightBump(RecordIdentifier);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct WeightBumpReceipt {
+    pub record_identifier: RecordIdentifier,
+    pub weight: Weight,
     pub database_marker: DatabaseMarker,
 }
 
@@ -769,6 +825,7 @@ pub struct Query {
     pub privacy_selection: PrivacySelection,
     pub certainty_selection: CertaintySelection,
     pub importance_selection: ImportanceSelection,
+    pub weight_selection: WeightSelection,
 }
 
 #[rustfmt::skip]
@@ -837,6 +894,7 @@ pub enum Input {
     Count(Count),
     Remove(Remove),
     ChangeCertainty(ChangeCertainty),
+    BumpWeight(BumpWeight),
     ChangeRecord(ChangeRecord),
     LookupStash(LookupStash),
     CollectRemovalCandidates(CollectRemovalCandidates),
@@ -857,6 +915,7 @@ pub enum Output {
     RecordsCounted(RecordsCounted),
     RecordRemoved(RecordRemoved),
     CertaintyChanged(CertaintyChanged),
+    WeightBumped(WeightBumped),
     RecordChanged(RecordChanged),
     RemovalCandidatesCollected(RemovalCandidatesCollected),
     ObservationTapped(ObservationTapped),
@@ -1092,6 +1151,25 @@ impl ChangeCertainty {
 #[rustfmt::skip]
 impl From<CertaintyChange> for ChangeCertainty {
     fn from(payload: CertaintyChange) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl BumpWeight {
+    pub fn new(payload: WeightBump) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &WeightBump {
+        &self.0
+    }
+    pub fn into_payload(self) -> WeightBump {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<WeightBump> for BumpWeight {
+    fn from(payload: WeightBump) -> Self {
         Self::new(payload)
     }
 }
@@ -1339,6 +1417,25 @@ impl CertaintyChanged {
 #[rustfmt::skip]
 impl From<CertaintyChangeReceipt> for CertaintyChanged {
     fn from(payload: CertaintyChangeReceipt) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl WeightBumped {
+    pub fn new(payload: WeightBumpReceipt) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &WeightBumpReceipt {
+        &self.0
+    }
+    pub fn into_payload(self) -> WeightBumpReceipt {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<WeightBumpReceipt> for WeightBumped {
+    fn from(payload: WeightBumpReceipt) -> Self {
         Self::new(payload)
     }
 }
@@ -1895,6 +1992,25 @@ impl From<Magnitude> for Importance {
 }
 
 #[rustfmt::skip]
+impl Weight {
+    pub fn new(payload: Integer) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Integer {
+        &self.0
+    }
+    pub fn into_payload(self) -> Integer {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Integer> for Weight {
+    fn from(payload: Integer) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl Exact {
     pub fn new(payload: Privacy) -> Self {
         Self(payload)
@@ -2061,6 +2177,63 @@ impl AtLeastImportance {
 #[rustfmt::skip]
 impl From<Importance> for AtLeastImportance {
     fn from(payload: Importance) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl ExactWeight {
+    pub fn new(payload: Weight) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Weight {
+        &self.0
+    }
+    pub fn into_payload(self) -> Weight {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Weight> for ExactWeight {
+    fn from(payload: Weight) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl AtMostWeight {
+    pub fn new(payload: Weight) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Weight {
+        &self.0
+    }
+    pub fn into_payload(self) -> Weight {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Weight> for AtMostWeight {
+    fn from(payload: Weight) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl AtLeastWeight {
+    pub fn new(payload: Weight) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Weight {
+        &self.0
+    }
+    pub fn into_payload(self) -> Weight {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Weight> for AtLeastWeight {
+    fn from(payload: Weight) -> Self {
         Self::new(payload)
     }
 }
@@ -2237,6 +2410,25 @@ impl From<StatementText> for Statement {
 }
 
 #[rustfmt::skip]
+impl WeightBump {
+    pub fn new(payload: RecordIdentifier) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &RecordIdentifier {
+        &self.0
+    }
+    pub fn into_payload(self) -> RecordIdentifier {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<RecordIdentifier> for WeightBump {
+    fn from(payload: RecordIdentifier) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl Records {
     pub fn new(payload: Vec<ObservedRecord>) -> Self {
         Self(payload)
@@ -2341,6 +2533,19 @@ impl ImportanceSelection {
 }
 
 #[rustfmt::skip]
+impl WeightSelection {
+    pub fn exact_weight(payload: Weight) -> Self {
+        Self::ExactWeight(ExactWeight::new(payload))
+    }
+    pub fn at_most_weight(payload: Weight) -> Self {
+        Self::AtMostWeight(AtMostWeight::new(payload))
+    }
+    pub fn at_least_weight(payload: Weight) -> Self {
+        Self::AtLeastWeight(AtLeastWeight::new(payload))
+    }
+}
+
+#[rustfmt::skip]
 impl Input {
     pub fn state(payload: Statement) -> Self {
         Self::State(State::new(payload))
@@ -2368,6 +2573,9 @@ impl Input {
     }
     pub fn change_certainty(payload: CertaintyChange) -> Self {
         Self::ChangeCertainty(ChangeCertainty::new(payload))
+    }
+    pub fn bump_weight(payload: WeightBump) -> Self {
+        Self::BumpWeight(BumpWeight::new(payload))
     }
     pub fn change_record(payload: RecordChange) -> Self {
         Self::ChangeRecord(ChangeRecord::new(payload))
@@ -2411,6 +2619,9 @@ impl Output {
     }
     pub fn certainty_changed(payload: CertaintyChangeReceipt) -> Self {
         Self::CertaintyChanged(CertaintyChanged::new(payload))
+    }
+    pub fn weight_bumped(payload: WeightBumpReceipt) -> Self {
+        Self::WeightBumped(WeightBumped::new(payload))
     }
     pub fn record_changed(payload: RecordChangeReceipt) -> Self {
         Self::RecordChanged(RecordChanged::new(payload))
@@ -2540,6 +2751,27 @@ impl From<AtLeastImportance> for ImportanceSelection {
 }
 
 #[rustfmt::skip]
+impl From<ExactWeight> for WeightSelection {
+    fn from(payload: ExactWeight) -> Self {
+        Self::ExactWeight(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<AtMostWeight> for WeightSelection {
+    fn from(payload: AtMostWeight) -> Self {
+        Self::AtMostWeight(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<AtLeastWeight> for WeightSelection {
+    fn from(payload: AtLeastWeight) -> Self {
+        Self::AtLeastWeight(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl From<State> for Input {
     fn from(payload: State) -> Self {
         Self::State(payload)
@@ -2599,6 +2831,13 @@ impl From<Remove> for Input {
 impl From<ChangeCertainty> for Input {
     fn from(payload: ChangeCertainty) -> Self {
         Self::ChangeCertainty(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<BumpWeight> for Input {
+    fn from(payload: BumpWeight) -> Self {
+        Self::BumpWeight(payload)
     }
 }
 
@@ -2690,6 +2929,13 @@ impl From<RecordRemoved> for Output {
 impl From<CertaintyChanged> for Output {
     fn from(payload: CertaintyChanged) -> Self {
         Self::CertaintyChanged(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<WeightBumped> for Output {
+    fn from(payload: WeightBumped) -> Self {
+        Self::WeightBumped(payload)
     }
 }
 
@@ -2923,6 +3169,17 @@ impl ChangeCertainty {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
+impl BumpWeight {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
 impl ChangeRecord {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -3056,6 +3313,17 @@ impl RecordRemoved {
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
 impl CertaintyChanged {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl WeightBumped {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -3594,6 +3862,17 @@ impl Importance {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
+impl Weight {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
 impl PrivacySelection {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -3716,6 +3995,50 @@ impl AtMostImportance {
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
 impl AtLeastImportance {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl WeightSelection {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl ExactWeight {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl AtMostWeight {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl AtLeastWeight {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -3946,6 +4269,28 @@ impl CertaintyChangeReceipt {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
+impl WeightBump {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl WeightBumpReceipt {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
 impl RecordChange {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -4097,13 +4442,14 @@ pub mod short_header {
     pub const INPUT_COUNT: u64 = 0x0006000000000000;
     pub const INPUT_REMOVE: u64 = 0x0007000000000000;
     pub const INPUT_CHANGE_CERTAINTY: u64 = 0x0008000000000000;
-    pub const INPUT_CHANGE_RECORD: u64 = 0x0009000000000000;
-    pub const INPUT_LOOKUP_STASH: u64 = 0x000A000000000000;
-    pub const INPUT_COLLECT_REMOVAL_CANDIDATES: u64 = 0x000B000000000000;
-    pub const INPUT_TAP: u64 = 0x000C000000000000;
-    pub const INPUT_UNTAP: u64 = 0x000D000000000000;
-    pub const INPUT_SUBSCRIBE_INTENT: u64 = 0x000E000000000000;
-    pub const INPUT_VERSION: u64 = 0x000F000000000000;
+    pub const INPUT_BUMP_WEIGHT: u64 = 0x0009000000000000;
+    pub const INPUT_CHANGE_RECORD: u64 = 0x000A000000000000;
+    pub const INPUT_LOOKUP_STASH: u64 = 0x000B000000000000;
+    pub const INPUT_COLLECT_REMOVAL_CANDIDATES: u64 = 0x000C000000000000;
+    pub const INPUT_TAP: u64 = 0x000D000000000000;
+    pub const INPUT_UNTAP: u64 = 0x000E000000000000;
+    pub const INPUT_SUBSCRIBE_INTENT: u64 = 0x000F000000000000;
+    pub const INPUT_VERSION: u64 = 0x0010000000000000;
     pub const OUTPUT_RECORD_ACCEPTED: u64 = 0x0100000000000000;
     pub const OUTPUT_RECORDS_OBSERVED: u64 = 0x0101000000000000;
     pub const OUTPUT_RECORDS_STASHED: u64 = 0x0102000000000000;
@@ -4111,15 +4457,16 @@ pub mod short_header {
     pub const OUTPUT_RECORDS_COUNTED: u64 = 0x0104000000000000;
     pub const OUTPUT_RECORD_REMOVED: u64 = 0x0105000000000000;
     pub const OUTPUT_CERTAINTY_CHANGED: u64 = 0x0106000000000000;
-    pub const OUTPUT_RECORD_CHANGED: u64 = 0x0107000000000000;
-    pub const OUTPUT_REMOVAL_CANDIDATES_COLLECTED: u64 = 0x0108000000000000;
-    pub const OUTPUT_OBSERVATION_TAPPED: u64 = 0x0109000000000000;
-    pub const OUTPUT_OBSERVATION_UNTAPPED: u64 = 0x010A000000000000;
-    pub const OUTPUT_SUBSCRIPTION_STARTED: u64 = 0x010B000000000000;
-    pub const OUTPUT_VERSION_REPORTED: u64 = 0x010C000000000000;
-    pub const OUTPUT_EVENT: u64 = 0x010D000000000000;
-    pub const OUTPUT_ERROR: u64 = 0x010E000000000000;
-    pub const OUTPUT_REJECTED: u64 = 0x010F000000000000;
+    pub const OUTPUT_WEIGHT_BUMPED: u64 = 0x0107000000000000;
+    pub const OUTPUT_RECORD_CHANGED: u64 = 0x0108000000000000;
+    pub const OUTPUT_REMOVAL_CANDIDATES_COLLECTED: u64 = 0x0109000000000000;
+    pub const OUTPUT_OBSERVATION_TAPPED: u64 = 0x010A000000000000;
+    pub const OUTPUT_OBSERVATION_UNTAPPED: u64 = 0x010B000000000000;
+    pub const OUTPUT_SUBSCRIPTION_STARTED: u64 = 0x010C000000000000;
+    pub const OUTPUT_VERSION_REPORTED: u64 = 0x010D000000000000;
+    pub const OUTPUT_EVENT: u64 = 0x010E000000000000;
+    pub const OUTPUT_ERROR: u64 = 0x010F000000000000;
+    pub const OUTPUT_REJECTED: u64 = 0x0110000000000000;
 }
 
 #[rustfmt::skip]
@@ -4179,6 +4526,7 @@ pub enum InputRoute {
     Count,
     Remove,
     ChangeCertainty,
+    BumpWeight,
     ChangeRecord,
     LookupStash,
     CollectRemovalCandidates,
@@ -4208,6 +4556,7 @@ pub enum OutputRoute {
     RecordsCounted,
     RecordRemoved,
     CertaintyChanged,
+    WeightBumped,
     RecordChanged,
     RemovalCandidatesCollected,
     ObservationTapped,
@@ -4232,6 +4581,7 @@ impl Input {
             Self::Count(_) => InputRoute::Count,
             Self::Remove(_) => InputRoute::Remove,
             Self::ChangeCertainty(_) => InputRoute::ChangeCertainty,
+            Self::BumpWeight(_) => InputRoute::BumpWeight,
             Self::ChangeRecord(_) => InputRoute::ChangeRecord,
             Self::LookupStash(_) => InputRoute::LookupStash,
             Self::CollectRemovalCandidates(_) => InputRoute::CollectRemovalCandidates,
@@ -4252,6 +4602,7 @@ impl Input {
             Self::Count(_) => short_header::INPUT_COUNT,
             Self::Remove(_) => short_header::INPUT_REMOVE,
             Self::ChangeCertainty(_) => short_header::INPUT_CHANGE_CERTAINTY,
+            Self::BumpWeight(_) => short_header::INPUT_BUMP_WEIGHT,
             Self::ChangeRecord(_) => short_header::INPUT_CHANGE_RECORD,
             Self::LookupStash(_) => short_header::INPUT_LOOKUP_STASH,
             Self::CollectRemovalCandidates(_) => {
@@ -4274,6 +4625,7 @@ impl Input {
             short_header::INPUT_COUNT => Ok(InputRoute::Count),
             short_header::INPUT_REMOVE => Ok(InputRoute::Remove),
             short_header::INPUT_CHANGE_CERTAINTY => Ok(InputRoute::ChangeCertainty),
+            short_header::INPUT_BUMP_WEIGHT => Ok(InputRoute::BumpWeight),
             short_header::INPUT_CHANGE_RECORD => Ok(InputRoute::ChangeRecord),
             short_header::INPUT_LOOKUP_STASH => Ok(InputRoute::LookupStash),
             short_header::INPUT_COLLECT_REMOVAL_CANDIDATES => {
@@ -4340,6 +4692,7 @@ impl Output {
             Self::RecordsCounted(_) => OutputRoute::RecordsCounted,
             Self::RecordRemoved(_) => OutputRoute::RecordRemoved,
             Self::CertaintyChanged(_) => OutputRoute::CertaintyChanged,
+            Self::WeightBumped(_) => OutputRoute::WeightBumped,
             Self::RecordChanged(_) => OutputRoute::RecordChanged,
             Self::RemovalCandidatesCollected(_) => {
                 OutputRoute::RemovalCandidatesCollected
@@ -4362,6 +4715,7 @@ impl Output {
             Self::RecordsCounted(_) => short_header::OUTPUT_RECORDS_COUNTED,
             Self::RecordRemoved(_) => short_header::OUTPUT_RECORD_REMOVED,
             Self::CertaintyChanged(_) => short_header::OUTPUT_CERTAINTY_CHANGED,
+            Self::WeightBumped(_) => short_header::OUTPUT_WEIGHT_BUMPED,
             Self::RecordChanged(_) => short_header::OUTPUT_RECORD_CHANGED,
             Self::RemovalCandidatesCollected(_) => {
                 short_header::OUTPUT_REMOVAL_CANDIDATES_COLLECTED
@@ -4386,6 +4740,7 @@ impl Output {
             short_header::OUTPUT_RECORDS_COUNTED => Ok(OutputRoute::RecordsCounted),
             short_header::OUTPUT_RECORD_REMOVED => Ok(OutputRoute::RecordRemoved),
             short_header::OUTPUT_CERTAINTY_CHANGED => Ok(OutputRoute::CertaintyChanged),
+            short_header::OUTPUT_WEIGHT_BUMPED => Ok(OutputRoute::WeightBumped),
             short_header::OUTPUT_RECORD_CHANGED => Ok(OutputRoute::RecordChanged),
             short_header::OUTPUT_REMOVAL_CANDIDATES_COLLECTED => {
                 Ok(OutputRoute::RemovalCandidatesCollected)
@@ -4461,6 +4816,7 @@ impl signal_frame::SignalOperationHeads for Input {
         "Count",
         "Remove",
         "ChangeCertainty",
+        "BumpWeight",
         "ChangeRecord",
         "LookupStash",
         "CollectRemovalCandidates",
@@ -4572,6 +4928,7 @@ impl SignalObjectName {
                     InputRoute::Count => "SignalInputCount",
                     InputRoute::Remove => "SignalInputRemove",
                     InputRoute::ChangeCertainty => "SignalInputChangeCertainty",
+                    InputRoute::BumpWeight => "SignalInputBumpWeight",
                     InputRoute::ChangeRecord => "SignalInputChangeRecord",
                     InputRoute::LookupStash => "SignalInputLookupStash",
                     InputRoute::CollectRemovalCandidates => {
@@ -4592,6 +4949,7 @@ impl SignalObjectName {
                     OutputRoute::RecordsCounted => "SignalOutputRecordsCounted",
                     OutputRoute::RecordRemoved => "SignalOutputRecordRemoved",
                     OutputRoute::CertaintyChanged => "SignalOutputCertaintyChanged",
+                    OutputRoute::WeightBumped => "SignalOutputWeightBumped",
                     OutputRoute::RecordChanged => "SignalOutputRecordChanged",
                     OutputRoute::RemovalCandidatesCollected => {
                         "SignalOutputRemovalCandidatesCollected"

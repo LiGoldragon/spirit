@@ -15,6 +15,7 @@
   IntentSubscription spirit:signal:IntentSubscription
   RecordIdentifier spirit:signal:RecordIdentifier
   CertaintyChange spirit:signal:CertaintyChange
+  WeightBump spirit:signal:WeightBump
   RecordChange spirit:signal:RecordChange
   RemovalCandidateCollection spirit:signal:RemovalCandidateCollection
   RemovalCandidatesCollection spirit:signal:RemovalCandidatesCollection
@@ -30,10 +31,11 @@
   SemaReadCompleted SemaReadOutput
   EffectCompleted NexusEffectResult
 
-  CommandSemaWrite [(Record) (Remove) (ChangeCertainty) (ChangeRecord)]
+  CommandSemaWrite [(Record) (Remove) (ChangeCertainty) (BumpWeight) (ChangeRecord)]
   Record Entry
   Remove RecordIdentifier
   ChangeCertainty CertaintyChange
+  BumpWeight WeightBump
   ChangeRecord RecordChange
   CommandSemaRead SemaReadInput
   ReplyToSignal SignalOutput

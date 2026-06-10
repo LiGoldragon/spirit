@@ -37,6 +37,7 @@ fn entry(description: &str) -> Entry {
         description: Description::new(description),
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
+        weight: 1_u64.into(),
         privacy: Privacy::new(Magnitude::Zero),
     }
 }
@@ -59,6 +60,7 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
+        weight_selection: spirit::schema::signal::WeightSelection::default_observation_weight(),
     }));
     // Designer 480: Observe now flows through Stash (operator 287 §
     // "Acceptance Tests"). The slim wire reply carries a handle, not the

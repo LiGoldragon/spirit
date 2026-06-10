@@ -14,7 +14,7 @@ use spirit::{
             MailLedgerEvent, MessageIdentifier, MessageSent, MessageSentHook, OriginRoute, Output,
             Privacy, PrivacySelection, Query, RecordChange, RecordIdentifier, RecordSelection,
             SemaReceipt, SentMail, SignalEngine, SignalRejection, StashHandle, Statement,
-            StatementText, TopicMatch, Topics, ValidationError,
+            StatementText, TopicMatch, Topics, ValidationError, WeightBump, WeightSelection,
         },
     },
 };
@@ -66,6 +66,7 @@ fn entry_with_topics(topics: &[&str], description: &str) -> Entry {
         description: Description::new(description),
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
+        weight: 1_u64.into(),
         privacy: Privacy::new(Magnitude::Zero),
     }
 }
@@ -77,8 +78,13 @@ fn entry_with_privacy(description: &str, privacy: Magnitude) -> Entry {
     }
 }
 
-fn entry_with_importance(description: &str, importance: Magnitude) -> Entry {
+fn entry_with_weight_and_importance(
+    description: &str,
+    weight: u64,
+    importance: Magnitude,
+) -> Entry {
     Entry {
+        weight: weight.into(),
         importance: importance.into(),
         ..entry(description)
     }
@@ -119,6 +125,7 @@ fn full_query(topics: &[&str], kind: Option<Kind>) -> Query {
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
+        weight_selection: spirit::schema::signal::WeightSelection::default_observation_weight(),
     }
 }
 
@@ -129,6 +136,7 @@ fn partial_query(topics: &[&str], kind: Option<Kind>) -> Query {
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
+        weight_selection: spirit::schema::signal::WeightSelection::default_observation_weight(),
     }
 }
 
@@ -242,6 +250,10 @@ fn input_change_record(record_identifier: RecordIdentifier, entry: Entry) -> Inp
     })
 }
 
+fn input_bump_weight(record_identifier: RecordIdentifier) -> Input {
+    Input::bump_weight(WeightBump::new(record_identifier))
+}
+
 fn input_lookup_stash(stash_handle: StashHandle) -> Input {
     Input::lookup_stash(stash_handle)
 }
@@ -273,6 +285,10 @@ fn sema_change_record(record_identifier: RecordIdentifier, entry: Entry) -> Sema
         record_identifier,
         entry,
     })
+}
+
+fn sema_bump_weight(record_identifier: RecordIdentifier) -> SemaWriteInput {
+    SemaWriteInput::bump_weight(WeightBump::new(record_identifier))
 }
 
 fn sema_observe(query: Query) -> SemaReadInput {
@@ -444,6 +460,27 @@ fn nexus_change_record_is_visible_as_schema_declared_write_command() {
 }
 
 #[test]
+fn nexus_bump_weight_is_visible_as_schema_declared_write_command() {
+    let sema = SemaFile::new();
+    let mut nexus = Nexus::new(sema.open_store());
+    let identifier = record_identifier("003g");
+    let nexus_input = nexus_signal_arrived(input_bump_weight(identifier.clone()))
+        .with_origin_route(nexus_route(7));
+
+    let first_action = NexusEngine::decide(&mut nexus, nexus_input);
+
+    assert_eq!(first_action.origin_route(), nexus_route(7));
+    match first_action.root() {
+        NexusAction::CommandSemaWrite(CommandSemaWrite::BumpWeight(change)) => {
+            assert_eq!(change.payload().payload(), &identifier);
+        }
+        other => {
+            panic!("expected BumpWeight to become CommandSemaWrite(BumpWeight), got {other:?}")
+        }
+    }
+}
+
+#[test]
 fn nexus_state_classification_is_visible_as_schema_declared_effect_command() {
     let sema = SemaFile::new();
     let mut nexus = Nexus::new(sema.open_store());
@@ -512,6 +549,47 @@ fn sema_engine_changes_certainty_without_changing_record_identifier() {
             assert_eq!(record.entry.certainty, Magnitude::Zero);
         }
         other => panic!("expected changed record lookup, got {other:?}"),
+    }
+}
+
+#[test]
+fn sema_engine_bumps_record_weight_without_changing_record_identifier() {
+    let sema = SemaFile::new();
+    let mut store = sema.open_store();
+    let recorded = SemaEngine::apply(
+        &mut store,
+        sema_write_message(sema_record(entry("weight target")), 1),
+    );
+    let record_identifier = match recorded.into_root() {
+        SemaWriteOutput::Recorded(receipt) => receipt.record_identifier.clone(),
+        other => panic!("expected initial Recorded receipt, got {other:?}"),
+    };
+
+    let bumped = SemaEngine::apply(
+        &mut store,
+        sema_write_message(sema_bump_weight(record_identifier.clone()), 2),
+    );
+    match bumped.root() {
+        SemaWriteOutput::WeightBumped(receipt) => {
+            let receipt = receipt.payload();
+            assert_eq!(receipt.record_identifier, record_identifier);
+            assert_eq!(receipt.weight.payload(), &2);
+            assert_eq!(receipt.database_marker.commit_sequence, 2);
+        }
+        other => panic!("expected WeightBumped receipt, got {other:?}"),
+    }
+
+    let found = SemaEngine::observe(
+        &store,
+        sema_read_message(sema_lookup(record_identifier.clone()), 3),
+    );
+    match found.root() {
+        SemaReadOutput::Found(record) => {
+            assert_eq!(record.record_identifier, record_identifier);
+            assert_eq!(record.entry.description, "weight target");
+            assert_eq!(record.entry.weight.payload(), &2);
+        }
+        other => panic!("expected bumped record lookup, got {other:?}"),
     }
 }
 
@@ -832,46 +910,69 @@ fn sema_engine_queries_partial_and_full_topic_sets() {
 }
 
 #[test]
-fn sema_engine_observation_returns_identifiers_and_orders_by_importance() {
+fn sema_engine_observation_orders_by_certainty_then_weight_then_importance() {
     let sema = SemaFile::new();
     let mut store = sema.open_store();
     SemaEngine::apply(
         &mut store,
-        sema_write_message(sema_record(entry_with_importance("low", Magnitude::Low)), 1),
+        sema_write_message(
+            sema_record(entry_with_weight_and_importance(
+                "tertiary low",
+                1,
+                Magnitude::Low,
+            )),
+            1,
+        ),
     );
     SemaEngine::apply(
         &mut store,
         sema_write_message(
-            sema_record(entry_with_importance("high", Magnitude::High)),
+            sema_record(entry_with_weight_and_importance(
+                "tertiary high",
+                1,
+                Magnitude::High,
+            )),
             2,
         ),
     );
+    SemaEngine::apply(
+        &mut store,
+        sema_write_message(
+            sema_record(entry_with_weight_and_importance(
+                "reaffirmed",
+                3,
+                Magnitude::Low,
+            )),
+            3,
+        ),
+    );
 
-    let observed = SemaEngine::observe(&store, sema_read_message(sema_observe(query()), 3));
+    let observed = SemaEngine::observe(&store, sema_read_message(sema_observe(query()), 4));
     match observed.root() {
         SemaReadOutput::Observed(records) => {
-            assert_eq!(records.record_set.len(), 2);
+            assert_eq!(records.record_set.len(), 3);
             assert_short_record_identifier(&records.record_set[0].record_identifier);
-            assert_eq!(records.record_set[0].entry.description, "high");
-            assert_eq!(records.record_set[1].entry.description, "low");
+            assert_eq!(records.record_set[0].entry.description, "reaffirmed");
+            assert_eq!(records.record_set[1].entry.description, "tertiary high");
+            assert_eq!(records.record_set[2].entry.description, "tertiary low");
         }
-        other => panic!("expected importance-ranked observation records, got {other:?}"),
+        other => panic!("expected ranked observation records, got {other:?}"),
     }
 
-    let high_importance_query = Query {
-        importance_selection: ImportanceSelection::at_least_importance(Magnitude::High.into()),
+    let high_weight_query = Query {
+        weight_selection: WeightSelection::at_least_weight(2_u64.into()),
         ..query()
     };
     let filtered = SemaEngine::observe(
         &store,
-        sema_read_message(sema_observe(high_importance_query), 4),
+        sema_read_message(sema_observe(high_weight_query), 5),
     );
     match filtered.root() {
         SemaReadOutput::Observed(records) => {
             assert_eq!(records.record_set.len(), 1);
-            assert_eq!(records.record_set[0].entry.description, "high");
+            assert_eq!(records.record_set[0].entry.description, "reaffirmed");
         }
-        other => panic!("expected high-importance filtered record, got {other:?}"),
+        other => panic!("expected high-weight filtered record, got {other:?}"),
     }
 }
 
@@ -1309,6 +1410,7 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
+        weight_selection: spirit::schema::signal::WeightSelection::default_observation_weight(),
     }));
 
     assert_eq!(observed.origin_route(), route(2));
