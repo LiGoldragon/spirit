@@ -257,7 +257,7 @@ fn generated_version_round_trips_the_canonical_atom_shape() {
     assert_eq!(input.to_string(), "Version");
     assert_eq!(
         output.to_string(),
-        format!("(VersionReported ([{}] (0 0)))", env!("CARGO_PKG_VERSION"))
+        format!("(VersionReported ({} (0 0)))", env!("CARGO_PKG_VERSION"))
     );
     assert_eq!(
         output
@@ -271,7 +271,7 @@ fn generated_version_round_trips_the_canonical_atom_shape() {
 #[cfg(feature = "nota-text")]
 #[test]
 fn generated_change_certainty_round_trips_the_canonical_shape() {
-    let input = "(ChangeCertainty ([003g] Zero))"
+    let input = "(ChangeCertainty (003g Zero))"
         .parse::<Input>()
         .expect("parse change certainty input");
 
@@ -282,13 +282,13 @@ fn generated_change_certainty_round_trips_the_canonical_shape() {
             certainty: Certainty::new(Magnitude::Zero),
         })
     );
-    assert_eq!(input.to_string(), "(ChangeCertainty ([003g] Zero))");
+    assert_eq!(input.to_string(), "(ChangeCertainty (003g Zero))");
 }
 
 #[cfg(feature = "nota-text")]
 #[test]
 fn generated_change_record_round_trips_the_canonical_shape() {
-    let input = "(ChangeRecord ([003g] ([[schema mutation]] Correction [replacement] High Zero)))"
+    let input = "(ChangeRecord (003g ([[schema mutation]] Correction replacement High Zero)))"
         .parse::<Input>()
         .expect("parse change record input");
 
@@ -307,7 +307,7 @@ fn generated_change_record_round_trips_the_canonical_shape() {
     );
     assert_eq!(
         input.to_string(),
-        "(ChangeRecord ([003g] ([[schema mutation]] Correction replacement High Zero)))"
+        "(ChangeRecord (003g ([[schema mutation]] Correction replacement High Zero)))"
     );
 }
 

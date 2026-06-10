@@ -36,7 +36,7 @@ configuration carries the Unix socket path, required meta socket path, and
 `.sema` database path. The daemon does not parse NOTA at startup.
 
 ```sh
-spirit-write-configuration "(ConfigurationWriteRequest [/tmp/spirit.sock] (Some [/tmp/spirit-meta.sock]) [/tmp/spirit.sema] None [/tmp/spirit.config.rkyv])"
+spirit-write-configuration "(ConfigurationWriteRequest /tmp/spirit.sock (Some /tmp/spirit-meta.sock) /tmp/spirit.sema None /tmp/spirit.config.rkyv)"
 spirit-daemon /tmp/spirit.config.rkyv
 ```
 
@@ -53,7 +53,7 @@ SPIRIT_SOCKET=/tmp/spirit.sock \
   spirit "(Observe ((Full [schema]) (Some Constraint) (Exact Zero) (ExactCertainty Zero)))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Remove [1])"
+  spirit "(Remove 1)"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
   spirit Version
@@ -63,8 +63,8 @@ The CLI accepts NOTA. The daemon socket carries length-prefixed rkyv bytes
 with an 8-byte short header.
 
 Entries carry a vector of topics. Queries use generated `TopicMatch` values:
-`(Partial [[schema] [runtime]])` matches any requested topic, while
-`(Full [[schema] [runtime]])` requires every requested topic. The query kind is
+`(Partial [schema runtime])` matches any requested topic, while
+`(Full [schema runtime])` requires every requested topic. The query kind is
 optional: `(Some Decision)` filters by kind and `None` searches only by topic.
 The full generated query also carries privacy and certainty selectors. The CLI
 accepts the common three-field query shorthand and fills the certainty selector

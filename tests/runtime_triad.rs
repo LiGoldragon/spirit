@@ -1208,11 +1208,11 @@ fn import_export_paths_use_single_colon_namespaces() {
 
     assert_eq!(
         import.to_nota(),
-        "([signal:sema:Magnitude] [spirit:core:Magnitude])"
+        "(signal:sema:Magnitude spirit:core:Magnitude)"
     );
     assert_eq!(
         export.to_nota(),
-        "([spirit:core:SemaWriteOutput] [spirit:sema:SemaWriteOutput])"
+        "(spirit:core:SemaWriteOutput spirit:sema:SemaWriteOutput)"
     );
 }
 

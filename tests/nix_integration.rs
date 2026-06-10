@@ -122,7 +122,7 @@ fn assert_short_record_identifier(identifier: &RecordIdentifier) {
 }
 
 fn record_identifier_argument(identifier: &RecordIdentifier) -> String {
-    format!("[{}]", identifier.payload())
+    identifier.payload().to_owned()
 }
 
 // ---------------------------------------------------------------------------

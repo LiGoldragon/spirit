@@ -9,6 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use nota_next::NotaEncode;
 use spirit::Configuration;
 #[cfg(feature = "testing-trace")]
 use spirit::TraceEvent;
@@ -68,11 +69,11 @@ impl DaemonProcess {
         let configuration_path = socket_path.with_extension("config.rkyv");
         let meta_socket_path = Self::meta_socket_path(socket_path);
         let request = format!(
-            "(ConfigurationWriteRequest [{}] (Some [{}]) [{}] None [{}])",
-            socket_path.display(),
-            meta_socket_path.display(),
-            database_path.display(),
-            configuration_path.display()
+            "(ConfigurationWriteRequest {} (Some {}) {} None {})",
+            nota_path(socket_path),
+            nota_path(&meta_socket_path),
+            nota_path(database_path),
+            nota_path(&configuration_path)
         );
         let output = Command::new(env!("CARGO_BIN_EXE_spirit-write-configuration"))
             .arg(request)
@@ -87,7 +88,7 @@ impl DaemonProcess {
             String::from_utf8(output.stdout).expect("configuration writer stdout is UTF-8");
         assert_eq!(
             stdout.trim(),
-            format!("(ConfigurationWritten [{}])", configuration_path.display())
+            format!("(ConfigurationWritten {})", nota_path(&configuration_path))
         );
         let child = Command::new(env!("CARGO_BIN_EXE_spirit-daemon"))
             .arg(configuration_path)
@@ -216,7 +217,11 @@ fn assert_short_record_identifier(identifier: &RecordIdentifier) {
 }
 
 fn record_identifier_argument(identifier: &RecordIdentifier) -> String {
-    format!("[{identifier}]")
+    identifier.to_string()
+}
+
+fn nota_path(path: &Path) -> String {
+    path.display().to_string().to_nota()
 }
 
 #[cfg(feature = "testing-trace")]
@@ -426,7 +431,7 @@ fn cli_subscription_receives_matching_intent_events_without_blocking_daemon() {
 
     let nonmatching = run_cli(
         &socket_path,
-        "(Record ([[other]] Decision [this should not be pushed] Maximum Zero))",
+        "(Record ([other] Decision [this should not be pushed] Maximum Zero))",
     );
     assert!(
         matches!(nonmatching, Output::RecordAccepted(_)),
@@ -719,7 +724,7 @@ fn cli_renders_alias_payload_outputs_without_wrapper_repetition() {
 
     let recorded = Command::new(env!("CARGO_BIN_EXE_spirit"))
         .env("SPIRIT_SOCKET", &socket_path)
-        .arg("(Record ([[alias-payload]] Constraint [direct accepted payload] Maximum Zero))")
+        .arg("(Record ([alias-payload] Constraint [direct accepted payload] Maximum Zero))")
         .output()
         .expect("run cli");
     assert!(
