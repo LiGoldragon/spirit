@@ -383,6 +383,28 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
 }
 
 #[test]
+fn cli_and_daemon_report_version_from_bare_nota_atom() {
+    let temp = TempDir::new().expect("tempdir");
+    let socket_path = temp.path().join("version.sock");
+    let database_path = temp.path().join("version.sema");
+
+    let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
+
+    let version = run_cli(&socket_path, "Version");
+    match version {
+        Output::VersionReported(report) => {
+            assert_eq!(
+                report.payload().version_text.payload(),
+                env!("CARGO_PKG_VERSION")
+            );
+            assert_eq!(report.payload().database_marker.commit_sequence, 0);
+            assert_eq!(report.payload().database_marker.state_digest, 0);
+        }
+        other => panic!("expected VersionReported from bare Version input, got {other:?}"),
+    }
+}
+
+#[test]
 fn cli_subscription_receives_matching_intent_events_without_blocking_daemon() {
     let temp = TempDir::new().expect("tempdir");
     let socket_path = temp.path().join("subscription.sock");

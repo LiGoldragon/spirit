@@ -237,6 +237,11 @@ input. For ordinary inputs it prints one output and exits; for
 length-prefixed `signal-frame` subscription-event frames, rendering each as
 generated `Output::Event(IntentEvent)` at the human edge.
 
+`Version` is the bare NOTA Signal input for asking the running component what
+package version it is. It follows the same one-argument CLI rule:
+`spirit Version` enters the generated Signal frame path and Nexus replies with
+`VersionReported(VersionReport { version_text, database_marker })`.
+
 The daemon handles a subscribe request through generated async task-backed stream
 plumbing in `src/schema/daemon.rs`: it writes the ordinary
 `SubscriptionStarted` reply, stores the accepted connection's Tokio writer half

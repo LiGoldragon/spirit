@@ -81,12 +81,11 @@
 //!   `bin/spirit-daemon`, proving the schema-driven build pipeline
 //!   reaches the binary stage.
 //!
-//! - `nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant`
-//!   — for each schema-emitted `Output` variant (`RecordAccepted`,
-//!   `RecordsStashed`, `Error`, `Rejected`), drive the CLI to produce
-//!   that variant and parse the stdout back through the schema-emitted
-//!   `Output::FromStr` — proving the NOTA wire form on the wire and
-//!   the FromStr surface stay in sync.
+//! - `nix_built_binaries_round_trip_representative_schema_outputs`
+//!   — drive representative schema-emitted `Output` variants, including
+//!   `VersionReported`, through the CLI and parse stdout back through the
+//!   schema-emitted `Output::FromStr`, proving the NOTA form and the
+//!   FromStr surface stay in sync.
 
 use std::{
     env,
@@ -644,7 +643,7 @@ fn nix_built_daemon_handles_back_to_back_inputs_through_one_socket() {
 
 #[test]
 #[ignore = "invokes nix build; run via cargo test --test nix_integration -- --ignored"]
-fn nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant() {
+fn nix_built_binaries_round_trip_representative_schema_outputs() {
     // PATTERN: drive each schema-emitted Output variant through the
     // Nix-built binaries; parse the CLI's stdout back through the
     // schema-emitted Output::FromStr. The test proves the NOTA wire
@@ -652,14 +651,29 @@ fn nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant()
     // a regression here would mean a CLI user sees output the CLI
     // itself cannot parse, which would silently break tooling.
     //
-    // Variants exercised: RecordAccepted (happy Record), RecordRemoved
-    // (SEMA remove), CertaintyChanged (SEMA mutate), Rejected (Signal
-    // validation), Error (SEMA missed), RecordsStashed (after Record +
-    // Observe). Six typed assertions, all parsed through `Output::from_str`.
+    // Variants exercised: VersionReported (component version),
+    // RecordAccepted (happy Record), RecordRemoved (SEMA remove),
+    // CertaintyChanged (SEMA mutate), Rejected (Signal validation), Error
+    // (SEMA missed), RecordsStashed (after Record + Observe). Seven typed
+    // assertions, all parsed through `Output::from_str`.
     let binaries = NixBuiltBinaries::ensure();
     let daemon = DaemonProcess::spawn(&binaries);
 
-    // Variant 1: RecordAccepted.
+    // Variant 1: VersionReported.
+    let version = run_cli_for_output(&binaries, daemon.socket(), "Version");
+    match &version {
+        Output::VersionReported(report) => {
+            assert_eq!(
+                report.payload().version_text.payload(),
+                env!("CARGO_PKG_VERSION")
+            );
+            assert_eq!(report.payload().database_marker, marker(0, 0));
+        }
+        other => panic!("expected VersionReported, got {other:?}"),
+    }
+    assert_eq!(version.route(), OutputRoute::VersionReported);
+
+    // Variant 2: RecordAccepted.
     let recorded = run_cli_for_output(
         &binaries,
         daemon.socket(),
@@ -676,7 +690,7 @@ fn nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant()
         "schema-emitted OutputRoute round-trips through CLI stdout"
     );
 
-    // Variant 2: RecordRemoved.
+    // Variant 3: RecordRemoved.
     let removed = run_cli_for_output(
         &binaries,
         daemon.socket(),
@@ -699,7 +713,7 @@ fn nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant()
     };
     assert_short_record_identifier(&rerecorded_identifier);
 
-    // Variant 3: CertaintyChanged.
+    // Variant 4: CertaintyChanged.
     let changed = run_cli_for_output(
         &binaries,
         daemon.socket(),
@@ -711,7 +725,7 @@ fn nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant()
     assert!(matches!(changed, Output::CertaintyChanged(_)));
     assert_eq!(changed.route(), OutputRoute::CertaintyChanged);
 
-    // Variant 4: Rejected (Signal validation).
+    // Variant 5: Rejected (Signal validation).
     let rejected = run_cli_for_output(
         &binaries,
         daemon.socket(),
@@ -720,7 +734,7 @@ fn nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant()
     assert!(matches!(rejected, Output::Rejected(_)));
     assert_eq!(rejected.route(), OutputRoute::Rejected);
 
-    // Variant 5: Error (SEMA missed).
+    // Variant 6: Error (SEMA missed).
     let errored = run_cli_for_output(
         &binaries,
         daemon.socket(),
@@ -729,7 +743,7 @@ fn nix_built_binaries_carry_schema_emitted_round_trip_for_every_output_variant()
     assert!(matches!(errored, Output::Error(_)));
     assert_eq!(errored.route(), OutputRoute::Error);
 
-    // Variant 6: RecordsStashed.
+    // Variant 7: RecordsStashed.
     let observed = run_cli_for_output(
         &binaries,
         daemon.socket(),

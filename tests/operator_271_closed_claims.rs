@@ -80,7 +80,7 @@ fn signal_schema_input_uses_exported_object_variant_names() {
 
     // The active production Input enum body — compact exported objects.
     witness.must_contain(
-        "[State Record Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty ChangeRecord LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream)]",
+        "[State Record Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty ChangeRecord LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version]",
         "4",
     );
     witness.must_contain("State Statement", "4");
@@ -95,6 +95,7 @@ fn signal_schema_input_uses_exported_object_variant_names() {
     witness.must_contain("ChangeRecord RecordChange", "4");
     witness.must_contain("LookupStash StashHandle", "4");
     witness.must_contain("SubscribeIntent Query", "4");
+    witness.must_contain("Version", "4");
 
     // Retired short-suffix shorthand must not appear.
     witness.must_not_contain("Record@Entry", "4");
@@ -114,7 +115,7 @@ fn signal_schema_output_uses_exported_object_variant_names() {
 
     // The active production Output enum body.
     witness.must_contain(
-        "[RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged RecordChanged RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted (Event IntentEvent) Error Rejected]",
+        "[RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged RecordChanged RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted VersionReported (Event IntentEvent) Error Rejected]",
         "4",
     );
     witness.must_contain("RecordAccepted SemaReceipt", "4");
@@ -125,6 +126,8 @@ fn signal_schema_output_uses_exported_object_variant_names() {
     witness.must_contain("CertaintyChanged CertaintyChangeReceipt", "4");
     witness.must_contain("RecordChanged RecordChangeReceipt", "4");
     witness.must_contain("SubscriptionStarted IntentSubscription", "4");
+    witness.must_contain("VersionReported VersionReport", "4");
+    witness.must_contain("VersionReport { VersionText * DatabaseMarker * }", "4");
     witness.must_contain(
         "IntentEvent [(IntentRecorded IntentRecorded belongs IntentEventStream)]",
         "4",
@@ -188,7 +191,7 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     sema_witness.must_round_trip_as_schema_source();
 
     signal_witness.must_contain(
-        "[State Record Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty ChangeRecord LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream)]",
+        "[State Record Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty ChangeRecord LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version]",
         "4",
     );
     signal_witness.must_contain("State Statement", "4");
@@ -200,6 +203,7 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     signal_witness.must_contain("ChangeCertainty CertaintyChange", "4");
     signal_witness.must_contain("ChangeRecord RecordChange", "4");
     signal_witness.must_contain("SubscribeIntent Query", "4");
+    signal_witness.must_contain("Version", "4");
     sema_witness.must_contain("[WriteInput ReadInput]", "4");
     sema_witness.must_contain(
         "WriteInput [(Record Record) (Remove Remove) (ChangeCertainty ChangeCertainty) (ChangeRecord ChangeRecord)]",
@@ -259,6 +263,7 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     signal_witness.must_contain("Count(Count)", "4");
     signal_witness.must_contain("Remove(Remove)", "4");
     signal_witness.must_contain("ChangeCertainty(ChangeCertainty)", "4");
+    signal_witness.must_contain("Version", "4");
 
     // The schema-emitted Output enum carries exported wrapper nouns.
     signal_witness.must_contain("pub enum Output {", "4");
@@ -272,6 +277,7 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     signal_witness.must_contain("RecordsCounted(RecordsCounted)", "4");
     signal_witness.must_contain("RecordRemoved(RecordRemoved)", "4");
     signal_witness.must_contain("CertaintyChanged(CertaintyChanged)", "4");
+    signal_witness.must_contain("VersionReported(VersionReported)", "4");
     signal_witness.must_contain("Error(Error)", "4");
     signal_witness.must_contain("Rejected(Rejected)", "4");
 

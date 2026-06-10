@@ -21,6 +21,13 @@ Load-bearing constraints:
 
 *Signal admission is explicit.* `SignalActor::admit` mints the origin route, validates generated `Input`, and creates `SignalAccepted`. Invalid input returns `Output::Rejected(SignalRejection { validation_error, database_marker })` where `ValidationError` is generated from schema; the runtime does not use a hand-written rejection enum.
 
+*Version is a NOTA-native Signal operation.* Per Spirit record `x5b7` (High
+certainty), the CLI version query is the bare NOTA input `Version`, invoked as
+`spirit Version`; it is not a Unix flag and not a parenthesized empty record.
+Nexus replies directly with generated `Output::VersionReported(VersionReport {
+VersionText, DatabaseMarker })`, and the version text comes from the component
+package version.
+
 *Intent streaming is the first subscription pilot.* Per Spirit record `ubgg`
 (Medium certainty), the first streaming proof is agent-facing intent
 subscription through the Spirit CLI: `Input::SubscribeIntent(Query)` opens

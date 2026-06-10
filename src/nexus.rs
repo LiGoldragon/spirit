@@ -21,6 +21,7 @@ use crate::{
             RemovalCandidateCollection, RemovalCandidatesCollection, RemovedIdentifiers,
             SemaReceipt, SignalRejection, SkippedRemovalCandidates, StashHandle,
             StashedObservation, Statement, SubscriptionToken, Topics, ValidationError,
+            VersionReport, VersionText,
         },
     },
     store::{Store, StoreError},
@@ -143,6 +144,7 @@ impl OperationKind {
             Input::Tap(_) => Self::Tap,
             Input::Untap(_) => Self::Untap,
             Input::SubscribeIntent(_) => Self::SubscribeIntent,
+            Input::Version => Self::Version,
         }
     }
 }
@@ -636,6 +638,12 @@ impl Nexus {
             Input::SubscribeIntent(query) => NexusAction::command_effect(
                 NexusEffectCommand::open_intent_subscription(query.into_payload()),
             ),
+            Input::Version => {
+                NexusAction::reply_to_signal(Output::version_reported(VersionReport {
+                    version_text: VersionText::new(env!("CARGO_PKG_VERSION")),
+                    database_marker: self.database_marker(),
+                }))
+            }
         }
     }
 

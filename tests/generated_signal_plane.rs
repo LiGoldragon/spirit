@@ -7,7 +7,7 @@ use spirit::schema::signal::{
     InputRoute, IntentEvent, IntentRecorded, Kind, Magnitude, MessageIdentifier, MessageRoot,
     OriginRoute, Output, OutputRoute, Privacy, Record, RecordChange, RecordChangeReceipt,
     RecordIdentifier, RecordSelection, Rejected, SemaReceipt, SignalFrameError, SignalRejection,
-    Statement, StatementText, TopicMatch, Topics, ValidationError,
+    Statement, StatementText, TopicMatch, Topics, ValidationError, VersionReport, VersionText,
 };
 
 fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
@@ -50,6 +50,30 @@ fn generated_output_surface_owns_route_header_and_rkyv_frame() {
 
     assert_eq!(route, OutputRoute::RecordAccepted);
     assert_eq!(decoded, output);
+}
+
+#[test]
+fn generated_version_surface_owns_route_header_and_rkyv_frame() {
+    let input = Input::Version;
+    let output = Output::version_reported(VersionReport {
+        version_text: VersionText::new(env!("CARGO_PKG_VERSION")),
+        database_marker: marker(0, 0),
+    });
+
+    assert_eq!(input.route(), InputRoute::Version);
+    assert_eq!(output.route(), OutputRoute::VersionReported);
+
+    let input_frame = input.encode_signal_frame().expect("encode input frame");
+    let output_frame = output.encode_signal_frame().expect("encode output frame");
+    let (input_route, decoded_input) =
+        Input::decode_signal_frame(&input_frame).expect("decode input frame");
+    let (output_route, decoded_output) =
+        Output::decode_signal_frame(&output_frame).expect("decode output frame");
+
+    assert_eq!(input_route, InputRoute::Version);
+    assert_eq!(output_route, OutputRoute::VersionReported);
+    assert_eq!(decoded_input, input);
+    assert_eq!(decoded_output, output);
 }
 
 #[test]
@@ -218,6 +242,30 @@ fn generated_state_input_round_trips_the_canonical_newtype_shape() {
         Input::state(Statement::new(StatementText::new("capture this intent")))
     );
     assert_eq!(input.to_string(), "(State [capture this intent])");
+}
+
+#[cfg(feature = "nota-text")]
+#[test]
+fn generated_version_round_trips_the_canonical_atom_shape() {
+    let input = "Version".parse::<Input>().expect("parse version input");
+    let output = Output::version_reported(VersionReport {
+        version_text: VersionText::new(env!("CARGO_PKG_VERSION")),
+        database_marker: marker(0, 0),
+    });
+
+    assert_eq!(input, Input::Version);
+    assert_eq!(input.to_string(), "Version");
+    assert_eq!(
+        output.to_string(),
+        format!("(VersionReported ([{}] (0 0)))", env!("CARGO_PKG_VERSION"))
+    );
+    assert_eq!(
+        output
+            .to_string()
+            .parse::<Output>()
+            .expect("parse version output"),
+        output
+    );
 }
 
 #[cfg(feature = "nota-text")]

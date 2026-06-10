@@ -1,6 +1,6 @@
 {}
-[State Record Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty ChangeRecord LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream)]
-[RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged RecordChanged RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted (Event IntentEvent) Error Rejected]
+[State Record Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty ChangeRecord LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version]
+[RecordAccepted RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged RecordChanged RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted VersionReported (Event IntentEvent) Error Rejected]
 {
   SourcePath String
   LocalPath String
@@ -53,6 +53,7 @@
   SubscriptionToken Integer
   MailIdentifier Integer
   ShortHeader Integer
+  VersionText String
 
   DatabaseMarker { CommitSequence * StateDigest * }
   SemaReceipt { RecordIdentifier * DatabaseMarker * }
@@ -64,6 +65,8 @@
   SignalRejection { ValidationError * DatabaseMarker * }
   StashedObservation { StashHandle * RecordCount * DatabaseMarker * }
   IntentSubscription { SubscriptionToken * DatabaseMarker * }
+  VersionReported VersionReport
+  VersionReport { VersionText * DatabaseMarker * }
   IntentRecorded { Entry * SemaReceipt * }
   IntentEvent [(IntentRecorded IntentRecorded belongs IntentEventStream)]
   IntentEventStream (Stream { token SubscriptionToken opened SubscriptionStarted event IntentEvent close SubscriptionToken })
@@ -98,7 +101,7 @@
   ObserverFilter [All OperationsOnly EffectsOnly]
   ObserverSubscription { SubscriptionToken * ObserverFilter * ObservedOperations * DatabaseMarker * }
   ObserverRetraction { SubscriptionToken * ObservedOperations * DatabaseMarker * }
-  OperationKind [State Record Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty ChangeRecord LookupStash CollectRemovalCandidates Tap Untap SubscribeIntent]
+  OperationKind [State Record Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty ChangeRecord LookupStash CollectRemovalCandidates Tap Untap SubscribeIntent Version]
   ObservedOperation { OperationKind * }
   ObservedOperations (Vec ObservedOperation)
 

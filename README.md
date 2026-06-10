@@ -44,13 +44,16 @@ Call it from the CLI:
 
 ```sh
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Record ([[schema]] Constraint [schema creates the interface] Maximum))"
+  spirit "(Record ([schema] Constraint [schema creates the interface] Maximum Zero))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Observe ((Full [[schema]]) (Some Constraint)))"
+  spirit "(Observe ((Full [schema]) (Some Constraint) (Exact Zero)))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Remove 1)"
+  spirit "(Remove [1])"
+
+SPIRIT_SOCKET=/tmp/spirit.sock \
+  spirit Version
 ```
 
 The CLI accepts NOTA. The daemon socket carries length-prefixed rkyv bytes

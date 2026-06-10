@@ -181,7 +181,8 @@ impl ComponentDaemon for SpiritDaemon {
             | Input::LookupStash(_)
             | Input::CollectRemovalCandidates(_)
             | Input::Tap(_)
-            | Input::Untap(_) => None,
+            | Input::Untap(_)
+            | Input::Version => None,
         }
     }
 

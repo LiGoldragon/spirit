@@ -265,6 +265,11 @@ pub struct ShortHeader(Integer);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct VersionText(String);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct DatabaseMarker {
     pub commit_sequence: CommitSequence,
     pub state_digest: StateDigest,
@@ -341,6 +346,19 @@ pub struct StashedObservation {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct IntentSubscription {
     pub subscription_token: SubscriptionToken,
+    pub database_marker: DatabaseMarker,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct VersionReported(VersionReport);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct VersionReport {
+    pub version_text: VersionText,
     pub database_marker: DatabaseMarker,
 }
 
@@ -608,6 +626,7 @@ pub enum OperationKind {
     Tap,
     Untap,
     SubscribeIntent,
+    Version,
 }
 
 #[rustfmt::skip]
@@ -758,6 +777,7 @@ pub enum Input {
     Tap(Tap),
     Untap(Untap),
     SubscribeIntent(SubscribeIntent),
+    Version,
 }
 
 #[rustfmt::skip]
@@ -776,6 +796,7 @@ pub enum Output {
     ObservationTapped(ObservationTapped),
     ObservationUntapped(ObservationUntapped),
     SubscriptionStarted(SubscriptionStarted),
+    VersionReported(VersionReported),
     Event(IntentEvent),
     Error(Error),
     Rejected(Rejected),
@@ -1637,6 +1658,44 @@ impl From<Integer> for ShortHeader {
 }
 
 #[rustfmt::skip]
+impl VersionText {
+    pub fn new(payload: impl Into<String>) -> Self {
+        Self(payload.into())
+    }
+    pub fn payload(&self) -> &String {
+        &self.0
+    }
+    pub fn into_payload(self) -> String {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<String> for VersionText {
+    fn from(payload: String) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl VersionReported {
+    pub fn new(payload: VersionReport) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &VersionReport {
+        &self.0
+    }
+    pub fn into_payload(self) -> VersionReport {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<VersionReport> for VersionReported {
+    fn from(payload: VersionReport) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl Sent {
     pub fn new(payload: SentMail) -> Self {
         Self(payload)
@@ -2143,6 +2202,9 @@ impl Output {
     pub fn subscription_started(payload: IntentSubscription) -> Self {
         Self::SubscriptionStarted(SubscriptionStarted::new(payload))
     }
+    pub fn version_reported(payload: VersionReport) -> Self {
+        Self::VersionReported(VersionReported::new(payload))
+    }
     pub fn event(payload: IntentEvent) -> Self {
         Self::Event(payload)
     }
@@ -2396,6 +2458,13 @@ impl From<ObservationUntapped> for Output {
 impl From<SubscriptionStarted> for Output {
     fn from(payload: SubscriptionStarted) -> Self {
         Self::SubscriptionStarted(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<VersionReported> for Output {
+    fn from(payload: VersionReported) -> Self {
+        Self::VersionReported(payload)
     }
 }
 
@@ -2950,6 +3019,17 @@ impl ShortHeader {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
+impl VersionText {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
 impl DatabaseMarker {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -3050,6 +3130,28 @@ impl StashedObservation {
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
 impl IntentSubscription {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl VersionReported {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl VersionReport {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -3624,6 +3726,7 @@ pub mod short_header {
     pub const INPUT_TAP: u64 = 0x000C000000000000;
     pub const INPUT_UNTAP: u64 = 0x000D000000000000;
     pub const INPUT_SUBSCRIBE_INTENT: u64 = 0x000E000000000000;
+    pub const INPUT_VERSION: u64 = 0x000F000000000000;
     pub const OUTPUT_RECORD_ACCEPTED: u64 = 0x0100000000000000;
     pub const OUTPUT_RECORDS_OBSERVED: u64 = 0x0101000000000000;
     pub const OUTPUT_RECORDS_STASHED: u64 = 0x0102000000000000;
@@ -3636,9 +3739,10 @@ pub mod short_header {
     pub const OUTPUT_OBSERVATION_TAPPED: u64 = 0x0109000000000000;
     pub const OUTPUT_OBSERVATION_UNTAPPED: u64 = 0x010A000000000000;
     pub const OUTPUT_SUBSCRIPTION_STARTED: u64 = 0x010B000000000000;
-    pub const OUTPUT_EVENT: u64 = 0x010C000000000000;
-    pub const OUTPUT_ERROR: u64 = 0x010D000000000000;
-    pub const OUTPUT_REJECTED: u64 = 0x010E000000000000;
+    pub const OUTPUT_VERSION_REPORTED: u64 = 0x010C000000000000;
+    pub const OUTPUT_EVENT: u64 = 0x010D000000000000;
+    pub const OUTPUT_ERROR: u64 = 0x010E000000000000;
+    pub const OUTPUT_REJECTED: u64 = 0x010F000000000000;
 }
 
 #[rustfmt::skip]
@@ -3704,6 +3808,7 @@ pub enum InputRoute {
     Tap,
     Untap,
     SubscribeIntent,
+    Version,
 }
 
 #[rustfmt::skip]
@@ -3731,6 +3836,7 @@ pub enum OutputRoute {
     ObservationTapped,
     ObservationUntapped,
     SubscriptionStarted,
+    VersionReported,
     Event,
     Error,
     Rejected,
@@ -3755,6 +3861,7 @@ impl Input {
             Self::Tap(_) => InputRoute::Tap,
             Self::Untap(_) => InputRoute::Untap,
             Self::SubscribeIntent(_) => InputRoute::SubscribeIntent,
+            Self::Version => InputRoute::Version,
         }
     }
     pub fn short_header(&self) -> u64 {
@@ -3776,6 +3883,7 @@ impl Input {
             Self::Tap(_) => short_header::INPUT_TAP,
             Self::Untap(_) => short_header::INPUT_UNTAP,
             Self::SubscribeIntent(_) => short_header::INPUT_SUBSCRIBE_INTENT,
+            Self::Version => short_header::INPUT_VERSION,
         }
     }
     pub fn route_from_short_header(header: u64) -> Result<InputRoute, SignalFrameError> {
@@ -3797,6 +3905,7 @@ impl Input {
             short_header::INPUT_TAP => Ok(InputRoute::Tap),
             short_header::INPUT_UNTAP => Ok(InputRoute::Untap),
             short_header::INPUT_SUBSCRIBE_INTENT => Ok(InputRoute::SubscribeIntent),
+            short_header::INPUT_VERSION => Ok(InputRoute::Version),
             _ => {
                 Err(SignalFrameError::UnknownHeader {
                     root_enum: "Input",
@@ -3861,6 +3970,7 @@ impl Output {
             Self::ObservationTapped(_) => OutputRoute::ObservationTapped,
             Self::ObservationUntapped(_) => OutputRoute::ObservationUntapped,
             Self::SubscriptionStarted(_) => OutputRoute::SubscriptionStarted,
+            Self::VersionReported(_) => OutputRoute::VersionReported,
             Self::Event(_) => OutputRoute::Event,
             Self::Error(_) => OutputRoute::Error,
             Self::Rejected(_) => OutputRoute::Rejected,
@@ -3882,6 +3992,7 @@ impl Output {
             Self::ObservationTapped(_) => short_header::OUTPUT_OBSERVATION_TAPPED,
             Self::ObservationUntapped(_) => short_header::OUTPUT_OBSERVATION_UNTAPPED,
             Self::SubscriptionStarted(_) => short_header::OUTPUT_SUBSCRIPTION_STARTED,
+            Self::VersionReported(_) => short_header::OUTPUT_VERSION_REPORTED,
             Self::Event(_) => short_header::OUTPUT_EVENT,
             Self::Error(_) => short_header::OUTPUT_ERROR,
             Self::Rejected(_) => short_header::OUTPUT_REJECTED,
@@ -3909,6 +4020,7 @@ impl Output {
             short_header::OUTPUT_SUBSCRIPTION_STARTED => {
                 Ok(OutputRoute::SubscriptionStarted)
             }
+            short_header::OUTPUT_VERSION_REPORTED => Ok(OutputRoute::VersionReported),
             short_header::OUTPUT_EVENT => Ok(OutputRoute::Event),
             short_header::OUTPUT_ERROR => Ok(OutputRoute::Error),
             short_header::OUTPUT_REJECTED => Ok(OutputRoute::Rejected),
@@ -3978,6 +4090,7 @@ impl signal_frame::SignalOperationHeads for Input {
         "Tap",
         "Untap",
         "SubscribeIntent",
+        "Version",
     ];
 }
 #[rustfmt::skip]
@@ -4090,6 +4203,7 @@ impl SignalObjectName {
                     InputRoute::Tap => "SignalInputTap",
                     InputRoute::Untap => "SignalInputUntap",
                     InputRoute::SubscribeIntent => "SignalInputSubscribeIntent",
+                    InputRoute::Version => "SignalInputVersion",
                 }
             }
             Self::Output(route) => {
@@ -4108,6 +4222,7 @@ impl SignalObjectName {
                     OutputRoute::ObservationTapped => "SignalOutputObservationTapped",
                     OutputRoute::ObservationUntapped => "SignalOutputObservationUntapped",
                     OutputRoute::SubscriptionStarted => "SignalOutputSubscriptionStarted",
+                    OutputRoute::VersionReported => "SignalOutputVersionReported",
                     OutputRoute::Event => "SignalOutputEvent",
                     OutputRoute::Error => "SignalOutputError",
                     OutputRoute::Rejected => "SignalOutputRejected",

@@ -430,7 +430,8 @@ impl Input {
             | Self::ChangeCertainty(_)
             | Self::LookupStash(_)
             | Self::Tap(_)
-            | Self::Untap(_) => Ok(()),
+            | Self::Untap(_)
+            | Self::Version => Ok(()),
             Self::ChangeRecord(change) => change.payload().validate(),
             Self::CollectRemovalCandidates(collection) => collection.payload().validate(),
             Self::SubscribeIntent(query) => query.payload().validate(),
@@ -612,6 +613,7 @@ impl Output {
             Self::SubscriptionStarted(subscription) => {
                 subscription.payload().database_marker.clone()
             }
+            Self::VersionReported(report) => report.payload().database_marker.clone(),
             Self::Event(event) => event.database_marker(),
             Self::Error(report) => report.payload().database_marker.clone(),
             Self::Rejected(rejection) => rejection.payload().database_marker.clone(),
