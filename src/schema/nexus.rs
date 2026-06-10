@@ -46,6 +46,8 @@ pub use crate::schema::signal::SupersessionReceipt as SupersessionReceipt;
 #[rustfmt::skip]
 pub use crate::schema::signal::RetirementReceipt as RetirementReceipt;
 #[rustfmt::skip]
+pub use crate::schema::signal::GuardianRejection as GuardianRejection;
+#[rustfmt::skip]
 pub use crate::schema::signal::ErrorReport as ErrorReport;
 #[rustfmt::skip]
 pub use crate::schema::signal::Query as Query;
@@ -249,6 +251,7 @@ pub enum NexusEffectResult {
     Clarified(Clarified),
     Superseded(Superseded),
     Retired(Retired),
+    GuardianRejected(GuardianRejected),
     OperationFailed(OperationFailed),
     IntentSubscriptionOpened(IntentSubscriptionOpened),
     RemovalCandidatesCollected(RemovalCandidatesCollected),
@@ -285,6 +288,11 @@ pub struct Superseded(SupersessionReceipt);
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Retired(RetirementReceipt);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct GuardianRejected(GuardianRejection);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -901,6 +909,25 @@ impl From<RetirementReceipt> for Retired {
 }
 
 #[rustfmt::skip]
+impl GuardianRejected {
+    pub fn new(payload: GuardianRejection) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &GuardianRejection {
+        &self.0
+    }
+    pub fn into_payload(self) -> GuardianRejection {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<GuardianRejection> for GuardianRejected {
+    fn from(payload: GuardianRejection) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl OperationFailed {
     pub fn new(payload: ErrorReport) -> Self {
         Self(payload)
@@ -1102,6 +1129,9 @@ impl NexusEffectResult {
     }
     pub fn retired(payload: RetirementReceipt) -> Self {
         Self::Retired(Retired::new(payload))
+    }
+    pub fn guardian_rejected(payload: GuardianRejection) -> Self {
+        Self::GuardianRejected(GuardianRejected::new(payload))
     }
     pub fn operation_failed(payload: ErrorReport) -> Self {
         Self::OperationFailed(OperationFailed::new(payload))
@@ -1362,6 +1392,13 @@ impl From<Superseded> for NexusEffectResult {
 impl From<Retired> for NexusEffectResult {
     fn from(payload: Retired) -> Self {
         Self::Retired(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<GuardianRejected> for NexusEffectResult {
+    fn from(payload: GuardianRejected) -> Self {
+        Self::GuardianRejected(payload)
     }
 }
 
@@ -1829,6 +1866,17 @@ impl Superseded {
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
 impl Retired {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl GuardianRejected {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }

@@ -17,6 +17,7 @@
   ClarificationReceipt spirit:signal:ClarificationReceipt
   SupersessionReceipt spirit:signal:SupersessionReceipt
   RetirementReceipt spirit:signal:RetirementReceipt
+  GuardianRejection spirit:signal:GuardianRejection
   ErrorReport spirit:signal:ErrorReport
   Query spirit:signal:Query
   SubscriptionToken spirit:signal:SubscriptionToken
@@ -64,13 +65,14 @@
   CollectRemovalCandidates RemovalCandidateCollection
   OpenObserverTap ObserverFilter
   CloseObserverTap SubscriptionToken
-  NexusEffectResult [(Stashed) (StateClassified) (Proposed) (Clarified) (Superseded) (Retired) (OperationFailed) (IntentSubscriptionOpened) (RemovalCandidatesCollected) (ObserverTapOpened) (ObserverTapClosed)]
+  NexusEffectResult [(Stashed) (StateClassified) (Proposed) (Clarified) (Superseded) (Retired) (GuardianRejected) (OperationFailed) (IntentSubscriptionOpened) (RemovalCandidatesCollected) (ObserverTapOpened) (ObserverTapClosed)]
   Stashed StashResult
   StateClassified Entry
   Proposed SemaReceipt
   Clarified ClarificationReceipt
   Superseded SupersessionReceipt
   Retired RetirementReceipt
+  GuardianRejected GuardianRejection
   OperationFailed ErrorReport
   IntentSubscriptionOpened IntentSubscription
   RemovalCandidatesCollected RemovalCandidatesCollection

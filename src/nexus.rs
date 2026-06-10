@@ -401,8 +401,9 @@ impl Nexus {
                 NexusEffectResult::state_classified(entry)
             }
             NexusEffectCommand::Propose(propose) => {
-                match self.store.propose(propose.into_payload()) {
-                    Ok(receipt) => NexusEffectResult::proposed(receipt),
+                match self.store.guard_propose(propose.into_payload()) {
+                    Ok(Ok(receipt)) => NexusEffectResult::proposed(receipt),
+                    Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
                     Err(error) => self.operation_failed(error.to_string()),
                 }
             }
@@ -818,6 +819,9 @@ impl Nexus {
             }
             NexusEffectResult::OperationFailed(report) => {
                 NexusAction::reply_to_signal(Output::error(report.into_payload()))
+            }
+            NexusEffectResult::GuardianRejected(rejection) => {
+                NexusAction::reply_to_signal(Output::guardian_rejected(rejection.into_payload()))
             }
             NexusEffectResult::Stashed(stashed) => {
                 let StashResult {

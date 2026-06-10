@@ -21,8 +21,9 @@ use crate::schema::{
     signal::{
         Certainty, CertaintyChange, CertaintyChangeReceipt, CertaintySelection, Clarification,
         ClarificationReceipt, CountedRecords, DatabaseMarker, Description, Entry, ErrorMessage,
-        ErrorReport, FoundRecord, Importance, ImportanceSelection, Keyword, KeywordMatch, Keywords,
-        Magnitude, ObservedRecord, ObservedRecords, Privacy, PrivacySelection, Query, RecordChange,
+        ErrorReport, Explanation, FoundRecord, GuardianRejection, GuardianRejectionReason,
+        Importance, ImportanceSelection, Keyword, KeywordMatch, Keywords, Magnitude,
+        ObservedRecord, ObservedRecords, Privacy, PrivacySelection, Query, RecordChange,
         RecordChangeReceipt, RecordCount, RecordIdentifier, RecordSet, RemovalArchiveRecord,
         RemovalArchiveRecords, RemovalCandidateCollection, RemovalCandidatesCollection,
         RemoveReceipt, RemovedIdentifier, RemovedIdentifiers, Retirement, RetirementReceipt,
@@ -415,6 +416,35 @@ impl Store {
         })
     }
 
+    pub fn guard_propose(
+        &self,
+        entry: Entry,
+    ) -> Result<Result<SemaReceipt, GuardianRejection>, StoreError> {
+        let Some(duplicate) = self.duplicate_record(&entry)? else {
+            return Ok(Ok(self.propose(entry)?));
+        };
+        let record_identifier = RecordIdentifier::new(duplicate.record_identifier.clone());
+        let weight_receipt = self
+            .bump_weight(WeightBump::new(record_identifier.clone()))?
+            .ok_or_else(|| {
+                StoreError::DuplicateRecordVanished(record_identifier.payload().clone())
+            })?;
+        let updated_entry = self
+            .entry_by_identifier(record_identifier.payload())?
+            .ok_or_else(|| {
+                StoreError::DuplicateRecordVanished(record_identifier.payload().clone())
+            })?;
+        Ok(Err(GuardianRejection {
+            guardian_rejection_reason: GuardianRejectionReason::Duplicate,
+            record_set: RecordSet::new(vec![ObservedRecord {
+                record_identifier,
+                entry: updated_entry,
+            }]),
+            explanation: Explanation::new("proposal duplicates an existing forward arrow"),
+            database_marker: weight_receipt.database_marker,
+        }))
+    }
+
     fn observe(&self, query: &Query) -> Result<Vec<ObservedRecord>, StoreError> {
         let mut records = self
             .records()?
@@ -432,6 +462,19 @@ impl Store {
             .into_iter()
             .map(StoredRecord::into_observed_record)
             .collect())
+    }
+
+    fn duplicate_record(&self, proposed: &Entry) -> Result<Option<StoredRecord>, StoreError> {
+        Ok(self.records()?.into_iter().find(|record| {
+            record.entry.kind == proposed.kind
+                && record.entry.categories == proposed.categories
+                && record
+                    .entry
+                    .description
+                    .payload()
+                    .trim()
+                    .eq_ignore_ascii_case(proposed.description.payload().trim())
+        }))
     }
 
     pub fn entry_by_identifier(&self, identifier: &str) -> Result<Option<Entry>, StoreError> {
@@ -818,6 +861,9 @@ pub enum StoreError {
 
     #[error("failed to mint record identifier: {0}")]
     IdentifierMint(String),
+
+    #[error("duplicate record vanished during guardian proposal handling: {0}")]
+    DuplicateRecordVanished(String),
 }
 
 impl Entry {

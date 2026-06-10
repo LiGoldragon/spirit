@@ -11,12 +11,12 @@ use spirit::{
         signal::{
             Categories, CategoryMatch, Certainty, CertaintyChange, CertaintySelection,
             Clarification, DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport,
-            ImportanceSelection, Input, Keyword, KeywordMatch, Keywords, Kind, Magnitude,
-            MailLedgerEvent, MessageIdentifier, MessageSent, MessageSentHook, OriginRoute, Output,
-            Privacy, PrivacySelection, Query, RecordChange, RecordIdentifier, RecordSelection,
-            RetiredIdentifier, RetiredIdentifiers, Retirement, SearchText, SemaReceipt, SentMail,
-            SignalEngine, SignalRejection, StashHandle, Statement, StatementText, Supersession,
-            TextMatch, ValidationError, WeightBump, WeightSelection,
+            GuardianRejectionReason, ImportanceSelection, Input, Keyword, KeywordMatch, Keywords,
+            Kind, Magnitude, MailLedgerEvent, MessageIdentifier, MessageSent, MessageSentHook,
+            OriginRoute, Output, Privacy, PrivacySelection, Query, RecordChange, RecordIdentifier,
+            RecordSelection, RetiredIdentifier, RetiredIdentifiers, Retirement, SearchText,
+            SemaReceipt, SentMail, SignalEngine, SignalRejection, StashHandle, Statement,
+            StatementText, Supersession, TextMatch, ValidationError, WeightBump, WeightSelection,
         },
     },
 };
@@ -753,6 +753,23 @@ fn signal_write_operations_propose_clarify_supersede_and_retire() {
         Output::Proposed(receipt) => receipt.payload().record_identifier.clone(),
         other => panic!("expected Proposed receipt, got {other:?}"),
     };
+
+    let duplicate = engine.handle(input_propose(entry("initial forward arrow")));
+    match duplicate.root() {
+        Output::GuardianRejected(rejection) => {
+            assert_eq!(
+                rejection.payload().guardian_rejection_reason,
+                GuardianRejectionReason::Duplicate
+            );
+            assert_eq!(rejection.payload().record_set.len(), 1);
+            assert_eq!(
+                rejection.payload().record_set[0].record_identifier,
+                original_identifier
+            );
+            assert_eq!(rejection.payload().record_set[0].entry.weight.payload(), &2);
+        }
+        other => panic!("expected duplicate GuardianRejected receipt, got {other:?}"),
+    }
 
     let clarified = engine.handle(input_clarify(
         original_identifier.clone(),

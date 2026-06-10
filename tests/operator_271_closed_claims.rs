@@ -241,7 +241,7 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     nexus_witness.must_contain("Retire Retirement", "4");
     nexus_witness.must_contain("OpenIntentSubscription Query", "4");
     nexus_witness.must_contain(
-        "NexusEffectResult [(Stashed) (StateClassified) (Proposed) (Clarified) (Superseded) (Retired) (OperationFailed) (IntentSubscriptionOpened) (RemovalCandidatesCollected) (ObserverTapOpened) (ObserverTapClosed)]",
+        "NexusEffectResult [(Stashed) (StateClassified) (Proposed) (Clarified) (Superseded) (Retired) (GuardianRejected) (OperationFailed) (IntentSubscriptionOpened) (RemovalCandidatesCollected) (ObserverTapOpened) (ObserverTapClosed)]",
         "4",
     );
     nexus_witness.must_contain("StateClassified Entry", "4");
@@ -249,6 +249,7 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     nexus_witness.must_contain("Clarified ClarificationReceipt", "4");
     nexus_witness.must_contain("Superseded SupersessionReceipt", "4");
     nexus_witness.must_contain("Retired RetirementReceipt", "4");
+    nexus_witness.must_contain("GuardianRejected GuardianRejection", "4");
     nexus_witness.must_contain("OperationFailed ErrorReport", "4");
     nexus_witness.must_contain("IntentSubscriptionOpened IntentSubscription", "4");
 }
