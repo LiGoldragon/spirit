@@ -344,7 +344,7 @@ impl Store {
             if !record.entry.matches(&query) {
                 continue;
             }
-            match archive.archive_record(record.clone()) {
+            match archive.archive_record(record.clone(), self.archive_identifier(&identifier)) {
                 Ok(()) => match self.remove(&identifier)? {
                     true => {
                         archived_records.push(RemovalArchiveRecord {
@@ -380,6 +380,13 @@ impl Store {
     /// never the live database handle.
     fn open_archive_database(&self) -> Result<ArchiveDatabase, StoreError> {
         ArchiveDatabase::open(self.archive_database_path())
+    }
+
+    fn archive_identifier(&self, live_identifier: &str) -> String {
+        format!(
+            "{live_identifier}-{}",
+            self.database_marker().commit_sequence.payload()
+        )
     }
 
     pub fn import_record(
@@ -454,6 +461,14 @@ impl Store {
 
     pub fn retire(&self, retirement: Retirement) -> Result<Option<RetirementReceipt>, StoreError> {
         let record_identifier = retirement.into_payload();
+        let Some(entry) = self.entry_by_identifier(record_identifier.payload())? else {
+            return Ok(None);
+        };
+        let mut archive = self.open_archive_database()?;
+        archive.archive_record(
+            StoredRecord::new(record_identifier.payload().clone(), entry),
+            self.archive_identifier(record_identifier.payload()),
+        )?;
         if !self.remove(record_identifier.payload())? {
             return Ok(None);
         }
@@ -534,6 +549,11 @@ impl Store {
         let Some(mut entry) = self.entry_by_identifier(record_identifier.payload())? else {
             return Ok(None);
         };
+        let mut archive = self.open_archive_database()?;
+        archive.archive_record(
+            StoredRecord::new(identifier_text.clone(), entry.clone()),
+            self.archive_identifier(record_identifier.payload()),
+        )?;
         entry.description = clarification.description;
         self.database.mutate(Mutation::new(
             self.entries,
@@ -549,19 +569,18 @@ impl Store {
         &self,
         supersession: Supersession,
     ) -> Result<Option<SupersessionReceipt>, StoreError> {
-        if supersession
-            .retired_identifiers
-            .payload()
-            .iter()
-            .any(|identifier| {
-                self.entry_by_identifier(identifier.payload().payload())
-                    .is_ok_and(|entry| entry.is_none())
-            })
-        {
-            return Ok(None);
-        }
         let retired_identifiers = supersession.retired_identifiers;
         let replacement = supersession.replacement;
+        let mut archive = self.open_archive_database()?;
+        for identifier in retired_identifiers.payload() {
+            let Some(entry) = self.entry_by_identifier(identifier.payload().payload())? else {
+                return Ok(None);
+            };
+            archive.archive_record(
+                StoredRecord::new(identifier.payload().payload().clone(), entry),
+                self.archive_identifier(identifier.payload().payload()),
+            )?;
+        }
         for identifier in retired_identifiers.payload() {
             self.remove(identifier.payload().payload())?;
         }
@@ -773,12 +792,18 @@ impl ArchiveDatabase {
         Ok(Self { database, entries })
     }
 
-    /// Durably assert an archived copy of one removal-candidate `Entry` into the
-    /// separate archive database. The archive allocates its own identifier; the
-    /// original live identifier travels in the `CollectRemovalCandidates` reply,
-    /// not in the archive's identifier space.
-    fn archive_record(&mut self, record: StoredRecord) -> Result<(), StoreError> {
-        self.database.assert(Assertion::new(self.entries, record))?;
+    /// Durably assert an archived copy of one live `Entry` into the separate
+    /// archive database under a versioned archive key, so repeated clarification
+    /// and retirement of the same live identifier preserve every prior state.
+    fn archive_record(
+        &mut self,
+        record: StoredRecord,
+        archive_identifier: String,
+    ) -> Result<(), StoreError> {
+        self.database.assert(Assertion::new(
+            self.entries,
+            StoredRecord::new(archive_identifier, record.entry),
+        ))?;
         Ok(())
     }
 }

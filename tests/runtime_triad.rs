@@ -39,6 +39,11 @@ impl SemaFile {
         Store::open(&self.path).expect("open sema store")
     }
 
+    fn open_archive_store(&self) -> Store {
+        let archive_path = self.path.with_file_name("runtime-triad.archive.sema");
+        Store::open(archive_path).expect("open archive sema store")
+    }
+
     fn engine(&self) -> Engine {
         Engine::new(self.open_store())
     }
@@ -813,6 +818,11 @@ fn signal_write_operations_propose_clarify_supersede_and_retire() {
             .into_root(),
         Output::Error(_)
     ));
+    assert_eq!(
+        sema.open_archive_store().len(),
+        3,
+        "clarify, supersede, and retire each archive the prior live arrow"
+    );
 }
 
 #[test]
