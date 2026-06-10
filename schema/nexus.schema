@@ -30,7 +30,7 @@
   SemaReadCompleted SemaReadOutput
   EffectCompleted NexusEffectResult
 
-  CommandSemaWrite [(Record Record) (Remove Remove) (ChangeCertainty ChangeCertainty) (ChangeRecord ChangeRecord)]
+  CommandSemaWrite [(Record) (Remove) (ChangeCertainty) (ChangeRecord)]
   Record Entry
   Remove RecordIdentifier
   ChangeCertainty CertaintyChange
@@ -40,17 +40,17 @@
   CommandEffect NexusEffectCommand
   Continue NexusWork
 
-  NexusWork [(SignalArrived SignalArrived) (SemaWriteCompleted SemaWriteCompleted) (SemaReadCompleted SemaReadCompleted) (EffectCompleted EffectCompleted)]
-  NexusAction [(CommandSemaWrite CommandSemaWrite) (CommandSemaRead CommandSemaRead) (ReplyToSignal ReplyToSignal) (CommandEffect CommandEffect) (Continue Continue)]
+  NexusWork [(SignalArrived) (SemaWriteCompleted) (SemaReadCompleted) (EffectCompleted)]
+  NexusAction [(CommandSemaWrite) (CommandSemaRead) (ReplyToSignal) (CommandEffect) (Continue)]
 
-  NexusEffectCommand [(Stash Stash) (ClassifyState ClassifyState) (OpenIntentSubscription OpenIntentSubscription) (CollectRemovalCandidates CollectRemovalCandidates) (OpenObserverTap OpenObserverTap) (CloseObserverTap CloseObserverTap)]
+  NexusEffectCommand [(Stash) (ClassifyState) (OpenIntentSubscription) (CollectRemovalCandidates) (OpenObserverTap) (CloseObserverTap)]
   Stash StashRequest
   ClassifyState Statement
   OpenIntentSubscription Query
   CollectRemovalCandidates RemovalCandidateCollection
   OpenObserverTap ObserverFilter
   CloseObserverTap SubscriptionToken
-  NexusEffectResult [(Stashed Stashed) (StateClassified StateClassified) (IntentSubscriptionOpened IntentSubscriptionOpened) (RemovalCandidatesCollected RemovalCandidatesCollected) (ObserverTapOpened ObserverTapOpened) (ObserverTapClosed ObserverTapClosed)]
+  NexusEffectResult [(Stashed) (StateClassified) (IntentSubscriptionOpened) (RemovalCandidatesCollected) (ObserverTapOpened) (ObserverTapClosed)]
   Stashed StashResult
   StateClassified Entry
   IntentSubscriptionOpened IntentSubscription

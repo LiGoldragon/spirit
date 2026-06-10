@@ -6,10 +6,9 @@
 //!   The production-path plane schemas carry compact root-header object
 //!   names (`Record Observe Lookup ...`, `WriteInput ReadInput`) and define
 //!   those exported objects in the namespace (`Record Entry`, `Observe
-//!   Query`, ...). Namespace enums that carry payloads spell the payload in
-//!   each variant signature (`(Record Record)`) rather than relying on
-//!   same-name recovery. The retired `Record@Entry` short-suffix sugar is
-//!   absent.
+//!   Query`, ...). Namespace enums that carry same-named payloads use
+//!   self-tagged signatures (`(Record)`). The retired `Record@Entry`
+//!   short-suffix sugar is absent.
 //!   The authored schema source decodes into a typed `SchemaSource` value,
 //!   round-trips through rkyv, and the emitted Rust carries the alias shape.
 //!
@@ -206,27 +205,27 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     signal_witness.must_contain("Version", "4");
     sema_witness.must_contain("[WriteInput ReadInput]", "4");
     sema_witness.must_contain(
-        "WriteInput [(Record Record) (Remove Remove) (ChangeCertainty ChangeCertainty) (ChangeRecord ChangeRecord)]",
+        "WriteInput [(Record) (Remove) (ChangeCertainty) (ChangeRecord)]",
         "4",
     );
     sema_witness.must_contain("Recorded SemaReceipt", "4");
     sema_witness.must_contain(
-        "WriteOutput [(Recorded Recorded) (Removed Removed) (CertaintyChanged CertaintyChanged) (RecordChanged RecordChanged) (Missed Missed)]",
+        "WriteOutput [(Recorded) (Removed) (CertaintyChanged) (RecordChanged) (Missed)]",
         "4",
     );
     nexus_witness.must_contain(
-        "CommandSemaWrite [(Record Record) (Remove Remove) (ChangeCertainty ChangeCertainty) (ChangeRecord ChangeRecord)]",
+        "CommandSemaWrite [(Record) (Remove) (ChangeCertainty) (ChangeRecord)]",
         "4",
     );
-    nexus_witness.must_contain("NexusAction [(CommandSemaWrite CommandSemaWrite)", "4");
+    nexus_witness.must_contain("NexusAction [(CommandSemaWrite)", "4");
     nexus_witness.must_contain(
-        "NexusEffectCommand [(Stash Stash) (ClassifyState ClassifyState) (OpenIntentSubscription OpenIntentSubscription) (CollectRemovalCandidates CollectRemovalCandidates) (OpenObserverTap OpenObserverTap) (CloseObserverTap CloseObserverTap)]",
+        "NexusEffectCommand [(Stash) (ClassifyState) (OpenIntentSubscription) (CollectRemovalCandidates) (OpenObserverTap) (CloseObserverTap)]",
         "4",
     );
     nexus_witness.must_contain("ClassifyState Statement", "4");
     nexus_witness.must_contain("OpenIntentSubscription Query", "4");
     nexus_witness.must_contain(
-        "NexusEffectResult [(Stashed Stashed) (StateClassified StateClassified) (IntentSubscriptionOpened IntentSubscriptionOpened) (RemovalCandidatesCollected RemovalCandidatesCollected) (ObserverTapOpened ObserverTapOpened) (ObserverTapClosed ObserverTapClosed)]",
+        "NexusEffectResult [(Stashed) (StateClassified) (IntentSubscriptionOpened) (RemovalCandidatesCollected) (ObserverTapOpened) (ObserverTapClosed)]",
         "4",
     );
     nexus_witness.must_contain("StateClassified Entry", "4");

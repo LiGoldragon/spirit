@@ -72,11 +72,14 @@ exported aliases in the typed schema value and generated Rust, so enum variants
 carry direct payloads instead of wrapper structs. Explicit brace-body singleton
 declarations are the newtype form.
 
-Enum bodies keep vector homogeneity by listing exported object names. Namespace
-bindings such as `Record Entry`, `RecordAccepted SemaReceipt`, and
-`SignalArrived Input` define the payload shape for data-carrying objects; names
-without payload bindings are unit variants. The vector does not contain pseudo
-key-value pairs or parenthesized root signatures.
+Enum bodies keep vector homogeneity by listing exported object names at root
+positions and by using one signature object per namespace enum variant.
+Namespace bindings such as `Record Entry`, `RecordAccepted SemaReceipt`, and
+`SignalArrived Input` define the payload shape for data-carrying root objects;
+names without payload bindings are unit variants. Inside namespace enums,
+same-named payload variants use the compact `(Record)` form, while explicit
+`(Variant Payload)` is reserved for different names. The vector does not
+contain pseudo key-value pairs.
 
 The three runtime centers are concrete objects: `SignalActor` (admission),
 `Nexus` (mail keeper + translator, owns the store + ledger), and `Store` (the
@@ -456,19 +459,19 @@ difference is which actor object owns the method after the generated type
 exists.
 
 The current `schema/{signal,nexus,sema}.schema` spelling is the strict brace
-key-value syntax. The known root positions provide each plane's input and
-output enum names, so the root enum bodies are bare square-bracket values.
-Namespace declarations are key-value pairs: a brace value declares a struct
-map, a square-bracket value declares an enum variant list, and an atom or
-parenthesized reference declares an alias. Data-carrying enum payloads are
-declared explicitly in namespace enum bodies with parenthesized entries such
-as `(Record Record)`, `(RecordAccepted RecordAccepted)`, and
-`(CommandSemaWrite CommandSemaWrite)`. Namespace bindings such as
-`Record Entry`, `RecordAccepted SemaReceipt`, and
-`CommandSemaWrite [(Record Record) ...]` define the payload aliases and
-feature-specific commands those signatures reference. Parentheses remain the
-composite/reference and structural payload shape at reference positions. That
-authored syntax decodes to typed
+key-value syntax with compact enum signatures. The known root positions provide
+each plane's input and output enum names, so the root enum bodies are bare
+square-bracket values. Namespace declarations are key-value pairs: a brace
+value declares a struct map, a square-bracket value declares an enum variant
+list, and an atom or parenthesized reference declares an alias. Data-carrying
+enum payloads in namespace enum bodies use self-tagged entries such as
+`(Record)`, `(RecordAccepted)`, and `(CommandSemaWrite)` when the payload type
+has the same name; explicit `(Variant Payload)` remains available when the
+names differ. Namespace bindings such as `Record Entry`,
+`RecordAccepted SemaReceipt`, and `CommandSemaWrite [(Record) ...]` define the
+payload aliases and feature-specific commands those signatures reference.
+Parentheses remain the composite/reference and structural payload shape at
+reference positions. That authored syntax decodes to typed
 `SchemaSource`, lowers to semantic `Schema`, and emits one generated Rust
 module per plane.
 
