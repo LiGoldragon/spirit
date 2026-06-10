@@ -4,9 +4,9 @@ use spirit::{
         nexus::NexusObjectName,
         sema::SemaObjectName,
         signal::{
-            CertaintySelection, DatabaseMarker, Description, Entry, ImportanceSelection, Input,
-            Kind, Magnitude, Output, Privacy, PrivacySelection, Query, SignalObjectName,
-            SignalRejection, TopicMatch, Topics, ValidationError,
+            Categories, CategoryMatch, CertaintySelection, DatabaseMarker, Description, Entry,
+            ImportanceSelection, Input, Kind, Magnitude, Output, Privacy, PrivacySelection, Query,
+            SignalObjectName, SignalRejection, ValidationError,
         },
     },
 };
@@ -32,7 +32,7 @@ impl SemaFile {
 
 fn entry(description: &str) -> Entry {
     Entry {
-        topics: Topics::from_strings(vec![String::from("trace")]),
+        categories: Categories::from_strings(vec![String::from("trace")]),
         kind: Kind::Decision,
         description: Description::new(description),
         certainty: Magnitude::Maximum.into(),
@@ -55,7 +55,7 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
     };
 
     let observed = engine.handle(Input::observe(Query {
-        topic_match: TopicMatch::full(Topics::from_strings(vec![String::from("trace")])),
+        category_match: CategoryMatch::full(Categories::from_strings(vec![String::from("trace")])),
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
@@ -200,7 +200,7 @@ fn testing_trace_records_signal_rejection_without_nexus_or_sema_activations() {
     let mut engine = sema.engine_with_trace(trace_log.clone());
 
     let mut invalid_entry = entry("invalid trace witness");
-    invalid_entry.topics = Topics::from_strings(vec![]);
+    invalid_entry.categories = Categories::from_strings(vec![]);
 
     let output = engine.handle(Input::record(invalid_entry));
 
@@ -208,7 +208,7 @@ fn testing_trace_records_signal_rejection_without_nexus_or_sema_activations() {
     assert_eq!(
         output.root(),
         &Output::rejected(SignalRejection {
-            validation_error: ValidationError::EmptyTopic,
+            validation_error: ValidationError::EmptyCategory,
             database_marker: DatabaseMarker {
                 commit_sequence: 0.into(),
                 state_digest: 0.into(),

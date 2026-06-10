@@ -44,13 +44,13 @@ Call it from the CLI:
 
 ```sh
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Record ([schema] Constraint [schema creates the interface] Maximum Minimum 1 Zero))"
+  spirit "(Record ([Meaning] Constraint [schema creates the interface] Maximum Minimum 1 Zero))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Observe ((Full [schema]) (Some Constraint) (Exact Zero)))"
+  spirit "(Observe ((Full [Meaning]) (Some Constraint) (Exact Zero)))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Observe ((Full [schema]) (Some Constraint) (Exact Zero) (ExactCertainty Zero)))"
+  spirit "(Observe ((Full [Meaning]) (Some Constraint) (Exact Zero) (ExactCertainty Zero)))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
   spirit "(Remove 1)"
@@ -62,10 +62,10 @@ SPIRIT_SOCKET=/tmp/spirit.sock \
 The CLI accepts NOTA. The daemon socket carries length-prefixed rkyv bytes
 with an 8-byte short header.
 
-Entries carry a vector of topics. Queries use generated `TopicMatch` values:
-`(Partial [schema runtime])` matches any requested topic, while
-`(Full [schema runtime])` requires every requested topic. The query kind is
-optional: `(Some Decision)` filters by kind and `None` searches only by topic.
+Entries carry a vector of categories. Queries use generated `CategoryMatch` values:
+`(Partial [Meaning Making])` matches any requested category, while
+`(Full [Meaning Making])` requires every requested category. The query kind is
+optional: `(Some Decision)` filters by kind and `None` searches only by category.
 The full generated query also carries privacy, certainty, importance, and weight
 selectors. The CLI accepts the common three-field query shorthand and fills the
 certainty selector with `AtLeastCertainty Minimum`, the importance selector with

@@ -14,13 +14,13 @@ use crate::{
             SemaEngine, WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
         },
         signal::{
-            Certainty, DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport, Importance,
-            Input, IntentEvent, IntentRecorded, IntentSubscription, Kind, Magnitude,
-            ObservedOperation, ObservedOperations, ObserverFilter, ObserverRetraction,
+            Categories, Category, Certainty, DatabaseMarker, Description, Entry, ErrorMessage,
+            ErrorReport, Importance, Input, IntentEvent, IntentRecorded, IntentSubscription, Kind,
+            Magnitude, ObservedOperation, ObservedOperations, ObserverFilter, ObserverRetraction,
             ObserverSubscription, OperationKind, Output, Privacy, RecordCount, Records,
             RemovalArchiveRecords, RemovalCandidateCollection, RemovalCandidatesCollection,
             RemovedIdentifiers, SemaReceipt, SignalRejection, SkippedRemovalCandidates,
-            StashHandle, StashedObservation, Statement, SubscriptionToken, Topics, ValidationError,
+            StashHandle, StashedObservation, Statement, SubscriptionToken, ValidationError,
             VersionReport, VersionText, Weight,
         },
     },
@@ -47,7 +47,7 @@ pub struct StashTable {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClassificationPolicy {
-    fallback_topic: String,
+    fallback_category: Category,
     fallback_kind: Kind,
     fallback_magnitude: Magnitude,
     fallback_privacy: Magnitude,
@@ -222,7 +222,7 @@ pub struct Nexus {
 impl Default for ClassificationPolicy {
     fn default() -> Self {
         Self {
-            fallback_topic: String::from("unclassified"),
+            fallback_category: Category::Meaning,
             fallback_kind: Kind::Clarification,
             fallback_magnitude: Magnitude::Minimum,
             fallback_privacy: Magnitude::Zero,
@@ -233,7 +233,7 @@ impl Default for ClassificationPolicy {
 impl ClassificationPolicy {
     pub fn classify(&self, statement: Statement) -> Entry {
         Entry {
-            topics: Topics::from_strings(vec![self.fallback_topic.clone()]),
+            categories: Categories::new(vec![self.fallback_category.clone()]),
             kind: self.fallback_kind,
             description: Description::new(statement.into_payload().into_payload()),
             certainty: Certainty::new(self.fallback_magnitude),

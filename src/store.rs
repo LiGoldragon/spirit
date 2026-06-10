@@ -33,7 +33,7 @@ use crate::schema::{
 #[cfg(feature = "testing-trace")]
 use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
 
-const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(4);
+const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(5);
 const ENTRIES_TABLE: TableName = TableName::new("records");
 const RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH: usize = 4;
 const RECORD_IDENTIFIER_MAXIMUM_CODE_LENGTH: usize = 7;
@@ -748,7 +748,7 @@ impl Entry {
 
 impl Query {
     pub fn matches(&self, entry: &Entry) -> bool {
-        self.topic_match.matches(&entry.topics)
+        self.category_match.matches(&entry.categories)
             && self.kind.as_ref().is_none_or(|kind| &entry.kind == kind)
             && self.privacy_selection.matches(&entry.privacy)
             && self.certainty_selection.matches(&entry.certainty)

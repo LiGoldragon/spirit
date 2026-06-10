@@ -11,19 +11,20 @@
 
 use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest};
 use spirit::schema::signal::{
-    CertaintySelection, Description, Entry, ImportanceSelection, Input, Kind, Magnitude, Output,
-    Privacy, PrivacySelection, Query, RemovalCandidateCollection, TopicMatch, Topics,
+    Categories, Category, CategoryMatch, CertaintySelection, Description, Entry,
+    ImportanceSelection, Input, Kind, Magnitude, Output, Privacy, PrivacySelection, Query,
+    RemovalCandidateCollection,
 };
 use spirit::{Engine, Store};
 use tempfile::TempDir;
 
-fn entry(topic: &str, description: &str) -> Entry {
-    entry_with_certainty(topic, description, Magnitude::Maximum)
+fn entry(category: Category, description: &str) -> Entry {
+    entry_with_certainty(category, description, Magnitude::Maximum)
 }
 
-fn entry_with_certainty(topic: &str, description: &str, magnitude: Magnitude) -> Entry {
+fn entry_with_certainty(category: Category, description: &str, magnitude: Magnitude) -> Entry {
     Entry {
-        topics: Topics::from_strings(vec![String::from(topic)]),
+        categories: Categories::new(vec![category]),
         kind: Kind::Decision,
         description: Description::new(description),
         certainty: magnitude.into(),
@@ -33,9 +34,9 @@ fn entry_with_certainty(topic: &str, description: &str, magnitude: Magnitude) ->
     }
 }
 
-fn topic_query(topic: &str) -> Query {
+fn category_query(category: Category) -> Query {
     Query {
-        topic_match: TopicMatch::full(Topics::from_strings(vec![String::from(topic)])),
+        category_match: CategoryMatch::full(Categories::new(vec![category])),
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
@@ -44,9 +45,9 @@ fn topic_query(topic: &str) -> Query {
     }
 }
 
-fn removal_candidate_query(topic: &str) -> Query {
+fn removal_candidate_query(category: Category) -> Query {
     Query {
-        topic_match: TopicMatch::full(Topics::from_strings(vec![String::from(topic)])),
+        category_match: CategoryMatch::full(Categories::new(vec![category])),
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::removal_candidate_certainty(),
@@ -84,16 +85,24 @@ fn collect_removal_candidates_archives_to_separate_db_and_removes_from_live() {
         "owner configure accepted, got {configure:?}"
     );
 
-    // Two live records: one is a removal candidate (topic `stale`), one stays
-    // (topic `keep`).
+    // Two live records: one is a removal candidate (`Governing`), one stays
+    // (`Meaning`).
     record(
         &mut engine,
-        entry_with_certainty("stale", "obsolete intent to retire", Magnitude::Zero),
+        entry_with_certainty(
+            Category::Governing,
+            "obsolete intent to retire",
+            Magnitude::Zero,
+        ),
     );
-    record(&mut engine, entry("keep", "intent that must remain live"));
+    record(
+        &mut engine,
+        entry(Category::Meaning, "intent that must remain live"),
+    );
 
-    // PEER collects the removal candidates matching the `stale` query.
-    let collection = RemovalCandidateCollection::new(removal_candidate_query("stale").into());
+    // PEER collects the removal candidates matching the `Governing` query.
+    let collection =
+        RemovalCandidateCollection::new(removal_candidate_query(Category::Governing).into());
     let reply = engine
         .handle(Input::collect_removal_candidates(collection))
         .into_root();
@@ -132,14 +141,14 @@ fn collect_removal_candidates_archives_to_separate_db_and_removes_from_live() {
 
     // REMOVED FROM LIVE: the stale record is gone, the keep record remains.
     let stale_observe = engine
-        .handle(Input::observe(topic_query("stale")))
+        .handle(Input::observe(category_query(Category::Governing)))
         .into_root();
     assert!(
         matches!(stale_observe, Output::Error(_)),
         "the stale record is gone from the live log (no matching record), got {stale_observe:?}"
     );
     let keep_observe = engine
-        .handle(Input::observe(topic_query("keep")))
+        .handle(Input::observe(category_query(Category::Meaning)))
         .into_root();
     let Output::RecordsStashed(kept) = keep_observe else {
         panic!("the keep record still serves from the live log, got {keep_observe:?}")
@@ -181,9 +190,13 @@ fn collect_removal_candidates_with_no_matches_archives_nothing() {
         ArchiveDatabaseTarget::path(archive_database.to_string_lossy().into_owned().into());
     engine.configure(ConfigureRequest::new(archive_target));
 
-    record(&mut engine, entry("keep", "intent that must remain live"));
+    record(
+        &mut engine,
+        entry(Category::Meaning, "intent that must remain live"),
+    );
 
-    let collection = RemovalCandidateCollection::new(removal_candidate_query("stale").into());
+    let collection =
+        RemovalCandidateCollection::new(removal_candidate_query(Category::Governing).into());
     let reply = engine
         .handle(Input::collect_removal_candidates(collection))
         .into_root();
@@ -202,7 +215,7 @@ fn collect_removal_candidates_with_no_matches_archives_nothing() {
 
     // The keep record is untouched in the live log.
     let keep_observe = engine
-        .handle(Input::observe(topic_query("keep")))
+        .handle(Input::observe(category_query(Category::Meaning)))
         .into_root();
     let Output::RecordsStashed(kept) = keep_observe else {
         panic!("the keep record still serves from the live log, got {keep_observe:?}")
@@ -227,9 +240,13 @@ fn collect_removal_candidates_requires_zero_certainty() {
         ArchiveDatabaseTarget::path(archive_database.to_string_lossy().into_owned().into());
     engine.configure(ConfigureRequest::new(archive_target));
 
-    record(&mut engine, entry("stale", "same topic but still live"));
+    record(
+        &mut engine,
+        entry(Category::Governing, "same category but still live"),
+    );
 
-    let collection = RemovalCandidateCollection::new(removal_candidate_query("stale").into());
+    let collection =
+        RemovalCandidateCollection::new(removal_candidate_query(Category::Governing).into());
     let reply = engine
         .handle(Input::collect_removal_candidates(collection))
         .into_root();
@@ -251,7 +268,7 @@ fn collect_removal_candidates_requires_zero_certainty() {
     );
 
     let live_observe = engine
-        .handle(Input::observe(topic_query("stale")))
+        .handle(Input::observe(category_query(Category::Governing)))
         .into_root();
     let Output::RecordsStashed(live) = live_observe else {
         panic!("the nonzero record still serves from the live log, got {live_observe:?}")

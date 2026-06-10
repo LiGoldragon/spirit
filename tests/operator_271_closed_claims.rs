@@ -147,7 +147,7 @@ fn signal_schema_unit_variant_enum_uses_bare_pascal_case_atoms() {
     // ValidationError carries four bare unit variants per designer 480 —
     // StashHandleNotFound joins the Stash effect's lookup-by-handle path.
     witness.must_contain(
-        "ValidationError [EmptyTopic EmptyDescription EmptyQueryTopic StashHandleNotFound]",
+        "ValidationError [EmptyCategory EmptyDescription EmptyQueryCategory StashHandleNotFound]",
         "4",
     );
 
@@ -311,7 +311,7 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
 
     // The schema-emitted unit enums carry bare variants.
     signal_witness.must_contain("pub enum ValidationError", "4");
-    signal_witness.must_contain("EmptyTopic", "4");
+    signal_witness.must_contain("EmptyCategory", "4");
     signal_witness.must_contain("EmptyDescription", "4");
-    signal_witness.must_contain("EmptyQueryTopic", "4");
+    signal_witness.must_contain("EmptyQueryCategory", "4");
 }

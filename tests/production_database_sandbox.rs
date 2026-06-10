@@ -15,9 +15,9 @@ use sema_engine::{
 use spirit::{
     Configuration, SignalTransport, Store,
     schema::signal::{
-        Certainty, CertaintyChange, CertaintySelection, Description, Entry, ImportanceSelection,
-        Input, Kind, Magnitude, ObserverFilter, Output, Privacy, PrivacySelection, Query,
-        RecordChange, RecordIdentifier, Statement, StatementText, TopicMatch, Topics,
+        Categories, CategoryMatch, Certainty, CertaintyChange, CertaintySelection, Description,
+        Entry, ImportanceSelection, Input, Kind, Magnitude, ObserverFilter, Output, Privacy,
+        PrivacySelection, Query, RecordChange, RecordIdentifier, Statement, StatementText, Weight,
     },
 };
 #[cfg(feature = "production-migration")]
@@ -31,6 +31,7 @@ const PRODUCTION_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(5);
 const SPIRIT_STORE_V1_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(1);
 const SPIRIT_STORE_V2_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(2);
 const SPIRIT_STORE_V3_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(3);
+const SPIRIT_STORE_V4_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(4);
 const RECORDS_TABLE: TableName = TableName::new("records");
 
 struct ProductionSandbox {
@@ -189,6 +190,11 @@ struct SpiritStoreV2Database {
     records: sema_engine::TableReference<SpiritStoreV2Record>,
 }
 
+struct SpiritStoreV4Database {
+    database: SemaDatabase,
+    records: sema_engine::TableReference<SpiritStoreV4Record>,
+}
+
 impl ProductionDatabase {
     fn open(path: &Path) -> Self {
         let mut database = SemaDatabase::open(EngineOpen::new(path, PRODUCTION_SCHEMA_VERSION))
@@ -247,6 +253,24 @@ impl SpiritStoreV2Database {
     }
 }
 
+impl SpiritStoreV4Database {
+    fn create(path: &Path) -> Self {
+        let mut database =
+            SemaDatabase::open(EngineOpen::new(path, SPIRIT_STORE_V4_SCHEMA_VERSION))
+                .expect("create schema-v4 spirit database");
+        let records = database
+            .register_table(TableDescriptor::new(RECORDS_TABLE))
+            .expect("register schema-v4 records table");
+        Self { database, records }
+    }
+
+    fn assert_record(&self, record: SpiritStoreV4Record) {
+        self.database
+            .assert(Assertion::new(self.records, record))
+            .expect("assert schema-v4 record");
+    }
+}
+
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct ProductionStoredRecord {
     identifier: signal_spirit::RecordIdentifier,
@@ -268,7 +292,7 @@ struct SpiritStoreV1Record {
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct SpiritStoreV1Entry {
-    topics: Topics,
+    categories: LegacyCategories,
     kind: Kind,
     description: Description,
     magnitude: Magnitude,
@@ -283,13 +307,36 @@ struct SpiritStoreV2Record {
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct SpiritStoreV2Entry {
-    topics: Topics,
+    categories: LegacyCategories,
     kind: Kind,
     description: Description,
     certainty: Certainty,
     importance: spirit::schema::signal::Importance,
     privacy: Privacy,
 }
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+struct SpiritStoreV4Record {
+    record_identifier: String,
+    entry: SpiritStoreV4Entry,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+struct SpiritStoreV4Entry {
+    categories: LegacyCategories,
+    kind: Kind,
+    description: Description,
+    certainty: Certainty,
+    importance: spirit::schema::signal::Importance,
+    weight: Weight,
+    privacy: Privacy,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+struct LegacyCategory(String);
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+struct LegacyCategories(Vec<LegacyCategory>);
 
 impl ProductionStoredRecord {
     fn record_identifier(&self) -> String {
@@ -300,22 +347,22 @@ impl ProductionStoredRecord {
         self.entry.into_new_entry()
     }
 
-    fn first_topic(&self) -> Option<String> {
+    fn first_category(&self) -> Option<String> {
         self.entry
             .entry
             .topics
             .as_slice()
             .first()
-            .map(|topic| topic.as_str().to_owned())
+            .map(|category| category.as_str().to_owned())
     }
 
-    fn matches_topic(&self, topic: &str) -> bool {
+    fn matches_category(&self, category: &str) -> bool {
         self.entry
             .entry
             .topics
             .as_slice()
             .iter()
-            .any(|candidate| candidate.as_str() == topic)
+            .any(|candidate| candidate.as_str() == category)
     }
 }
 
@@ -337,15 +384,21 @@ impl EngineRecord for SpiritStoreV2Record {
     }
 }
 
+impl EngineRecord for SpiritStoreV4Record {
+    fn record_key(&self) -> RecordKey {
+        RecordKey::new(self.record_identifier.clone())
+    }
+}
+
 impl ProductionStampedEntry {
     fn into_new_entry(self) -> Entry {
         Entry {
-            topics: Topics::from_strings(
+            categories: Categories::from_strings(
                 self.entry
                     .topics
                     .as_slice()
                     .iter()
-                    .map(|topic| topic.as_str().to_owned())
+                    .map(|category| category.as_str().to_owned())
                     .collect(),
             ),
             kind: Self::kind_from(self.entry.kind),
@@ -378,6 +431,12 @@ impl ProductionStampedEntry {
             signal_spirit::Magnitude::VeryHigh => Magnitude::VeryHigh,
             signal_spirit::Magnitude::Maximum => Magnitude::Maximum,
         }
+    }
+}
+
+impl LegacyCategories {
+    fn from_strings(categories: Vec<String>) -> Self {
+        Self(categories.into_iter().map(LegacyCategory).collect())
     }
 }
 
@@ -458,7 +517,7 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
     }
 
     let all_records_query = Query {
-        topic_match: TopicMatch::Any,
+        category_match: CategoryMatch::Any,
         kind: None,
         privacy_selection: PrivacySelection::Any,
         certainty_selection: CertaintySelection::Any,
@@ -499,16 +558,16 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
         other => panic!("expected all-record RecordsObserved after migration, got {other:?}"),
     }
 
-    let observed_topic = production_records
+    let observed_category = production_records
         .iter()
-        .find_map(ProductionStoredRecord::first_topic)
-        .expect("production records should carry at least one topic");
-    let expected_topic_count = production_records
+        .find_map(ProductionStoredRecord::first_category)
+        .expect("production records should carry at least one category");
+    let expected_category_count = production_records
         .iter()
-        .filter(|record| record.matches_topic(&observed_topic))
+        .filter(|record| record.matches_category(&observed_category))
         .count();
     let observed_query = Query {
-        topic_match: TopicMatch::partial(Topics::from_strings(vec![observed_topic])),
+        category_match: CategoryMatch::partial(Categories::from_strings(vec![observed_category])),
         kind: None,
         privacy_selection: PrivacySelection::Any,
         certainty_selection: CertaintySelection::Any,
@@ -520,8 +579,8 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
         Output::RecordsCounted(counted) => {
             assert_eq!(
                 *counted.record_count.payload() as usize,
-                expected_topic_count,
-                "new spirit should count migrated production records by topic"
+                expected_category_count,
+                "new spirit should count migrated production records by category"
             );
         }
         other => panic!("expected RecordsCounted for migrated production records, got {other:?}"),
@@ -531,8 +590,8 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
         Output::RecordsStashed(stashed) => {
             assert_eq!(
                 *stashed.record_count.payload() as usize,
-                expected_topic_count,
-                "new spirit should observe migrated production records by topic"
+                expected_category_count,
+                "new spirit should observe migrated production records by category"
             );
             stashed.stash_handle.clone()
         }
@@ -543,8 +602,8 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
         Output::RecordsObserved(records) => {
             assert_eq!(
                 records.record_set.len(),
-                expected_topic_count,
-                "stash lookup should return the migrated records matching the topic query"
+                expected_category_count,
+                "stash lookup should return the migrated records matching the category query"
             );
         }
         other => panic!("expected RecordsObserved from stash lookup, got {other:?}"),
@@ -564,7 +623,7 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
     }
 
     let mutation = sandbox.run_input(Input::record(Entry {
-        topics: Topics::from_strings(vec![String::from("sandbox-migration-check")]),
+        categories: Categories::from_strings(vec![String::from("sandbox-migration-check")]),
         kind: Kind::Decision,
         description: Description::new(String::from(
             "new spirit can write to migrated production database",
@@ -591,7 +650,7 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
     match sandbox.run_input(Input::change_record(RecordChange {
         record_identifier: record_identifier.clone(),
         entry: Entry {
-            topics: Topics::from_strings(vec![String::from("sandbox-migration-check")]),
+            categories: Categories::from_strings(vec![String::from("sandbox-migration-check")]),
             kind: Kind::Correction,
             description: Description::new(String::from(
                 "new spirit can mutate migrated production records",
@@ -644,7 +703,7 @@ fn store_upgrade_binary_preserves_ids_and_adds_default_importance() {
     old_database.assert_record(SpiritStoreV1Record {
         record_identifier: String::from("wxyz"),
         entry: SpiritStoreV1Entry {
-            topics: Topics::from_strings(vec![String::from("upgrade")]),
+            categories: LegacyCategories::from_strings(vec![String::from("upgrade")]),
             kind: Kind::Decision,
             description: Description::new(String::from("old store record")),
             magnitude: Magnitude::High,
@@ -669,11 +728,11 @@ fn store_upgrade_binary_preserves_ids_and_adds_default_importance() {
         .parse::<SpiritStoreUpgradeOutput>()
         .expect("upgrade stdout is typed NOTA");
     let SpiritStoreUpgradeOutput::Upgraded(completed) = decoded else {
-        panic!("expected an actual schema-v1 to schema-v4 upgrade, got {decoded:?}");
+        panic!("expected an actual schema-v1 to schema-v5 upgrade, got {decoded:?}");
     };
     assert_eq!(completed.record_count(), 1);
 
-    let store = Store::open(&database_path).expect("open upgraded schema-v4 store");
+    let store = Store::open(&database_path).expect("open upgraded schema-v5 store");
     let upgraded = store
         .entry_by_identifier("wxyz")
         .expect("read upgraded store")
@@ -694,7 +753,7 @@ fn store_upgrade_binary_preserves_schema_v2_importance() {
     old_database.assert_record(SpiritStoreV2Record {
         record_identifier: String::from("v2id"),
         entry: SpiritStoreV2Entry {
-            topics: Topics::from_strings(vec![String::from("upgrade")]),
+            categories: LegacyCategories::from_strings(vec![String::from("upgrade")]),
             kind: Kind::Principle,
             description: Description::new(String::from("schema v2 store record")),
             certainty: Certainty::new(Magnitude::Medium),
@@ -720,11 +779,11 @@ fn store_upgrade_binary_preserves_schema_v2_importance() {
         .parse::<SpiritStoreUpgradeOutput>()
         .expect("upgrade stdout is typed NOTA");
     let SpiritStoreUpgradeOutput::Upgraded(completed) = decoded else {
-        panic!("expected an actual schema-v2 to schema-v4 upgrade, got {decoded:?}");
+        panic!("expected an actual schema-v2 to schema-v5 upgrade, got {decoded:?}");
     };
     assert_eq!(completed.record_count(), 1);
 
-    let store = Store::open(&database_path).expect("open upgraded schema-v4 store");
+    let store = Store::open(&database_path).expect("open upgraded schema-v5 store");
     let upgraded = store
         .entry_by_identifier("v2id")
         .expect("read upgraded store")
@@ -748,7 +807,7 @@ fn store_upgrade_binary_preserves_schema_v3_importance_and_adds_weight() {
     old_database.assert_record(SpiritStoreV2Record {
         record_identifier: String::from("v3id"),
         entry: SpiritStoreV2Entry {
-            topics: Topics::from_strings(vec![String::from("upgrade")]),
+            categories: LegacyCategories::from_strings(vec![String::from("upgrade")]),
             kind: Kind::Principle,
             description: Description::new(String::from("schema v3 store record")),
             certainty: Certainty::new(Magnitude::High),
@@ -774,11 +833,11 @@ fn store_upgrade_binary_preserves_schema_v3_importance_and_adds_weight() {
         .parse::<SpiritStoreUpgradeOutput>()
         .expect("upgrade stdout is typed NOTA");
     let SpiritStoreUpgradeOutput::Upgraded(completed) = decoded else {
-        panic!("expected an actual schema-v3 to schema-v4 upgrade, got {decoded:?}");
+        panic!("expected an actual schema-v3 to schema-v5 upgrade, got {decoded:?}");
     };
     assert_eq!(completed.record_count(), 1);
 
-    let store = Store::open(&database_path).expect("open upgraded schema-v4 store");
+    let store = Store::open(&database_path).expect("open upgraded schema-v5 store");
     let upgraded = store
         .entry_by_identifier("v3id")
         .expect("read upgraded store")
@@ -787,6 +846,62 @@ fn store_upgrade_binary_preserves_schema_v3_importance_and_adds_weight() {
     assert_eq!(upgraded.certainty, Magnitude::High);
     assert_eq!(upgraded.importance.payload(), &Magnitude::VeryHigh);
     assert_eq!(upgraded.weight.payload(), &1);
+    assert_eq!(upgraded.privacy, Magnitude::Zero);
+}
+
+#[cfg(feature = "production-migration")]
+#[test]
+fn store_upgrade_binary_preserves_schema_v4_weight_and_adds_categories() {
+    let directory = TempDir::new().expect("create upgrade sandbox");
+    let database_path = directory.path().join("spirit.sema");
+    let old_database = SpiritStoreV4Database::create(&database_path);
+    old_database.assert_record(SpiritStoreV4Record {
+        record_identifier: String::from("v4id"),
+        entry: SpiritStoreV4Entry {
+            categories: LegacyCategories::from_strings(vec![String::from("schema-rust-next")]),
+            kind: Kind::Constraint,
+            description: Description::new(String::from("schema v4 store record")),
+            certainty: Certainty::new(Magnitude::VeryHigh),
+            importance: Magnitude::High.into(),
+            weight: Weight::new(7),
+            privacy: Privacy::new(Magnitude::Zero),
+        },
+    });
+    drop(old_database);
+
+    let request =
+        SpiritStoreUpgradeRequest::new(database_path.to_string_lossy().into_owned()).to_nota();
+    let output = Command::new(env!("CARGO_BIN_EXE_spirit-upgrade-store"))
+        .arg(request)
+        .output()
+        .expect("run store upgrade binary");
+    assert!(
+        output.status.success(),
+        "upgrade stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("upgrade stdout UTF-8");
+    let decoded = NotaSource::new(stdout.trim())
+        .parse::<SpiritStoreUpgradeOutput>()
+        .expect("upgrade stdout is typed NOTA");
+    let SpiritStoreUpgradeOutput::Upgraded(completed) = decoded else {
+        panic!("expected an actual schema-v4 to schema-v5 upgrade, got {decoded:?}");
+    };
+    assert_eq!(completed.record_count(), 1);
+
+    let store = Store::open(&database_path).expect("open upgraded schema-v5 store");
+    let upgraded = store
+        .entry_by_identifier("v4id")
+        .expect("read upgraded store")
+        .expect("upgraded record keeps original identifier");
+    assert_eq!(
+        upgraded.categories,
+        Categories::from_strings(vec![String::from("schema-rust-next")])
+    );
+    assert_eq!(upgraded.description, "schema v4 store record");
+    assert_eq!(upgraded.certainty, Magnitude::VeryHigh);
+    assert_eq!(upgraded.importance.payload(), &Magnitude::High);
+    assert_eq!(upgraded.weight.payload(), &7);
     assert_eq!(upgraded.privacy, Magnitude::Zero);
 }
 
@@ -820,7 +935,7 @@ fn production_migration_binary_preserves_ids_and_writes_queryable_new_store() {
 
     let _daemon = sandbox.spawn_daemon();
     let all_records_query = Query {
-        topic_match: TopicMatch::Any,
+        category_match: CategoryMatch::Any,
         kind: None,
         privacy_selection: PrivacySelection::Any,
         certainty_selection: CertaintySelection::Any,

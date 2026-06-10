@@ -42,8 +42,8 @@
   Error ErrorReport
   Rejected SignalRejection
 
-  Topic String
-  Topics (Vec Topic)
+  Category [Being Knowing Meaning Making Relating Governing Caring Sustaining Dwelling Moving Valuing Expressing]
+  Categories (Vec Category)
   Description String
   StatementText String
   ErrorMessage String
@@ -73,16 +73,16 @@
   IntentRecorded { Entry * SemaReceipt * }
   IntentEvent [(IntentRecorded IntentRecorded belongs IntentEventStream)]
   IntentEventStream (Stream { token SubscriptionToken opened SubscriptionStarted event IntentEvent close SubscriptionToken })
-  ValidationError [EmptyTopic EmptyDescription EmptyQueryTopic StashHandleNotFound]
+  ValidationError [EmptyCategory EmptyDescription EmptyQueryCategory StashHandleNotFound]
   SentMail { MailIdentifier * OriginRoute * ShortHeader * }
   ProcessedMail { MailIdentifier * OriginRoute * DatabaseMarker * }
   MailLedgerEvent [(Sent) (Processed)]
   Sent SentMail
   Processed ProcessedMail
 
-  TopicMatch [Any (Partial) (Full)]
-  Partial Topics
-  Full Topics
+  CategoryMatch [Any (Partial) (Full)]
+  Partial Categories
+  Full Categories
   Privacy Magnitude
   Certainty Magnitude
   Importance Magnitude
@@ -122,7 +122,7 @@
   ObservedOperation { OperationKind * }
   ObservedOperations (Vec ObservedOperation)
 
-  Entry { Topics * Kind * Description * Certainty * Importance * Weight * Privacy * }
+  Entry { Categories * Kind * Description * Certainty * Importance * Weight * Privacy * }
   Statement { StatementText * }
   CertaintyChange { RecordIdentifier * Certainty * }
   CertaintyChangeReceipt { RecordIdentifier * Certainty * DatabaseMarker * }
@@ -130,8 +130,8 @@
   WeightBumpReceipt { RecordIdentifier * Weight * DatabaseMarker * }
   RecordChange { RecordIdentifier * Entry * }
   RecordChangeReceipt { RecordIdentifier * DatabaseMarker * }
-  RecordSelection { TopicMatch * kind (Optional Kind) }
-  Query { TopicMatch * kind (Optional Kind) privacy_selection PrivacySelection certainty_selection CertaintySelection importance_selection ImportanceSelection weight_selection WeightSelection }
+  RecordSelection { CategoryMatch * kind (Optional Kind) }
+  Query { CategoryMatch * kind (Optional Kind) privacy_selection PrivacySelection certainty_selection CertaintySelection importance_selection ImportanceSelection weight_selection WeightSelection }
   Records (Vec ObservedRecord)
   RecordSet (Vec ObservedRecord)
   Kind [Decision Principle Correction Clarification Constraint]

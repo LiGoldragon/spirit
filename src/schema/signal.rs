@@ -209,13 +209,35 @@ pub struct Rejected(SignalRejection);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Topic(String);
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Category {
+    Being,
+    Knowing,
+    Meaning,
+    Making,
+    Relating,
+    Governing,
+    Caring,
+    Sustaining,
+    Dwelling,
+    Moving,
+    Valuing,
+    Expressing,
+}
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Topics(Vec<Topic>);
+pub struct Categories(Vec<Category>);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -408,9 +430,9 @@ pub enum IntentEvent {
     Eq,
 )]
 pub enum ValidationError {
-    EmptyTopic,
+    EmptyCategory,
     EmptyDescription,
-    EmptyQueryTopic,
+    EmptyQueryCategory,
     StashHandleNotFound,
 }
 
@@ -453,7 +475,7 @@ pub struct Processed(ProcessedMail);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub enum TopicMatch {
+pub enum CategoryMatch {
     Any,
     Partial(Partial),
     Full(Full),
@@ -462,12 +484,12 @@ pub enum TopicMatch {
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Partial(Topics);
+pub struct Partial(Categories);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Full(Topics);
+pub struct Full(Categories);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -747,7 +769,7 @@ pub struct ObservedOperations(Vec<ObservedOperation>);
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Entry {
-    pub topics: Topics,
+    pub categories: Categories,
     pub kind: Kind,
     pub description: Description,
     pub certainty: Certainty,
@@ -812,7 +834,7 @@ pub struct RecordChangeReceipt {
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct RecordSelection {
-    pub topic_match: TopicMatch,
+    pub category_match: CategoryMatch,
     pub kind: Option<Kind>,
 }
 
@@ -820,7 +842,7 @@ pub struct RecordSelection {
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Query {
-    pub topic_match: TopicMatch,
+    pub category_match: CategoryMatch,
     pub kind: Option<Kind>,
     pub privacy_selection: PrivacySelection,
     pub certainty_selection: CertaintySelection,
@@ -1574,39 +1596,20 @@ impl From<SignalRejection> for Rejected {
 }
 
 #[rustfmt::skip]
-impl Topic {
-    pub fn new(payload: impl Into<String>) -> Self {
-        Self(payload.into())
-    }
-    pub fn payload(&self) -> &String {
-        &self.0
-    }
-    pub fn into_payload(self) -> String {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<String> for Topic {
-    fn from(payload: String) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl Topics {
-    pub fn new(payload: Vec<Topic>) -> Self {
+impl Categories {
+    pub fn new(payload: Vec<Category>) -> Self {
         Self(payload)
     }
-    pub fn payload(&self) -> &Vec<Topic> {
+    pub fn payload(&self) -> &Vec<Category> {
         &self.0
     }
-    pub fn into_payload(self) -> Vec<Topic> {
+    pub fn into_payload(self) -> Vec<Category> {
         self.0
     }
 }
 #[rustfmt::skip]
-impl From<Vec<Topic>> for Topics {
-    fn from(payload: Vec<Topic>) -> Self {
+impl From<Vec<Category>> for Categories {
+    fn from(payload: Vec<Category>) -> Self {
         Self::new(payload)
     }
 }
@@ -1898,38 +1901,38 @@ impl From<ProcessedMail> for Processed {
 
 #[rustfmt::skip]
 impl Partial {
-    pub fn new(payload: Topics) -> Self {
+    pub fn new(payload: Categories) -> Self {
         Self(payload)
     }
-    pub fn payload(&self) -> &Topics {
+    pub fn payload(&self) -> &Categories {
         &self.0
     }
-    pub fn into_payload(self) -> Topics {
+    pub fn into_payload(self) -> Categories {
         self.0
     }
 }
 #[rustfmt::skip]
-impl From<Topics> for Partial {
-    fn from(payload: Topics) -> Self {
+impl From<Categories> for Partial {
+    fn from(payload: Categories) -> Self {
         Self::new(payload)
     }
 }
 
 #[rustfmt::skip]
 impl Full {
-    pub fn new(payload: Topics) -> Self {
+    pub fn new(payload: Categories) -> Self {
         Self(payload)
     }
-    pub fn payload(&self) -> &Topics {
+    pub fn payload(&self) -> &Categories {
         &self.0
     }
-    pub fn into_payload(self) -> Topics {
+    pub fn into_payload(self) -> Categories {
         self.0
     }
 }
 #[rustfmt::skip]
-impl From<Topics> for Full {
-    fn from(payload: Topics) -> Self {
+impl From<Categories> for Full {
+    fn from(payload: Categories) -> Self {
         Self::new(payload)
     }
 }
@@ -2484,11 +2487,11 @@ impl MailLedgerEvent {
 }
 
 #[rustfmt::skip]
-impl TopicMatch {
-    pub fn partial(payload: Topics) -> Self {
+impl CategoryMatch {
+    pub fn partial(payload: Categories) -> Self {
         Self::Partial(Partial::new(payload))
     }
-    pub fn full(payload: Topics) -> Self {
+    pub fn full(payload: Categories) -> Self {
         Self::Full(Full::new(payload))
     }
 }
@@ -2674,14 +2677,14 @@ impl From<Processed> for MailLedgerEvent {
 }
 
 #[rustfmt::skip]
-impl From<Partial> for TopicMatch {
+impl From<Partial> for CategoryMatch {
     fn from(payload: Partial) -> Self {
         Self::Partial(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<Full> for TopicMatch {
+impl From<Full> for CategoryMatch {
     fn from(payload: Full) -> Self {
         Self::Full(payload)
     }
@@ -3411,18 +3414,18 @@ impl Rejected {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
-impl Topic {
+impl Category {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
     }
 }
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
-impl Topics {
+impl Categories {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -3796,7 +3799,7 @@ impl Processed {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
-impl TopicMatch {
+impl CategoryMatch {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }

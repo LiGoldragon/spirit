@@ -12,7 +12,9 @@ use thiserror::Error;
 
 use crate::{
     Store, StoreError,
-    schema::signal::{Certainty, Description, Entry, Importance, Kind, Magnitude, Privacy, Topics},
+    schema::signal::{
+        Categories, Certainty, Description, Entry, Importance, Kind, Magnitude, Privacy, Weight,
+    },
 };
 
 const PRODUCTION_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(5);
@@ -20,6 +22,7 @@ const SPIRIT_STORE_V1_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(1);
 const SPIRIT_STORE_V2_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(2);
 const SPIRIT_STORE_V3_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(3);
 const SPIRIT_STORE_V4_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(4);
+const SPIRIT_STORE_V5_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(5);
 const RECORDS_TABLE: TableName = TableName::new("records");
 
 #[derive(Debug, Clone, PartialEq, Eq, NotaDecode, NotaEncode)]
@@ -79,6 +82,11 @@ struct SpiritStoreV2Database {
     records: TableReference<SpiritStoreV2Record>,
 }
 
+struct SpiritStoreV4Database {
+    database: SemaDatabase,
+    records: TableReference<SpiritStoreV4Record>,
+}
+
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct ProductionStoredRecord {
     identifier: signal_spirit::RecordIdentifier,
@@ -104,7 +112,7 @@ struct SpiritStoreV1Record {
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct SpiritStoreV1Entry {
-    topics: Topics,
+    categories: LegacyCategories,
     kind: Kind,
     description: Description,
     magnitude: Magnitude,
@@ -119,13 +127,36 @@ struct SpiritStoreV2Record {
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct SpiritStoreV2Entry {
-    topics: Topics,
+    categories: LegacyCategories,
     kind: Kind,
     description: Description,
     certainty: Certainty,
     importance: Importance,
     privacy: Privacy,
 }
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+struct SpiritStoreV4Record {
+    record_identifier: String,
+    entry: SpiritStoreV4Entry,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+struct SpiritStoreV4Entry {
+    categories: LegacyCategories,
+    kind: Kind,
+    description: Description,
+    certainty: Certainty,
+    importance: Importance,
+    weight: Weight,
+    privacy: Privacy,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+struct LegacyCategory(String);
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+struct LegacyCategories(Vec<LegacyCategory>);
 
 pub struct SpiritStoreUpgrade {
     request: SpiritStoreUpgradeRequest,
@@ -230,10 +261,11 @@ impl SpiritStoreUpgrade {
             )),
             Err(StoreError::Database(sema_engine::Error::Sema(
                 StorageKernelError::SchemaVersionMismatch { expected, found },
-            ))) if expected == SPIRIT_STORE_V4_SCHEMA_VERSION
+            ))) if expected == SPIRIT_STORE_V5_SCHEMA_VERSION
                 && (found == SPIRIT_STORE_V1_SCHEMA_VERSION
                     || found == SPIRIT_STORE_V2_SCHEMA_VERSION
-                    || found == SPIRIT_STORE_V3_SCHEMA_VERSION) =>
+                    || found == SPIRIT_STORE_V3_SCHEMA_VERSION
+                    || found == SPIRIT_STORE_V4_SCHEMA_VERSION) =>
             {
                 self.upgrade_previous_store(database_path, found)
             }
@@ -246,13 +278,20 @@ impl SpiritStoreUpgrade {
         database_path: PathBuf,
         previous_schema_version: SchemaVersion,
     ) -> Result<SpiritStoreUpgradeOutput, ProductionMigrationError> {
-        let records = if previous_schema_version == SPIRIT_STORE_V1_SCHEMA_VERSION {
-            SpiritStorePreviousRecords::from_v1(SpiritStoreV1Database::open(&database_path)?)
-        } else {
-            SpiritStorePreviousRecords::from_v2(SpiritStoreV2Database::open(
-                &database_path,
-                previous_schema_version,
-            )?)
+        let records = match previous_schema_version {
+            SPIRIT_STORE_V1_SCHEMA_VERSION => {
+                SpiritStorePreviousRecords::from_v1(SpiritStoreV1Database::open(&database_path)?)
+            }
+            SPIRIT_STORE_V2_SCHEMA_VERSION | SPIRIT_STORE_V3_SCHEMA_VERSION => {
+                SpiritStorePreviousRecords::from_v2(SpiritStoreV2Database::open(
+                    &database_path,
+                    previous_schema_version,
+                )?)
+            }
+            SPIRIT_STORE_V4_SCHEMA_VERSION => {
+                SpiritStorePreviousRecords::from_v4(SpiritStoreV4Database::open(&database_path)?)
+            }
+            _ => unreachable!("upgrade is only called for known previous schema versions"),
         }?;
         let temporary_path = Self::temporary_path(&database_path);
         if temporary_path.exists() {
@@ -274,7 +313,7 @@ impl SpiritStoreUpgrade {
     }
 
     fn temporary_path(database_path: &Path) -> PathBuf {
-        database_path.with_extension(format!("schema-4-migrating-{}.sema", std::process::id()))
+        database_path.with_extension(format!("schema-5-migrating-{}.sema", std::process::id()))
     }
 
     fn backup_path(database_path: &Path) -> PathBuf {
@@ -338,6 +377,23 @@ impl SpiritStoreV2Database {
     }
 }
 
+impl SpiritStoreV4Database {
+    fn open(path: &Path) -> Result<Self, ProductionMigrationError> {
+        let mut database =
+            SemaDatabase::open(EngineOpen::new(path, SPIRIT_STORE_V4_SCHEMA_VERSION))?;
+        let records = database.register_table(TableDescriptor::new(RECORDS_TABLE))?;
+        Ok(Self { database, records })
+    }
+
+    fn records(&self) -> Result<Vec<SpiritStoreV4Record>, ProductionMigrationError> {
+        Ok(self
+            .database
+            .match_records(QueryPlan::all(self.records))?
+            .records()
+            .to_vec())
+    }
+}
+
 struct SpiritStorePreviousRecords {
     records: Vec<SpiritStorePreviousRecord>,
 }
@@ -368,6 +424,16 @@ impl SpiritStorePreviousRecords {
         })
     }
 
+    fn from_v4(database: SpiritStoreV4Database) -> Result<Self, ProductionMigrationError> {
+        Ok(Self {
+            records: database
+                .records()?
+                .into_iter()
+                .map(SpiritStorePreviousRecord::from_v4)
+                .collect(),
+        })
+    }
+
     fn into_records(self) -> Vec<SpiritStorePreviousRecord> {
         self.records
     }
@@ -386,6 +452,13 @@ impl SpiritStorePreviousRecord {
     }
 
     fn from_v2(record: SpiritStoreV2Record) -> Self {
+        Self {
+            record_identifier: record.record_identifier,
+            entry: record.entry.into_new_entry(),
+        }
+    }
+
+    fn from_v4(record: SpiritStoreV4Record) -> Self {
         Self {
             record_identifier: record.record_identifier,
             entry: record.entry.into_new_entry(),
@@ -421,10 +494,16 @@ impl EngineRecord for SpiritStoreV2Record {
     }
 }
 
+impl EngineRecord for SpiritStoreV4Record {
+    fn record_key(&self) -> RecordKey {
+        RecordKey::new(self.record_identifier.clone())
+    }
+}
+
 impl SpiritStoreV1Entry {
     fn into_new_entry(self) -> Entry {
         Entry {
-            topics: self.topics,
+            categories: self.categories.into_categories(),
             kind: self.kind,
             description: self.description,
             certainty: Certainty::new(self.magnitude),
@@ -438,7 +517,7 @@ impl SpiritStoreV1Entry {
 impl SpiritStoreV2Entry {
     fn into_new_entry(self) -> Entry {
         Entry {
-            topics: self.topics,
+            categories: self.categories.into_categories(),
             kind: self.kind,
             description: self.description,
             certainty: self.certainty,
@@ -449,17 +528,32 @@ impl SpiritStoreV2Entry {
     }
 }
 
+impl SpiritStoreV4Entry {
+    fn into_new_entry(self) -> Entry {
+        Entry {
+            categories: self.categories.into_categories(),
+            kind: self.kind,
+            description: self.description,
+            certainty: self.certainty,
+            importance: self.importance,
+            weight: self.weight,
+            privacy: self.privacy,
+        }
+    }
+}
+
 impl ProductionStampedEntry {
     fn into_new_entry(self) -> Entry {
         Entry {
-            topics: Topics::from_strings(
+            categories: LegacyCategories::from_strings(
                 self.entry
                     .topics
                     .as_slice()
                     .iter()
                     .map(|topic| topic.as_str().to_owned())
                     .collect(),
-            ),
+            )
+            .into_categories(),
             kind: Self::kind_from(self.entry.kind),
             description: Description::new(self.entry.description.as_str().to_owned()),
             certainty: Certainty::new(Self::magnitude_from(self.entry.certainty)),
@@ -490,5 +584,20 @@ impl ProductionStampedEntry {
             signal_spirit::Magnitude::VeryHigh => Magnitude::VeryHigh,
             signal_spirit::Magnitude::Maximum => Magnitude::Maximum,
         }
+    }
+}
+
+impl LegacyCategories {
+    fn from_strings(categories: Vec<String>) -> Self {
+        Self(categories.into_iter().map(LegacyCategory).collect())
+    }
+
+    fn into_categories(self) -> Categories {
+        Categories::from_strings(
+            self.0
+                .into_iter()
+                .map(|category| category.0)
+                .collect::<Vec<_>>(),
+        )
     }
 }

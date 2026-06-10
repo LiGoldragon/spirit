@@ -7,13 +7,13 @@ use crate::{
         nexus::{self as nexus_schema, NexusAction, NexusEffectCommand, NexusEngine, NexusWork},
         sema::ErrorReport,
         signal::{
-            self as signal_schema, CertaintySelection, DatabaseMarker, Description,
-            EngineStartFailure, EngineStopFailure, Entry, ErrorMessage, ImportanceSelection, Input,
-            Integer, IntentEvent, MailIdentifier, MailLedgerEvent, MessageIdentifier,
-            MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook, OriginRoute,
-            Output, Privacy, PrivacySelection, ProcessedMail, Query, RecordSelection, SemaReceipt,
-            SentMail, ShortHeader, SignalEngine, SignalRejection, StatementText, Topic, TopicMatch,
-            Topics, ValidationError,
+            self as signal_schema, Categories, Category, CategoryMatch, CertaintySelection,
+            DatabaseMarker, Description, EngineStartFailure, EngineStopFailure, Entry,
+            ErrorMessage, ImportanceSelection, Input, Integer, IntentEvent, MailIdentifier,
+            MailLedgerEvent, MessageIdentifier, MessageProcessed, MessageProcessedHook,
+            MessageSent, MessageSentHook, OriginRoute, Output, Privacy, PrivacySelection,
+            ProcessedMail, Query, RecordSelection, SemaReceipt, SentMail, ShortHeader,
+            SignalEngine, SignalRejection, StatementText, ValidationError,
         },
     },
     store::{Store, StoreError},
@@ -452,11 +452,8 @@ impl crate::schema::signal::Statement {
 
 impl Entry {
     pub fn validate(&self) -> Result<(), ValidationError> {
-        if self.topics.is_empty() {
-            return Err(ValidationError::EmptyTopic);
-        }
-        if self.topics.iter().any(|topic| topic.trim().is_empty()) {
-            return Err(ValidationError::EmptyTopic);
+        if self.categories.is_empty() {
+            return Err(ValidationError::EmptyCategory);
         }
         if self.description.trim().is_empty() {
             return Err(ValidationError::EmptyDescription);
@@ -473,7 +470,7 @@ impl crate::schema::signal::RecordChange {
 
 impl Query {
     pub fn validate(&self) -> Result<(), ValidationError> {
-        self.topic_match.validate()
+        self.category_match.validate()
     }
 }
 
@@ -491,12 +488,12 @@ impl crate::schema::signal::RecordQuery {
 
 impl RecordSelection {
     pub fn validate(&self) -> Result<(), ValidationError> {
-        self.topic_match.validate()
+        self.category_match.validate()
     }
 
     pub fn into_public_query(self) -> Query {
         Query {
-            topic_match: self.topic_match,
+            category_match: self.category_match,
             kind: self.kind,
             privacy_selection: PrivacySelection::default_observation_privacy(),
             certainty_selection: CertaintySelection::default_observation_certainty(),
@@ -507,7 +504,7 @@ impl RecordSelection {
 
     pub fn into_private_query(self) -> Query {
         Query {
-            topic_match: self.topic_match,
+            category_match: self.category_match,
             kind: self.kind,
             privacy_selection: PrivacySelection::at_least(Privacy::new(
                 PrivacySelection::private_floor(),
@@ -519,42 +516,38 @@ impl RecordSelection {
     }
 }
 
-impl TopicMatch {
+impl CategoryMatch {
     pub fn validate(&self) -> Result<(), ValidationError> {
         match self {
             Self::Any => Ok(()),
-            Self::Partial(topics) => {
-                if topics.payload().is_empty() {
-                    return Err(ValidationError::EmptyQueryTopic);
-                }
-                if topics.payload().iter().any(|topic| topic.trim().is_empty()) {
-                    return Err(ValidationError::EmptyQueryTopic);
+            Self::Partial(categories) => {
+                if categories.payload().is_empty() {
+                    return Err(ValidationError::EmptyQueryCategory);
                 }
                 Ok(())
             }
-            Self::Full(topics) => {
-                if topics.payload().is_empty() {
-                    return Err(ValidationError::EmptyQueryTopic);
-                }
-                if topics.payload().iter().any(|topic| topic.trim().is_empty()) {
-                    return Err(ValidationError::EmptyQueryTopic);
+            Self::Full(categories) => {
+                if categories.payload().is_empty() {
+                    return Err(ValidationError::EmptyQueryCategory);
                 }
                 Ok(())
             }
         }
     }
 
-    pub fn matches(&self, entry_topics: &Topics) -> bool {
+    pub fn matches(&self, entry_categories: &Categories) -> bool {
         match self {
             Self::Any => true,
-            Self::Partial(partial) => partial
-                .payload()
-                .iter()
-                .any(|topic| entry_topics.iter().any(|entry_topic| entry_topic == topic)),
-            Self::Full(full) => full
-                .payload()
-                .iter()
-                .all(|topic| entry_topics.iter().any(|entry_topic| entry_topic == topic)),
+            Self::Partial(partial) => partial.payload().iter().any(|category| {
+                entry_categories
+                    .iter()
+                    .any(|entry_category| entry_category == category)
+            }),
+            Self::Full(full) => full.payload().iter().all(|category| {
+                entry_categories
+                    .iter()
+                    .any(|entry_category| entry_category == category)
+            }),
         }
     }
 }
@@ -671,33 +664,122 @@ impl nexus_schema::nexus::Nexus<NexusAction> {
     }
 }
 
-impl Topic {
-    pub fn as_str(&self) -> &str {
-        self.payload()
-    }
-
-    pub fn trim(&self) -> &str {
-        self.as_str().trim()
-    }
-}
-
-impl Topics {
-    pub fn from_strings(topics: Vec<String>) -> Self {
-        Self::new(topics.into_iter().map(Topic::new).collect())
+impl Categories {
+    pub fn from_strings(labels: Vec<String>) -> Self {
+        let mut categories = Vec::new();
+        for label in labels {
+            Category::push_from_label(&label, &mut categories);
+        }
+        Self::new(categories)
     }
 
     pub fn is_empty(&self) -> bool {
         self.payload().is_empty()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &Topic> {
+    pub fn iter(&self) -> impl Iterator<Item = &Category> {
         self.payload().iter()
     }
 }
 
-impl PartialEq<Vec<String>> for Topics {
-    fn eq(&self, other: &Vec<String>) -> bool {
-        self.payload().iter().map(Topic::payload).eq(other.iter())
+impl Category {
+    fn push_from_label(label: &str, categories: &mut Vec<Self>) {
+        let label = label.trim().to_ascii_lowercase();
+        if label.is_empty() {
+            return;
+        }
+        if Self::contains_any(
+            &label,
+            &[
+                "schema",
+                "nota",
+                "syntax",
+                "language",
+                "naming",
+                "vocabulary",
+                "macro",
+                "string",
+                "parser",
+            ],
+        ) {
+            Self::push_unique(categories, Self::Meaning);
+        }
+        if Self::contains_any(
+            &label,
+            &[
+                "rust",
+                "code",
+                "test",
+                "fixture",
+                "trace",
+                "signal",
+                "nexus",
+                "sema",
+                "component",
+                "daemon",
+                "runtime",
+                "build",
+                "forge",
+            ],
+        ) {
+            Self::push_unique(categories, Self::Making);
+        }
+        if Self::contains_any(
+            &label,
+            &[
+                "workspace",
+                "orchestrate",
+                "workflow",
+                "role",
+                "report",
+                "bead",
+                "discipline",
+                "intent",
+                "privacy",
+                "capture",
+            ],
+        ) {
+            Self::push_unique(categories, Self::Governing);
+        }
+        if Self::contains_any(
+            &label,
+            &[
+                "agent", "persona", "llm", "harness", "subagent", "model", "mail",
+            ],
+        ) {
+            Self::push_unique(categories, Self::Relating);
+        }
+        if Self::contains_any(
+            &label,
+            &[
+                "cloud",
+                "deploy",
+                "nix",
+                "cluster",
+                "network",
+                "secret",
+                "production",
+                "upgrade",
+            ],
+        ) {
+            Self::push_unique(categories, Self::Sustaining);
+        }
+        if Self::contains_any(&label, &["assistant", "counselor", "personal", "health"]) {
+            Self::push_unique(categories, Self::Caring);
+        }
+        if categories.is_empty() {
+            Self::push_unique(categories, Self::Meaning);
+        }
+    }
+
+    fn contains_any(label: &str, needles: &[&str]) -> bool {
+        needles.iter().any(|needle| label.contains(needle))
+    }
+
+    fn push_unique(categories: &mut Vec<Self>, category: Self) {
+        if !categories.contains(&category) {
+            categories.push(category);
+        }
     }
 }
 

@@ -16,8 +16,8 @@ use std::time::{Duration, Instant};
 
 use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest, Output as MetaOutput};
 use spirit::schema::signal::{
-    Description, Entry, ImportanceSelection, Input, Kind, Magnitude, Output, Privacy, Query,
-    TopicMatch, Topics,
+    Categories, CategoryMatch, Description, Entry, ImportanceSelection, Input, Kind, Magnitude,
+    Output, Privacy, Query,
 };
 use spirit::{
     Configuration, Daemon, DaemonError, MetaSignalTransport, SignalTransport, SpiritDaemon,
@@ -62,7 +62,7 @@ fn wait_for_socket(path: &Path) {
 
 fn decision_entry(description: &str) -> Entry {
     Entry {
-        topics: Topics::from_strings(vec![String::from("meta-configure")]),
+        categories: Categories::from_strings(vec![String::from("meta-configure")]),
         kind: Kind::Decision,
         description: Description::new(description),
         certainty: Magnitude::Maximum.into(),
@@ -74,7 +74,9 @@ fn decision_entry(description: &str) -> Entry {
 
 fn observe_query() -> Query {
     Query {
-        topic_match: TopicMatch::full(Topics::from_strings(vec![String::from("meta-configure")])),
+        category_match: CategoryMatch::full(Categories::from_strings(vec![String::from(
+            "meta-configure",
+        )])),
         kind: Some(Kind::Decision),
         privacy_selection: spirit::schema::signal::PrivacySelection::default_observation_privacy(),
         certainty_selection:

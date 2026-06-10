@@ -9,12 +9,13 @@ use spirit::{
             WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
         },
         signal::{
-            Certainty, CertaintyChange, CertaintySelection, DatabaseMarker, Description, Entry,
-            ErrorMessage, ErrorReport, ImportanceSelection, Input, Kind, Magnitude,
-            MailLedgerEvent, MessageIdentifier, MessageSent, MessageSentHook, OriginRoute, Output,
-            Privacy, PrivacySelection, Query, RecordChange, RecordIdentifier, RecordSelection,
-            SemaReceipt, SentMail, SignalEngine, SignalRejection, StashHandle, Statement,
-            StatementText, TopicMatch, Topics, ValidationError, WeightBump, WeightSelection,
+            Categories, CategoryMatch, Certainty, CertaintyChange, CertaintySelection,
+            DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport, ImportanceSelection,
+            Input, Kind, Magnitude, MailLedgerEvent, MessageIdentifier, MessageSent,
+            MessageSentHook, OriginRoute, Output, Privacy, PrivacySelection, Query, RecordChange,
+            RecordIdentifier, RecordSelection, SemaReceipt, SentMail, SignalEngine,
+            SignalRejection, StashHandle, Statement, StatementText, ValidationError, WeightBump,
+            WeightSelection,
         },
     },
 };
@@ -56,12 +57,12 @@ impl MessageSentHook for SentHookProbe {
 }
 
 fn entry(description: &str) -> Entry {
-    entry_with_topics(&["runtime-triad"], description)
+    entry_with_categories(&["runtime-triad"], description)
 }
 
-fn entry_with_topics(topics: &[&str], description: &str) -> Entry {
+fn entry_with_categories(categories: &[&str], description: &str) -> Entry {
     Entry {
-        topics: topics_from_slice(topics),
+        categories: categories_from_slice(categories),
         kind: Kind::Decision,
         description: Description::new(description),
         certainty: Magnitude::Maximum.into(),
@@ -94,8 +95,13 @@ fn record_identifier(code: &str) -> RecordIdentifier {
     RecordIdentifier::new(code)
 }
 
-fn topics_from_slice(topics: &[&str]) -> Topics {
-    Topics::from_strings(topics.iter().map(|topic| String::from(*topic)).collect())
+fn categories_from_slice(categories: &[&str]) -> Categories {
+    Categories::from_strings(
+        categories
+            .iter()
+            .map(|category| String::from(*category))
+            .collect(),
+    )
 }
 
 fn assert_short_record_identifier(identifier: &RecordIdentifier) {
@@ -118,9 +124,9 @@ fn query() -> Query {
     full_query(&["runtime-triad"], Some(Kind::Decision))
 }
 
-fn full_query(topics: &[&str], kind: Option<Kind>) -> Query {
+fn full_query(categories: &[&str], kind: Option<Kind>) -> Query {
     Query {
-        topic_match: TopicMatch::full(topics_from_slice(topics)),
+        category_match: CategoryMatch::full(categories_from_slice(categories)),
         kind,
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
@@ -129,9 +135,9 @@ fn full_query(topics: &[&str], kind: Option<Kind>) -> Query {
     }
 }
 
-fn partial_query(topics: &[&str], kind: Option<Kind>) -> Query {
+fn partial_query(categories: &[&str], kind: Option<Kind>) -> Query {
     Query {
-        topic_match: TopicMatch::partial(topics_from_slice(topics)),
+        category_match: CategoryMatch::partial(categories_from_slice(categories)),
         kind,
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
@@ -149,7 +155,7 @@ fn privacy_query(privacy_selection: PrivacySelection) -> Query {
 
 fn record_selection() -> RecordSelection {
     RecordSelection {
-        topic_match: TopicMatch::Any,
+        category_match: CategoryMatch::Any,
         kind: Some(Kind::Decision),
     }
 }
@@ -440,7 +446,8 @@ fn nexus_change_record_is_visible_as_schema_declared_write_command() {
     let sema = SemaFile::new();
     let mut nexus = Nexus::new(sema.open_store());
     let identifier = record_identifier("003g");
-    let replacement = entry_with_topics(&["runtime-triad", "replacement"], "replacement record");
+    let replacement =
+        entry_with_categories(&["runtime-triad", "replacement"], "replacement record");
     let nexus_input =
         nexus_signal_arrived(input_change_record(identifier.clone(), replacement.clone()))
             .with_origin_route(nexus_route(6));
@@ -606,7 +613,8 @@ fn sema_engine_changes_record_without_changing_record_identifier() {
         other => panic!("expected initial Recorded receipt, got {other:?}"),
     };
 
-    let replacement = entry_with_topics(&["runtime-triad", "replacement"], "replacement target");
+    let replacement =
+        entry_with_categories(&["runtime-triad", "replacement"], "replacement target");
     let changed = SemaEngine::apply(
         &mut store,
         sema_write_message(
@@ -860,20 +868,20 @@ fn sema_store_persists_records_across_reopen_of_the_same_sema_file() {
 }
 
 #[test]
-fn sema_engine_queries_partial_and_full_topic_sets() {
+fn sema_engine_queries_partial_and_full_category_sets() {
     let sema = SemaFile::new();
     let mut store = sema.open_store();
     SemaEngine::apply(
         &mut store,
         sema_write_message(
-            sema_record(entry_with_topics(&["runtime-triad", "schema"], "both")),
+            sema_record(entry_with_categories(&["runtime-triad", "schema"], "both")),
             1,
         ),
     );
     SemaEngine::apply(
         &mut store,
         sema_write_message(
-            sema_record(entry_with_topics(&["runtime-triad"], "runtime only")),
+            sema_record(entry_with_categories(&["runtime-triad"], "runtime only")),
             2,
         ),
     );
@@ -905,7 +913,7 @@ fn sema_engine_queries_partial_and_full_topic_sets() {
             assert_eq!(records.record_set.len(), 1);
             assert_eq!(records.record_set[0].entry.description, "both");
         }
-        other => panic!("expected full query to require every topic, got {other:?}"),
+        other => panic!("expected full query to require every category, got {other:?}"),
     }
 }
 
@@ -1109,7 +1117,7 @@ fn sema_engine_lookup_and_count_are_read_plane_operations() {
     let first = SemaEngine::apply(
         &mut store,
         sema_write_message(
-            sema_record(entry_with_topics(&["runtime-triad", "schema"], "first")),
+            sema_record(entry_with_categories(&["runtime-triad", "schema"], "first")),
             1,
         ),
     );
@@ -1120,7 +1128,7 @@ fn sema_engine_lookup_and_count_are_read_plane_operations() {
     let second = SemaEngine::apply(
         &mut store,
         sema_write_message(
-            sema_record(entry_with_topics(&["runtime-triad"], "second")),
+            sema_record(entry_with_categories(&["runtime-triad"], "second")),
             2,
         ),
     );
@@ -1163,7 +1171,10 @@ fn sema_engine_observes_through_shared_reference_for_parallel_readers() {
     SemaEngine::apply(
         &mut store,
         sema_write_message(
-            sema_record(entry_with_topics(&["runtime-triad", "schema"], "parallel")),
+            sema_record(entry_with_categories(
+                &["runtime-triad", "schema"],
+                "parallel",
+            )),
             1,
         ),
     );
@@ -1249,15 +1260,15 @@ fn nexus_runs_sema_while_holding_mail_then_replies_through_schema_objects() {
 fn signal_admission_rejects_invalid_input_with_schema_emitted_rejection_before_mail_or_sema() {
     let sema = SemaFile::new();
     let mut engine = sema.engine();
-    let mut bad = entry("missing topic");
-    bad.topics = Topics::from_strings(vec![String::new()]);
+    let mut bad = entry("missing category");
+    bad.categories = Categories::from_strings(vec![String::new()]);
 
     let output = engine.handle(input_record(bad));
 
     assert_eq!(
         output.root(),
         &Output::rejected(SignalRejection {
-            validation_error: ValidationError::EmptyTopic,
+            validation_error: ValidationError::EmptyCategory,
             database_marker: DatabaseMarker {
                 commit_sequence: 0.into(),
                 state_digest: 0.into(),
@@ -1405,7 +1416,9 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
     assert_eq!(engine.processed_message_count(), 1);
 
     let observed = engine.handle(input_observe(Query {
-        topic_match: TopicMatch::full(Topics::from_strings(vec![String::from("runtime-triad")])),
+        category_match: CategoryMatch::full(Categories::from_strings(vec![String::from(
+            "runtime-triad",
+        )])),
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
@@ -1467,7 +1480,7 @@ fn full_runtime_triad_looks_up_and_counts_through_signal_nexus_and_sema() {
     let sema = SemaFile::new();
     let mut engine = sema.engine();
 
-    let first = engine.handle(input_record(entry_with_topics(
+    let first = engine.handle(input_record(entry_with_categories(
         &["runtime-triad", "schema"],
         "lookup one",
     )));
@@ -1475,7 +1488,7 @@ fn full_runtime_triad_looks_up_and_counts_through_signal_nexus_and_sema() {
         Output::RecordAccepted(receipt) => receipt.record_identifier.clone(),
         other => panic!("expected first RecordAccepted, got {other:?}"),
     };
-    engine.handle(input_record(entry_with_topics(
+    engine.handle(input_record(entry_with_categories(
         &["runtime-triad"],
         "lookup two",
     )));

@@ -4,8 +4,9 @@ use nota_next::{Delimiter, Document, NotaBlock, NotaDecode, NotaDecodeError};
 use spirit::{
     SignalTransport, TransportError,
     schema::signal::{
-        CertaintySelection, ImportanceSelection, Input, Kind, Output, PrivacySelection, Query,
-        RemovalCandidateCollection, Statement, StatementText, TopicMatch, WeightSelection,
+        CategoryMatch, CertaintySelection, ImportanceSelection, Input, Kind, Output,
+        PrivacySelection, Query, RemovalCandidateCollection, Statement, StatementText,
+        WeightSelection,
     },
 };
 use thiserror::Error;
@@ -221,23 +222,23 @@ impl LegacyQueryInput {
             return Ok(None);
         };
         let (
-            topic_match,
+            category_match,
             kind,
             privacy_selection,
             certainty_selection,
             importance_selection,
             weight_selection,
         ) = match fields {
-            [topic_match, kind, privacy_selection] => (
-                topic_match,
+            [category_match, kind, privacy_selection] => (
+                category_match,
                 kind,
                 privacy_selection,
                 certainty_selection,
                 ImportanceSelection::default_observation_importance(),
                 WeightSelection::default_observation_weight(),
             ),
-            [topic_match, kind, privacy_selection, certainty_selection] => (
-                topic_match,
+            [category_match, kind, privacy_selection, certainty_selection] => (
+                category_match,
                 kind,
                 privacy_selection,
                 CertaintySelection::from_nota_block(certainty_selection)?,
@@ -245,13 +246,13 @@ impl LegacyQueryInput {
                 WeightSelection::default_observation_weight(),
             ),
             [
-                topic_match,
+                category_match,
                 kind,
                 privacy_selection,
                 certainty_selection,
                 importance_selection,
             ] => (
-                topic_match,
+                category_match,
                 kind,
                 privacy_selection,
                 CertaintySelection::from_nota_block(certainty_selection)?,
@@ -259,14 +260,14 @@ impl LegacyQueryInput {
                 WeightSelection::default_observation_weight(),
             ),
             [
-                topic_match,
+                category_match,
                 kind,
                 privacy_selection,
                 certainty_selection,
                 importance_selection,
                 weight_selection,
             ] => (
-                topic_match,
+                category_match,
                 kind,
                 privacy_selection,
                 CertaintySelection::from_nota_block(certainty_selection)?,
@@ -276,7 +277,7 @@ impl LegacyQueryInput {
             _ => return Ok(None),
         };
         Ok(Some(Query {
-            topic_match: TopicMatch::from_nota_block(topic_match)?,
+            category_match: CategoryMatch::from_nota_block(category_match)?,
             kind: Option::<Kind>::from_nota_block(kind)?,
             privacy_selection: PrivacySelection::from_nota_block(privacy_selection)?,
             certainty_selection,

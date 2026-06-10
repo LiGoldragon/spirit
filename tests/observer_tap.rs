@@ -12,15 +12,15 @@
 //! un-covered half — token-based cancellation — is what `Untap` restores.
 
 use spirit::schema::signal::{
-    CertaintySelection, Description, Entry, ImportanceSelection, Input, Kind, Magnitude,
-    ObserverFilter, OperationKind, Output, Privacy, PrivacySelection, Query, TopicMatch, Topics,
+    Categories, CategoryMatch, CertaintySelection, Description, Entry, ImportanceSelection, Input,
+    Kind, Magnitude, ObserverFilter, OperationKind, Output, Privacy, PrivacySelection, Query,
 };
 use spirit::{Engine, Store};
 use tempfile::TempDir;
 
 fn entry(description: &str) -> Entry {
     Entry {
-        topics: Topics::from_strings(vec![String::from("observer-tap")]),
+        categories: Categories::from_strings(vec![String::from("observer-tap")]),
         kind: Kind::Decision,
         description: Description::new(description),
         certainty: Magnitude::Maximum.into(),
@@ -32,7 +32,9 @@ fn entry(description: &str) -> Entry {
 
 fn observe_query() -> Query {
     Query {
-        topic_match: TopicMatch::full(Topics::from_strings(vec![String::from("observer-tap")])),
+        category_match: CategoryMatch::full(Categories::from_strings(vec![String::from(
+            "observer-tap",
+        )])),
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
