@@ -189,7 +189,7 @@ impl ComponentDaemon for SpiritDaemon {
             | Input::Count(_)
             | Input::Remove(_)
             | Input::ChangeCertainty(_)
-            | Input::BumpWeight(_)
+            | Input::BumpImportance(_)
             | Input::ChangeRecord(_)
             | Input::LookupStash(_)
             | Input::CollectRemovalCandidates(_)
@@ -215,11 +215,11 @@ impl ComponentDaemon for SpiritDaemon {
         output: &Output,
     ) -> Result<Option<Self::StreamEvent>, Self::Error> {
         match output {
-            Output::RecordAccepted(receipt) => Ok(engine
-                .intent_recorded_event_async(receipt.payload())
+            Output::RecordAccepted(record_identifier) => Ok(engine
+                .intent_recorded_event_async(record_identifier.payload())
                 .await?),
-            Output::Proposed(receipt) => Ok(engine
-                .intent_recorded_event_async(receipt.payload())
+            Output::Proposed(record_identifier) => Ok(engine
+                .intent_recorded_event_async(record_identifier.payload())
                 .await?),
             Output::Clarified(receipt) => Ok(engine
                 .intent_clarified_event_async(receipt.payload())

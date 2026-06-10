@@ -22,20 +22,21 @@ use crate::schema::{
         CategoryMatch, Certainty, CertaintyChange, CertaintyChangeReceipt, CertaintySelection,
         Clarification, ClarificationReceipt, CountedRecords, DatabaseMarker, Description, Entry,
         ErrorMessage, ErrorReport, Explanation, FoundRecord, GuardianRejection,
-        GuardianRejectionReason, Importance, ImportanceSelection, Keyword, KeywordMatch, Keywords,
-        Magnitude, ObservedRecord, ObservedRecords, Privacy, PrivacySelection, Query, RecordChange,
-        RecordChangeReceipt, RecordCount, RecordIdentifier, RecordSet, RemovalArchiveRecord,
-        RemovalArchiveRecords, RemovalCandidateCollection, RemovalCandidatesCollection,
-        RemoveReceipt, RemovedIdentifier, RemovedIdentifiers, Retirement, RetirementReceipt,
-        SearchText, SemaReceipt, SkippedRemovalCandidate, SkippedRemovalCandidates, Supersession,
-        SupersessionReceipt, TextMatch, Weight, WeightBump, WeightBumpReceipt, WeightSelection,
+        GuardianRejectionReason, Importance, ImportanceBump, ImportanceBumpReceipt,
+        ImportanceSelection, Keyword, KeywordMatch, Keywords, Magnitude, ObservedRecord,
+        ObservedRecords, Privacy, PrivacySelection, Query, RecordChange, RecordChangeReceipt,
+        RecordCount, RecordIdentifier, RecordSet, RemovalArchiveRecord, RemovalArchiveRecords,
+        RemovalCandidateCollection, RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifier,
+        RemovedIdentifiers, Retirement, RetirementReceipt, SearchText, SemaReceipt,
+        SkippedRemovalCandidate, SkippedRemovalCandidates, Supersession, SupersessionReceipt,
+        TextMatch,
     },
 };
 
 #[cfg(feature = "testing-trace")]
 use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
 
-const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(5);
+const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(6);
 const ENTRIES_TABLE: TableName = TableName::new("records");
 const RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH: usize = 4;
 const RECORD_IDENTIFIER_MAXIMUM_CODE_LENGTH: usize = 7;
@@ -151,17 +152,19 @@ impl SemaEngine for Store {
                     }),
                 }
             }
-            SemaWriteInput::BumpWeight(change) => match self.bump_weight(change.into_payload()) {
-                Ok(Some(receipt)) => SemaWriteOutput::weight_bumped(receipt),
-                Ok(None) => SemaWriteOutput::missed(ErrorReport {
-                    error_message: ErrorMessage::new("record not found"),
-                    database_marker: self.database_marker(),
-                }),
-                Err(error) => SemaWriteOutput::missed(ErrorReport {
-                    error_message: ErrorMessage::new(error.to_string()),
-                    database_marker: self.database_marker(),
-                }),
-            },
+            SemaWriteInput::BumpImportance(change) => {
+                match self.bump_importance(change.into_payload()) {
+                    Ok(Some(receipt)) => SemaWriteOutput::importance_bumped(receipt),
+                    Ok(None) => SemaWriteOutput::missed(ErrorReport {
+                        error_message: ErrorMessage::new("record not found"),
+                        database_marker: self.database_marker(),
+                    }),
+                    Err(error) => SemaWriteOutput::missed(ErrorReport {
+                        error_message: ErrorMessage::new(error.to_string()),
+                        database_marker: self.database_marker(),
+                    }),
+                }
+            }
             SemaWriteInput::ChangeRecord(change) => match self.change_record(change.into_payload())
             {
                 Ok(Some(receipt)) => SemaWriteOutput::record_changed(receipt),
@@ -424,8 +427,8 @@ impl Store {
             return Ok(Ok(self.propose(entry)?));
         };
         let record_identifier = RecordIdentifier::new(duplicate.record_identifier.clone());
-        let weight_receipt = self
-            .bump_weight(WeightBump::new(record_identifier.clone()))?
+        let importance_receipt = self
+            .bump_importance(ImportanceBump::new(record_identifier.clone()))?
             .ok_or_else(|| {
                 StoreError::DuplicateRecordVanished(record_identifier.payload().clone())
             })?;
@@ -441,7 +444,7 @@ impl Store {
                 entry: updated_entry,
             }]),
             explanation: Explanation::new("proposal duplicates an existing forward arrow"),
-            database_marker: weight_receipt.database_marker,
+            database_marker: importance_receipt.database_marker,
         }))
     }
 
@@ -454,7 +457,6 @@ impl Store {
         records.sort_by_key(|record| {
             std::cmp::Reverse((
                 record.entry.certainty_rank(),
-                record.entry.weight_rank(),
                 record.entry.importance_rank(),
             ))
         });
@@ -473,7 +475,6 @@ impl Store {
             privacy_selection: PrivacySelection::Any,
             certainty_selection: CertaintySelection::default_observation_certainty(),
             importance_selection: ImportanceSelection::Any,
-            weight_selection: crate::schema::signal::WeightSelection::Any,
         })
         .map(RecordSet::new)
     }
@@ -556,21 +557,24 @@ impl Store {
         }))
     }
 
-    fn bump_weight(&self, change: WeightBump) -> Result<Option<WeightBumpReceipt>, StoreError> {
+    fn bump_importance(
+        &self,
+        change: ImportanceBump,
+    ) -> Result<Option<ImportanceBumpReceipt>, StoreError> {
         let record_identifier = change.into_payload();
         let identifier_text = record_identifier.payload().clone();
         let Some(mut entry) = self.entry_by_identifier(record_identifier.payload())? else {
             return Ok(None);
         };
-        entry.weight = entry.weight.next();
-        let weight = entry.weight.clone();
+        entry.importance = entry.importance.next();
+        let importance = entry.importance.clone();
         self.database.mutate(Mutation::new(
             self.entries,
             StoredRecord::new(identifier_text, entry),
         ))?;
-        Ok(Some(WeightBumpReceipt {
+        Ok(Some(ImportanceBumpReceipt {
             record_identifier,
-            weight,
+            importance,
             database_marker: self.database_marker(),
         }))
     }
@@ -892,10 +896,6 @@ impl Entry {
     pub fn importance_rank(&self) -> u64 {
         self.importance.payload().rank()
     }
-
-    pub fn weight_rank(&self) -> u64 {
-        self.weight.rank()
-    }
 }
 
 impl Description {
@@ -969,7 +969,6 @@ impl Query {
             && self.privacy_selection.matches(&entry.privacy)
             && self.certainty_selection.matches(&entry.certainty)
             && self.importance_selection.matches(&entry.importance)
-            && self.weight_selection.matches(&entry.weight)
     }
 }
 
@@ -1035,20 +1034,6 @@ impl CertaintySelection {
     }
 }
 
-impl Weight {
-    pub fn default_reaffirmation() -> Self {
-        Self::new(1)
-    }
-
-    pub fn rank(&self) -> u64 {
-        *self.payload()
-    }
-
-    pub fn next(&self) -> Self {
-        Self::new(self.payload().saturating_add(1))
-    }
-}
-
 impl ImportanceSelection {
     pub fn default_observation_importance() -> Self {
         Self::Any
@@ -1069,18 +1054,9 @@ impl ImportanceSelection {
     }
 }
 
-impl WeightSelection {
-    pub fn default_observation_weight() -> Self {
-        Self::Any
-    }
-
-    pub fn matches(&self, weight: &Weight) -> bool {
-        match self {
-            Self::Any => true,
-            Self::ExactWeight(expected) => weight == expected.payload(),
-            Self::AtMostWeight(maximum) => weight.rank() <= maximum.payload().rank(),
-            Self::AtLeastWeight(minimum) => weight.rank() >= minimum.payload().rank(),
-        }
+impl Importance {
+    pub fn next(&self) -> Self {
+        Self::new(self.payload().next())
     }
 }
 
@@ -1095,6 +1071,18 @@ impl Magnitude {
             Self::High => 5,
             Self::VeryHigh => 6,
             Self::Maximum => 7,
+        }
+    }
+
+    pub fn next(&self) -> Self {
+        match self {
+            Self::Zero => Self::Minimum,
+            Self::Minimum => Self::VeryLow,
+            Self::VeryLow => Self::Low,
+            Self::Low => Self::Medium,
+            Self::Medium => Self::High,
+            Self::High => Self::VeryHigh,
+            Self::VeryHigh | Self::Maximum => Self::Maximum,
         }
     }
 }

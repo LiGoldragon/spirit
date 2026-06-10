@@ -1,6 +1,6 @@
 {}
-[State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpWeight ChangeRecord LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version]
-[RecordAccepted Proposed Clarified Superseded Retired GuardianRejected RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged WeightBumped RecordChanged RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted VersionReported (Event IntentEvent) Error Rejected]
+[State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version]
+[RecordAccepted Proposed Clarified Superseded Retired GuardianRejected RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged ImportanceBumped RecordChanged RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted VersionReported (Event IntentEvent) Error Rejected]
 {
   SourcePath String
   LocalPath String
@@ -22,7 +22,7 @@
   Count Query
   Remove RecordIdentifier
   ChangeCertainty CertaintyChange
-  BumpWeight WeightBump
+  BumpImportance ImportanceBump
   ChangeRecord RecordChange
   LookupStash StashHandle
   CollectRemovalCandidates RemovalCandidateCollection
@@ -30,8 +30,8 @@
   Untap SubscriptionToken
   SubscribeIntent Query
 
-  RecordAccepted SemaReceipt
-  Proposed SemaReceipt
+  RecordAccepted RecordIdentifier
+  Proposed RecordIdentifier
   Clarified ClarificationReceipt
   Superseded SupersessionReceipt
   Retired RetirementReceipt
@@ -42,7 +42,7 @@
   RecordsCounted CountedRecords
   RecordRemoved RemoveReceipt
   CertaintyChanged CertaintyChangeReceipt
-  WeightBumped WeightBumpReceipt
+  ImportanceBumped ImportanceBumpReceipt
   RecordChanged RecordChangeReceipt
   RemovalCandidatesCollected RemovalCandidatesCollection
   ObservationTapped ObserverSubscription
@@ -107,7 +107,6 @@
   Privacy Magnitude
   Certainty Magnitude
   Importance Magnitude
-  Weight Integer
   PrivacySelection [Any (Exact) (AtMost) (AtLeast)]
   Exact Privacy
   AtMost Privacy
@@ -120,10 +119,6 @@
   ExactImportance Importance
   AtMostImportance Importance
   AtLeastImportance Importance
-  WeightSelection [Any (ExactWeight) (AtMostWeight) (AtLeastWeight)]
-  ExactWeight Weight
-  AtMostWeight Weight
-  AtLeastWeight Weight
 
   RemovalCandidateCollection { RecordQuery * }
   RecordQuery Query
@@ -139,16 +134,16 @@
   ObserverFilter [All OperationsOnly EffectsOnly]
   ObserverSubscription { SubscriptionToken * ObserverFilter * ObservedOperations * DatabaseMarker * }
   ObserverRetraction { SubscriptionToken * ObservedOperations * DatabaseMarker * }
-  OperationKind [State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpWeight ChangeRecord LookupStash CollectRemovalCandidates Tap Untap SubscribeIntent Version]
+  OperationKind [State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord LookupStash CollectRemovalCandidates Tap Untap SubscribeIntent Version]
   ObservedOperation { OperationKind * }
   ObservedOperations (Vec ObservedOperation)
 
-  Entry { Categories * Kind * Description * Certainty * Importance * Weight * Privacy * }
+  Entry { Categories * Kind * Description * Certainty * Importance * Privacy * }
   Statement { StatementText * }
   CertaintyChange { RecordIdentifier * Certainty * }
   CertaintyChangeReceipt { RecordIdentifier * Certainty * DatabaseMarker * }
-  WeightBump { RecordIdentifier * }
-  WeightBumpReceipt { RecordIdentifier * Weight * DatabaseMarker * }
+  ImportanceBump { RecordIdentifier * }
+  ImportanceBumpReceipt { RecordIdentifier * Importance * DatabaseMarker * }
   RecordChange { RecordIdentifier * Entry * }
   RecordChangeReceipt { RecordIdentifier * DatabaseMarker * }
   Clarification { RecordIdentifier * Description * }
@@ -162,7 +157,7 @@
   GuardianRejectionReason [Duplicate Contradiction Compound NonIntent UnclearPrivacy UnclearCategory ClarifyTramples ClarifyLosesMeaning SupersedeTargetMissing RetrievalInsufficient HarnessUnavailable HarnessMalformed HarnessTimedOut]
   GuardianRejection { GuardianRejectionReason * RecordSet * Explanation * DatabaseMarker * }
   RecordSelection { CategoryMatch * kind (Optional Kind) }
-  Query { CategoryMatch * keyword_match KeywordMatch text_match TextMatch kind (Optional Kind) privacy_selection PrivacySelection certainty_selection CertaintySelection importance_selection ImportanceSelection weight_selection WeightSelection }
+  Query { CategoryMatch * keyword_match KeywordMatch text_match TextMatch kind (Optional Kind) privacy_selection PrivacySelection certainty_selection CertaintySelection importance_selection ImportanceSelection }
   Records (Vec ObservedRecord)
   RecordSet (Vec ObservedRecord)
   Kind [Decision Principle Correction Clarification Constraint]

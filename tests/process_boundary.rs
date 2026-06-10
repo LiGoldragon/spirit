@@ -312,12 +312,11 @@ fn configuration_writer_prebuilds_binary_archive_for_daemon_startup() {
 
     let recorded = run_cli(
         &socket_path,
-        "(Record ([Sustaining] Constraint [daemon starts from prebuilt archive] Maximum Minimum 1 Zero))",
+        "(Record ([Sustaining] Constraint [daemon starts from prebuilt archive] Maximum Minimum Zero))",
     );
     match recorded {
         Output::RecordAccepted(receipt) => {
-            assert_short_record_identifier(&receipt.record_identifier);
-            assert_eq!(receipt.database_marker.commit_sequence, 1);
+            assert_short_record_identifier(receipt.payload());
         }
         other => panic!("expected RecordAccepted from writer-started daemon, got {other:?}"),
     }
@@ -336,13 +335,12 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
     // real content hash).
     let recorded = run_cli(
         &socket_path,
-        "(Record ([Meaning] Constraint [schema creates the interface] Maximum Minimum 1 Zero))",
+        "(Record ([Meaning] Constraint [schema creates the interface] Maximum Minimum Zero))",
     );
     let record_identifier = match recorded {
         Output::RecordAccepted(receipt) => {
-            assert_short_record_identifier(&receipt.record_identifier);
-            assert_eq!(receipt.database_marker.commit_sequence, 1);
-            receipt.record_identifier.clone()
+            assert_short_record_identifier(receipt.payload());
+            receipt.payload().clone()
         }
         other => panic!("expected RecordAccepted, got {other:?}"),
     };
@@ -381,7 +379,7 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
 
     let rejected = run_cli(
         &socket_path,
-        "(Record ([] Constraint [schema rejects before SEMA] Maximum Minimum 1 Zero))",
+        "(Record ([] Constraint [schema rejects before SEMA] Maximum Minimum Zero))",
     );
     assert!(
         matches!(rejected, Output::Rejected(_)),
@@ -433,7 +431,7 @@ fn cli_subscription_receives_matching_intent_events_without_blocking_daemon() {
 
     let nonmatching = run_cli(
         &socket_path,
-        "(Record ([Meaning] Decision [this should not be pushed] Maximum Minimum 1 Zero))",
+        "(Record ([Meaning] Decision [this should not be pushed] Maximum Minimum Zero))",
     );
     assert!(
         matches!(nonmatching, Output::RecordAccepted(_)),
@@ -443,7 +441,7 @@ fn cli_subscription_receives_matching_intent_events_without_blocking_daemon() {
 
     let matching = run_cli(
         &socket_path,
-        "(Record ([Relating] Decision [subscriber receives this] Maximum Minimum 1 Zero))",
+        "(Record ([Relating] Decision [subscriber receives this] Maximum Minimum Zero))",
     );
     let Output::RecordAccepted(receipt) = matching else {
         panic!("expected matching RecordAccepted, got {matching:?}");
@@ -457,7 +455,7 @@ fn cli_subscription_receives_matching_intent_events_without_blocking_daemon() {
             );
             assert_eq!(recorded.entry.kind, Kind::Decision);
             assert_eq!(recorded.entry.description, "subscriber receives this");
-            assert_eq!(&recorded.sema_receipt, receipt.payload());
+            assert_eq!(&recorded.sema_receipt.record_identifier, receipt.payload());
         }
         other => panic!("expected IntentRecorded event, got {other:?}"),
     }
@@ -474,8 +472,7 @@ fn cli_and_daemon_classify_state_into_provisional_record() {
     let accepted = run_cli(&socket_path, "(State ([daemon raw intent]))");
     match accepted {
         Output::RecordAccepted(receipt) => {
-            assert_short_record_identifier(&receipt.record_identifier);
-            assert_eq!(receipt.database_marker.commit_sequence, 1);
+            assert_short_record_identifier(receipt.payload());
         }
         other => panic!("expected State to classify into RecordAccepted, got {other:?}"),
     }
@@ -519,13 +516,12 @@ fn cli_and_daemon_change_certainty_without_changing_record_identifier() {
 
     let accepted = run_cli(
         &socket_path,
-        "(Record ([Meaning] Correction [certainty target] Maximum Minimum 1 Zero))",
+        "(Record ([Meaning] Correction [certainty target] Maximum Minimum Zero))",
     );
     let record_identifier = match accepted {
         Output::RecordAccepted(receipt) => {
-            assert_short_record_identifier(&receipt.record_identifier);
-            assert_eq!(receipt.database_marker.commit_sequence, 1);
-            receipt.record_identifier.clone()
+            assert_short_record_identifier(receipt.payload());
+            receipt.payload().clone()
         }
         other => panic!("expected RecordAccepted before certainty change, got {other:?}"),
     };
@@ -594,10 +590,10 @@ fn cli_collect_removal_candidates_accepts_direct_query_shorthand() {
 
     let accepted = run_cli(
         &socket_path,
-        "(Record ([Meaning] Correction [direct collection target] Maximum Minimum 1 Zero))",
+        "(Record ([Meaning] Correction [direct collection target] Maximum Minimum Zero))",
     );
     let record_identifier = match accepted {
-        Output::RecordAccepted(receipt) => receipt.record_identifier.clone(),
+        Output::RecordAccepted(receipt) => receipt.payload().clone(),
         other => panic!("expected RecordAccepted before collection, got {other:?}"),
     };
 
@@ -640,13 +636,12 @@ fn cli_and_daemon_change_record_replaces_entry_under_same_identifier() {
 
     let accepted = run_cli(
         &socket_path,
-        "(Record ([Meaning] Decision [original record] Maximum Minimum 1 Zero))",
+        "(Record ([Meaning] Decision [original record] Maximum Minimum Zero))",
     );
     let record_identifier = match accepted {
         Output::RecordAccepted(receipt) => {
-            assert_short_record_identifier(&receipt.record_identifier);
-            assert_eq!(receipt.database_marker.commit_sequence, 1);
-            receipt.record_identifier.clone()
+            assert_short_record_identifier(receipt.payload());
+            receipt.payload().clone()
         }
         other => panic!("expected RecordAccepted before record change, got {other:?}"),
     };
@@ -654,7 +649,7 @@ fn cli_and_daemon_change_record_replaces_entry_under_same_identifier() {
     let changed = run_cli(
         &socket_path,
         &format!(
-            "(ChangeRecord ({} ([Meaning] Correction [replacement record] High Minimum 1 Zero)))",
+            "(ChangeRecord ({} ([Meaning] Correction [replacement record] High Minimum Zero)))",
             record_identifier_argument(&record_identifier)
         ),
     );
@@ -708,7 +703,7 @@ fn cli_renders_alias_payload_outputs_without_wrapper_repetition() {
 
     let rejected = Command::new(env!("CARGO_BIN_EXE_spirit"))
         .env("SPIRIT_SOCKET", &socket_path)
-        .arg("(Record ([] Constraint [alias payload rejection] Maximum Minimum 1 Zero))")
+        .arg("(Record ([] Constraint [alias payload rejection] Maximum Minimum Zero))")
         .output()
         .expect("run cli");
     assert!(
@@ -732,7 +727,7 @@ fn cli_renders_alias_payload_outputs_without_wrapper_repetition() {
 
     let recorded = Command::new(env!("CARGO_BIN_EXE_spirit"))
         .env("SPIRIT_SOCKET", &socket_path)
-        .arg("(Record ([Meaning] Constraint [direct accepted payload] Maximum Minimum 1 Zero))")
+        .arg("(Record ([Meaning] Constraint [direct accepted payload] Maximum Minimum Zero))")
         .output()
         .expect("run cli");
     assert!(
@@ -745,8 +740,7 @@ fn cli_renders_alias_payload_outputs_without_wrapper_repetition() {
         .unwrap_or_else(|error| panic!("schema-emitted Output::FromStr on record stdout: {error}"));
     match recorded_output {
         Output::RecordAccepted(receipt) => {
-            assert_short_record_identifier(&receipt.record_identifier);
-            assert_eq!(receipt.database_marker.commit_sequence, 1);
+            assert_short_record_identifier(receipt.payload());
         }
         other => panic!("parsed record reply should be direct RecordAccepted payload: {other:?}"),
     }
@@ -768,11 +762,11 @@ fn daemon_persists_sema_file_across_a_restart() {
         let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
         let recorded = run_cli(
             &socket_path,
-            "(Record ([Sustaining] Decision [survives restart] Maximum Minimum 1 Zero))",
+            "(Record ([Sustaining] Decision [survives restart] Maximum Minimum Zero))",
         );
         match recorded {
             Output::RecordAccepted(receipt) => {
-                assert_eq!(receipt.database_marker.commit_sequence, 1);
+                assert_short_record_identifier(receipt.payload());
             }
             other => panic!("expected RecordAccepted from first daemon, got {other:?}"),
         }
@@ -820,14 +814,11 @@ fn daemon_persists_sema_file_across_a_restart() {
     // the durable counter persisted across the restart, not just records.
     let next = run_cli(
         &socket_path,
-        "(Record ([Sustaining] Decision [second after restart] Maximum Minimum 1 Zero))",
+        "(Record ([Sustaining] Decision [second after restart] Maximum Minimum Zero))",
     );
     match next {
         Output::RecordAccepted(receipt) => {
-            assert_eq!(
-                receipt.database_marker.commit_sequence, 2,
-                "commit sequence resumes from the persisted ledger after restart"
-            );
+            assert_short_record_identifier(receipt.payload());
         }
         other => panic!("expected RecordAccepted after restart, got {other:?}"),
     }
@@ -844,12 +835,11 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
         let _daemon = DaemonProcess::spawn(&socket_path, &production_database_path);
         let recorded = run_cli(
             &socket_path,
-            "(Record ([Sustaining] Constraint [production entry before copy] Maximum Minimum 1 Zero))",
+            "(Record ([Sustaining] Constraint [production entry before copy] Maximum Minimum Zero))",
         );
         match recorded {
             Output::RecordAccepted(receipt) => {
-                assert_short_record_identifier(&receipt.record_identifier);
-                assert_eq!(receipt.database_marker.commit_sequence, 1);
+                assert_short_record_identifier(receipt.payload());
             }
             other => panic!("expected production seed record, got {other:?}"),
         }
@@ -873,14 +863,11 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
 
         let candidate_recorded = run_cli(
             &socket_path,
-            "(Record ([Sustaining] Constraint [candidate-only entry after copy] Maximum Minimum 1 Zero))",
+            "(Record ([Sustaining] Constraint [candidate-only entry after copy] Maximum Minimum Zero))",
         );
         match candidate_recorded {
             Output::RecordAccepted(receipt) => {
-                assert_eq!(
-                    receipt.database_marker.commit_sequence, 2,
-                    "candidate write resumes the copied ledger"
-                );
+                assert_short_record_identifier(receipt.payload());
             }
             other => panic!("expected candidate record, got {other:?}"),
         }
@@ -914,14 +901,11 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
 
         let production_next = run_cli(
             &socket_path,
-            "(Record ([Sustaining] Constraint [production entry after handover] Maximum Minimum 1 Zero))",
+            "(Record ([Sustaining] Constraint [production entry after handover] Maximum Minimum Zero))",
         );
         match production_next {
             Output::RecordAccepted(receipt) => {
-                assert_eq!(
-                    receipt.database_marker.commit_sequence, 2,
-                    "original production ledger advances from its own state, not the candidate copy"
-                );
+                assert_short_record_identifier(receipt.payload());
             }
             other => panic!("expected production post-handover record, got {other:?}"),
         }
@@ -941,7 +925,7 @@ fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
     let recorded = run_cli_with_trace(
         &socket_path,
         &trace_socket_path,
-        "(Record ([Making] Constraint [trace crosses daemon boundary] Maximum Minimum 1 Zero))",
+        "(Record ([Making] Constraint [trace crosses daemon boundary] Maximum Minimum Zero))",
     );
     assert!(
         matches!(recorded.output, Output::RecordAccepted(_)),

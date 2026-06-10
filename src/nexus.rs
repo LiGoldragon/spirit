@@ -18,12 +18,11 @@ use crate::{
             Entry, ErrorMessage, ErrorReport, Importance, Input, IntentClarified, IntentEvent,
             IntentRecorded, IntentRetired, IntentSubscription, IntentSuperseded, Kind, Magnitude,
             ObservedOperation, ObservedOperations, ObserverFilter, ObserverRetraction,
-            ObserverSubscription, OperationKind, Output, Privacy, RecordCount, Records,
-            RemovalArchiveRecords, RemovalCandidateCollection, RemovalCandidatesCollection,
-            RemovedIdentifiers, RetirementReceipt, SemaReceipt, SignalRejection,
-            SkippedRemovalCandidates, StashHandle, StashedObservation, Statement,
+            ObserverSubscription, OperationKind, Output, Privacy, RecordCount, RecordIdentifier,
+            Records, RemovalArchiveRecords, RemovalCandidateCollection,
+            RemovalCandidatesCollection, RemovedIdentifiers, RetirementReceipt, SemaReceipt,
+            SignalRejection, SkippedRemovalCandidates, StashHandle, StashedObservation, Statement,
             SubscriptionToken, SupersessionReceipt, ValidationError, VersionReport, VersionText,
-            Weight,
         },
     },
     store::{Store, StoreError},
@@ -144,7 +143,7 @@ impl OperationKind {
             Input::Count(_) => Self::Count,
             Input::Remove(_) => Self::Remove,
             Input::ChangeCertainty(_) => Self::ChangeCertainty,
-            Input::BumpWeight(_) => Self::BumpWeight,
+            Input::BumpImportance(_) => Self::BumpImportance,
             Input::ChangeRecord(_) => Self::ChangeRecord,
             Input::LookupStash(_) => Self::LookupStash,
             Input::CollectRemovalCandidates(_) => Self::CollectRemovalCandidates,
@@ -246,7 +245,6 @@ impl ClassificationPolicy {
             description: Description::new(statement.into_payload().into_payload()),
             certainty: Certainty::new(self.fallback_magnitude),
             importance: Importance::new(Magnitude::Minimum),
-            weight: Weight::default_reaffirmation(),
             privacy: Privacy::new(self.fallback_privacy),
         }
     }
@@ -260,7 +258,7 @@ impl CommandSemaWrite {
             Self::ChangeCertainty(change) => {
                 SemaWriteInput::change_certainty(change.into_payload())
             }
-            Self::BumpWeight(change) => SemaWriteInput::bump_weight(change.into_payload()),
+            Self::BumpImportance(change) => SemaWriteInput::bump_importance(change.into_payload()),
             Self::ChangeRecord(change) => SemaWriteInput::change_record(change.into_payload()),
         }
     }
@@ -349,15 +347,18 @@ impl Nexus {
 
     pub fn intent_recorded_event(
         &self,
-        receipt: &SemaReceipt,
+        record_identifier: &RecordIdentifier,
     ) -> Result<Option<IntentEvent>, StoreError> {
         Ok(self
             .store
-            .entry_by_identifier(receipt.record_identifier.payload())?
+            .entry_by_identifier(record_identifier.payload())?
             .map(|entry| {
                 IntentEvent::intent_recorded(IntentRecorded {
                     entry,
-                    sema_receipt: receipt.clone(),
+                    sema_receipt: SemaReceipt {
+                        record_identifier: record_identifier.clone(),
+                        database_marker: self.database_marker(),
+                    },
                 })
             }))
     }
@@ -747,8 +748,8 @@ impl Nexus {
             Input::ChangeCertainty(change) => NexusAction::command_sema_write(
                 CommandSemaWrite::change_certainty(change.into_payload()),
             ),
-            Input::BumpWeight(change) => NexusAction::command_sema_write(
-                CommandSemaWrite::bump_weight(change.into_payload()),
+            Input::BumpImportance(change) => NexusAction::command_sema_write(
+                CommandSemaWrite::bump_importance(change.into_payload()),
             ),
             Input::ChangeRecord(change) => NexusAction::command_sema_write(
                 CommandSemaWrite::change_record(change.into_payload()),
@@ -788,17 +789,17 @@ impl Nexus {
 
     fn decide_sema_write_completion(&self, output: SemaWriteOutput) -> NexusAction {
         match output {
-            SemaWriteOutput::Recorded(receipt) => {
-                NexusAction::reply_to_signal(Output::record_accepted(receipt.into_payload()))
-            }
+            SemaWriteOutput::Recorded(receipt) => NexusAction::reply_to_signal(
+                Output::record_accepted(receipt.into_payload().record_identifier),
+            ),
             SemaWriteOutput::Removed(receipt) => {
                 NexusAction::reply_to_signal(Output::record_removed(receipt.into_payload()))
             }
             SemaWriteOutput::CertaintyChanged(receipt) => {
                 NexusAction::reply_to_signal(Output::certainty_changed(receipt.into_payload()))
             }
-            SemaWriteOutput::WeightBumped(receipt) => {
-                NexusAction::reply_to_signal(Output::weight_bumped(receipt.into_payload()))
+            SemaWriteOutput::ImportanceBumped(receipt) => {
+                NexusAction::reply_to_signal(Output::importance_bumped(receipt.into_payload()))
             }
             SemaWriteOutput::RecordChanged(receipt) => {
                 NexusAction::reply_to_signal(Output::record_changed(receipt.into_payload()))
@@ -840,9 +841,9 @@ impl Nexus {
             NexusEffectResult::StateClassified(entry) => {
                 NexusAction::command_sema_write(CommandSemaWrite::record(entry.into_payload()))
             }
-            NexusEffectResult::Proposed(receipt) => {
-                NexusAction::reply_to_signal(Output::proposed(receipt.into_payload()))
-            }
+            NexusEffectResult::Proposed(receipt) => NexusAction::reply_to_signal(Output::proposed(
+                receipt.into_payload().record_identifier,
+            )),
             NexusEffectResult::Clarified(receipt) => {
                 NexusAction::reply_to_signal(Output::clarified(receipt.into_payload()))
             }

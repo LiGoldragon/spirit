@@ -6,7 +6,6 @@ use spirit::{
     schema::signal::{
         CategoryMatch, CertaintySelection, ImportanceSelection, Input, KeywordMatch, Kind, Output,
         PrivacySelection, Query, RemovalCandidateCollection, Statement, StatementText, TextMatch,
-        WeightSelection,
     },
 };
 use thiserror::Error;
@@ -221,61 +220,37 @@ impl LegacyQueryInput {
         let Some(fields) = payload.as_delimited(Delimiter::Parenthesis) else {
             return Ok(None);
         };
-        let (
-            category_match,
-            kind,
-            privacy_selection,
-            certainty_selection,
-            importance_selection,
-            weight_selection,
-        ) = match fields {
-            [category_match, kind, privacy_selection] => (
-                category_match,
-                kind,
-                privacy_selection,
-                certainty_selection,
-                ImportanceSelection::default_observation_importance(),
-                WeightSelection::default_observation_weight(),
-            ),
-            [category_match, kind, privacy_selection, certainty_selection] => (
-                category_match,
-                kind,
-                privacy_selection,
-                CertaintySelection::from_nota_block(certainty_selection)?,
-                ImportanceSelection::default_observation_importance(),
-                WeightSelection::default_observation_weight(),
-            ),
-            [
-                category_match,
-                kind,
-                privacy_selection,
-                certainty_selection,
-                importance_selection,
-            ] => (
-                category_match,
-                kind,
-                privacy_selection,
-                CertaintySelection::from_nota_block(certainty_selection)?,
-                ImportanceSelection::from_nota_block(importance_selection)?,
-                WeightSelection::default_observation_weight(),
-            ),
-            [
-                category_match,
-                kind,
-                privacy_selection,
-                certainty_selection,
-                importance_selection,
-                weight_selection,
-            ] => (
-                category_match,
-                kind,
-                privacy_selection,
-                CertaintySelection::from_nota_block(certainty_selection)?,
-                ImportanceSelection::from_nota_block(importance_selection)?,
-                WeightSelection::from_nota_block(weight_selection)?,
-            ),
-            _ => return Ok(None),
-        };
+        let (category_match, kind, privacy_selection, certainty_selection, importance_selection) =
+            match fields {
+                [category_match, kind, privacy_selection] => (
+                    category_match,
+                    kind,
+                    privacy_selection,
+                    certainty_selection,
+                    ImportanceSelection::default_observation_importance(),
+                ),
+                [category_match, kind, privacy_selection, certainty_selection] => (
+                    category_match,
+                    kind,
+                    privacy_selection,
+                    CertaintySelection::from_nota_block(certainty_selection)?,
+                    ImportanceSelection::default_observation_importance(),
+                ),
+                [
+                    category_match,
+                    kind,
+                    privacy_selection,
+                    certainty_selection,
+                    importance_selection,
+                ] => (
+                    category_match,
+                    kind,
+                    privacy_selection,
+                    CertaintySelection::from_nota_block(certainty_selection)?,
+                    ImportanceSelection::from_nota_block(importance_selection)?,
+                ),
+                _ => return Ok(None),
+            };
         Ok(Some(Query {
             category_match: CategoryMatch::from_nota_block(category_match)?,
             keyword_match: KeywordMatch::Any,
@@ -284,7 +259,6 @@ impl LegacyQueryInput {
             privacy_selection: PrivacySelection::from_nota_block(privacy_selection)?,
             certainty_selection,
             importance_selection,
-            weight_selection,
         }))
     }
 

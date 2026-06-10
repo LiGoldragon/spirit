@@ -60,7 +60,7 @@
 //! - `nix_built_daemon_persists_state_across_two_cli_invocations`
 //!   — two CLI invocations against the same daemon process show
 //!   monotonic `CommitSequence` advancement on the schema-emitted
-//!   `DatabaseMarker`.
+//!   `VersionReported` after writes.
 //!
 //! - `nix_built_daemon_observes_recorded_entries_back_through_query`
 //!   — a Record followed by an Observe Query returns the schema-emitted
@@ -382,7 +382,6 @@ fn entry(description: &str) -> Entry {
         description: Description::new(description),
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
-        weight: 1_u64.into(),
         privacy: Privacy::new(Magnitude::Zero),
     }
 }
@@ -430,21 +429,20 @@ fn nix_built_spirit_cli_records_through_real_socket_to_nix_built_daemon() {
     // PATTERN: Record path end-to-end through the actual binaries Nix
     // built. The CLI binary opens a Unix socket to the daemon binary,
     // sends an rkyv-encoded signal frame, the daemon's SignalAdmission +
-    // Engine + Store triad runs, the schema-emitted SemaReceipt comes
+    // Engine + Store triad runs, the schema-emitted record identifier comes
     // back through the reverse plane chain, the CLI writes the NOTA
     // round-trip to stdout, and we parse it back into the schema-
     // emitted Output enum.
     let binaries = NixBuiltBinaries::ensure();
     let daemon = DaemonProcess::spawn(&binaries);
 
-    let nota_input = "(Record ([Sustaining] Decision [end to end through nix built binaries] Maximum Minimum 1 Zero))";
+    let nota_input = "(Record ([Sustaining] Decision [end to end through nix built binaries] Maximum Minimum Zero))";
     let output = run_cli_for_output(&binaries, daemon.socket(), nota_input);
 
     // SCHEMA-TYPED ASSERTION: not on the string, on the parsed schema-emitted variant.
     match output {
         Output::RecordAccepted(receipt) => {
-            assert_short_record_identifier(&receipt.record_identifier);
-            assert_eq!(receipt.database_marker.commit_sequence, 1);
+            assert_short_record_identifier(receipt.payload());
         }
         other => panic!("expected schema-emitted RecordAccepted, got {other:?}"),
     }
@@ -463,7 +461,7 @@ fn nix_built_daemon_rejects_invalid_input_through_schema_emitted_rejection() {
     let daemon = DaemonProcess::spawn(&binaries);
 
     // Empty category — schema-emitted Entry validation should reject.
-    let nota_input = "(Record ([] Decision [body content] Maximum Minimum 1 Zero))";
+    let nota_input = "(Record ([] Decision [body content] Maximum Minimum Zero))";
     let output = run_cli_for_output(&binaries, daemon.socket(), nota_input);
 
     assert_eq!(
@@ -491,21 +489,29 @@ fn nix_built_daemon_persists_state_across_two_cli_invocations() {
     let first = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Record ([Sustaining] Decision [first commit] Maximum Minimum 1 Zero))",
+        "(Record ([Sustaining] Decision [first commit] Maximum Minimum Zero))",
     );
-    let first_marker = match first {
-        Output::RecordAccepted(receipt) => receipt.database_marker.clone(),
+    match first {
+        Output::RecordAccepted(receipt) => assert_short_record_identifier(receipt.payload()),
         other => panic!("expected RecordAccepted, got {other:?}"),
+    };
+    let first_marker = match run_cli_for_output(&binaries, daemon.socket(), "Version") {
+        Output::VersionReported(report) => report.payload().database_marker.clone(),
+        other => panic!("expected VersionReported after first record, got {other:?}"),
     };
 
     let second = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Record ([Sustaining] Decision [second commit] Maximum Minimum 1 Zero))",
+        "(Record ([Sustaining] Decision [second commit] Maximum Minimum Zero))",
     );
-    let second_marker = match second {
-        Output::RecordAccepted(receipt) => receipt.database_marker.clone(),
+    match second {
+        Output::RecordAccepted(receipt) => assert_short_record_identifier(receipt.payload()),
         other => panic!("expected RecordAccepted, got {other:?}"),
+    };
+    let second_marker = match run_cli_for_output(&binaries, daemon.socket(), "Version") {
+        Output::VersionReported(report) => report.payload().database_marker.clone(),
+        other => panic!("expected VersionReported after second record, got {other:?}"),
     };
 
     assert!(
@@ -536,7 +542,7 @@ fn nix_built_daemon_observes_recorded_entries_back_through_query() {
     let _recorded = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Record ([Sustaining] Decision [observe round trip] Maximum Minimum 1 Zero))",
+        "(Record ([Sustaining] Decision [observe round trip] Maximum Minimum Zero))",
     );
 
     let observed = run_cli_for_output(
@@ -620,11 +626,17 @@ fn nix_built_daemon_handles_back_to_back_inputs_through_one_socket() {
 
     for description in descriptions {
         let nota_input =
-            format!("(Record ([Sustaining] Decision [{description}] Maximum Minimum 1 Zero))");
+            format!("(Record ([Sustaining] Decision [{description}] Maximum Minimum Zero))");
         let output = run_cli_for_output(&binaries, daemon.socket(), &nota_input);
         match output {
-            Output::RecordAccepted(receipt) => markers.push(receipt.database_marker.clone()),
+            Output::RecordAccepted(receipt) => assert_short_record_identifier(receipt.payload()),
             other => panic!("expected RecordAccepted for {description}, got {other:?}"),
+        }
+        match run_cli_for_output(&binaries, daemon.socket(), "Version") {
+            Output::VersionReported(report) => {
+                markers.push(report.payload().database_marker.clone())
+            }
+            other => panic!("expected VersionReported for {description}, got {other:?}"),
         }
     }
 
@@ -680,10 +692,10 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let recorded = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Record ([Sustaining] Decision [variant tour] Maximum Minimum 1 Zero))",
+        "(Record ([Sustaining] Decision [variant tour] Maximum Minimum Zero))",
     );
     let recorded_identifier = match &recorded {
-        Output::RecordAccepted(receipt) => receipt.record_identifier.clone(),
+        Output::RecordAccepted(receipt) => receipt.payload().clone(),
         other => panic!("expected RecordAccepted, got {other:?}"),
     };
     assert_short_record_identifier(&recorded_identifier);
@@ -708,10 +720,10 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let rerecorded = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Record ([Sustaining] Decision [variant tour] Maximum Minimum 1 Zero))",
+        "(Record ([Sustaining] Decision [variant tour] Maximum Minimum Zero))",
     );
     let rerecorded_identifier = match &rerecorded {
-        Output::RecordAccepted(receipt) => receipt.record_identifier.clone(),
+        Output::RecordAccepted(receipt) => receipt.payload().clone(),
         other => panic!("expected second RecordAccepted, got {other:?}"),
     };
     assert_short_record_identifier(&rerecorded_identifier);
@@ -732,7 +744,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let rejected = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Record ([] Decision [empty category] Maximum Minimum 1 Zero))",
+        "(Record ([] Decision [empty category] Maximum Minimum Zero))",
     );
     assert!(matches!(rejected, Output::Rejected(_)));
     assert_eq!(rejected.route(), OutputRoute::Rejected);
@@ -776,7 +788,7 @@ fn nix_built_daemon_alias_state_across_separate_cli_processes() {
 
     // Independent processes — exec a fresh CLI binary each time.
     let mut child_a = Command::new(&binaries.spirit_cli)
-        .arg("(Record ([Sustaining] Decision [process a record] Maximum Minimum 1 Zero))")
+        .arg("(Record ([Sustaining] Decision [process a record] Maximum Minimum Zero))")
         .env("SPIRIT_SOCKET", daemon.socket())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

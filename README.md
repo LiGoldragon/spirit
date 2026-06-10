@@ -70,17 +70,16 @@ Entries carry a vector of categories. Queries use generated `CategoryMatch` valu
 `(Full [Meaning Making])` requires every requested category. The query kind is
 optional: `(Some Decision)` filters by kind and `None` searches only by category.
 The full generated query carries category, keyword, text, kind, privacy,
-certainty, importance, and weight predicates. `KeywordMatch` reads
+certainty, and importance predicates. `KeywordMatch` reads
 asterisk-marked description spans such as `*schema language*`; `TextMatch` is a
 case-insensitive full-text substring fallback. The CLI accepts the common
 three-field query shorthand and fills keyword/text with `Any`, certainty with
-`AtLeastCertainty Minimum`, importance with `Any`, and weight with `Any`, so
-ordinary `Observe` and `Count` hide zero-certainty removal candidates. Use the
-explicit four-field shorthand with `ExactCertainty Zero` when reviewing
-candidates, the five-field shorthand to add an `ImportanceSelection`, or the
-six-field shorthand to add a `WeightSelection`. Certainty, importance, and
-weight are separate stored axes: certainty names confidence/currentness,
-importance names intrinsic significance, and weight counts reaffirmation.
+`AtLeastCertainty Minimum`, and importance with `Any`, so ordinary `Observe`
+and `Count` hide zero-certainty removal candidates. Use the explicit four-field
+shorthand with `ExactCertainty Zero` when reviewing candidates, or the
+five-field shorthand to add an `ImportanceSelection`. Certainty and importance
+are separate stored axes: certainty names confidence/currentness, while
+importance names intrinsic significance and reaffirmation strength.
 
 ## Runtime triad
 

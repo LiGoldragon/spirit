@@ -215,16 +215,16 @@ impl Engine {
 
     pub fn intent_recorded_event(
         &self,
-        receipt: &SemaReceipt,
+        record_identifier: &signal_schema::RecordIdentifier,
     ) -> Result<Option<IntentEvent>, StoreError> {
-        self.nexus.intent_recorded_event(receipt)
+        self.nexus.intent_recorded_event(record_identifier)
     }
 
     pub async fn intent_recorded_event_async(
         &self,
-        receipt: &SemaReceipt,
+        record_identifier: &signal_schema::RecordIdentifier,
     ) -> Result<Option<IntentEvent>, StoreError> {
-        self.intent_recorded_event(receipt)
+        self.intent_recorded_event(record_identifier)
     }
 
     pub fn intent_clarified_event(
@@ -470,7 +470,7 @@ impl Input {
             | Self::Remove(_)
             | Self::Retire(_)
             | Self::ChangeCertainty(_)
-            | Self::BumpWeight(_)
+            | Self::BumpImportance(_)
             | Self::LookupStash(_)
             | Self::Tap(_)
             | Self::Untap(_)
@@ -562,7 +562,6 @@ impl RecordSelection {
             privacy_selection: PrivacySelection::default_observation_privacy(),
             certainty_selection: CertaintySelection::default_observation_certainty(),
             importance_selection: ImportanceSelection::default_observation_importance(),
-            weight_selection: signal_schema::WeightSelection::default_observation_weight(),
         }
     }
 
@@ -577,7 +576,6 @@ impl RecordSelection {
             )),
             certainty_selection: CertaintySelection::default_observation_certainty(),
             importance_selection: ImportanceSelection::default_observation_importance(),
-            weight_selection: signal_schema::WeightSelection::default_observation_weight(),
         }
     }
 }
@@ -701,8 +699,7 @@ impl MailLedgerEvent {
 impl Output {
     pub fn database_marker(&self) -> DatabaseMarker {
         match self {
-            Self::RecordAccepted(receipt) => receipt.payload().database_marker.clone(),
-            Self::Proposed(receipt) => receipt.payload().database_marker.clone(),
+            Self::RecordAccepted(_) | Self::Proposed(_) => DatabaseMarker::zero(),
             Self::Clarified(receipt) => receipt.payload().database_marker.clone(),
             Self::Superseded(receipt) => receipt.payload().sema_receipt.database_marker.clone(),
             Self::Retired(receipt) => receipt.payload().database_marker.clone(),
@@ -713,7 +710,7 @@ impl Output {
             Self::RecordsCounted(records) => records.payload().database_marker.clone(),
             Self::RecordRemoved(receipt) => receipt.payload().database_marker.clone(),
             Self::CertaintyChanged(receipt) => receipt.payload().database_marker.clone(),
-            Self::WeightBumped(receipt) => receipt.payload().database_marker.clone(),
+            Self::ImportanceBumped(receipt) => receipt.payload().database_marker.clone(),
             Self::RecordChanged(receipt) => receipt.payload().database_marker.clone(),
             Self::RemovalCandidatesCollected(collection) => {
                 collection.payload().database_marker.clone()
@@ -1020,14 +1017,6 @@ impl PartialOrd for signal_schema::StateDigest {
 impl Ord for signal_schema::StateDigest {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.payload().cmp(other.payload())
-    }
-}
-
-impl std::ops::Deref for signal_schema::RecordAccepted {
-    type Target = SemaReceipt;
-
-    fn deref(&self) -> &Self::Target {
-        self.payload()
     }
 }
 

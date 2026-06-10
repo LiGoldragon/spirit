@@ -67,7 +67,6 @@ fn decision_entry(description: &str) -> Entry {
         description: Description::new(description),
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
-        weight: 1_u64.into(),
         privacy: Privacy::new(Magnitude::Zero),
     }
 }
@@ -84,7 +83,6 @@ fn observe_query() -> Query {
         certainty_selection:
             spirit::schema::signal::CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
-        weight_selection: spirit::schema::signal::WeightSelection::default_observation_weight(),
     }
 }
 

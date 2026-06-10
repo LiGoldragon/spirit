@@ -11,12 +11,12 @@ use spirit::{
         signal::{
             Categories, CategoryMatch, Certainty, CertaintyChange, CertaintySelection,
             Clarification, DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport,
-            GuardianRejectionReason, ImportanceSelection, Input, Keyword, KeywordMatch, Keywords,
-            Kind, Magnitude, MailLedgerEvent, MessageIdentifier, MessageSent, MessageSentHook,
-            OriginRoute, Output, Privacy, PrivacySelection, Query, RecordChange, RecordIdentifier,
-            RecordSelection, RetiredIdentifier, RetiredIdentifiers, Retirement, SearchText,
-            SemaReceipt, SentMail, SignalEngine, SignalRejection, StashHandle, Statement,
-            StatementText, Supersession, TextMatch, ValidationError, WeightBump, WeightSelection,
+            GuardianRejectionReason, ImportanceBump, ImportanceSelection, Input, Keyword,
+            KeywordMatch, Keywords, Kind, Magnitude, MailLedgerEvent, MessageIdentifier,
+            MessageSent, MessageSentHook, OriginRoute, Output, Privacy, PrivacySelection, Query,
+            RecordChange, RecordIdentifier, RecordSelection, RetiredIdentifier, RetiredIdentifiers,
+            Retirement, SearchText, SemaReceipt, SentMail, SignalEngine, SignalRejection,
+            StashHandle, Statement, StatementText, Supersession, TextMatch, ValidationError,
         },
     },
 };
@@ -172,7 +172,6 @@ fn entry_with_categories(categories: &[&str], description: &str) -> Entry {
         description: Description::new(description),
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
-        weight: 1_u64.into(),
         privacy: Privacy::new(Magnitude::Zero),
     }
 }
@@ -184,13 +183,8 @@ fn entry_with_privacy(description: &str, privacy: Magnitude) -> Entry {
     }
 }
 
-fn entry_with_weight_and_importance(
-    description: &str,
-    weight: u64,
-    importance: Magnitude,
-) -> Entry {
+fn entry_with_importance(description: &str, importance: Magnitude) -> Entry {
     Entry {
-        weight: weight.into(),
         importance: importance.into(),
         ..entry(description)
     }
@@ -247,7 +241,6 @@ fn full_query(categories: &[&str], kind: Option<Kind>) -> Query {
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
-        weight_selection: spirit::schema::signal::WeightSelection::default_observation_weight(),
     }
 }
 
@@ -260,7 +253,6 @@ fn partial_query(categories: &[&str], kind: Option<Kind>) -> Query {
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
-        weight_selection: spirit::schema::signal::WeightSelection::default_observation_weight(),
     }
 }
 
@@ -398,8 +390,8 @@ fn input_change_record(record_identifier: RecordIdentifier, entry: Entry) -> Inp
     })
 }
 
-fn input_bump_weight(record_identifier: RecordIdentifier) -> Input {
-    Input::bump_weight(WeightBump::new(record_identifier))
+fn input_bump_importance(record_identifier: RecordIdentifier) -> Input {
+    Input::bump_importance(ImportanceBump::new(record_identifier))
 }
 
 fn input_lookup_stash(stash_handle: StashHandle) -> Input {
@@ -435,8 +427,8 @@ fn sema_change_record(record_identifier: RecordIdentifier, entry: Entry) -> Sema
     })
 }
 
-fn sema_bump_weight(record_identifier: RecordIdentifier) -> SemaWriteInput {
-    SemaWriteInput::bump_weight(WeightBump::new(record_identifier))
+fn sema_bump_importance(record_identifier: RecordIdentifier) -> SemaWriteInput {
+    SemaWriteInput::bump_importance(ImportanceBump::new(record_identifier))
 }
 
 fn sema_observe(query: Query) -> SemaReadInput {
@@ -483,8 +475,7 @@ fn nexus_runner_loop_routes_record_input_to_sema_write_command_then_back_to_repl
     assert_eq!(nexus_output.origin_route(), nexus_route(1));
     match nexus_reply_output(&nexus_output) {
         Output::RecordAccepted(receipt) => {
-            assert_short_record_identifier(&receipt.record_identifier);
-            assert_eq!(receipt.database_marker.commit_sequence, 1);
+            assert_short_record_identifier(receipt.payload());
         }
         other => panic!("expected ReplyToSignal(RecordAccepted), got {other:?}"),
     }
@@ -502,8 +493,7 @@ fn nexus_runner_moves_sema_work_through_multi_thread_runtime_boundary() {
 
     match nexus_reply_output(&record_output) {
         Output::RecordAccepted(receipt) => {
-            assert_short_record_identifier(&receipt.record_identifier);
-            assert_eq!(receipt.database_marker.commit_sequence, 1);
+            assert_short_record_identifier(receipt.payload());
         }
         other => panic!("expected multi-thread RecordAccepted, got {other:?}"),
     }
@@ -533,8 +523,7 @@ fn nexus_classifies_state_into_provisional_record_through_sema_write() {
 
     match nexus_reply_output(&nexus_output) {
         Output::RecordAccepted(receipt) => {
-            assert_short_record_identifier(&receipt.record_identifier);
-            assert_eq!(receipt.database_marker.commit_sequence, 1);
+            assert_short_record_identifier(receipt.payload());
         }
         other => panic!("expected State to classify into RecordAccepted, got {other:?}"),
     }
@@ -609,22 +598,24 @@ fn nexus_change_record_is_visible_as_schema_declared_write_command() {
 }
 
 #[test]
-fn nexus_bump_weight_is_visible_as_schema_declared_write_command() {
+fn nexus_bump_importance_is_visible_as_schema_declared_write_command() {
     let sema = SemaFile::new();
     let mut nexus = Nexus::new(sema.open_store());
     let identifier = record_identifier("003g");
-    let nexus_input = nexus_signal_arrived(input_bump_weight(identifier.clone()))
+    let nexus_input = nexus_signal_arrived(input_bump_importance(identifier.clone()))
         .with_origin_route(nexus_route(7));
 
     let first_action = NexusEngine::decide(&mut nexus, nexus_input);
 
     assert_eq!(first_action.origin_route(), nexus_route(7));
     match first_action.root() {
-        NexusAction::CommandSemaWrite(CommandSemaWrite::BumpWeight(change)) => {
+        NexusAction::CommandSemaWrite(CommandSemaWrite::BumpImportance(change)) => {
             assert_eq!(change.payload().payload(), &identifier);
         }
         other => {
-            panic!("expected BumpWeight to become CommandSemaWrite(BumpWeight), got {other:?}")
+            panic!(
+                "expected BumpImportance to become CommandSemaWrite(BumpImportance), got {other:?}"
+            )
         }
     }
 }
@@ -759,12 +750,12 @@ fn nexus_write_operations_are_visible_as_schema_declared_effect_commands() {
 }
 
 #[test]
-fn sema_engine_bumps_record_weight_without_changing_record_identifier() {
+fn sema_engine_bumps_record_importance_without_changing_record_identifier() {
     let sema = SemaFile::new();
     let mut store = sema.open_store();
     let recorded = SemaEngine::apply(
         &mut store,
-        sema_write_message(sema_record(entry("weight target")), 1),
+        sema_write_message(sema_record(entry("importance target")), 1),
     );
     let record_identifier = match recorded.into_root() {
         SemaWriteOutput::Recorded(receipt) => receipt.record_identifier.clone(),
@@ -773,16 +764,16 @@ fn sema_engine_bumps_record_weight_without_changing_record_identifier() {
 
     let bumped = SemaEngine::apply(
         &mut store,
-        sema_write_message(sema_bump_weight(record_identifier.clone()), 2),
+        sema_write_message(sema_bump_importance(record_identifier.clone()), 2),
     );
     match bumped.root() {
-        SemaWriteOutput::WeightBumped(receipt) => {
+        SemaWriteOutput::ImportanceBumped(receipt) => {
             let receipt = receipt.payload();
             assert_eq!(receipt.record_identifier, record_identifier);
-            assert_eq!(receipt.weight.payload(), &2);
+            assert_eq!(receipt.importance.payload(), &Magnitude::VeryLow);
             assert_eq!(receipt.database_marker.commit_sequence, 2);
         }
-        other => panic!("expected WeightBumped receipt, got {other:?}"),
+        other => panic!("expected ImportanceBumped receipt, got {other:?}"),
     }
 
     let found = SemaEngine::observe(
@@ -792,8 +783,8 @@ fn sema_engine_bumps_record_weight_without_changing_record_identifier() {
     match found.root() {
         SemaReadOutput::Found(record) => {
             assert_eq!(record.record_identifier, record_identifier);
-            assert_eq!(record.entry.description, "weight target");
-            assert_eq!(record.entry.weight.payload(), &2);
+            assert_eq!(record.entry.description, "importance target");
+            assert_eq!(record.entry.importance.payload(), &Magnitude::VeryLow);
         }
         other => panic!("expected bumped record lookup, got {other:?}"),
     }
@@ -849,7 +840,7 @@ fn signal_write_operations_propose_clarify_supersede_and_retire() {
 
     let proposed = engine.handle(input_propose(entry("initial forward arrow")));
     let original_identifier = match proposed.root() {
-        Output::Proposed(receipt) => receipt.payload().record_identifier.clone(),
+        Output::Proposed(receipt) => receipt.payload().clone(),
         other => panic!("expected Proposed receipt, got {other:?}"),
     };
 
@@ -865,7 +856,10 @@ fn signal_write_operations_propose_clarify_supersede_and_retire() {
                 rejection.payload().record_set[0].record_identifier,
                 original_identifier
             );
-            assert_eq!(rejection.payload().record_set[0].entry.weight.payload(), &2);
+            assert_eq!(
+                rejection.payload().record_set[0].entry.importance.payload(),
+                &Magnitude::VeryLow
+            );
         }
         other => panic!("expected duplicate GuardianRejected receipt, got {other:?}"),
     }
@@ -1091,8 +1085,7 @@ fn engine_lifecycle_runs_generated_trait_hooks_without_actor_mailboxes() {
 
     match output.root() {
         Output::RecordAccepted(receipt) => {
-            assert_short_record_identifier(&receipt.record_identifier);
-            assert_eq!(receipt.database_marker.commit_sequence, 1);
+            assert_short_record_identifier(receipt.payload());
         }
         other => panic!("expected lifecycle-wrapped engine to accept record, got {other:?}"),
     }
@@ -1110,8 +1103,7 @@ fn nexus_engine_trait_runs_nexus_decision_through_sema_state() {
     assert_eq!(nexus_output.origin_route(), nexus_route(20));
     match nexus_reply_output(&nexus_output) {
         Output::RecordAccepted(receipt) => {
-            assert_short_record_identifier(&receipt.record_identifier);
-            assert_eq!(receipt.database_marker.commit_sequence, 1);
+            assert_short_record_identifier(receipt.payload());
         }
         other => panic!("expected NexusEngine to return a Signal reply root, got {other:?}"),
     }
@@ -1139,8 +1131,7 @@ fn signal_engine_trait_triages_signal_roots_to_nexus_and_back() {
     assert_eq!(signal_output.origin_route(), route(21));
     match signal_output.root() {
         Output::RecordAccepted(receipt) => {
-            assert_short_record_identifier(&receipt.record_identifier);
-            assert_eq!(receipt.database_marker.commit_sequence, 1);
+            assert_short_record_identifier(receipt.payload());
         }
         other => panic!("expected SignalEngine to return a Signal output root, got {other:?}"),
     }
@@ -1398,39 +1389,27 @@ fn signal_admission_rejects_empty_keyword_and_text_queries() {
 }
 
 #[test]
-fn sema_engine_observation_orders_by_certainty_then_weight_then_importance() {
+fn sema_engine_observation_orders_by_certainty_then_importance() {
     let sema = SemaFile::new();
     let mut store = sema.open_store();
     SemaEngine::apply(
         &mut store,
         sema_write_message(
-            sema_record(entry_with_weight_and_importance(
-                "tertiary low",
-                1,
-                Magnitude::Low,
-            )),
+            sema_record(entry_with_importance("tertiary low", Magnitude::Low)),
             1,
         ),
     );
     SemaEngine::apply(
         &mut store,
         sema_write_message(
-            sema_record(entry_with_weight_and_importance(
-                "tertiary high",
-                1,
-                Magnitude::High,
-            )),
+            sema_record(entry_with_importance("tertiary high", Magnitude::High)),
             2,
         ),
     );
     SemaEngine::apply(
         &mut store,
         sema_write_message(
-            sema_record(entry_with_weight_and_importance(
-                "reaffirmed",
-                3,
-                Magnitude::Low,
-            )),
+            sema_record(entry_with_importance("reaffirmed", Magnitude::VeryHigh)),
             3,
         ),
     );
@@ -1447,20 +1426,20 @@ fn sema_engine_observation_orders_by_certainty_then_weight_then_importance() {
         other => panic!("expected ranked observation records, got {other:?}"),
     }
 
-    let high_weight_query = Query {
-        weight_selection: WeightSelection::at_least_weight(2_u64.into()),
+    let high_importance_query = Query {
+        importance_selection: ImportanceSelection::at_least_importance(Magnitude::VeryHigh.into()),
         ..query()
     };
     let filtered = SemaEngine::observe(
         &store,
-        sema_read_message(sema_observe(high_weight_query), 5),
+        sema_read_message(sema_observe(high_importance_query), 5),
     );
     match filtered.root() {
         SemaReadOutput::Observed(records) => {
             assert_eq!(records.record_set.len(), 1);
             assert_eq!(records.record_set[0].entry.description, "reaffirmed");
         }
-        other => panic!("expected high-weight filtered record, got {other:?}"),
+        other => panic!("expected high-importance filtered record, got {other:?}"),
     }
 }
 
@@ -1531,7 +1510,7 @@ fn public_private_record_shortcuts_project_to_privacy_queries_through_nexus() {
     let public_record = engine.handle(input_record(entry("public shortcut target")));
     match public_record.root() {
         Output::RecordAccepted(receipt) => {
-            assert_eq!(receipt.database_marker.commit_sequence, 1);
+            assert_short_record_identifier(receipt.payload());
         }
         other => panic!("expected public RecordAccepted, got {other:?}"),
     };
@@ -1540,7 +1519,10 @@ fn public_private_record_shortcuts_project_to_privacy_queries_through_nexus() {
         Magnitude::High,
     )));
     let private_marker = match private_record.root() {
-        Output::RecordAccepted(receipt) => receipt.database_marker.clone(),
+        Output::RecordAccepted(receipt) => {
+            assert_short_record_identifier(receipt.payload());
+            engine.database_marker()
+        }
         other => panic!("expected private RecordAccepted, got {other:?}"),
     };
 
@@ -1726,8 +1708,7 @@ fn nexus_runs_sema_while_holding_mail_then_replies_through_schema_objects() {
     assert_eq!(recorded.origin_route(), route(1));
     match recorded.root() {
         Output::RecordAccepted(receipt) => {
-            assert_short_record_identifier(&receipt.record_identifier);
-            assert_eq!(receipt.database_marker.commit_sequence, 1);
+            assert_short_record_identifier(receipt.payload());
         }
         other => panic!("expected RecordAccepted, got {other:?}"),
     }
@@ -1886,8 +1867,8 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
     assert_eq!(recorded.origin_route(), route(1));
     let record_marker = match recorded.root() {
         Output::RecordAccepted(receipt) => {
-            assert_short_record_identifier(&receipt.record_identifier);
-            receipt.database_marker.clone()
+            assert_short_record_identifier(receipt.payload());
+            engine.database_marker()
         }
         other => panic!("expected RecordAccepted, got {other:?}"),
     };
@@ -1905,7 +1886,6 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
-        weight_selection: spirit::schema::signal::WeightSelection::default_observation_weight(),
     }));
 
     assert_eq!(observed.origin_route(), route(2));
@@ -1967,7 +1947,7 @@ fn full_runtime_triad_looks_up_and_counts_through_signal_nexus_and_sema() {
         "lookup one",
     )));
     let first_identifier = match first.into_root() {
-        Output::RecordAccepted(receipt) => receipt.record_identifier.clone(),
+        Output::RecordAccepted(receipt) => receipt.payload().clone(),
         other => panic!("expected first RecordAccepted, got {other:?}"),
     };
     engine.handle(input_record(entry_with_categories(
