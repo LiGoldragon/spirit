@@ -102,6 +102,11 @@ impl Engine {
         }
     }
 
+    #[cfg(feature = "agent-guardian")]
+    pub fn set_guardian(&mut self, guardian: crate::guardian::AgentGuardian) {
+        self.nexus.set_guardian(guardian);
+    }
+
     #[cfg(feature = "testing-trace")]
     pub fn new_with_trace(store: Store, trace_log: TraceLog) -> Self {
         Self {

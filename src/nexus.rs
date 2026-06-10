@@ -220,6 +220,8 @@ pub struct Nexus {
     stash_table: StashTable,
     observer_tap_table: ObserverTapTable,
     classification_policy: ClassificationPolicy,
+    #[cfg(feature = "agent-guardian")]
+    guardian: Option<crate::guardian::AgentGuardian>,
     subscription_token_issuer: SubscriptionTokenIssuer,
     #[cfg(feature = "testing-trace")]
     trace_log: TraceLog,
@@ -279,6 +281,8 @@ impl Nexus {
                 stash_table: StashTable::default(),
                 observer_tap_table: ObserverTapTable::default(),
                 classification_policy: ClassificationPolicy::default(),
+                #[cfg(feature = "agent-guardian")]
+                guardian: None,
                 subscription_token_issuer: SubscriptionTokenIssuer::default(),
             }
         }
@@ -292,6 +296,8 @@ impl Nexus {
             stash_table: StashTable::default(),
             observer_tap_table: ObserverTapTable::default(),
             classification_policy: ClassificationPolicy::default(),
+            #[cfg(feature = "agent-guardian")]
+            guardian: None,
             subscription_token_issuer: SubscriptionTokenIssuer::default(),
             trace_log,
         }
@@ -334,6 +340,11 @@ impl Nexus {
 
     pub fn database_marker(&self) -> DatabaseMarker {
         self.store.database_marker()
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    pub fn set_guardian(&mut self, guardian: crate::guardian::AgentGuardian) {
+        self.guardian = Some(guardian);
     }
 
     pub fn intent_recorded_event(
@@ -401,7 +412,7 @@ impl Nexus {
                 NexusEffectResult::state_classified(entry)
             }
             NexusEffectCommand::Propose(propose) => {
-                match self.store.guard_propose(propose.into_payload()) {
+                match self.guard_propose(propose.into_payload()) {
                     Ok(Ok(receipt)) => NexusEffectResult::proposed(receipt),
                     Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
                     Err(error) => self.operation_failed(error.to_string()),
@@ -467,6 +478,30 @@ impl Nexus {
                 })
             }
         }
+    }
+
+    #[cfg(not(feature = "agent-guardian"))]
+    fn guard_propose(
+        &mut self,
+        entry: Entry,
+    ) -> Result<Result<SemaReceipt, crate::schema::signal::GuardianRejection>, StoreError> {
+        self.store.guard_propose(entry)
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn guard_propose(
+        &mut self,
+        entry: Entry,
+    ) -> Result<Result<SemaReceipt, crate::schema::signal::GuardianRejection>, StoreError> {
+        if let Some(guardian) = &self.guardian {
+            let records = self.store.guardian_records_for(&entry)?;
+            if let Some(rejection) =
+                guardian.guard_proposal(&entry, records, self.store.database_marker())
+            {
+                return Ok(Err(rejection.into_guardian_rejection()));
+            }
+        }
+        self.store.guard_propose(entry)
     }
 
     /// Run the `CollectRemovalCandidates` working operation: archive the

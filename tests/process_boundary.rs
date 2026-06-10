@@ -71,7 +71,7 @@ impl DaemonProcess {
         let configuration_path = socket_path.with_extension("config.rkyv");
         let meta_socket_path = Self::meta_socket_path(socket_path);
         let request = format!(
-            "(ConfigurationWriteRequest {} (Some {}) {} None {})",
+            "(ConfigurationWriteRequest {} (Some {}) {} None None {})",
             nota_path(socket_path),
             nota_path(&meta_socket_path),
             nota_path(database_path),

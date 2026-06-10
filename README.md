@@ -36,7 +36,7 @@ configuration carries the Unix socket path, required meta socket path, and
 `.sema` database path. The daemon does not parse NOTA at startup.
 
 ```sh
-spirit-write-configuration "(ConfigurationWriteRequest /tmp/spirit.sock (Some /tmp/spirit-meta.sock) /tmp/spirit.sema None /tmp/spirit.config.rkyv)"
+spirit-write-configuration "(ConfigurationWriteRequest /tmp/spirit.sock (Some /tmp/spirit-meta.sock) /tmp/spirit.sema None None /tmp/spirit.config.rkyv)"
 spirit-daemon /tmp/spirit.config.rkyv
 ```
 

@@ -97,6 +97,7 @@
         "schema-rust-next-source": "schema-rust-next-source",
         "sema-engine-source": "sema-engine-source",
         "sema-source": "sema-source",
+        "signal-agent-source": "signal-agent-source",
         "signal-frame-source": "signal-frame-source",
         "signal-sema-source": "signal-sema-source",
         "signal-spirit-source": "signal-spirit-source",
@@ -185,6 +186,22 @@
         "type": "github"
       }
     },
+    "signal-agent-source": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1781115263,
+        "narHash": "sha256-7qL3E2Adfye4NPqb+N8tLth4/XmZj7aW0sZCZjFlzvs=",
+        "owner": "LiGoldragon",
+        "repo": "signal-agent",
+        "rev": "d29fd78e3e480e1d902a73e6e1485a36d3ebe9f8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "LiGoldragon",
+        "repo": "signal-agent",
+        "type": "github"
+      }
+    },
     "signal-frame-source": {
       "flake": false,
       "locked": {
@@ -220,11 +237,11 @@
     "signal-spirit-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781024911,
-        "narHash": "sha256-Va5mFI7gJzTmKOwkpMH/avNkSB0uQTxHm2IRRiB8TMk=",
+        "lastModified": 1781114470,
+        "narHash": "sha256-CCSpXMw6eUpXQXwtweu3HOfzGcnbnHiT/Etk1aRENIM=",
         "owner": "LiGoldragon",
         "repo": "signal-spirit",
-        "rev": "87b45edba170df04922e2cae01453ae814b13d0b",
+        "rev": "a458c02670e92b8c2f647ac55d797bdad952d2ac",
         "type": "github"
       },
       "original": {

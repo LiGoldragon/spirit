@@ -124,6 +124,14 @@ impl ComponentDaemon for SpiritDaemon {
             let store = Store::open(configuration.database_path())?;
             Engine::new(store)
         };
+        #[cfg(feature = "agent-guardian")]
+        if let Some(guardian) = configuration
+            .guardian_agent_configuration()
+            .cloned()
+            .map(crate::guardian::AgentGuardian::new)
+        {
+            engine.set_guardian(guardian);
+        }
         engine.start().map_err(Self::Error::from)?;
         Ok(engine)
     }

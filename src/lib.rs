@@ -28,6 +28,8 @@
 pub mod config;
 pub mod daemon;
 pub mod engine;
+#[cfg(feature = "agent-guardian")]
+pub mod guardian;
 pub mod meta_transport;
 pub mod nexus;
 mod plane;
@@ -56,6 +58,10 @@ pub mod schema {
 pub use config::{Configuration, ConfigurationError};
 pub use daemon::{Daemon, SpiritDaemon, SpiritDaemonError};
 pub use engine::{Engine, MailLedger, MailLedgerHook, SignalAccepted, SignalAdmission};
+#[cfg(feature = "agent-guardian")]
+pub use guardian::{
+    AgentGuardian, AgentGuardianConfiguration, AgentGuardianError, AgentGuardianRejection,
+};
 pub use meta_transport::{
     MetaFrameError, MetaInputRoute, MetaOutputRoute, MetaSignalTransport, MetaTransportError,
 };

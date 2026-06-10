@@ -19,11 +19,11 @@ use crate::schema::{
         WriteOutput as SemaWriteOutput,
     },
     signal::{
-        Certainty, CertaintyChange, CertaintyChangeReceipt, CertaintySelection, Clarification,
-        ClarificationReceipt, CountedRecords, DatabaseMarker, Description, Entry, ErrorMessage,
-        ErrorReport, Explanation, FoundRecord, GuardianRejection, GuardianRejectionReason,
-        Importance, ImportanceSelection, Keyword, KeywordMatch, Keywords, Magnitude,
-        ObservedRecord, ObservedRecords, Privacy, PrivacySelection, Query, RecordChange,
+        CategoryMatch, Certainty, CertaintyChange, CertaintyChangeReceipt, CertaintySelection,
+        Clarification, ClarificationReceipt, CountedRecords, DatabaseMarker, Description, Entry,
+        ErrorMessage, ErrorReport, Explanation, FoundRecord, GuardianRejection,
+        GuardianRejectionReason, Importance, ImportanceSelection, Keyword, KeywordMatch, Keywords,
+        Magnitude, ObservedRecord, ObservedRecords, Privacy, PrivacySelection, Query, RecordChange,
         RecordChangeReceipt, RecordCount, RecordIdentifier, RecordSet, RemovalArchiveRecord,
         RemovalArchiveRecords, RemovalCandidateCollection, RemovalCandidatesCollection,
         RemoveReceipt, RemovedIdentifier, RemovedIdentifiers, Retirement, RetirementReceipt,
@@ -462,6 +462,20 @@ impl Store {
             .into_iter()
             .map(StoredRecord::into_observed_record)
             .collect())
+    }
+
+    pub fn guardian_records_for(&self, proposed: &Entry) -> Result<RecordSet, StoreError> {
+        self.observe(&Query {
+            category_match: CategoryMatch::partial(proposed.categories.clone()),
+            keyword_match: KeywordMatch::Any,
+            text_match: TextMatch::Any,
+            kind: None,
+            privacy_selection: PrivacySelection::Any,
+            certainty_selection: CertaintySelection::default_observation_certainty(),
+            importance_selection: ImportanceSelection::Any,
+            weight_selection: crate::schema::signal::WeightSelection::Any,
+        })
+        .map(RecordSet::new)
     }
 
     fn duplicate_record(&self, proposed: &Entry) -> Result<Option<StoredRecord>, StoreError> {

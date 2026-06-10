@@ -683,6 +683,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
+name = "signal-agent"
+version = "0.2.0"
+source = "git+https://github.com/LiGoldragon/signal-agent.git?branch=main#d29fd78e3e480e1d902a73e6e1485a36d3ebe9f8"
+dependencies = [
+ "nota-next",
+ "rkyv",
+ "schema-rust-next",
+ "signal-frame",
+ "thiserror",
+]
+
+[[package]]
 name = "signal-frame"
 version = "0.2.1"
 source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#166bda84dc63bf8461fff11a41c43d6a1c92a941"
@@ -715,8 +727,8 @@ dependencies = [
 
 [[package]]
 name = "signal-spirit"
-version = "0.5.1"
-source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=main#87b45edba170df04922e2cae01453ae814b13d0b"
+version = "0.5.2"
+source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=main#a458c02670e92b8c2f647ac55d797bdad952d2ac"
 dependencies = [
  "nota-next",
  "rkyv",
@@ -758,6 +770,7 @@ dependencies = [
  "schema-next",
  "schema-rust-next",
  "sema-engine",
+ "signal-agent",
  "signal-frame",
  "signal-spirit",
  "tempfile",

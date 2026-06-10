@@ -6,6 +6,8 @@ use std::{
 use nota_next::{Delimiter, NotaBlock, NotaDecode, NotaDecodeError, NotaEncode, NotaSource};
 use signal_spirit::{
     ConfigurationPath, SpiritDaemonConfiguration, SpiritDaemonConfigurationArchiveError,
+    SpiritGuardianAgentConfiguration, SpiritGuardianMaximumOutputTokens, SpiritGuardianModelName,
+    SpiritGuardianProviderName, SpiritGuardianTimeoutMilliseconds,
 };
 use thiserror::Error;
 use triad_runtime::{ArgumentError, ComponentArgument, ComponentCommand};
@@ -31,11 +33,33 @@ struct ConfigurationWriteRequest {
     meta_socket_path: Option<ConfigurationWriterPath>,
     database_path: ConfigurationWriterPath,
     trace_socket_path: Option<ConfigurationWriterPath>,
+    guardian_agent_configuration: Option<ConfigurationWriterGuardianAgent>,
     output_path: ConfigurationWriterPath,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, NotaDecode, NotaEncode)]
 struct ConfigurationWriterPath(String);
+
+#[derive(Debug, Clone, PartialEq, Eq, NotaDecode, NotaEncode)]
+struct ConfigurationWriterProviderName(String);
+
+#[derive(Debug, Clone, PartialEq, Eq, NotaDecode, NotaEncode)]
+struct ConfigurationWriterModelName(String);
+
+#[derive(Debug, Clone, PartialEq, Eq, NotaDecode, NotaEncode)]
+struct ConfigurationWriterTimeoutMilliseconds(u64);
+
+#[derive(Debug, Clone, PartialEq, Eq, NotaDecode, NotaEncode)]
+struct ConfigurationWriterMaximumOutputTokens(u64);
+
+#[derive(Debug, Clone, PartialEq, Eq, NotaDecode, NotaEncode)]
+struct ConfigurationWriterGuardianAgent {
+    agent_socket_path: ConfigurationWriterPath,
+    provider_name: Option<ConfigurationWriterProviderName>,
+    model_name: Option<ConfigurationWriterModelName>,
+    timeout_milliseconds: ConfigurationWriterTimeoutMilliseconds,
+    maximum_output_tokens: ConfigurationWriterMaximumOutputTokens,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ConfigurationWriteOutput {
@@ -113,6 +137,11 @@ impl ConfigurationWriteRequest {
             configuration =
                 configuration.with_trace_socket_path(trace_socket_path.into_configuration_path());
         }
+        if let Some(guardian_agent_configuration) = self.guardian_agent_configuration {
+            configuration = configuration.with_guardian_agent_configuration(
+                guardian_agent_configuration.into_guardian_agent_configuration(),
+            );
+        }
         configuration
     }
 }
@@ -122,10 +151,10 @@ impl NotaDecode for ConfigurationWriteRequest {
         let body = NotaBlock::new(block)
             .expect_body(Delimiter::Parenthesis, "ConfigurationWriteRequest")?;
         let objects = body.root_objects();
-        if objects.len() != 6 {
+        if objects.len() != 7 {
             return Err(NotaDecodeError::ExpectedRootCount {
                 type_name: "ConfigurationWriteRequest",
-                expected: 6,
+                expected: 7,
                 found: objects.len(),
             });
         }
@@ -148,7 +177,9 @@ impl NotaDecode for ConfigurationWriteRequest {
             meta_socket_path: Option::<ConfigurationWriterPath>::from_nota_block(&objects[2])?,
             database_path: ConfigurationWriterPath::from_nota_block(&objects[3])?,
             trace_socket_path: Option::<ConfigurationWriterPath>::from_nota_block(&objects[4])?,
-            output_path: ConfigurationWriterPath::from_nota_block(&objects[5])?,
+            guardian_agent_configuration:
+                Option::<ConfigurationWriterGuardianAgent>::from_nota_block(&objects[5])?,
+            output_path: ConfigurationWriterPath::from_nota_block(&objects[6])?,
         })
     }
 }
@@ -173,6 +204,44 @@ impl ConfigurationWriterPath {
 
     fn into_configuration_path(self) -> ConfigurationPath {
         ConfigurationPath::new(self.0)
+    }
+}
+
+impl ConfigurationWriterGuardianAgent {
+    fn into_guardian_agent_configuration(self) -> SpiritGuardianAgentConfiguration {
+        SpiritGuardianAgentConfiguration::new(
+            self.agent_socket_path.into_configuration_path(),
+            self.provider_name
+                .map(ConfigurationWriterProviderName::into_provider_name),
+            self.model_name
+                .map(ConfigurationWriterModelName::into_model_name),
+            self.timeout_milliseconds.into_timeout_milliseconds(),
+            self.maximum_output_tokens.into_maximum_output_tokens(),
+        )
+    }
+}
+
+impl ConfigurationWriterProviderName {
+    fn into_provider_name(self) -> SpiritGuardianProviderName {
+        SpiritGuardianProviderName::new(self.0)
+    }
+}
+
+impl ConfigurationWriterModelName {
+    fn into_model_name(self) -> SpiritGuardianModelName {
+        SpiritGuardianModelName::new(self.0)
+    }
+}
+
+impl ConfigurationWriterTimeoutMilliseconds {
+    fn into_timeout_milliseconds(self) -> SpiritGuardianTimeoutMilliseconds {
+        SpiritGuardianTimeoutMilliseconds::new(self.0)
+    }
+}
+
+impl ConfigurationWriterMaximumOutputTokens {
+    fn into_maximum_output_tokens(self) -> SpiritGuardianMaximumOutputTokens {
+        SpiritGuardianMaximumOutputTokens::new(self.0)
     }
 }
 

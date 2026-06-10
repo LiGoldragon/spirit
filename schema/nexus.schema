@@ -18,6 +18,8 @@
   SupersessionReceipt spirit:signal:SupersessionReceipt
   RetirementReceipt spirit:signal:RetirementReceipt
   GuardianRejection spirit:signal:GuardianRejection
+  GuardianRejectionReason spirit:signal:GuardianRejectionReason
+  Explanation spirit:signal:Explanation
   ErrorReport spirit:signal:ErrorReport
   Query spirit:signal:Query
   SubscriptionToken spirit:signal:SubscriptionToken
@@ -80,4 +82,6 @@
   ObserverTapClosed ObserverRetraction
   StashRequest { Records * DatabaseMarker * }
   StashResult { StashHandle * RecordCount * DatabaseMarker * }
+  GuardianVerdict [Accept (Reject)]
+  Reject { GuardianRejectionReason * Explanation * }
 }

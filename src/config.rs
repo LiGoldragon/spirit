@@ -21,6 +21,8 @@ pub struct Configuration {
     meta_socket_path: Option<PathBuf>,
     database_path: PathBuf,
     trace_socket_path: Option<PathBuf>,
+    #[cfg(feature = "agent-guardian")]
+    guardian_agent_configuration: Option<crate::guardian::AgentGuardianConfiguration>,
 }
 
 impl Configuration {
@@ -57,6 +59,10 @@ impl Configuration {
             meta_socket_path: raw.meta_socket_path().map(PathBuf::from),
             database_path: PathBuf::from(raw.database_path()),
             trace_socket_path: raw.trace_socket_path().map(PathBuf::from),
+            #[cfg(feature = "agent-guardian")]
+            guardian_agent_configuration: raw
+                .guardian_agent_configuration()
+                .map(crate::guardian::AgentGuardianConfiguration::from_contract),
             raw,
         }
     }
@@ -79,6 +85,13 @@ impl Configuration {
 
     pub fn trace_socket_path(&self) -> Option<&Path> {
         self.trace_socket_path.as_deref()
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    pub fn guardian_agent_configuration(
+        &self,
+    ) -> Option<&crate::guardian::AgentGuardianConfiguration> {
+        self.guardian_agent_configuration.as_ref()
     }
 
     pub fn from_binary_path(path: impl AsRef<Path>) -> Result<Self, ConfigurationError> {

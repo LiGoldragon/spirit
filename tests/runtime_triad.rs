@@ -22,6 +22,25 @@ use spirit::{
 };
 use tempfile::TempDir;
 
+#[cfg(feature = "agent-guardian")]
+use {
+    signal_agent::{
+        Completion, CompletionText, Input as AgentInput, Output as AgentOutput, StopReasonText,
+        TokenUsage,
+    },
+    spirit::{
+        AgentGuardian, AgentGuardianConfiguration,
+        schema::nexus::{GuardianVerdict, Reject},
+    },
+    std::{
+        io::Write,
+        os::unix::net::{UnixListener, UnixStream},
+        thread,
+        time::Duration,
+    },
+    triad_runtime::{FrameBody, LengthPrefixedCodec},
+};
+
 struct SemaFile {
     #[allow(dead_code)]
     directory: TempDir,
@@ -47,10 +66,90 @@ impl SemaFile {
     fn engine(&self) -> Engine {
         Engine::new(self.open_store())
     }
+
+    #[cfg(feature = "agent-guardian")]
+    fn engine_with_guardian(&self, guardian: AgentGuardian) -> Engine {
+        let mut engine = Engine::new(self.open_store());
+        engine.set_guardian(guardian);
+        engine
+    }
 }
 
 struct SentHookProbe {
     events: Vec<MailLedgerEvent>,
+}
+
+#[cfg(feature = "agent-guardian")]
+struct FakeGuardianAgent {
+    _directory: TempDir,
+    socket_path: std::path::PathBuf,
+    thread: thread::JoinHandle<()>,
+}
+
+#[cfg(feature = "agent-guardian")]
+impl FakeGuardianAgent {
+    fn spawn(verdict: GuardianVerdict) -> Self {
+        let directory = TempDir::new().expect("agent tempdir");
+        let socket_path = directory.path().join("agent.sock");
+        let listener = UnixListener::bind(&socket_path).expect("bind fake agent socket");
+        let thread = thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("accept agent call");
+            Self::answer(stream, verdict);
+        });
+        Self {
+            _directory: directory,
+            socket_path,
+            thread,
+        }
+    }
+
+    fn answer(mut stream: UnixStream, verdict: GuardianVerdict) {
+        let codec = LengthPrefixedCodec::default();
+        let request = codec
+            .read_body(&mut stream)
+            .expect("read agent request")
+            .into_bytes();
+        let (_route, input) =
+            AgentInput::decode_signal_frame(&request).expect("decode agent input");
+        let AgentInput::Call(call) = input else {
+            panic!("expected Call input, got {input:?}");
+        };
+        assert!(
+            call.payload().transcript.payload()[0]
+                .text
+                .payload()
+                .contains("Proposal:")
+        );
+        let output = AgentOutput::completed(Completion {
+            text: CompletionText::new(verdict.to_nota()),
+            stop_reason: StopReasonText::new("stop"),
+            usage: TokenUsage {
+                prompt_tokens: None,
+                completion_tokens: None,
+            },
+        });
+        codec
+            .write_body(
+                &mut stream,
+                &FrameBody::new(output.encode_signal_frame().expect("encode agent output")),
+            )
+            .expect("write agent output");
+        stream.flush().expect("flush agent output");
+    }
+
+    fn guardian(&self) -> AgentGuardian {
+        AgentGuardian::new(AgentGuardianConfiguration::new(
+            self.socket_path.clone(),
+            None,
+            None,
+            Duration::from_secs(5),
+            128,
+        ))
+    }
+
+    fn join(self) {
+        self.thread.join().expect("fake agent joins");
+    }
 }
 
 impl MessageSentHook for SentHookProbe {
@@ -840,6 +939,49 @@ fn signal_write_operations_propose_clarify_supersede_and_retire() {
         3,
         "clarify, supersede, and retire each archive the prior live arrow"
     );
+}
+
+#[cfg(feature = "agent-guardian")]
+#[test]
+fn agent_guardian_accept_verdict_admits_proposal() {
+    let sema = SemaFile::new();
+    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::Accept);
+    let mut engine = sema.engine_with_guardian(fake_agent.guardian());
+
+    let output = engine.handle(input_propose(entry("model accepted forward arrow")));
+
+    assert!(matches!(output.root(), Output::Proposed(_)));
+    assert_eq!(engine.record_count(), 1);
+    fake_agent.join();
+}
+
+#[cfg(feature = "agent-guardian")]
+#[test]
+fn agent_guardian_reject_verdict_blocks_proposal() {
+    let sema = SemaFile::new();
+    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::reject(Reject {
+        guardian_rejection_reason: GuardianRejectionReason::NonIntent,
+        explanation: spirit::schema::signal::Explanation::new("not settled intent"),
+    }));
+    let mut engine = sema.engine_with_guardian(fake_agent.guardian());
+
+    let output = engine.handle(input_propose(entry("model rejected forward arrow")));
+
+    match output.root() {
+        Output::GuardianRejected(rejection) => {
+            assert_eq!(
+                rejection.payload().guardian_rejection_reason,
+                GuardianRejectionReason::NonIntent
+            );
+            assert_eq!(
+                rejection.payload().explanation.payload(),
+                "not settled intent"
+            );
+        }
+        other => panic!("expected GuardianRejected, got {other:?}"),
+    }
+    assert_eq!(engine.record_count(), 0);
+    fake_agent.join();
 }
 
 #[test]

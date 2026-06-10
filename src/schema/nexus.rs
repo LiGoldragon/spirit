@@ -48,6 +48,10 @@ pub use crate::schema::signal::RetirementReceipt as RetirementReceipt;
 #[rustfmt::skip]
 pub use crate::schema::signal::GuardianRejection as GuardianRejection;
 #[rustfmt::skip]
+pub use crate::schema::signal::GuardianRejectionReason as GuardianRejectionReason;
+#[rustfmt::skip]
+pub use crate::schema::signal::Explanation as Explanation;
+#[rustfmt::skip]
 pub use crate::schema::signal::ErrorReport as ErrorReport;
 #[rustfmt::skip]
 pub use crate::schema::signal::Query as Query;
@@ -334,6 +338,22 @@ pub struct StashResult {
     pub stash_handle: StashHandle,
     pub record_count: RecordCount,
     pub database_marker: DatabaseMarker,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum GuardianVerdict {
+    Accept,
+    Reject(Reject),
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Reject {
+    pub guardian_rejection_reason: GuardianRejectionReason,
+    pub explanation: Explanation,
 }
 
 #[rustfmt::skip]
@@ -1151,6 +1171,13 @@ impl NexusEffectResult {
 }
 
 #[rustfmt::skip]
+impl GuardianVerdict {
+    pub fn reject(payload: Reject) -> Self {
+        Self::Reject(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl Input {
     pub fn signal_arrived(payload: SignalInput) -> Self {
         Self::SignalArrived(SignalArrived::new(payload))
@@ -1434,6 +1461,13 @@ impl From<ObserverTapOpened> for NexusEffectResult {
 impl From<ObserverTapClosed> for NexusEffectResult {
     fn from(payload: ObserverTapClosed) -> Self {
         Self::ObserverTapClosed(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Reject> for GuardianVerdict {
+    fn from(payload: Reject) -> Self {
+        Self::Reject(payload)
     }
 }
 
@@ -1954,6 +1988,28 @@ impl StashRequest {
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
 impl StashResult {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl GuardianVerdict {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Reject {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
