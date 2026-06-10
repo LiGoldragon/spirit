@@ -202,6 +202,11 @@ impl LegacyQueryInput {
     fn removal_collection_query(
         payload: &nota_next::Block,
     ) -> Result<Option<Query>, NotaDecodeError> {
+        if let Some(query) =
+            Self::query_with_certainty(payload, CertaintySelection::removal_candidate_certainty())?
+        {
+            return Ok(Some(query));
+        }
         let Some([query]) = payload.as_delimited(Delimiter::Parenthesis) else {
             return Ok(None);
         };

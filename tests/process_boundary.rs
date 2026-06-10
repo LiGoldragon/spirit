@@ -575,6 +575,52 @@ fn cli_and_daemon_change_certainty_without_changing_record_identifier() {
 }
 
 #[test]
+fn cli_collect_removal_candidates_accepts_direct_query_shorthand() {
+    let temp = TempDir::new().expect("tempdir");
+    let socket_path = temp.path().join("collect-direct.sock");
+    let database_path = temp.path().join("collect-direct.sema");
+
+    let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
+
+    let accepted = run_cli(
+        &socket_path,
+        "(Record ([schema] Correction [direct collection target] Maximum Zero))",
+    );
+    let record_identifier = match accepted {
+        Output::RecordAccepted(receipt) => receipt.record_identifier.clone(),
+        other => panic!("expected RecordAccepted before collection, got {other:?}"),
+    };
+
+    let changed = run_cli(
+        &socket_path,
+        &format!(
+            "(ChangeCertainty ({} Zero))",
+            record_identifier_argument(&record_identifier)
+        ),
+    );
+    assert!(
+        matches!(changed, Output::CertaintyChanged(_)),
+        "record becomes an exact-zero collection candidate, got {changed:?}"
+    );
+
+    let collected = run_cli(
+        &socket_path,
+        "(CollectRemovalCandidates ((Full [schema]) (Some Correction) (Exact Zero)))",
+    );
+    match collected {
+        Output::RemovalCandidatesCollected(report) => {
+            let collection = report.payload();
+            assert_eq!(collection.removal_archive_records.payload().len(), 1);
+            assert_eq!(
+                collection.removed_identifiers.payload()[0].payload(),
+                &record_identifier
+            );
+        }
+        other => panic!("expected direct collection shorthand to collect record, got {other:?}"),
+    }
+}
+
+#[test]
 fn cli_and_daemon_change_record_replaces_entry_under_same_identifier() {
     let temp = TempDir::new().expect("tempdir");
     let socket_path = temp.path().join("change-record.sock");
