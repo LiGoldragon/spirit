@@ -4,8 +4,8 @@ use nota_next::{Delimiter, Document, NotaBlock, NotaDecode, NotaDecodeError};
 use spirit::{
     SignalTransport, TransportError,
     schema::signal::{
-        CategoryMatch, CertaintySelection, ImportanceSelection, Input, Kind, Output,
-        PrivacySelection, Query, RemovalCandidateCollection, Statement, StatementText,
+        CategoryMatch, CertaintySelection, ImportanceSelection, Input, KeywordMatch, Kind, Output,
+        PrivacySelection, Query, RemovalCandidateCollection, Statement, StatementText, TextMatch,
         WeightSelection,
     },
 };
@@ -278,6 +278,8 @@ impl LegacyQueryInput {
         };
         Ok(Some(Query {
             category_match: CategoryMatch::from_nota_block(category_match)?,
+            keyword_match: KeywordMatch::Any,
+            text_match: TextMatch::Any,
             kind: Option::<Kind>::from_nota_block(kind)?,
             privacy_selection: PrivacySelection::from_nota_block(privacy_selection)?,
             certainty_selection,

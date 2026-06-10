@@ -144,10 +144,10 @@ fn signal_schema_output_uses_exported_object_variant_names() {
 fn signal_schema_unit_variant_enum_uses_bare_pascal_case_atoms() {
     let witness = SchemaSourceWitness::new("schema/signal.schema", SIGNAL_SCHEMA);
 
-    // ValidationError carries four bare unit variants per designer 480 —
-    // StashHandleNotFound joins the Stash effect's lookup-by-handle path.
+    // ValidationError carries bare unit variants per designer 480; keyword
+    // and text-query validation add typed read-predicate failures.
     witness.must_contain(
-        "ValidationError [EmptyCategory EmptyDescription EmptyQueryCategory StashHandleNotFound]",
+        "ValidationError [EmptyCategory EmptyDescription EmptyQueryCategory EmptyKeyword EmptySearchText StashHandleNotFound]",
         "4",
     );
 
@@ -314,4 +314,6 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     signal_witness.must_contain("EmptyCategory", "4");
     signal_witness.must_contain("EmptyDescription", "4");
     signal_witness.must_contain("EmptyQueryCategory", "4");
+    signal_witness.must_contain("EmptyKeyword", "4");
+    signal_witness.must_contain("EmptySearchText", "4");
 }

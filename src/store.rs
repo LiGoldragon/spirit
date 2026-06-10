@@ -20,13 +20,14 @@ use crate::schema::{
     },
     signal::{
         Certainty, CertaintyChange, CertaintyChangeReceipt, CertaintySelection, CountedRecords,
-        DatabaseMarker, Entry, ErrorMessage, ErrorReport, FoundRecord, Importance,
-        ImportanceSelection, Magnitude, ObservedRecord, ObservedRecords, Privacy, PrivacySelection,
-        Query, RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier, RecordSet,
-        RemovalArchiveRecord, RemovalArchiveRecords, RemovalCandidateCollection,
-        RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifier, RemovedIdentifiers,
-        SemaReceipt, SkippedRemovalCandidate, SkippedRemovalCandidates, Weight, WeightBump,
-        WeightBumpReceipt, WeightSelection,
+        DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport, FoundRecord, Importance,
+        ImportanceSelection, Keyword, KeywordMatch, Keywords, Magnitude, ObservedRecord,
+        ObservedRecords, Privacy, PrivacySelection, Query, RecordChange, RecordChangeReceipt,
+        RecordCount, RecordIdentifier, RecordSet, RemovalArchiveRecord, RemovalArchiveRecords,
+        RemovalCandidateCollection, RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifier,
+        RemovedIdentifiers, SearchText, SemaReceipt, SkippedRemovalCandidate,
+        SkippedRemovalCandidates, TextMatch, Weight, WeightBump, WeightBumpReceipt,
+        WeightSelection,
     },
 };
 
@@ -746,14 +747,99 @@ impl Entry {
     }
 }
 
+impl Description {
+    pub fn keywords(&self) -> Keywords {
+        let mut keywords = Vec::new();
+        let mut seen = BTreeSet::new();
+        let mut inside_keyword = false;
+        let mut keyword = String::new();
+        for character in self.payload().chars() {
+            if character == '*' {
+                if inside_keyword {
+                    let normalized = keyword.trim().to_lowercase();
+                    if !normalized.is_empty() && seen.insert(normalized.clone()) {
+                        keywords.push(Keyword::new(normalized));
+                    }
+                    keyword.clear();
+                    inside_keyword = false;
+                } else {
+                    keyword.clear();
+                    inside_keyword = true;
+                }
+            } else if inside_keyword {
+                keyword.push(character);
+            }
+        }
+        Keywords::new(keywords)
+    }
+
+    pub fn contains_search_text(&self, search_text: &SearchText) -> bool {
+        self.payload()
+            .to_lowercase()
+            .contains(&search_text.payload().trim().to_lowercase())
+    }
+}
+
+impl Keyword {
+    pub fn normalized(&self) -> String {
+        self.payload().trim().to_lowercase()
+    }
+}
+
+impl Keywords {
+    pub fn contains_keyword(&self, expected: &Keyword) -> bool {
+        let expected = expected.normalized();
+        self.payload()
+            .iter()
+            .any(|keyword| keyword.normalized() == expected)
+    }
+
+    pub fn contains_any(&self, expected: &Keywords) -> bool {
+        expected
+            .payload()
+            .iter()
+            .any(|keyword| self.contains_keyword(keyword))
+    }
+
+    pub fn contains_all(&self, expected: &Keywords) -> bool {
+        expected
+            .payload()
+            .iter()
+            .all(|keyword| self.contains_keyword(keyword))
+    }
+}
+
 impl Query {
     pub fn matches(&self, entry: &Entry) -> bool {
         self.category_match.matches(&entry.categories)
+            && self.keyword_match.matches(&entry.description)
+            && self.text_match.matches(&entry.description)
             && self.kind.as_ref().is_none_or(|kind| &entry.kind == kind)
             && self.privacy_selection.matches(&entry.privacy)
             && self.certainty_selection.matches(&entry.certainty)
             && self.importance_selection.matches(&entry.importance)
             && self.weight_selection.matches(&entry.weight)
+    }
+}
+
+impl KeywordMatch {
+    pub fn matches(&self, description: &Description) -> bool {
+        match self {
+            Self::Any => true,
+            Self::AnyKeyword(expected) => description.keywords().contains_any(expected.payload()),
+            Self::AllKeywords(expected) => description.keywords().contains_all(expected.payload()),
+        }
+    }
+}
+
+impl TextMatch {
+    pub fn matches(&self, description: &Description) -> bool {
+        match self {
+            Self::Any => true,
+            Self::ContainsText(search_text) => {
+                description.contains_search_text(search_text.payload())
+            }
+        }
     }
 }
 

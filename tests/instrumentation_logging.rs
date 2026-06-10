@@ -56,6 +56,8 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
 
     let observed = engine.handle(Input::observe(Query {
         category_match: CategoryMatch::full(Categories::from_strings(vec![String::from("trace")])),
+        keyword_match: spirit::schema::signal::KeywordMatch::Any,
+        text_match: spirit::schema::signal::TextMatch::Any,
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),

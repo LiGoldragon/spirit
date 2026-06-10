@@ -53,6 +53,9 @@ SPIRIT_SOCKET=/tmp/spirit.sock \
   spirit "(Observe ((Full [Meaning]) (Some Constraint) (Exact Zero) (ExactCertainty Zero)))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
+  spirit "(Observe ((Full [Meaning]) (AllKeywords [schema]) (ContainsText interface) (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any Any))"
+
+SPIRIT_SOCKET=/tmp/spirit.sock \
   spirit "(Remove 1)"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
@@ -66,16 +69,18 @@ Entries carry a vector of categories. Queries use generated `CategoryMatch` valu
 `(Partial [Meaning Making])` matches any requested category, while
 `(Full [Meaning Making])` requires every requested category. The query kind is
 optional: `(Some Decision)` filters by kind and `None` searches only by category.
-The full generated query also carries privacy, certainty, importance, and weight
-selectors. The CLI accepts the common three-field query shorthand and fills the
-certainty selector with `AtLeastCertainty Minimum`, the importance selector with
-`Any`, and the weight selector with `Any`, so ordinary `Observe` and `Count` hide
-zero-certainty removal candidates. Use the explicit four-field form with
-`ExactCertainty Zero` when reviewing candidates, the five-field form to add an
-`ImportanceSelection`, or the six-field form to add a `WeightSelection`.
-Certainty, importance, and weight are separate stored axes: certainty names
-confidence/currentness, importance names intrinsic significance, and weight
-counts reaffirmation.
+The full generated query carries category, keyword, text, kind, privacy,
+certainty, importance, and weight predicates. `KeywordMatch` reads
+asterisk-marked description spans such as `*schema language*`; `TextMatch` is a
+case-insensitive full-text substring fallback. The CLI accepts the common
+three-field query shorthand and fills keyword/text with `Any`, certainty with
+`AtLeastCertainty Minimum`, importance with `Any`, and weight with `Any`, so
+ordinary `Observe` and `Count` hide zero-certainty removal candidates. Use the
+explicit four-field shorthand with `ExactCertainty Zero` when reviewing
+candidates, the five-field shorthand to add an `ImportanceSelection`, or the
+six-field shorthand to add a `WeightSelection`. Certainty, importance, and
+weight are separate stored axes: certainty names confidence/currentness,
+importance names intrinsic significance, and weight counts reaffirmation.
 
 ## Runtime triad
 

@@ -9,11 +9,11 @@ use crate::{
         signal::{
             self as signal_schema, Categories, Category, CategoryMatch, CertaintySelection,
             DatabaseMarker, Description, EngineStartFailure, EngineStopFailure, Entry,
-            ErrorMessage, ImportanceSelection, Input, Integer, IntentEvent, MailIdentifier,
-            MailLedgerEvent, MessageIdentifier, MessageProcessed, MessageProcessedHook,
-            MessageSent, MessageSentHook, OriginRoute, Output, Privacy, PrivacySelection,
-            ProcessedMail, Query, RecordSelection, SemaReceipt, SentMail, ShortHeader,
-            SignalEngine, SignalRejection, StatementText, ValidationError,
+            ErrorMessage, ImportanceSelection, Input, Integer, IntentEvent, KeywordMatch,
+            MailIdentifier, MailLedgerEvent, MessageIdentifier, MessageProcessed,
+            MessageProcessedHook, MessageSent, MessageSentHook, OriginRoute, Output, Privacy,
+            PrivacySelection, ProcessedMail, Query, RecordSelection, SemaReceipt, SentMail,
+            ShortHeader, SignalEngine, SignalRejection, StatementText, TextMatch, ValidationError,
         },
     },
     store::{Store, StoreError},
@@ -470,7 +470,9 @@ impl crate::schema::signal::RecordChange {
 
 impl Query {
     pub fn validate(&self) -> Result<(), ValidationError> {
-        self.category_match.validate()
+        self.category_match.validate()?;
+        self.keyword_match.validate()?;
+        self.text_match.validate()
     }
 }
 
@@ -494,6 +496,8 @@ impl RecordSelection {
     pub fn into_public_query(self) -> Query {
         Query {
             category_match: self.category_match,
+            keyword_match: KeywordMatch::Any,
+            text_match: TextMatch::Any,
             kind: self.kind,
             privacy_selection: PrivacySelection::default_observation_privacy(),
             certainty_selection: CertaintySelection::default_observation_certainty(),
@@ -505,6 +509,8 @@ impl RecordSelection {
     pub fn into_private_query(self) -> Query {
         Query {
             category_match: self.category_match,
+            keyword_match: KeywordMatch::Any,
+            text_match: TextMatch::Any,
             kind: self.kind,
             privacy_selection: PrivacySelection::at_least(Privacy::new(
                 PrivacySelection::private_floor(),
@@ -549,6 +555,44 @@ impl CategoryMatch {
                     .any(|entry_category| entry_category == category)
             }),
         }
+    }
+}
+
+impl KeywordMatch {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        match self {
+            Self::Any => Ok(()),
+            Self::AnyKeyword(keywords) => keywords.payload().validate(),
+            Self::AllKeywords(keywords) => keywords.payload().validate(),
+        }
+    }
+}
+
+impl TextMatch {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        match self {
+            Self::Any => Ok(()),
+            Self::ContainsText(search_text) => {
+                if search_text.payload().payload().trim().is_empty() {
+                    return Err(ValidationError::EmptySearchText);
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+impl signal_schema::Keywords {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        if self.payload().is_empty()
+            || self
+                .payload()
+                .iter()
+                .any(|keyword| keyword.payload().trim().is_empty())
+        {
+            return Err(ValidationError::EmptyKeyword);
+        }
+        Ok(())
     }
 }
 

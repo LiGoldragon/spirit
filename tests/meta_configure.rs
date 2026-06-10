@@ -77,6 +77,8 @@ fn observe_query() -> Query {
         category_match: CategoryMatch::full(Categories::from_strings(vec![String::from(
             "meta-configure",
         )])),
+        keyword_match: spirit::schema::signal::KeywordMatch::Any,
+        text_match: spirit::schema::signal::TextMatch::Any,
         kind: Some(Kind::Decision),
         privacy_selection: spirit::schema::signal::PrivacySelection::default_observation_privacy(),
         certainty_selection:

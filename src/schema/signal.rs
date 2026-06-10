@@ -247,6 +247,21 @@ pub struct Description(String);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Keyword(String);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Keywords(Vec<Keyword>);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct SearchText(String);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct StatementText(String);
 
 #[rustfmt::skip]
@@ -433,6 +448,8 @@ pub enum ValidationError {
     EmptyCategory,
     EmptyDescription,
     EmptyQueryCategory,
+    EmptyKeyword,
+    EmptySearchText,
     StashHandleNotFound,
 }
 
@@ -490,6 +507,38 @@ pub struct Partial(Categories);
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Full(Categories);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum KeywordMatch {
+    Any,
+    AnyKeyword(AnyKeyword),
+    AllKeywords(AllKeywords),
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct AnyKeyword(Keywords);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct AllKeywords(Keywords);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum TextMatch {
+    Any,
+    ContainsText(ContainsText),
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ContainsText(SearchText);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -843,6 +892,8 @@ pub struct RecordSelection {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Query {
     pub category_match: CategoryMatch,
+    pub keyword_match: KeywordMatch,
+    pub text_match: TextMatch,
     pub kind: Option<Kind>,
     pub privacy_selection: PrivacySelection,
     pub certainty_selection: CertaintySelection,
@@ -1634,6 +1685,63 @@ impl From<String> for Description {
 }
 
 #[rustfmt::skip]
+impl Keyword {
+    pub fn new(payload: impl Into<String>) -> Self {
+        Self(payload.into())
+    }
+    pub fn payload(&self) -> &String {
+        &self.0
+    }
+    pub fn into_payload(self) -> String {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<String> for Keyword {
+    fn from(payload: String) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Keywords {
+    pub fn new(payload: Vec<Keyword>) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Vec<Keyword> {
+        &self.0
+    }
+    pub fn into_payload(self) -> Vec<Keyword> {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Vec<Keyword>> for Keywords {
+    fn from(payload: Vec<Keyword>) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl SearchText {
+    pub fn new(payload: impl Into<String>) -> Self {
+        Self(payload.into())
+    }
+    pub fn payload(&self) -> &String {
+        &self.0
+    }
+    pub fn into_payload(self) -> String {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<String> for SearchText {
+    fn from(payload: String) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl StatementText {
     pub fn new(payload: impl Into<String>) -> Self {
         Self(payload.into())
@@ -1933,6 +2041,63 @@ impl Full {
 #[rustfmt::skip]
 impl From<Categories> for Full {
     fn from(payload: Categories) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl AnyKeyword {
+    pub fn new(payload: Keywords) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Keywords {
+        &self.0
+    }
+    pub fn into_payload(self) -> Keywords {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Keywords> for AnyKeyword {
+    fn from(payload: Keywords) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl AllKeywords {
+    pub fn new(payload: Keywords) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Keywords {
+        &self.0
+    }
+    pub fn into_payload(self) -> Keywords {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Keywords> for AllKeywords {
+    fn from(payload: Keywords) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl ContainsText {
+    pub fn new(payload: SearchText) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &SearchText {
+        &self.0
+    }
+    pub fn into_payload(self) -> SearchText {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<SearchText> for ContainsText {
+    fn from(payload: SearchText) -> Self {
         Self::new(payload)
     }
 }
@@ -2497,6 +2662,23 @@ impl CategoryMatch {
 }
 
 #[rustfmt::skip]
+impl KeywordMatch {
+    pub fn any_keyword(payload: Keywords) -> Self {
+        Self::AnyKeyword(AnyKeyword::new(payload))
+    }
+    pub fn all_keywords(payload: Keywords) -> Self {
+        Self::AllKeywords(AllKeywords::new(payload))
+    }
+}
+
+#[rustfmt::skip]
+impl TextMatch {
+    pub fn contains_text(payload: SearchText) -> Self {
+        Self::ContainsText(ContainsText::new(payload))
+    }
+}
+
+#[rustfmt::skip]
 impl PrivacySelection {
     pub fn exact(payload: Privacy) -> Self {
         Self::Exact(Exact::new(payload))
@@ -2687,6 +2869,27 @@ impl From<Partial> for CategoryMatch {
 impl From<Full> for CategoryMatch {
     fn from(payload: Full) -> Self {
         Self::Full(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<AnyKeyword> for KeywordMatch {
+    fn from(payload: AnyKeyword) -> Self {
+        Self::AnyKeyword(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<AllKeywords> for KeywordMatch {
+    fn from(payload: AllKeywords) -> Self {
+        Self::AllKeywords(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<ContainsText> for TextMatch {
+    fn from(payload: ContainsText) -> Self {
+        Self::ContainsText(payload)
     }
 }
 
@@ -3447,6 +3650,39 @@ impl Description {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
+impl Keyword {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Keywords {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl SearchText {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
 impl StatementText {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -3822,6 +4058,61 @@ impl Partial {
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
 impl Full {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl KeywordMatch {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl AnyKeyword {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl AllKeywords {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl TextMatch {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl ContainsText {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }

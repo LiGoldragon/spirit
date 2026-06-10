@@ -45,6 +45,9 @@
   Category [Being Knowing Meaning Making Relating Governing Caring Sustaining Dwelling Moving Valuing Expressing]
   Categories (Vec Category)
   Description String
+  Keyword String
+  Keywords (Vec Keyword)
+  SearchText String
   StatementText String
   ErrorMessage String
   RecordIdentifier String
@@ -73,7 +76,7 @@
   IntentRecorded { Entry * SemaReceipt * }
   IntentEvent [(IntentRecorded IntentRecorded belongs IntentEventStream)]
   IntentEventStream (Stream { token SubscriptionToken opened SubscriptionStarted event IntentEvent close SubscriptionToken })
-  ValidationError [EmptyCategory EmptyDescription EmptyQueryCategory StashHandleNotFound]
+  ValidationError [EmptyCategory EmptyDescription EmptyQueryCategory EmptyKeyword EmptySearchText StashHandleNotFound]
   SentMail { MailIdentifier * OriginRoute * ShortHeader * }
   ProcessedMail { MailIdentifier * OriginRoute * DatabaseMarker * }
   MailLedgerEvent [(Sent) (Processed)]
@@ -83,6 +86,11 @@
   CategoryMatch [Any (Partial) (Full)]
   Partial Categories
   Full Categories
+  KeywordMatch [Any (AnyKeyword) (AllKeywords)]
+  AnyKeyword Keywords
+  AllKeywords Keywords
+  TextMatch [Any (ContainsText)]
+  ContainsText SearchText
   Privacy Magnitude
   Certainty Magnitude
   Importance Magnitude
@@ -131,7 +139,7 @@
   RecordChange { RecordIdentifier * Entry * }
   RecordChangeReceipt { RecordIdentifier * DatabaseMarker * }
   RecordSelection { CategoryMatch * kind (Optional Kind) }
-  Query { CategoryMatch * kind (Optional Kind) privacy_selection PrivacySelection certainty_selection CertaintySelection importance_selection ImportanceSelection weight_selection WeightSelection }
+  Query { CategoryMatch * keyword_match KeywordMatch text_match TextMatch kind (Optional Kind) privacy_selection PrivacySelection certainty_selection CertaintySelection importance_selection ImportanceSelection weight_selection WeightSelection }
   Records (Vec ObservedRecord)
   RecordSet (Vec ObservedRecord)
   Kind [Decision Principle Correction Clarification Constraint]

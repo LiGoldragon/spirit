@@ -518,6 +518,8 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
 
     let all_records_query = Query {
         category_match: CategoryMatch::Any,
+        keyword_match: spirit::schema::signal::KeywordMatch::Any,
+        text_match: spirit::schema::signal::TextMatch::Any,
         kind: None,
         privacy_selection: PrivacySelection::Any,
         certainty_selection: CertaintySelection::Any,
@@ -568,6 +570,8 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
         .count();
     let observed_query = Query {
         category_match: CategoryMatch::partial(Categories::from_strings(vec![observed_category])),
+        keyword_match: spirit::schema::signal::KeywordMatch::Any,
+        text_match: spirit::schema::signal::TextMatch::Any,
         kind: None,
         privacy_selection: PrivacySelection::Any,
         certainty_selection: CertaintySelection::Any,
@@ -936,6 +940,8 @@ fn production_migration_binary_preserves_ids_and_writes_queryable_new_store() {
     let _daemon = sandbox.spawn_daemon();
     let all_records_query = Query {
         category_match: CategoryMatch::Any,
+        keyword_match: spirit::schema::signal::KeywordMatch::Any,
+        text_match: spirit::schema::signal::TextMatch::Any,
         kind: None,
         privacy_selection: PrivacySelection::Any,
         certainty_selection: CertaintySelection::Any,

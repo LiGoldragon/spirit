@@ -11,11 +11,11 @@ use spirit::{
         signal::{
             Categories, CategoryMatch, Certainty, CertaintyChange, CertaintySelection,
             DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport, ImportanceSelection,
-            Input, Kind, Magnitude, MailLedgerEvent, MessageIdentifier, MessageSent,
-            MessageSentHook, OriginRoute, Output, Privacy, PrivacySelection, Query, RecordChange,
-            RecordIdentifier, RecordSelection, SemaReceipt, SentMail, SignalEngine,
-            SignalRejection, StashHandle, Statement, StatementText, ValidationError, WeightBump,
-            WeightSelection,
+            Input, Keyword, KeywordMatch, Keywords, Kind, Magnitude, MailLedgerEvent,
+            MessageIdentifier, MessageSent, MessageSentHook, OriginRoute, Output, Privacy,
+            PrivacySelection, Query, RecordChange, RecordIdentifier, RecordSelection, SearchText,
+            SemaReceipt, SentMail, SignalEngine, SignalRejection, StashHandle, Statement,
+            StatementText, TextMatch, ValidationError, WeightBump, WeightSelection,
         },
     },
 };
@@ -104,6 +104,15 @@ fn categories_from_slice(categories: &[&str]) -> Categories {
     )
 }
 
+fn keywords_from_slice(keywords: &[&str]) -> Keywords {
+    Keywords::new(
+        keywords
+            .iter()
+            .map(|keyword| Keyword::new(String::from(*keyword)))
+            .collect(),
+    )
+}
+
 fn assert_short_record_identifier(identifier: &RecordIdentifier) {
     assert!(
         (4..=7).contains(&identifier.payload().len()),
@@ -127,6 +136,8 @@ fn query() -> Query {
 fn full_query(categories: &[&str], kind: Option<Kind>) -> Query {
     Query {
         category_match: CategoryMatch::full(categories_from_slice(categories)),
+        keyword_match: KeywordMatch::Any,
+        text_match: TextMatch::Any,
         kind,
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
@@ -138,6 +149,8 @@ fn full_query(categories: &[&str], kind: Option<Kind>) -> Query {
 fn partial_query(categories: &[&str], kind: Option<Kind>) -> Query {
     Query {
         category_match: CategoryMatch::partial(categories_from_slice(categories)),
+        keyword_match: KeywordMatch::Any,
+        text_match: TextMatch::Any,
         kind,
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
@@ -918,6 +931,145 @@ fn sema_engine_queries_partial_and_full_category_sets() {
 }
 
 #[test]
+fn sema_engine_queries_description_keyword_spans() {
+    let sema = SemaFile::new();
+    let mut store = sema.open_store();
+    SemaEngine::apply(
+        &mut store,
+        sema_write_message(
+            sema_record(entry_with_categories(
+                &["runtime-triad"],
+                "guardian retrieval uses *Schema Language* and *NOTA* terms",
+            )),
+            1,
+        ),
+    );
+    SemaEngine::apply(
+        &mut store,
+        sema_write_message(
+            sema_record(entry_with_categories(
+                &["runtime-triad"],
+                "unmarked schema language remains full text only",
+            )),
+            2,
+        ),
+    );
+
+    let observed = SemaEngine::observe(
+        &store,
+        sema_read_message(
+            sema_observe(Query {
+                keyword_match: KeywordMatch::all_keywords(keywords_from_slice(&[
+                    "schema language",
+                    "nota",
+                ])),
+                ..query()
+            }),
+            3,
+        ),
+    );
+    match observed.root() {
+        SemaReadOutput::Observed(records) => {
+            assert_eq!(records.record_set.len(), 1);
+            assert_eq!(
+                records.record_set[0].entry.description,
+                "guardian retrieval uses *Schema Language* and *NOTA* terms"
+            );
+        }
+        other => panic!("expected keyword query to observe one record, got {other:?}"),
+    }
+
+    let missed = SemaEngine::observe(
+        &store,
+        sema_read_message(
+            sema_observe(Query {
+                keyword_match: KeywordMatch::all_keywords(keywords_from_slice(&[
+                    "schema language",
+                    "missing",
+                ])),
+                ..query()
+            }),
+            4,
+        ),
+    );
+    assert!(
+        matches!(missed.root(), SemaReadOutput::Missed(_)),
+        "all-keyword query should require every requested keyword"
+    );
+}
+
+#[test]
+fn sema_engine_queries_description_full_text() {
+    let sema = SemaFile::new();
+    let mut store = sema.open_store();
+    SemaEngine::apply(
+        &mut store,
+        sema_write_message(
+            sema_record(entry_with_categories(
+                &["runtime-triad"],
+                "Guardian retrieval keeps full text as the recall floor",
+            )),
+            1,
+        ),
+    );
+
+    let observed = SemaEngine::observe(
+        &store,
+        sema_read_message(
+            sema_observe(Query {
+                text_match: TextMatch::contains_text(SearchText::new("RECALL floor")),
+                ..query()
+            }),
+            2,
+        ),
+    );
+    match observed.root() {
+        SemaReadOutput::Observed(records) => {
+            assert_eq!(records.record_set.len(), 1);
+            assert_eq!(
+                records.record_set[0].entry.description,
+                "Guardian retrieval keeps full text as the recall floor"
+            );
+        }
+        other => panic!("expected full-text query to observe one record, got {other:?}"),
+    }
+}
+
+#[test]
+fn signal_admission_rejects_empty_keyword_and_text_queries() {
+    let sema = SemaFile::new();
+    let mut engine = sema.engine();
+
+    let empty_keyword = engine.handle(input_observe(Query {
+        keyword_match: KeywordMatch::all_keywords(Keywords::new(Vec::new())),
+        ..query()
+    }));
+    match empty_keyword.root() {
+        Output::Rejected(rejection) => {
+            assert_eq!(
+                rejection.payload().validation_error,
+                ValidationError::EmptyKeyword
+            );
+        }
+        other => panic!("expected EmptyKeyword rejection, got {other:?}"),
+    }
+
+    let empty_text = engine.handle(input_observe(Query {
+        text_match: TextMatch::contains_text(SearchText::new("   ")),
+        ..query()
+    }));
+    match empty_text.root() {
+        Output::Rejected(rejection) => {
+            assert_eq!(
+                rejection.payload().validation_error,
+                ValidationError::EmptySearchText
+            );
+        }
+        other => panic!("expected EmptySearchText rejection, got {other:?}"),
+    }
+}
+
+#[test]
 fn sema_engine_observation_orders_by_certainty_then_weight_then_importance() {
     let sema = SemaFile::new();
     let mut store = sema.open_store();
@@ -1419,6 +1571,8 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
         category_match: CategoryMatch::full(Categories::from_strings(vec![String::from(
             "runtime-triad",
         )])),
+        keyword_match: KeywordMatch::Any,
+        text_match: TextMatch::Any,
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),

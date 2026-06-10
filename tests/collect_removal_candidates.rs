@@ -37,6 +37,8 @@ fn entry_with_certainty(category: Category, description: &str, magnitude: Magnit
 fn category_query(category: Category) -> Query {
     Query {
         category_match: CategoryMatch::full(Categories::new(vec![category])),
+        keyword_match: spirit::schema::signal::KeywordMatch::Any,
+        text_match: spirit::schema::signal::TextMatch::Any,
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
@@ -48,6 +50,8 @@ fn category_query(category: Category) -> Query {
 fn removal_candidate_query(category: Category) -> Query {
     Query {
         category_match: CategoryMatch::full(Categories::new(vec![category])),
+        keyword_match: spirit::schema::signal::KeywordMatch::Any,
+        text_match: spirit::schema::signal::TextMatch::Any,
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::removal_candidate_certainty(),

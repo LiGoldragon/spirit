@@ -35,6 +35,8 @@ fn observe_query() -> Query {
         category_match: CategoryMatch::full(Categories::from_strings(vec![String::from(
             "observer-tap",
         )])),
+        keyword_match: spirit::schema::signal::KeywordMatch::Any,
+        text_match: spirit::schema::signal::TextMatch::Any,
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
