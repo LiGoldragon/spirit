@@ -14,7 +14,7 @@ use spirit::{
             MessageSent, MessageSentHook, OriginRoute, Output, Privacy, PrivacySelection, Query,
             RecordChange, RecordIdentifier, RecordSelection, SemaReceipt, SentMail, SignalEngine,
             SignalRejection, StashHandle, Statement, StatementText, TopicMatch, Topics,
-            ValidationError,
+            ValidationError, WeightSelection,
         },
     },
 };
@@ -64,7 +64,8 @@ fn entry_with_topics(topics: &[&str], description: &str) -> Entry {
         topics: topics_from_slice(topics),
         kind: Kind::Decision,
         description: Description::new(description),
-        magnitude: Magnitude::Maximum,
+        certainty: Magnitude::Maximum.into(),
+        weight: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
     }
 }
@@ -72,6 +73,13 @@ fn entry_with_topics(topics: &[&str], description: &str) -> Entry {
 fn entry_with_privacy(description: &str, privacy: Magnitude) -> Entry {
     Entry {
         privacy: Privacy::new(privacy),
+        ..entry(description)
+    }
+}
+
+fn entry_with_weight(description: &str, weight: Magnitude) -> Entry {
+    Entry {
+        weight: weight.into(),
         ..entry(description)
     }
 }
@@ -110,6 +118,7 @@ fn full_query(topics: &[&str], kind: Option<Kind>) -> Query {
         kind,
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
+        weight_selection: WeightSelection::default_observation_weight(),
     }
 }
 
@@ -119,6 +128,7 @@ fn partial_query(topics: &[&str], kind: Option<Kind>) -> Query {
         kind,
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
+        weight_selection: WeightSelection::default_observation_weight(),
     }
 }
 
@@ -375,9 +385,12 @@ fn nexus_classifies_state_into_provisional_record_through_sema_write() {
     match observed.root() {
         SemaReadOutput::Observed(records) => {
             assert_eq!(records.record_set.len(), 1);
-            assert_eq!(records.record_set[0].description, "capture this statement");
-            assert_eq!(records.record_set[0].magnitude, Magnitude::Minimum);
-            assert_eq!(records.record_set[0].privacy, Magnitude::Zero);
+            assert_eq!(
+                records.record_set[0].entry.description,
+                "capture this statement"
+            );
+            assert_eq!(records.record_set[0].entry.certainty, Magnitude::Minimum);
+            assert_eq!(records.record_set[0].entry.privacy, Magnitude::Zero);
         }
         other => panic!("expected classified State record to be observable, got {other:?}"),
     }
@@ -496,7 +509,7 @@ fn sema_engine_changes_certainty_without_changing_record_identifier() {
         SemaReadOutput::Found(record) => {
             assert_eq!(record.record_identifier, record_identifier);
             assert_eq!(record.entry.description, "certainty target");
-            assert_eq!(record.entry.magnitude, Magnitude::Zero);
+            assert_eq!(record.entry.certainty, Magnitude::Zero);
         }
         other => panic!("expected changed record lookup, got {other:?}"),
     }
@@ -794,7 +807,7 @@ fn sema_engine_queries_partial_and_full_topic_sets() {
     match partial.root() {
         SemaReadOutput::Observed(records) => {
             assert_eq!(records.record_set.len(), 1);
-            assert_eq!(records.record_set[0].description, "both");
+            assert_eq!(records.record_set[0].entry.description, "both");
         }
         other => panic!("expected partial query to observe one record, got {other:?}"),
     }
@@ -812,9 +825,50 @@ fn sema_engine_queries_partial_and_full_topic_sets() {
     match full.root() {
         SemaReadOutput::Observed(records) => {
             assert_eq!(records.record_set.len(), 1);
-            assert_eq!(records.record_set[0].description, "both");
+            assert_eq!(records.record_set[0].entry.description, "both");
         }
         other => panic!("expected full query to require every topic, got {other:?}"),
+    }
+}
+
+#[test]
+fn sema_engine_observation_returns_identifiers_and_orders_by_weight() {
+    let sema = SemaFile::new();
+    let mut store = sema.open_store();
+    SemaEngine::apply(
+        &mut store,
+        sema_write_message(sema_record(entry_with_weight("low", Magnitude::Low)), 1),
+    );
+    SemaEngine::apply(
+        &mut store,
+        sema_write_message(sema_record(entry_with_weight("high", Magnitude::High)), 2),
+    );
+
+    let observed = SemaEngine::observe(&store, sema_read_message(sema_observe(query()), 3));
+    match observed.root() {
+        SemaReadOutput::Observed(records) => {
+            assert_eq!(records.record_set.len(), 2);
+            assert_short_record_identifier(&records.record_set[0].record_identifier);
+            assert_eq!(records.record_set[0].entry.description, "high");
+            assert_eq!(records.record_set[1].entry.description, "low");
+        }
+        other => panic!("expected weighted observation records, got {other:?}"),
+    }
+
+    let high_weight_query = Query {
+        weight_selection: WeightSelection::at_least_weight(Magnitude::High.into()),
+        ..query()
+    };
+    let filtered = SemaEngine::observe(
+        &store,
+        sema_read_message(sema_observe(high_weight_query), 4),
+    );
+    match filtered.root() {
+        SemaReadOutput::Observed(records) => {
+            assert_eq!(records.record_set.len(), 1);
+            assert_eq!(records.record_set[0].entry.description, "high");
+        }
+        other => panic!("expected high-weight filtered record, got {other:?}"),
     }
 }
 
@@ -860,7 +914,7 @@ fn sema_engine_queries_privacy_as_directional_magnitude() {
     match default.root() {
         SemaReadOutput::Observed(records) => {
             assert_eq!(records.record_set.len(), 1);
-            assert_eq!(records.record_set[0].description, "open");
+            assert_eq!(records.record_set[0].entry.description, "open");
         }
         other => panic!("expected default privacy query to observe open record, got {other:?}"),
     }
@@ -871,7 +925,7 @@ fn sema_engine_queries_privacy_as_directional_magnitude() {
     match high.root() {
         SemaReadOutput::Observed(records) => {
             assert_eq!(records.record_set.len(), 1);
-            assert_eq!(records.record_set[0].description, "private");
+            assert_eq!(records.record_set[0].entry.description, "private");
         }
         other => panic!("expected high privacy query to observe private record, got {other:?}"),
     }
@@ -921,8 +975,11 @@ fn public_private_record_shortcuts_project_to_privacy_queries_through_nexus() {
     match public_records.root() {
         Output::RecordsObserved(records) => {
             assert_eq!(records.record_set.len(), 1);
-            assert_eq!(records.record_set[0].description, "public shortcut target");
-            assert_eq!(records.record_set[0].privacy, Magnitude::Zero);
+            assert_eq!(
+                records.record_set[0].entry.description,
+                "public shortcut target"
+            );
+            assert_eq!(records.record_set[0].entry.privacy, Magnitude::Zero);
         }
         other => panic!("expected public shortcut stash lookup to return records, got {other:?}"),
     }
@@ -931,8 +988,11 @@ fn public_private_record_shortcuts_project_to_privacy_queries_through_nexus() {
     match private_records.root() {
         Output::RecordsObserved(records) => {
             assert_eq!(records.record_set.len(), 1);
-            assert_eq!(records.record_set[0].description, "private shortcut target");
-            assert_eq!(records.record_set[0].privacy, Magnitude::High);
+            assert_eq!(
+                records.record_set[0].entry.description,
+                "private shortcut target"
+            );
+            assert_eq!(records.record_set[0].entry.privacy, Magnitude::High);
         }
         other => panic!("expected private shortcut stash lookup to return records, got {other:?}"),
     }
@@ -1245,6 +1305,7 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
+        weight_selection: WeightSelection::default_observation_weight(),
     }));
 
     assert_eq!(observed.origin_route(), route(2));
@@ -1266,7 +1327,11 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
     assert_eq!(looked_up.origin_route(), route(3));
     match looked_up.root() {
         Output::RecordsObserved(records) => {
-            assert_eq!(records.record_set, vec![entry("full runtime triad works")]);
+            assert_short_record_identifier(&records.record_set[0].record_identifier);
+            assert_eq!(
+                records.record_set[0].entry,
+                entry("full runtime triad works")
+            );
         }
         other => panic!(
             "expected LookupStash to return RecordsObserved with full records, got {other:?}"

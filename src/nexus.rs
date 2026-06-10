@@ -14,14 +14,14 @@ use crate::{
             SemaEngine, WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
         },
         signal::{
-            DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport, Input, IntentEvent,
-            IntentRecorded, IntentSubscription, Kind, Magnitude, ObservedOperation,
+            Certainty, DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport, Input,
+            IntentEvent, IntentRecorded, IntentSubscription, Kind, Magnitude, ObservedOperation,
             ObservedOperations, ObserverFilter, ObserverRetraction, ObserverSubscription,
             OperationKind, Output, Privacy, RecordCount, Records, RemovalArchiveRecords,
             RemovalCandidateCollection, RemovalCandidatesCollection, RemovedIdentifiers,
             SemaReceipt, SignalRejection, SkippedRemovalCandidates, StashHandle,
             StashedObservation, Statement, SubscriptionToken, Topics, ValidationError,
-            VersionReport, VersionText,
+            VersionReport, VersionText, Weight,
         },
     },
     store::{Store, StoreError},
@@ -235,7 +235,8 @@ impl ClassificationPolicy {
             topics: Topics::from_strings(vec![self.fallback_topic.clone()]),
             kind: self.fallback_kind,
             description: Description::new(statement.into_payload().into_payload()),
-            magnitude: self.fallback_magnitude,
+            certainty: Certainty::new(self.fallback_magnitude),
+            weight: Weight::new(Magnitude::Minimum),
             privacy: Privacy::new(self.fallback_privacy),
         }
     }

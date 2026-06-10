@@ -44,7 +44,7 @@ Call it from the CLI:
 
 ```sh
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Record ([schema] Constraint [schema creates the interface] Maximum Zero))"
+  spirit "(Record ([schema] Constraint [schema creates the interface] Maximum Minimum Zero))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
   spirit "(Observe ((Full [schema]) (Some Constraint) (Exact Zero)))"
@@ -66,14 +66,14 @@ Entries carry a vector of topics. Queries use generated `TopicMatch` values:
 `(Partial [schema runtime])` matches any requested topic, while
 `(Full [schema runtime])` requires every requested topic. The query kind is
 optional: `(Some Decision)` filters by kind and `None` searches only by topic.
-The full generated query also carries privacy and certainty selectors. The CLI
-accepts the common three-field query shorthand and fills the certainty selector
-with `AtLeastCertainty Minimum`, so ordinary `Observe` and `Count` hide
-zero-certainty removal candidates. Use the explicit four-field form with
-`ExactCertainty Zero` when reviewing candidates. Certainty and weight are
-separate design axes: this version implements certainty filtering; a future
-store migration must add weight as its own field instead of overloading
-certainty.
+The full generated query also carries privacy, certainty, and weight selectors.
+The CLI accepts the common three-field query shorthand and fills the certainty
+selector with `AtLeastCertainty Minimum` and the weight selector with `Any`, so
+ordinary `Observe` and `Count` hide zero-certainty removal candidates. Use the
+explicit four-field form with `ExactCertainty Zero` when reviewing candidates,
+or the five-field form to add a `WeightSelection`. Certainty and weight are
+separate stored axes: certainty names confidence/currentness, while weight names
+importance/repetition and is used for filtering and high-weight-first retrieval.
 
 ## Runtime triad
 

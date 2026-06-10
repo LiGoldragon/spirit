@@ -59,6 +59,7 @@
   SemaReceipt { RecordIdentifier * DatabaseMarker * }
   RemoveReceipt { RecordIdentifier * DatabaseMarker * }
   ObservedRecords { RecordSet * DatabaseMarker * }
+  ObservedRecord { RecordIdentifier * Entry * }
   FoundRecord { RecordIdentifier * Entry * DatabaseMarker * }
   CountedRecords { RecordCount * DatabaseMarker * }
   ErrorReport { ErrorMessage * DatabaseMarker * }
@@ -82,6 +83,7 @@
   Full Topics
   Privacy Magnitude
   Certainty Magnitude
+  Weight Magnitude
   PrivacySelection [Any (Exact) (AtMost) (AtLeast)]
   Exact Privacy
   AtMost Privacy
@@ -90,6 +92,10 @@
   ExactCertainty Certainty
   AtMostCertainty Certainty
   AtLeastCertainty Certainty
+  WeightSelection [Any (ExactWeight) (AtMostWeight) (AtLeastWeight)]
+  ExactWeight Weight
+  AtMostWeight Weight
+  AtLeastWeight Weight
 
   RemovalCandidateCollection { RecordQuery * }
   RecordQuery Query
@@ -109,16 +115,16 @@
   ObservedOperation { OperationKind * }
   ObservedOperations (Vec ObservedOperation)
 
-  Entry { Topics * Kind * Description * Magnitude * Privacy * }
+  Entry { Topics * Kind * Description * Certainty * Weight * Privacy * }
   Statement { StatementText * }
   CertaintyChange { RecordIdentifier * Certainty * }
   CertaintyChangeReceipt { RecordIdentifier * Certainty * DatabaseMarker * }
   RecordChange { RecordIdentifier * Entry * }
   RecordChangeReceipt { RecordIdentifier * DatabaseMarker * }
   RecordSelection { TopicMatch * kind (Optional Kind) }
-  Query { TopicMatch * kind (Optional Kind) privacy_selection PrivacySelection certainty_selection CertaintySelection }
-  Records (Vec Entry)
-  RecordSet (Vec Entry)
+  Query { TopicMatch * kind (Optional Kind) privacy_selection PrivacySelection certainty_selection CertaintySelection weight_selection WeightSelection }
+  Records (Vec ObservedRecord)
+  RecordSet (Vec ObservedRecord)
   Kind [Decision Principle Correction Clarification Constraint]
   Magnitude [Zero Minimum VeryLow Low Medium High VeryHigh Maximum]
 

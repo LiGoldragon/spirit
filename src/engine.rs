@@ -13,7 +13,7 @@ use crate::{
             MessageProcessedHook, MessageSent, MessageSentHook, OriginRoute, Output, Privacy,
             PrivacySelection, ProcessedMail, Query, RecordSelection, SemaReceipt, SentMail,
             ShortHeader, SignalEngine, SignalRejection, StatementText, Topic, TopicMatch, Topics,
-            ValidationError,
+            ValidationError, WeightSelection,
         },
     },
     store::{Store, StoreError},
@@ -499,6 +499,7 @@ impl RecordSelection {
             kind: self.kind,
             privacy_selection: PrivacySelection::default_observation_privacy(),
             certainty_selection: CertaintySelection::default_observation_certainty(),
+            weight_selection: WeightSelection::default_observation_weight(),
         }
     }
 
@@ -510,6 +511,7 @@ impl RecordSelection {
                 PrivacySelection::private_floor(),
             )),
             certainty_selection: CertaintySelection::default_observation_certainty(),
+            weight_selection: WeightSelection::default_observation_weight(),
         }
     }
 }
@@ -968,15 +970,15 @@ impl std::ops::Deref for crate::schema::sema::Counted {
 }
 
 impl std::ops::Deref for signal_schema::RecordSet {
-    type Target = Vec<Entry>;
+    type Target = Vec<signal_schema::ObservedRecord>;
 
     fn deref(&self) -> &Self::Target {
         self.payload()
     }
 }
 
-impl PartialEq<Vec<Entry>> for signal_schema::RecordSet {
-    fn eq(&self, other: &Vec<Entry>) -> bool {
+impl PartialEq<Vec<signal_schema::ObservedRecord>> for signal_schema::RecordSet {
+    fn eq(&self, other: &Vec<signal_schema::ObservedRecord>) -> bool {
         self.payload() == other
     }
 }

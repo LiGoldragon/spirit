@@ -1,6 +1,6 @@
 [package]
 name         = "spirit"
-version      = "0.6.0"
+version      = "0.7.0"
 edition      = "2024"
 rust-version = "1.88"
 license      = "MIT OR Apache-2.0"
@@ -29,6 +29,11 @@ required-features = ["nota-text"]
 [[bin]]
 name = "spirit-migrate-production"
 path = "src/bin/spirit-migrate-production.rs"
+required-features = ["production-migration"]
+
+[[bin]]
+name = "spirit-upgrade-store"
+path = "src/bin/spirit-upgrade-store.rs"
 required-features = ["production-migration"]
 
 [[test]]

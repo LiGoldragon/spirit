@@ -20,18 +20,19 @@ use crate::schema::{
     },
     signal::{
         Certainty, CertaintyChange, CertaintyChangeReceipt, CertaintySelection, CountedRecords,
-        DatabaseMarker, Entry, ErrorMessage, ErrorReport, FoundRecord, Magnitude, ObservedRecords,
-        Privacy, PrivacySelection, Query, RecordChange, RecordChangeReceipt, RecordCount,
-        RecordIdentifier, RecordSet, RemovalArchiveRecord, RemovalArchiveRecords,
+        DatabaseMarker, Entry, ErrorMessage, ErrorReport, FoundRecord, Magnitude, ObservedRecord,
+        ObservedRecords, Privacy, PrivacySelection, Query, RecordChange, RecordChangeReceipt,
+        RecordCount, RecordIdentifier, RecordSet, RemovalArchiveRecord, RemovalArchiveRecords,
         RemovalCandidateCollection, RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifier,
-        RemovedIdentifiers, SemaReceipt, SkippedRemovalCandidate, SkippedRemovalCandidates,
+        RemovedIdentifiers, SemaReceipt, SkippedRemovalCandidate, SkippedRemovalCandidates, Weight,
+        WeightSelection,
     },
 };
 
 #[cfg(feature = "testing-trace")]
 use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
 
-const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(1);
+const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(2);
 const ENTRIES_TABLE: TableName = TableName::new("records");
 const RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH: usize = 4;
 const RECORD_IDENTIFIER_MAXIMUM_CODE_LENGTH: usize = 7;
@@ -386,12 +387,16 @@ impl Store {
         Ok(record_identifier)
     }
 
-    fn observe(&self, query: &Query) -> Result<Vec<Entry>, StoreError> {
-        Ok(self
+    fn observe(&self, query: &Query) -> Result<Vec<ObservedRecord>, StoreError> {
+        let mut records = self
             .records()?
             .into_iter()
             .filter(|record| record.entry.matches(query))
-            .map(StoredRecord::into_entry)
+            .collect::<Vec<_>>();
+        records.sort_by_key(|record| std::cmp::Reverse(record.entry.importance_weight()));
+        Ok(records
+            .into_iter()
+            .map(StoredRecord::into_observed_record)
             .collect())
     }
 
@@ -429,7 +434,7 @@ impl Store {
         let Some(mut entry) = self.entry_by_identifier(record_identifier.payload())? else {
             return Ok(None);
         };
-        entry.magnitude = *change.certainty.payload();
+        entry.certainty = change.certainty.clone();
         self.database.mutate(Mutation::new(
             self.entries,
             StoredRecord::new(identifier_text, entry),
@@ -536,8 +541,11 @@ impl StoredRecord {
         }
     }
 
-    fn into_entry(self) -> Entry {
-        self.entry
+    fn into_observed_record(self) -> ObservedRecord {
+        ObservedRecord {
+            record_identifier: RecordIdentifier::new(self.record_identifier),
+            entry: self.entry,
+        }
     }
 
     fn entry(&self) -> Entry {
@@ -688,8 +696,12 @@ impl Entry {
         query.matches(self)
     }
 
-    pub fn magnitude_weight(&self) -> u64 {
-        self.magnitude.weight()
+    pub fn certainty_weight(&self) -> u64 {
+        self.certainty.payload().weight()
+    }
+
+    pub fn importance_weight(&self) -> u64 {
+        self.weight.payload().weight()
     }
 }
 
@@ -698,7 +710,8 @@ impl Query {
         self.topic_match.matches(&entry.topics)
             && self.kind.as_ref().is_none_or(|kind| &entry.kind == kind)
             && self.privacy_selection.matches(&entry.privacy)
-            && self.certainty_selection.matches(&entry.magnitude)
+            && self.certainty_selection.matches(&entry.certainty)
+            && self.weight_selection.matches(&entry.weight)
     }
 }
 
@@ -726,7 +739,8 @@ impl CertaintySelection {
         Self::exact_certainty(Certainty::new(Magnitude::Zero))
     }
 
-    pub fn matches(&self, certainty: &Magnitude) -> bool {
+    pub fn matches(&self, certainty: &Certainty) -> bool {
+        let certainty = certainty.payload();
         match self {
             Self::Any => true,
             Self::ExactCertainty(expected) => certainty == expected.payload().payload(),
@@ -736,6 +750,22 @@ impl CertaintySelection {
             Self::AtLeastCertainty(minimum) => {
                 certainty.weight() >= minimum.payload().payload().weight()
             }
+        }
+    }
+}
+
+impl WeightSelection {
+    pub fn default_observation_weight() -> Self {
+        Self::Any
+    }
+
+    pub fn matches(&self, weight: &Weight) -> bool {
+        let weight = weight.payload();
+        match self {
+            Self::Any => true,
+            Self::ExactWeight(expected) => weight == expected.payload().payload(),
+            Self::AtMostWeight(maximum) => weight.weight() <= maximum.payload().payload().weight(),
+            Self::AtLeastWeight(minimum) => weight.weight() >= minimum.payload().payload().weight(),
         }
     }
 }

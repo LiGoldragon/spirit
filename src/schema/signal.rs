@@ -302,6 +302,14 @@ pub struct ObservedRecords {
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ObservedRecord {
+    pub record_identifier: RecordIdentifier,
+    pub entry: Entry,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct FoundRecord {
     pub record_identifier: RecordIdentifier,
     pub entry: Entry,
@@ -464,6 +472,11 @@ pub struct Certainty(Magnitude);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Weight(Magnitude);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum PrivacySelection {
     Any,
     Exact(Exact),
@@ -510,6 +523,31 @@ pub struct AtMostCertainty(Certainty);
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct AtLeastCertainty(Certainty);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum WeightSelection {
+    Any,
+    ExactWeight(ExactWeight),
+    AtMostWeight(AtMostWeight),
+    AtLeastWeight(AtLeastWeight),
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ExactWeight(Weight);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct AtMostWeight(Weight);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct AtLeastWeight(Weight);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -671,7 +709,8 @@ pub struct Entry {
     pub topics: Topics,
     pub kind: Kind,
     pub description: Description,
-    pub magnitude: Magnitude,
+    pub certainty: Certainty,
+    pub weight: Weight,
     pub privacy: Privacy,
 }
 
@@ -729,17 +768,18 @@ pub struct Query {
     pub kind: Option<Kind>,
     pub privacy_selection: PrivacySelection,
     pub certainty_selection: CertaintySelection,
+    pub weight_selection: WeightSelection,
 }
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Records(Vec<Entry>);
+pub struct Records(Vec<ObservedRecord>);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct RecordSet(Vec<Entry>);
+pub struct RecordSet(Vec<ObservedRecord>);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -1836,6 +1876,25 @@ impl From<Magnitude> for Certainty {
 }
 
 #[rustfmt::skip]
+impl Weight {
+    pub fn new(payload: Magnitude) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Magnitude {
+        &self.0
+    }
+    pub fn into_payload(self) -> Magnitude {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Magnitude> for Weight {
+    fn from(payload: Magnitude) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl Exact {
     pub fn new(payload: Privacy) -> Self {
         Self(payload)
@@ -1945,6 +2004,63 @@ impl AtLeastCertainty {
 #[rustfmt::skip]
 impl From<Certainty> for AtLeastCertainty {
     fn from(payload: Certainty) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl ExactWeight {
+    pub fn new(payload: Weight) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Weight {
+        &self.0
+    }
+    pub fn into_payload(self) -> Weight {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Weight> for ExactWeight {
+    fn from(payload: Weight) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl AtMostWeight {
+    pub fn new(payload: Weight) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Weight {
+        &self.0
+    }
+    pub fn into_payload(self) -> Weight {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Weight> for AtMostWeight {
+    fn from(payload: Weight) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl AtLeastWeight {
+    pub fn new(payload: Weight) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Weight {
+        &self.0
+    }
+    pub fn into_payload(self) -> Weight {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Weight> for AtLeastWeight {
+    fn from(payload: Weight) -> Self {
         Self::new(payload)
     }
 }
@@ -2122,38 +2238,38 @@ impl From<StatementText> for Statement {
 
 #[rustfmt::skip]
 impl Records {
-    pub fn new(payload: Vec<Entry>) -> Self {
+    pub fn new(payload: Vec<ObservedRecord>) -> Self {
         Self(payload)
     }
-    pub fn payload(&self) -> &Vec<Entry> {
+    pub fn payload(&self) -> &Vec<ObservedRecord> {
         &self.0
     }
-    pub fn into_payload(self) -> Vec<Entry> {
+    pub fn into_payload(self) -> Vec<ObservedRecord> {
         self.0
     }
 }
 #[rustfmt::skip]
-impl From<Vec<Entry>> for Records {
-    fn from(payload: Vec<Entry>) -> Self {
+impl From<Vec<ObservedRecord>> for Records {
+    fn from(payload: Vec<ObservedRecord>) -> Self {
         Self::new(payload)
     }
 }
 
 #[rustfmt::skip]
 impl RecordSet {
-    pub fn new(payload: Vec<Entry>) -> Self {
+    pub fn new(payload: Vec<ObservedRecord>) -> Self {
         Self(payload)
     }
-    pub fn payload(&self) -> &Vec<Entry> {
+    pub fn payload(&self) -> &Vec<ObservedRecord> {
         &self.0
     }
-    pub fn into_payload(self) -> Vec<Entry> {
+    pub fn into_payload(self) -> Vec<ObservedRecord> {
         self.0
     }
 }
 #[rustfmt::skip]
-impl From<Vec<Entry>> for RecordSet {
-    fn from(payload: Vec<Entry>) -> Self {
+impl From<Vec<ObservedRecord>> for RecordSet {
+    fn from(payload: Vec<ObservedRecord>) -> Self {
         Self::new(payload)
     }
 }
@@ -2208,6 +2324,19 @@ impl CertaintySelection {
     }
     pub fn at_least_certainty(payload: Certainty) -> Self {
         Self::AtLeastCertainty(AtLeastCertainty::new(payload))
+    }
+}
+
+#[rustfmt::skip]
+impl WeightSelection {
+    pub fn exact_weight(payload: Weight) -> Self {
+        Self::ExactWeight(ExactWeight::new(payload))
+    }
+    pub fn at_most_weight(payload: Weight) -> Self {
+        Self::AtMostWeight(AtMostWeight::new(payload))
+    }
+    pub fn at_least_weight(payload: Weight) -> Self {
+        Self::AtLeastWeight(AtLeastWeight::new(payload))
     }
 }
 
@@ -2386,6 +2515,27 @@ impl From<AtMostCertainty> for CertaintySelection {
 impl From<AtLeastCertainty> for CertaintySelection {
     fn from(payload: AtLeastCertainty) -> Self {
         Self::AtLeastCertainty(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<ExactWeight> for WeightSelection {
+    fn from(payload: ExactWeight) -> Self {
+        Self::ExactWeight(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<AtMostWeight> for WeightSelection {
+    fn from(payload: AtMostWeight) -> Self {
+        Self::AtMostWeight(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<AtLeastWeight> for WeightSelection {
+    fn from(payload: AtLeastWeight) -> Self {
+        Self::AtLeastWeight(payload)
     }
 }
 
@@ -3191,6 +3341,17 @@ impl ObservedRecords {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
+impl ObservedRecord {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
 impl FoundRecord {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -3422,6 +3583,17 @@ impl Certainty {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
+impl Weight {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
 impl PrivacySelection {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -3500,6 +3672,50 @@ impl AtMostCertainty {
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
 impl AtLeastCertainty {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl WeightSelection {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl ExactWeight {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl AtMostWeight {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl AtLeastWeight {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }

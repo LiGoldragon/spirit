@@ -9,22 +9,26 @@ use std::{
 #[cfg(feature = "production-migration")]
 use nota_next::{NotaEncode, NotaSource};
 use sema_engine::{
-    Engine as SemaDatabase, EngineOpen, EngineRecord, QueryPlan, RecordKey, SchemaVersion,
-    TableDescriptor, TableName,
+    Assertion, Engine as SemaDatabase, EngineOpen, EngineRecord, QueryPlan, RecordKey,
+    SchemaVersion, TableDescriptor, TableName,
 };
 use spirit::{
     Configuration, SignalTransport, Store,
     schema::signal::{
         Certainty, CertaintyChange, CertaintySelection, Description, Entry, Input, Kind, Magnitude,
         ObserverFilter, Output, Privacy, PrivacySelection, Query, RecordChange, RecordIdentifier,
-        Statement, StatementText, TopicMatch, Topics,
+        Statement, StatementText, TopicMatch, Topics, WeightSelection,
     },
 };
 #[cfg(feature = "production-migration")]
-use spirit::{ProductionMigrationOutput, ProductionMigrationRequest};
+use spirit::{
+    ProductionMigrationOutput, ProductionMigrationRequest, SpiritStoreUpgradeOutput,
+    SpiritStoreUpgradeRequest,
+};
 use tempfile::TempDir;
 
 const PRODUCTION_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(5);
+const SPIRIT_STORE_V1_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(1);
 const RECORDS_TABLE: TableName = TableName::new("records");
 
 struct ProductionSandbox {
@@ -173,6 +177,11 @@ struct ProductionDatabase {
     records: sema_engine::TableReference<ProductionStoredRecord>,
 }
 
+struct SpiritStoreV1Database {
+    database: SemaDatabase,
+    records: sema_engine::TableReference<SpiritStoreV1Record>,
+}
+
 impl ProductionDatabase {
     fn open(path: &Path) -> Self {
         let mut database = SemaDatabase::open(EngineOpen::new(path, PRODUCTION_SCHEMA_VERSION))
@@ -192,6 +201,24 @@ impl ProductionDatabase {
     }
 }
 
+impl SpiritStoreV1Database {
+    fn create(path: &Path) -> Self {
+        let mut database =
+            SemaDatabase::open(EngineOpen::new(path, SPIRIT_STORE_V1_SCHEMA_VERSION))
+                .expect("create schema-v1 spirit database");
+        let records = database
+            .register_table(TableDescriptor::new(RECORDS_TABLE))
+            .expect("register schema-v1 records table");
+        Self { database, records }
+    }
+
+    fn assert_record(&self, record: SpiritStoreV1Record) {
+        self.database
+            .assert(Assertion::new(self.records, record))
+            .expect("assert schema-v1 record");
+    }
+}
+
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct ProductionStoredRecord {
     identifier: signal_spirit::RecordIdentifier,
@@ -203,6 +230,21 @@ struct ProductionStampedEntry {
     entry: signal_spirit::Entry,
     date: signal_spirit::Date,
     time: signal_spirit::Time,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+struct SpiritStoreV1Record {
+    record_identifier: String,
+    entry: SpiritStoreV1Entry,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+struct SpiritStoreV1Entry {
+    topics: Topics,
+    kind: Kind,
+    description: Description,
+    magnitude: Magnitude,
+    privacy: Privacy,
 }
 
 impl ProductionStoredRecord {
@@ -239,6 +281,12 @@ impl EngineRecord for ProductionStoredRecord {
     }
 }
 
+impl EngineRecord for SpiritStoreV1Record {
+    fn record_key(&self) -> RecordKey {
+        RecordKey::new(self.record_identifier.clone())
+    }
+}
+
 impl ProductionStampedEntry {
     fn into_new_entry(self) -> Entry {
         Entry {
@@ -252,7 +300,8 @@ impl ProductionStampedEntry {
             ),
             kind: Self::kind_from(self.entry.kind),
             description: Description::new(self.entry.description.as_str().to_owned()),
-            magnitude: Self::magnitude_from(self.entry.certainty),
+            certainty: Self::magnitude_from(self.entry.certainty).into(),
+            weight: Magnitude::Minimum.into(),
             privacy: Privacy::new(Self::magnitude_from(self.entry.privacy)),
         }
     }
@@ -362,6 +411,7 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
         kind: None,
         privacy_selection: PrivacySelection::Any,
         certainty_selection: CertaintySelection::Any,
+        weight_selection: WeightSelection::default_observation_weight(),
     };
 
     match sandbox.run_input(Input::count(all_records_query.clone())) {
@@ -410,6 +460,7 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
         kind: None,
         privacy_selection: PrivacySelection::Any,
         certainty_selection: CertaintySelection::Any,
+        weight_selection: WeightSelection::default_observation_weight(),
     };
 
     match sandbox.run_input(Input::count(observed_query.clone())) {
@@ -465,7 +516,8 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
         description: Description::new(String::from(
             "new spirit can write to migrated production database",
         )),
-        magnitude: Magnitude::High,
+        certainty: Magnitude::High.into(),
+        weight: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
     }));
     let record_identifier = match mutation {
@@ -490,7 +542,8 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
             description: Description::new(String::from(
                 "new spirit can mutate migrated production records",
             )),
-            magnitude: Magnitude::VeryHigh,
+            certainty: Magnitude::VeryHigh.into(),
+            weight: Magnitude::Minimum.into(),
             privacy: Privacy::new(Magnitude::Zero),
         },
     })) {
@@ -529,6 +582,55 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
 
 #[cfg(feature = "production-migration")]
 #[test]
+fn store_upgrade_binary_preserves_ids_and_adds_default_weight() {
+    let directory = TempDir::new().expect("create upgrade sandbox");
+    let database_path = directory.path().join("spirit.sema");
+    let old_database = SpiritStoreV1Database::create(&database_path);
+    old_database.assert_record(SpiritStoreV1Record {
+        record_identifier: String::from("wxyz"),
+        entry: SpiritStoreV1Entry {
+            topics: Topics::from_strings(vec![String::from("upgrade")]),
+            kind: Kind::Decision,
+            description: Description::new(String::from("old store record")),
+            magnitude: Magnitude::High,
+            privacy: Privacy::new(Magnitude::Zero),
+        },
+    });
+    drop(old_database);
+
+    let request =
+        SpiritStoreUpgradeRequest::new(database_path.to_string_lossy().into_owned()).to_nota();
+    let output = Command::new(env!("CARGO_BIN_EXE_spirit-upgrade-store"))
+        .arg(request)
+        .output()
+        .expect("run store upgrade binary");
+    assert!(
+        output.status.success(),
+        "upgrade stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("upgrade stdout UTF-8");
+    let decoded = NotaSource::new(stdout.trim())
+        .parse::<SpiritStoreUpgradeOutput>()
+        .expect("upgrade stdout is typed NOTA");
+    let SpiritStoreUpgradeOutput::Upgraded(completed) = decoded else {
+        panic!("expected an actual schema-v1 to schema-v2 upgrade, got {decoded:?}");
+    };
+    assert_eq!(completed.record_count(), 1);
+
+    let store = Store::open(&database_path).expect("open upgraded schema-v2 store");
+    let upgraded = store
+        .entry_by_identifier("wxyz")
+        .expect("read upgraded store")
+        .expect("upgraded record keeps original identifier");
+    assert_eq!(upgraded.description, "old store record");
+    assert_eq!(upgraded.certainty, Magnitude::High);
+    assert_eq!(upgraded.weight.payload(), &Magnitude::Minimum);
+    assert_eq!(upgraded.privacy, Magnitude::Zero);
+}
+
+#[cfg(feature = "production-migration")]
+#[test]
 #[ignore = "requires SPIRIT_PRODUCTION_DATABASE and runs the production migration binary in a sandbox"]
 fn production_migration_binary_preserves_ids_and_writes_queryable_new_store() {
     let sandbox = ProductionSandbox::empty_from_environment();
@@ -561,6 +663,7 @@ fn production_migration_binary_preserves_ids_and_writes_queryable_new_store() {
         kind: None,
         privacy_selection: PrivacySelection::Any,
         certainty_selection: CertaintySelection::Any,
+        weight_selection: WeightSelection::default_observation_weight(),
     };
     match sandbox.run_input(Input::count(all_records_query)) {
         Output::RecordsCounted(counted) => {

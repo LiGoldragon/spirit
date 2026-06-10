@@ -23,7 +23,8 @@ fn generated_input_surface_owns_route_header_and_rkyv_frame() {
         topics: Topics::from_strings(vec![String::from("schema")]),
         kind: Kind::Constraint,
         description: Description::new("schema creates the signal plane"),
-        magnitude: Magnitude::Maximum,
+        certainty: Magnitude::Maximum.into(),
+        weight: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
     });
 
@@ -155,7 +156,8 @@ fn generated_record_change_surface_owns_route_header_and_rkyv_frame() {
         topics: Topics::from_strings(vec![String::from("schema"), String::from("mutation")]),
         kind: Kind::Correction,
         description: Description::new("record mutation is a schema-visible operation"),
-        magnitude: Magnitude::High,
+        certainty: Magnitude::High.into(),
+        weight: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
     };
     let input = Input::change_record(RecordChange {
@@ -195,7 +197,8 @@ fn generated_streaming_surface_owns_subscription_event_frames() {
             topics: Topics::from_strings(vec![String::from("stream")]),
             kind: Kind::Decision,
             description: Description::new("schema emits streaming frames"),
-            magnitude: Magnitude::High,
+            certainty: Magnitude::High.into(),
+            weight: Magnitude::Minimum.into(),
             privacy: Privacy::new(Magnitude::Zero),
         },
         sema_receipt: SemaReceipt {
@@ -288,9 +291,10 @@ fn generated_change_certainty_round_trips_the_canonical_shape() {
 #[cfg(feature = "nota-text")]
 #[test]
 fn generated_change_record_round_trips_the_canonical_shape() {
-    let input = "(ChangeRecord (003g ([[schema mutation]] Correction replacement High Zero)))"
-        .parse::<Input>()
-        .expect("parse change record input");
+    let input =
+        "(ChangeRecord (003g ([[schema mutation]] Correction replacement High Minimum Zero)))"
+            .parse::<Input>()
+            .expect("parse change record input");
 
     assert_eq!(
         input,
@@ -300,14 +304,15 @@ fn generated_change_record_round_trips_the_canonical_shape() {
                 topics: Topics::from_strings(vec![String::from("schema mutation")]),
                 kind: Kind::Correction,
                 description: Description::new("replacement"),
-                magnitude: Magnitude::High,
+                certainty: Magnitude::High.into(),
+                weight: Magnitude::Minimum.into(),
                 privacy: Privacy::new(Magnitude::Zero),
             },
         })
     );
     assert_eq!(
         input.to_string(),
-        "(ChangeRecord (003g ([[schema mutation]] Correction replacement High Zero)))"
+        "(ChangeRecord (003g ([[schema mutation]] Correction replacement High Minimum Zero)))"
     );
 }
 
@@ -353,14 +358,15 @@ fn generated_record_input_renders_bracket_bearing_strings_losslessly() {
         topics: Topics::from_strings(vec![String::from("schema replay")]),
         kind: Kind::Correction,
         description: Description::new(description.clone()),
-        magnitude: Magnitude::High,
+        certainty: Magnitude::High.into(),
+        weight: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
     });
     let rendered = input.to_string();
 
     assert_eq!(
         rendered,
-        "(Record ([[schema replay]] Correction [|text contains [brackets] and the pipe close marker \\|]|] High Zero))"
+        "(Record ([[schema replay]] Correction [|text contains [brackets] and the pipe close marker \\|]|] High Minimum Zero))"
     );
     let reparsed = rendered
         .parse::<Input>()
@@ -392,7 +398,8 @@ fn bare_schema_bindings_are_explicit_payload_wrappers() {
         topics: Topics::from_strings(vec![String::from("schema")]),
         kind: Kind::Constraint,
         description: Description::new("alias bindings carry direct payloads"),
-        magnitude: Magnitude::Maximum,
+        certainty: Magnitude::Maximum.into(),
+        weight: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
     }
     .into();
@@ -448,7 +455,8 @@ fn generated_signal_surface_rejects_unknown_header_before_body_decode() {
         topics: Topics::from_strings(vec![String::from("schema")]),
         kind: Kind::Constraint,
         description: Description::new("schema rejects unknown routes"),
-        magnitude: Magnitude::Maximum,
+        certainty: Magnitude::Maximum.into(),
+        weight: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
     })
     .encode_signal_frame()
@@ -472,7 +480,8 @@ fn generated_signal_surface_emits_mail_sent_event() {
         topics: Topics::from_strings(vec![String::from("schema")]),
         kind: Kind::Constraint,
         description: Description::new("schema emits mail events"),
-        magnitude: Magnitude::Maximum,
+        certainty: Magnitude::Maximum.into(),
+        weight: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
     });
 

@@ -61,13 +61,13 @@ Signal/Nexus/SEMA event sequence that returns over the trace socket.
 
 The current plane schemas intentionally keep braces strict as NOTA key-value
 maps. The Signal namespace contains pairs such as `Topic String`,
-`RecordSet (Vec Entry)`, and
-`Entry { Topics * Kind * Description * Magnitude * Privacy * }`; it does not
+`RecordSet (Vec ObservedRecord)`, and
+`Entry { Topics * Kind * Description * Certainty * Weight * Privacy * }`; it does not
 contain declarations that repeat their own name inside the value.
 Inside a struct map, `Topics *` derives the `topics` field from the existing
 `Topics` type, and explicit bindings such as `kind (Optional Kind)` stay only
 where the field name differs from the referenced type. Bare reference
-declarations (`Topic String`, `RecordSet (Vec Entry)`, `Record Entry`) become
+declarations (`Topic String`, `RecordSet (Vec ObservedRecord)`, `Record Entry`) become
 exported aliases in the typed schema value and generated Rust, so enum variants
 carry direct payloads instead of wrapper structs. Explicit brace-body singleton
 declarations are the newtype form.
@@ -419,17 +419,21 @@ uses `sema-engine` over a `*.sema` file:
   migration sandbox witness. The `&self` receiver lets parallel readers share
   the store reference; `tests/runtime_triad.rs` has a scoped-thread witness for
   this shape.
-- Entries carry `Topics`, a generated vector alias, plus generated
-  `Privacy`. Privacy is a directional `Magnitude`: `Zero` is open/public, and
-  higher magnitudes narrow the intended audience. The stored `Magnitude` field
-  is currently certainty; future weight must be a separate field and migration,
-  not an overload. Queries carry `TopicMatch::{Partial,Full}`, an optional
-  `Kind`, generated `PrivacySelection`, and generated `CertaintySelection`:
+- Entries carry `Topics`, a generated vector alias, generated `Certainty`,
+  generated `Weight`, and generated `Privacy`. Privacy is a directional
+  `Magnitude`: `Zero` is open/public, and higher magnitudes narrow the intended
+  audience. Certainty is a directional `Magnitude`: `Zero` is the recoverable
+  removal-candidate state. Weight is a separate directional `Magnitude` for
+  importance/repetition; observation sorts higher weight first. Queries carry
+  `TopicMatch::{Partial,Full}`, an optional `Kind`, generated
+  `PrivacySelection`, generated `CertaintySelection`, and generated
+  `WeightSelection`:
   `Partial` accepts any requested topic, `Full` requires every requested topic,
   `None` in the kind position searches by topic and privacy, default privacy
-  selection is exact `Zero`, and ordinary certainty selection is
-  `AtLeastCertainty Minimum`. The same query noun drives both `Observe` and
-  `Count`, while `Lookup` uses the generated `RecordIdentifier` alias.
+  selection is exact `Zero`, ordinary certainty selection is
+  `AtLeastCertainty Minimum`, and ordinary weight selection is `Any`. The same
+  query noun drives both `Observe` and `Count`, while `Lookup` uses the
+  generated `RecordIdentifier` alias.
 - sema-engine's transaction model gives crash-consistency: a store reopened
   from the same `.sema` path resumes its committed records AND its commit
   sequence/identifier counters, so the next write after a restart continues

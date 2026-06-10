@@ -5,7 +5,7 @@ use spirit::{
     SignalTransport, TransportError,
     schema::signal::{
         CertaintySelection, Input, Kind, Output, PrivacySelection, Query,
-        RemovalCandidateCollection, Statement, StatementText, TopicMatch,
+        RemovalCandidateCollection, Statement, StatementText, TopicMatch, WeightSelection,
     },
 };
 use thiserror::Error;
@@ -217,16 +217,46 @@ impl LegacyQueryInput {
         payload: &nota_next::Block,
         certainty_selection: CertaintySelection,
     ) -> Result<Option<Query>, NotaDecodeError> {
-        let Some([topic_match, kind, privacy_selection]) =
-            payload.as_delimited(Delimiter::Parenthesis)
-        else {
+        let Some(fields) = payload.as_delimited(Delimiter::Parenthesis) else {
             return Ok(None);
         };
+        let (topic_match, kind, privacy_selection, certainty_selection, weight_selection) =
+            match fields {
+                [topic_match, kind, privacy_selection] => (
+                    topic_match,
+                    kind,
+                    privacy_selection,
+                    certainty_selection,
+                    WeightSelection::default_observation_weight(),
+                ),
+                [topic_match, kind, privacy_selection, certainty_selection] => (
+                    topic_match,
+                    kind,
+                    privacy_selection,
+                    CertaintySelection::from_nota_block(certainty_selection)?,
+                    WeightSelection::default_observation_weight(),
+                ),
+                [
+                    topic_match,
+                    kind,
+                    privacy_selection,
+                    certainty_selection,
+                    weight_selection,
+                ] => (
+                    topic_match,
+                    kind,
+                    privacy_selection,
+                    CertaintySelection::from_nota_block(certainty_selection)?,
+                    WeightSelection::from_nota_block(weight_selection)?,
+                ),
+                _ => return Ok(None),
+            };
         Ok(Some(Query {
             topic_match: TopicMatch::from_nota_block(topic_match)?,
             kind: Option::<Kind>::from_nota_block(kind)?,
             privacy_selection: PrivacySelection::from_nota_block(privacy_selection)?,
             certainty_selection,
+            weight_selection,
         }))
     }
 
