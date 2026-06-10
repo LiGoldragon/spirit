@@ -351,6 +351,9 @@ writes back through a keyed mutation; certainty changes mutate only the stored
 entry's `Magnitude` through the `Certainty` alias, while record changes replace
 the full stored `Entry` under the same `RecordIdentifier`. The reply is
 `CertaintyChangeReceipt` or `RecordChangeReceipt` with a new database marker.
+`Zero` certainty is the soft-removal candidate state. Ordinary observation uses
+`AtLeastCertainty Minimum`; explicit review uses `ExactCertainty Zero`; direct
+`Lookup` remains available by record identifier.
 
 `PublicRecords` and `PrivateRecords` are ergonomic privacy-scoped read
 shortcuts. Signal admits a generated `RecordSelection` payload — topic match
@@ -367,10 +370,10 @@ owner config). Nexus emits the schema-declared
 `Store::collect_removal_candidates`, which opens the SEPARATE archive database on
 demand at the owner-configured `ArchiveDatabaseTarget` (a distinct `ArchiveDatabase`
 noun over its own `*.sema` file, resolving `Default` to a `<live-stem>.archive.sema`
-sibling), asserts each matching `Entry` into it, retracts the original from the
-live log, and returns `RemovalCandidatesCollection { archived_records,
-removed_identifiers, skipped_removal_candidates, database_marker }`. A record that
-fails to archive stays in the live log and is reported as a
+sibling), asserts each exact-zero-certainty matching `Entry` into it, retracts
+the original from the live log, and returns `RemovalCandidatesCollection {
+archived_records, removed_identifiers, skipped_removal_candidates,
+database_marker }`. A record that fails to archive stays in the live log and is reported as a
 `SkippedRemovalCandidate(ArchiveFailed)`; one that vanishes mid-collection is
 `RecordAlreadyRemoved`. Nexus replies `Output::RemovalCandidatesCollected`.
 
@@ -410,7 +413,7 @@ uses `sema-engine` over a `*.sema` file:
 - `SemaEngine::observe(sema::Sema<sema::ReadInput>) ->
   sema::Sema<sema::ReadOutput>` is the read surface. `Observe(Query)` reads
   keyed records through sema-engine and applies Spirit's schema-specific
-  topic/kind/privacy predicate, `Lookup(RecordIdentifier)` uses a key query,
+  topic/kind/privacy/certainty predicate, `Lookup(RecordIdentifier)` uses a key query,
   and `Count(Query)` returns the number of matching records without mutating
   state. `TopicMatch::Any` is the all-record query used by the production
   migration sandbox witness. The `&self` receiver lets parallel readers share
@@ -418,13 +421,15 @@ uses `sema-engine` over a `*.sema` file:
   this shape.
 - Entries carry `Topics`, a generated vector alias, plus generated
   `Privacy`. Privacy is a directional `Magnitude`: `Zero` is open/public, and
-  higher magnitudes narrow the intended audience. Queries carry
-  `TopicMatch::{Partial,Full}`, an optional `Kind`, and generated
-  `PrivacySelection`: `Partial` accepts any requested topic, `Full` requires
-  every requested topic, `None` in the kind position searches by topic and
-  privacy, and default privacy selection is exact `Zero`. The same query noun
-  drives both `Observe` and `Count`, while `Lookup` uses the generated
-  `RecordIdentifier` alias.
+  higher magnitudes narrow the intended audience. The stored `Magnitude` field
+  is currently certainty; future weight must be a separate field and migration,
+  not an overload. Queries carry `TopicMatch::{Partial,Full}`, an optional
+  `Kind`, generated `PrivacySelection`, and generated `CertaintySelection`:
+  `Partial` accepts any requested topic, `Full` requires every requested topic,
+  `None` in the kind position searches by topic and privacy, default privacy
+  selection is exact `Zero`, and ordinary certainty selection is
+  `AtLeastCertainty Minimum`. The same query noun drives both `Observe` and
+  `Count`, while `Lookup` uses the generated `RecordIdentifier` alias.
 - sema-engine's transaction model gives crash-consistency: a store reopened
   from the same `.sema` path resumes its committed records AND its commit
   sequence/identifier counters, so the next write after a restart continues

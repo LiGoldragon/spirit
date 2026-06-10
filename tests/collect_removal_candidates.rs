@@ -11,18 +11,22 @@
 
 use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest};
 use spirit::schema::signal::{
-    Description, Entry, Input, Kind, Magnitude, Output, Privacy, PrivacySelection, Query,
-    RemovalCandidateCollection, TopicMatch, Topics,
+    CertaintySelection, Description, Entry, Input, Kind, Magnitude, Output, Privacy,
+    PrivacySelection, Query, RemovalCandidateCollection, TopicMatch, Topics,
 };
 use spirit::{Engine, Store};
 use tempfile::TempDir;
 
 fn entry(topic: &str, description: &str) -> Entry {
+    entry_with_certainty(topic, description, Magnitude::Maximum)
+}
+
+fn entry_with_certainty(topic: &str, description: &str, magnitude: Magnitude) -> Entry {
     Entry {
         topics: Topics::from_strings(vec![String::from(topic)]),
         kind: Kind::Decision,
         description: Description::new(description),
-        magnitude: Magnitude::Maximum,
+        magnitude,
         privacy: Privacy::new(Magnitude::Zero),
     }
 }
@@ -32,6 +36,16 @@ fn topic_query(topic: &str) -> Query {
         topic_match: TopicMatch::full(Topics::from_strings(vec![String::from(topic)])),
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
+        certainty_selection: CertaintySelection::default_observation_certainty(),
+    }
+}
+
+fn removal_candidate_query(topic: &str) -> Query {
+    Query {
+        topic_match: TopicMatch::full(Topics::from_strings(vec![String::from(topic)])),
+        kind: Some(Kind::Decision),
+        privacy_selection: PrivacySelection::default_observation_privacy(),
+        certainty_selection: CertaintySelection::removal_candidate_certainty(),
     }
 }
 
@@ -66,11 +80,14 @@ fn collect_removal_candidates_archives_to_separate_db_and_removes_from_live() {
 
     // Two live records: one is a removal candidate (topic `stale`), one stays
     // (topic `keep`).
-    record(&mut engine, entry("stale", "obsolete intent to retire"));
+    record(
+        &mut engine,
+        entry_with_certainty("stale", "obsolete intent to retire", Magnitude::Zero),
+    );
     record(&mut engine, entry("keep", "intent that must remain live"));
 
     // PEER collects the removal candidates matching the `stale` query.
-    let collection = RemovalCandidateCollection::new(topic_query("stale").into());
+    let collection = RemovalCandidateCollection::new(removal_candidate_query("stale").into());
     let reply = engine
         .handle(Input::collect_removal_candidates(collection))
         .into_root();
@@ -160,7 +177,7 @@ fn collect_removal_candidates_with_no_matches_archives_nothing() {
 
     record(&mut engine, entry("keep", "intent that must remain live"));
 
-    let collection = RemovalCandidateCollection::new(topic_query("stale").into());
+    let collection = RemovalCandidateCollection::new(removal_candidate_query("stale").into());
     let reply = engine
         .handle(Input::collect_removal_candidates(collection))
         .into_root();
@@ -188,6 +205,52 @@ fn collect_removal_candidates_with_no_matches_archives_nothing() {
         kept.record_count, 1,
         "the keep record stayed in the live log"
     );
+
+    engine.stop().expect("engine stop");
+}
+
+#[test]
+fn collect_removal_candidates_requires_zero_certainty() {
+    let temp = TempDir::new().expect("tempdir");
+    let live_database = temp.path().join("live.sema");
+    let archive_database = temp.path().join("archive.sema");
+
+    let mut engine = Engine::new(Store::open(&live_database).expect("open live store"));
+    engine.start().expect("engine start");
+    let archive_target =
+        ArchiveDatabaseTarget::path(archive_database.to_string_lossy().into_owned().into());
+    engine.configure(ConfigureRequest::new(archive_target));
+
+    record(&mut engine, entry("stale", "same topic but still live"));
+
+    let collection = RemovalCandidateCollection::new(removal_candidate_query("stale").into());
+    let reply = engine
+        .handle(Input::collect_removal_candidates(collection))
+        .into_root();
+    let Output::RemovalCandidatesCollected(collected) = reply else {
+        panic!("expected RemovalCandidatesCollected, got {reply:?}")
+    };
+    let collected = collected.payload();
+    assert!(
+        collected.removal_archive_records.payload().is_empty(),
+        "nonzero certainty is not a removal candidate"
+    );
+    assert!(
+        collected.removed_identifiers.payload().is_empty(),
+        "nonzero certainty remains live"
+    );
+    assert!(
+        collected.skipped_removal_candidates.payload().is_empty(),
+        "non-candidates are filtered out before the operational skip phase"
+    );
+
+    let live_observe = engine
+        .handle(Input::observe(topic_query("stale")))
+        .into_root();
+    let Output::RecordsStashed(live) = live_observe else {
+        panic!("the nonzero record still serves from the live log, got {live_observe:?}")
+    };
+    assert_eq!(live.record_count, 1, "the nonzero record stayed live");
 
     engine.stop().expect("engine stop");
 }

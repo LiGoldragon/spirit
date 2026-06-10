@@ -1,9 +1,12 @@
 use std::{env, fs, io::ErrorKind, os::unix::net::UnixStream, path::PathBuf};
 
-use nota_next::{Delimiter, Document, NotaBlock, NotaDecodeError};
+use nota_next::{Delimiter, Document, NotaBlock, NotaDecode, NotaDecodeError};
 use spirit::{
     SignalTransport, TransportError,
-    schema::signal::{Input, Output, Statement, StatementText},
+    schema::signal::{
+        CertaintySelection, Input, Kind, Output, PrivacySelection, Query,
+        RemovalCandidateCollection, Statement, StatementText, TopicMatch,
+    },
 };
 use thiserror::Error;
 use triad_runtime::{ArgumentError, ComponentArgument, ComponentCommand, FrameError};
@@ -97,17 +100,28 @@ struct LegacyStateInput {
     statement: Statement,
 }
 
+struct LegacyQueryInput {
+    input: Input,
+}
+
 impl SpiritInputSource {
     fn new(text: String) -> Self {
         Self { text }
     }
 
     fn parse_input(&self) -> Result<Input, NotaDecodeError> {
-        self.text.parse::<Input>().or_else(|error| {
-            LegacyStateInput::from_source(&self.text)
-                .map(LegacyStateInput::into_input)
-                .ok_or(error)
-        })
+        match self.text.parse::<Input>() {
+            Ok(input) => Ok(input),
+            Err(error) => {
+                if let Some(input) = LegacyStateInput::from_source(&self.text) {
+                    return Ok(input.into_input());
+                }
+                if let Some(input) = LegacyQueryInput::from_source(&self.text)? {
+                    return Ok(input.into_input());
+                }
+                Err(error)
+            }
+        }
     }
 }
 
@@ -134,6 +148,85 @@ impl LegacyStateInput {
 
     fn into_input(self) -> Input {
         Input::state(self.statement)
+    }
+}
+
+impl LegacyQueryInput {
+    fn from_source(source: &str) -> Result<Option<Self>, NotaDecodeError> {
+        let Ok(document) = Document::parse(source) else {
+            return Ok(None);
+        };
+        let [root] = document.root_objects() else {
+            return Ok(None);
+        };
+        let Some([head, payload]) = root.as_delimited(Delimiter::Parenthesis) else {
+            return Ok(None);
+        };
+        let Some(head) = head.demote_to_string() else {
+            return Ok(None);
+        };
+        let input = match head {
+            "Observe" => {
+                let Some(query) = Self::observation_query(payload)? else {
+                    return Ok(None);
+                };
+                Input::observe(query)
+            }
+            "Count" => {
+                let Some(query) = Self::observation_query(payload)? else {
+                    return Ok(None);
+                };
+                Input::count(query)
+            }
+            "SubscribeIntent" => {
+                let Some(query) = Self::observation_query(payload)? else {
+                    return Ok(None);
+                };
+                Input::subscribe_intent(query)
+            }
+            "CollectRemovalCandidates" => {
+                let Some(query) = Self::removal_collection_query(payload)? else {
+                    return Ok(None);
+                };
+                Input::collect_removal_candidates(RemovalCandidateCollection::new(query.into()))
+            }
+            _ => return Ok(None),
+        };
+        Ok(Some(Self { input }))
+    }
+
+    fn observation_query(payload: &nota_next::Block) -> Result<Option<Query>, NotaDecodeError> {
+        Self::query_with_certainty(payload, CertaintySelection::default_observation_certainty())
+    }
+
+    fn removal_collection_query(
+        payload: &nota_next::Block,
+    ) -> Result<Option<Query>, NotaDecodeError> {
+        let Some([query]) = payload.as_delimited(Delimiter::Parenthesis) else {
+            return Ok(None);
+        };
+        Self::query_with_certainty(query, CertaintySelection::removal_candidate_certainty())
+    }
+
+    fn query_with_certainty(
+        payload: &nota_next::Block,
+        certainty_selection: CertaintySelection,
+    ) -> Result<Option<Query>, NotaDecodeError> {
+        let Some([topic_match, kind, privacy_selection]) =
+            payload.as_delimited(Delimiter::Parenthesis)
+        else {
+            return Ok(None);
+        };
+        Ok(Some(Query {
+            topic_match: TopicMatch::from_nota_block(topic_match)?,
+            kind: Option::<Kind>::from_nota_block(kind)?,
+            privacy_selection: PrivacySelection::from_nota_block(privacy_selection)?,
+            certainty_selection,
+        }))
+    }
+
+    fn into_input(self) -> Input {
+        self.input
     }
 }
 

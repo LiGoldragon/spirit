@@ -12,8 +12,8 @@
 //! un-covered half — token-based cancellation — is what `Untap` restores.
 
 use spirit::schema::signal::{
-    Description, Entry, Input, Kind, Magnitude, ObserverFilter, OperationKind, Output, Privacy,
-    PrivacySelection, Query, TopicMatch, Topics,
+    CertaintySelection, Description, Entry, Input, Kind, Magnitude, ObserverFilter, OperationKind,
+    Output, Privacy, PrivacySelection, Query, TopicMatch, Topics,
 };
 use spirit::{Engine, Store};
 use tempfile::TempDir;
@@ -33,6 +33,7 @@ fn observe_query() -> Query {
         topic_match: TopicMatch::full(Topics::from_strings(vec![String::from("observer-tap")])),
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
+        certainty_selection: CertaintySelection::default_observation_certainty(),
     }
 }
 

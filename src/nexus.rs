@@ -453,7 +453,7 @@ impl Nexus {
         let mut work = input.into_root();
         let mut budget = ContinuationLimit::default().budget();
         loop {
-            let action = self.step_decide(work);
+            let action = self.traced_step_decide(work);
             match action {
                 NexusAction::ReplyToSignal(_) => return action.with_origin_route(origin_route),
                 NexusAction::CommandSemaWrite(command) => {
@@ -544,7 +544,7 @@ impl NexusEngine for Nexus {
         input: nexus_schema::nexus::Nexus<nexus_schema::nexus::Work>,
     ) -> nexus_schema::nexus::Nexus<nexus_schema::nexus::Action> {
         let origin_route = input.origin_route();
-        self.step_decide(input.into_root())
+        self.traced_step_decide(input.into_root())
             .with_origin_route(origin_route)
     }
 }
@@ -562,6 +562,13 @@ impl Nexus {
     /// `CommandEffect(ClassifyState)` followed by
     /// `EffectCompleted(StateClassified)` and the ordinary SEMA
     /// `Record` write.
+    fn traced_step_decide(&mut self, work: NexusWork) -> NexusAction {
+        self.trace_nexus_entered();
+        let action = self.step_decide(work);
+        self.trace_nexus_decided();
+        action
+    }
+
     fn step_decide(&mut self, work: NexusWork) -> NexusAction {
         match work {
             NexusWork::SignalArrived(input) => self.decide_signal_arrival(input.into_payload()),

@@ -74,6 +74,8 @@ fn observe_query() -> Query {
         topic_match: TopicMatch::full(Topics::from_strings(vec![String::from("meta-configure")])),
         kind: Some(Kind::Decision),
         privacy_selection: spirit::schema::signal::PrivacySelection::default_observation_privacy(),
+        certainty_selection:
+            spirit::schema::signal::CertaintySelection::default_observation_certainty(),
     }
 }
 

@@ -130,7 +130,9 @@
 
           substituteInPlace $out/vendor-sources/schema-rust-next/Cargo.toml \
             --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "../schema-next" }' \
-            --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next = { path = "../nota-next" }'
+            --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next = { path = "../nota-next" }' \
+            --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }' 'signal-frame = { path = "../signal-frame" }' \
+            --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "../triad-runtime" }'
 
           substituteInPlace $out/vendor-sources/schema-next/Cargo.toml \
             --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next = { path = "../nota-next" }'
@@ -146,6 +148,10 @@
           substituteInPlace $out/vendor-sources/signal-frame/Cargo.toml \
             --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota-next = { path = "../nota-next", optional = true }' \
             --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next = { path = "../nota-next" }'
+
+          substituteInPlace $out/vendor-sources/signal-sema/Cargo.toml \
+            --replace-fail 'nota-next  = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota-next  = { path = "../nota-next", optional = true }' \
+            --replace-fail 'nota-next  = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next  = { path = "../nota-next" }'
 
           substituteInPlace $out/vendor-sources/signal-spirit/Cargo.toml \
             --replace-fail '{ git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main", default-features = false }' '{ path = "../signal-frame", default-features = false }' \
@@ -209,16 +215,6 @@
           version-projection = { path = "vendor-sources/version-projection" }
           EOF
 
-          sed -i '\|^source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#|d' $out/Cargo.lock
-          sed -i '\|^source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#|d' $out/Cargo.lock
-          sed -i '\|^source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#|d' $out/Cargo.lock
-          sed -i '\|^source = "git+https://github.com/LiGoldragon/sema.git#|d' $out/Cargo.lock
-          sed -i '\|^source = "git+https://github.com/LiGoldragon/sema-engine.git?branch=main#|d' $out/Cargo.lock
-          sed -i '\|^source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#|d' $out/Cargo.lock
-          sed -i '\|^source = "git+https://github.com/LiGoldragon/signal-sema.git?branch=main#|d' $out/Cargo.lock
-          sed -i '\|^source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#|d' $out/Cargo.lock
-          sed -i '\|^source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=main#|d' $out/Cargo.lock
-          sed -i '\|^source = "git+https://github.com/LiGoldragon/version-projection.git?branch=main#|d' $out/Cargo.lock
         '';
         cargoVendorDirectory = craneLib.vendorCargoDeps { inherit src; };
         commonArguments = {

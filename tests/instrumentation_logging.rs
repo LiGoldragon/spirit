@@ -4,8 +4,9 @@ use spirit::{
         nexus::NexusObjectName,
         sema::SemaObjectName,
         signal::{
-            DatabaseMarker, Entry, Input, Kind, Magnitude, Output, PrivacySelection, Query,
-            SignalObjectName, SignalRejection, TopicMatch, ValidationError,
+            CertaintySelection, DatabaseMarker, Description, Entry, Input, Kind, Magnitude, Output,
+            Privacy, PrivacySelection, Query, SignalObjectName, SignalRejection, TopicMatch,
+            Topics, ValidationError,
         },
     },
 };
@@ -31,11 +32,11 @@ impl SemaFile {
 
 fn entry(description: &str) -> Entry {
     Entry {
-        topics: vec![String::from("trace")],
+        topics: Topics::from_strings(vec![String::from("trace")]),
         kind: Kind::Decision,
-        description: String::from(description),
+        description: Description::new(description),
         magnitude: Magnitude::Maximum,
-        privacy: Magnitude::Zero,
+        privacy: Privacy::new(Magnitude::Zero),
     }
 }
 
@@ -45,22 +46,23 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
     let trace_log = TraceLog::recording();
     let mut engine = sema.engine_with_trace(trace_log.clone());
 
-    let recorded = engine.handle(Input::Record(entry("trace witness")));
+    let recorded = engine.handle(Input::record(entry("trace witness")));
     let record_marker = match recorded.root() {
         Output::RecordAccepted(receipt) => receipt.database_marker.clone(),
         other => panic!("expected RecordAccepted, got {other:?}"),
     };
 
-    let observed = engine.handle(Input::Observe(Query {
-        topic_match: TopicMatch::full(vec![String::from("trace")]),
+    let observed = engine.handle(Input::observe(Query {
+        topic_match: TopicMatch::full(Topics::from_strings(vec![String::from("trace")])),
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
+        certainty_selection: CertaintySelection::default_observation_certainty(),
     }));
     // Designer 480: Observe now flows through Stash (operator 287 §
     // "Acceptance Tests"). The slim wire reply carries a handle, not the
     // full record set. The trace below witnesses the recursive Nexus loop:
-    // NexusEntered fires ONCE per route — the loop runs SEMA + effect under
-    // one Nexus activation.
+    // each NexusEntered/NexusDecided pair is one decision step. Observe needs
+    // three steps: command SEMA read, command stash effect, reply to Signal.
     assert!(matches!(observed.root(), Output::RecordsStashed(_)));
 
     assert_activation_names(
@@ -69,13 +71,19 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
             "SignalAdmitted",
             "SignalTriaged",
             "NexusEntered",
+            "NexusDecided",
             "SemaWriteApplied",
+            "NexusEntered",
             "NexusDecided",
             "SignalReplied",
             "SignalAdmitted",
             "SignalTriaged",
             "NexusEntered",
+            "NexusDecided",
             "SemaReadObserved",
+            "NexusEntered",
+            "NexusDecided",
+            "NexusEntered",
             "NexusDecided",
             "SignalReplied",
         ],
@@ -88,30 +96,36 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
             ObjectName::Signal(SignalObjectName::Admitted),
             ObjectName::Signal(SignalObjectName::Triaged),
             ObjectName::Nexus(NexusObjectName::Entered),
+            ObjectName::Nexus(NexusObjectName::Decided),
             ObjectName::Sema(SemaObjectName::WriteApplied),
+            ObjectName::Nexus(NexusObjectName::Entered),
             ObjectName::Nexus(NexusObjectName::Decided),
             ObjectName::Signal(SignalObjectName::Replied),
             ObjectName::Signal(SignalObjectName::Admitted),
             ObjectName::Signal(SignalObjectName::Triaged),
             ObjectName::Nexus(NexusObjectName::Entered),
+            ObjectName::Nexus(NexusObjectName::Decided),
             ObjectName::Sema(SemaObjectName::ReadObserved),
+            ObjectName::Nexus(NexusObjectName::Entered),
+            ObjectName::Nexus(NexusObjectName::Decided),
+            ObjectName::Nexus(NexusObjectName::Entered),
             ObjectName::Nexus(NexusObjectName::Decided),
             ObjectName::Signal(SignalObjectName::Replied),
         ],
     );
     let archive =
-        rkyv::to_bytes::<rkyv::rancor::Error>(&events[3]).expect("trace event archives as rkyv");
+        rkyv::to_bytes::<rkyv::rancor::Error>(&events[4]).expect("trace event archives as rkyv");
     let decoded = rkyv::from_bytes::<TraceEvent, rkyv::rancor::Error>(&archive)
         .expect("trace event decodes from rkyv");
-    assert_eq!(decoded, events[3]);
+    assert_eq!(decoded, events[4]);
     #[cfg(feature = "nota-text")]
     {
-        let rendered = events[3].to_string();
+        let rendered = events[4].to_string();
         assert_eq!(rendered, "(Sema WriteApplied)");
         let parsed = rendered
             .parse::<TraceEvent>()
             .expect("trace event parses from generated NOTA");
-        assert_eq!(parsed, events[3]);
+        assert_eq!(parsed, events[4]);
     }
     assert_ne!(
         record_marker.state_digest, 0,
@@ -157,7 +171,7 @@ fn testing_trace_builds_record_activations_by_default() {
     let sema = SemaFile::new();
     let mut engine = Engine::new(Store::open(&sema.path).expect("open sema store"));
 
-    let output = engine.handle(Input::Record(entry("default trace witness")));
+    let output = engine.handle(Input::record(entry("default trace witness")));
     assert!(matches!(output.root(), Output::RecordAccepted(_)));
 
     assert_activation_names(
@@ -166,7 +180,9 @@ fn testing_trace_builds_record_activations_by_default() {
             "SignalAdmitted",
             "SignalTriaged",
             "NexusEntered",
+            "NexusDecided",
             "SemaWriteApplied",
+            "NexusEntered",
             "NexusDecided",
             "SignalReplied",
         ],
@@ -180,18 +196,18 @@ fn testing_trace_records_signal_rejection_without_nexus_or_sema_activations() {
     let mut engine = sema.engine_with_trace(trace_log.clone());
 
     let mut invalid_entry = entry("invalid trace witness");
-    invalid_entry.topics = vec![];
+    invalid_entry.topics = Topics::from_strings(vec![]);
 
-    let output = engine.handle(Input::Record(invalid_entry));
+    let output = engine.handle(Input::record(invalid_entry));
 
     assert_eq!(engine.record_count(), 0);
     assert_eq!(
         output.root(),
-        &Output::Rejected(SignalRejection {
+        &Output::rejected(SignalRejection {
             validation_error: ValidationError::EmptyTopic,
             database_marker: DatabaseMarker {
-                commit_sequence: 0,
-                state_digest: 0,
+                commit_sequence: 0.into(),
+                state_digest: 0.into(),
             },
         })
     );

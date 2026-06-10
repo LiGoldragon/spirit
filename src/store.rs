@@ -19,12 +19,12 @@ use crate::schema::{
         WriteOutput as SemaWriteOutput,
     },
     signal::{
-        CertaintyChange, CertaintyChangeReceipt, CountedRecords, DatabaseMarker, Entry,
-        ErrorMessage, ErrorReport, FoundRecord, Magnitude, ObservedRecords, Privacy,
-        PrivacySelection, Query, RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier,
-        RecordSet, RemovalArchiveRecord, RemovalArchiveRecords, RemovalCandidateCollection,
-        RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifier, RemovedIdentifiers,
-        SemaReceipt, SkippedRemovalCandidate, SkippedRemovalCandidates,
+        Certainty, CertaintyChange, CertaintyChangeReceipt, CertaintySelection, CountedRecords,
+        DatabaseMarker, Entry, ErrorMessage, ErrorReport, FoundRecord, Magnitude, ObservedRecords,
+        Privacy, PrivacySelection, Query, RecordChange, RecordChangeReceipt, RecordCount,
+        RecordIdentifier, RecordSet, RemovalArchiveRecord, RemovalArchiveRecords,
+        RemovalCandidateCollection, RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifier,
+        RemovedIdentifiers, SemaReceipt, SkippedRemovalCandidate, SkippedRemovalCandidates,
     },
 };
 
@@ -698,6 +698,7 @@ impl Query {
         self.topic_match.matches(&entry.topics)
             && self.kind.as_ref().is_none_or(|kind| &entry.kind == kind)
             && self.privacy_selection.matches(&entry.privacy)
+            && self.certainty_selection.matches(&entry.magnitude)
     }
 }
 
@@ -712,6 +713,29 @@ impl PrivacySelection {
             Self::Exact(expected) => privacy == expected.payload(),
             Self::AtMost(maximum) => privacy.weight() <= maximum.payload().weight(),
             Self::AtLeast(minimum) => privacy.weight() >= minimum.payload().weight(),
+        }
+    }
+}
+
+impl CertaintySelection {
+    pub fn default_observation_certainty() -> Self {
+        Self::at_least_certainty(Certainty::new(Magnitude::Minimum))
+    }
+
+    pub fn removal_candidate_certainty() -> Self {
+        Self::exact_certainty(Certainty::new(Magnitude::Zero))
+    }
+
+    pub fn matches(&self, certainty: &Magnitude) -> bool {
+        match self {
+            Self::Any => true,
+            Self::ExactCertainty(expected) => certainty == expected.payload().payload(),
+            Self::AtMostCertainty(maximum) => {
+                certainty.weight() <= maximum.payload().payload().weight()
+            }
+            Self::AtLeastCertainty(minimum) => {
+                certainty.weight() >= minimum.payload().payload().weight()
+            }
         }
     }
 }

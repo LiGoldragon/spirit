@@ -7,12 +7,12 @@ use crate::{
         nexus::{self as nexus_schema, NexusAction, NexusEffectCommand, NexusEngine, NexusWork},
         sema::ErrorReport,
         signal::{
-            self as signal_schema, DatabaseMarker, Description, EngineStartFailure,
-            EngineStopFailure, Entry, ErrorMessage, Input, Integer, IntentEvent, MailIdentifier,
-            MailLedgerEvent, MessageIdentifier, MessageProcessed, MessageProcessedHook,
-            MessageSent, MessageSentHook, OriginRoute, Output, Privacy, PrivacySelection,
-            ProcessedMail, Query, RecordSelection, SemaReceipt, SentMail, ShortHeader,
-            SignalEngine, SignalRejection, StatementText, Topic, TopicMatch, Topics,
+            self as signal_schema, CertaintySelection, DatabaseMarker, Description,
+            EngineStartFailure, EngineStopFailure, Entry, ErrorMessage, Input, Integer,
+            IntentEvent, MailIdentifier, MailLedgerEvent, MessageIdentifier, MessageProcessed,
+            MessageProcessedHook, MessageSent, MessageSentHook, OriginRoute, Output, Privacy,
+            PrivacySelection, ProcessedMail, Query, RecordSelection, SemaReceipt, SentMail,
+            ShortHeader, SignalEngine, SignalRejection, StatementText, Topic, TopicMatch, Topics,
             ValidationError,
         },
     },
@@ -498,6 +498,7 @@ impl RecordSelection {
             topic_match: self.topic_match,
             kind: self.kind,
             privacy_selection: PrivacySelection::default_observation_privacy(),
+            certainty_selection: CertaintySelection::default_observation_certainty(),
         }
     }
 
@@ -508,6 +509,7 @@ impl RecordSelection {
             privacy_selection: PrivacySelection::at_least(Privacy::new(
                 PrivacySelection::private_floor(),
             )),
+            certainty_selection: CertaintySelection::default_observation_certainty(),
         }
     }
 }
@@ -811,7 +813,7 @@ impl PartialEq<u64> for signal_schema::StateDigest {
 
 impl PartialOrd for signal_schema::StateDigest {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.payload().partial_cmp(other.payload())
+        Some(self.cmp(other))
     }
 }
 

@@ -1,7 +1,7 @@
 # INTENT — spirit
 
-`spirit` proves a running Spirit-like component can be built from schema-derived interfaces. It is intentionally separate from production `spirit`/`persona-spirit` so operators can iterate without disturbing the deployed substrate.
-It is the current copyable three-plane exemplar for the next Spirit engine
+`spirit` is the production Spirit daemon and proves a running component can be
+built from schema-derived interfaces. It is the current copyable three-plane exemplar for the next Spirit engine
 stack: a daemon crate with crate-local `schema/signal.schema`,
 `schema/nexus.schema`, and `schema/sema.schema`, shared build-driver
 generation, generated plane modules under `spirit::schema`, `sema-engine`
@@ -68,8 +68,16 @@ Generated `Input::PublicRecords(RecordSelection)` and
 without making callers spell the full `Query` object every time. Nexus lowers
 those shortcut roots into schema-declared `CommandSemaRead(Observe(Query))`:
 `PublicRecords` uses exact-`Zero` privacy, and `PrivateRecords` uses non-zero
-privacy (`AtLeast Minimum`). SEMA still owns the canonical `Query` predicate
-and durable read behavior.
+privacy (`AtLeast Minimum`). Both project to ordinary observation certainty
+(`AtLeastCertainty Minimum`), so zero-certainty removal candidates stay out of
+normal query surfaces. SEMA still owns the canonical `Query` predicate and
+durable read behavior.
+
+*Certainty and weight are separate axes.* The current `Entry.magnitude` field is
+production certainty: `Zero` nominates a record for removal while direct
+`Lookup` remains possible. Weight is the future importance/repetition axis and
+must become its own stored field through a migration; it must not be overloaded
+onto certainty.
 
 *Nexus is the recursive runner payload keeper and the internal feature catalog.*
 Signal triage produces a generated `nexus::Nexus<nexus::Work>` envelope;
@@ -104,7 +112,7 @@ subscription registry / retained writer plumbing. Spirit owns only binary
 configuration decoding, engine construction, one working-input hook, the
 owner-only meta request hook, and stream filter/event policy.
 
-*SEMA is durable.* `Store` maps generated SEMA roots onto `sema-engine` keyed-record operations over a `.sema` file. Record identifiers are production-compatible short/base36 string keys, not sequential numeric counters; migration imports production identifiers unchanged, and fresh records mint unused short keys. Each `Record` asserts a keyed `StoredRecord`, each `ChangeCertainty` and `ChangeRecord` mutates the same key, each `Remove` retracts that key, and `Observe`/`Lookup`/`Count` read through sema-engine query plans. SEMA replies carry generated `DatabaseMarker` values so Signal replies report the state commit sequence and digest.
+*SEMA is durable.* `Store` maps generated SEMA roots onto `sema-engine` keyed-record operations over a `.sema` file. Record identifiers are production-compatible short/base36 string keys, not sequential numeric counters; migration imports production identifiers unchanged, and fresh records mint unused short keys. Each `Record` asserts a keyed `StoredRecord`, each `ChangeCertainty` and `ChangeRecord` mutates the same key, each `Remove` retracts that key, and `Observe`/`Count` read through sema-engine query plans while `Lookup` bypasses filters by exact key. SEMA replies carry generated `DatabaseMarker` values so Signal replies report the state commit sequence and digest.
 
 *The daemon's single argument is a path to a binary rkyv `SpiritDaemonConfiguration` object from the `signal-spirit` contract.* The packaged `spirit-write-configuration` text-edge helper may create that file from a typed NOTA request for launch/deploy tooling, but the daemon startup path only decodes binary state. The daemon wraps the decoded contract value in its local `Configuration` runtime object so it can implement `BindingSurface` without moving runtime behavior into the contract crate.
 

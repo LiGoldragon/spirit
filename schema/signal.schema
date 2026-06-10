@@ -86,6 +86,10 @@
   Exact Privacy
   AtMost Privacy
   AtLeast Privacy
+  CertaintySelection [Any (ExactCertainty) (AtMostCertainty) (AtLeastCertainty)]
+  ExactCertainty Certainty
+  AtMostCertainty Certainty
+  AtLeastCertainty Certainty
 
   RemovalCandidateCollection { RecordQuery * }
   RecordQuery Query
@@ -112,7 +116,7 @@
   RecordChange { RecordIdentifier * Entry * }
   RecordChangeReceipt { RecordIdentifier * DatabaseMarker * }
   RecordSelection { TopicMatch * kind (Optional Kind) }
-  Query { TopicMatch * kind (Optional Kind) privacy_selection PrivacySelection }
+  Query { TopicMatch * kind (Optional Kind) privacy_selection PrivacySelection certainty_selection CertaintySelection }
   Records (Vec Entry)
   RecordSet (Vec Entry)
   Kind [Decision Principle Correction Clarification Constraint]

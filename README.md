@@ -1,8 +1,7 @@
 # spirit
 
-Runnable schema-derived Spirit pilot.
-
-`spirit` proves the first practical version of the new architecture:
+`spirit` is the production Spirit daemon and the first practical version of the
+new schema-derived architecture:
 
 ```text
 schema/{signal,nexus,sema}.schema
@@ -19,8 +18,9 @@ schema/{signal,nexus,sema}.schema
   -> CLI NOTA output
 ```
 
-This is not production Spirit. It is the public pilot repo for making the
-schema-created interface real at a process boundary.
+It is also the copyable triad exemplar for newer components: authored schema
+source generates the Signal/Nexus/SEMA nouns, the CLI is a text edge, daemon
+traffic is binary rkyv, and the durable store is owned by SEMA.
 
 `build.rs` decodes `schema/{signal,nexus,sema}.schema` into typed
 `SchemaSource` values, validates canonical text and rkyv round-trips, emits
@@ -50,6 +50,9 @@ SPIRIT_SOCKET=/tmp/spirit.sock \
   spirit "(Observe ((Full [schema]) (Some Constraint) (Exact Zero)))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
+  spirit "(Observe ((Full [schema]) (Some Constraint) (Exact Zero) (ExactCertainty Zero)))"
+
+SPIRIT_SOCKET=/tmp/spirit.sock \
   spirit "(Remove [1])"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
@@ -63,6 +66,14 @@ Entries carry a vector of topics. Queries use generated `TopicMatch` values:
 `(Partial [[schema] [runtime]])` matches any requested topic, while
 `(Full [[schema] [runtime]])` requires every requested topic. The query kind is
 optional: `(Some Decision)` filters by kind and `None` searches only by topic.
+The full generated query also carries privacy and certainty selectors. The CLI
+accepts the common three-field query shorthand and fills the certainty selector
+with `AtLeastCertainty Minimum`, so ordinary `Observe` and `Count` hide
+zero-certainty removal candidates. Use the explicit four-field form with
+`ExactCertainty Zero` when reviewing candidates. Certainty and weight are
+separate design axes: this version implements certainty filtering; a future
+store migration must add weight as its own field instead of overloading
+certainty.
 
 ## Runtime triad
 

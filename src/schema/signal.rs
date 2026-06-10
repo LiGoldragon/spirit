@@ -489,6 +489,31 @@ pub struct AtLeast(Privacy);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum CertaintySelection {
+    Any,
+    ExactCertainty(ExactCertainty),
+    AtMostCertainty(AtMostCertainty),
+    AtLeastCertainty(AtLeastCertainty),
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ExactCertainty(Certainty);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct AtMostCertainty(Certainty);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct AtLeastCertainty(Certainty);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct RemovalCandidateCollection(RecordQuery);
 
 #[rustfmt::skip]
@@ -703,6 +728,7 @@ pub struct Query {
     pub topic_match: TopicMatch,
     pub kind: Option<Kind>,
     pub privacy_selection: PrivacySelection,
+    pub certainty_selection: CertaintySelection,
 }
 
 #[rustfmt::skip]
@@ -1867,6 +1893,63 @@ impl From<Privacy> for AtLeast {
 }
 
 #[rustfmt::skip]
+impl ExactCertainty {
+    pub fn new(payload: Certainty) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Certainty {
+        &self.0
+    }
+    pub fn into_payload(self) -> Certainty {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Certainty> for ExactCertainty {
+    fn from(payload: Certainty) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl AtMostCertainty {
+    pub fn new(payload: Certainty) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Certainty {
+        &self.0
+    }
+    pub fn into_payload(self) -> Certainty {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Certainty> for AtMostCertainty {
+    fn from(payload: Certainty) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl AtLeastCertainty {
+    pub fn new(payload: Certainty) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Certainty {
+        &self.0
+    }
+    pub fn into_payload(self) -> Certainty {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Certainty> for AtLeastCertainty {
+    fn from(payload: Certainty) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl RemovalCandidateCollection {
     pub fn new(payload: RecordQuery) -> Self {
         Self(payload)
@@ -2116,6 +2199,19 @@ impl PrivacySelection {
 }
 
 #[rustfmt::skip]
+impl CertaintySelection {
+    pub fn exact_certainty(payload: Certainty) -> Self {
+        Self::ExactCertainty(ExactCertainty::new(payload))
+    }
+    pub fn at_most_certainty(payload: Certainty) -> Self {
+        Self::AtMostCertainty(AtMostCertainty::new(payload))
+    }
+    pub fn at_least_certainty(payload: Certainty) -> Self {
+        Self::AtLeastCertainty(AtLeastCertainty::new(payload))
+    }
+}
+
+#[rustfmt::skip]
 impl Input {
     pub fn state(payload: Statement) -> Self {
         Self::State(State::new(payload))
@@ -2269,6 +2365,27 @@ impl From<AtMost> for PrivacySelection {
 impl From<AtLeast> for PrivacySelection {
     fn from(payload: AtLeast) -> Self {
         Self::AtLeast(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<ExactCertainty> for CertaintySelection {
+    fn from(payload: ExactCertainty) -> Self {
+        Self::ExactCertainty(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<AtMostCertainty> for CertaintySelection {
+    fn from(payload: AtMostCertainty) -> Self {
+        Self::AtMostCertainty(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<AtLeastCertainty> for CertaintySelection {
+    fn from(payload: AtLeastCertainty) -> Self {
+        Self::AtLeastCertainty(payload)
     }
 }
 
@@ -3339,6 +3456,50 @@ impl AtMost {
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
 impl AtLeast {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl CertaintySelection {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl ExactCertainty {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl AtMostCertainty {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl AtLeastCertainty {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }

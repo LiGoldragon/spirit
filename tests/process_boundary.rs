@@ -536,6 +536,27 @@ fn cli_and_daemon_change_certainty_without_changing_record_identifier() {
         other => panic!("expected CertaintyChanged, got {other:?}"),
     }
 
+    let hidden_from_default_query = run_cli(
+        &socket_path,
+        "(Observe ((Full [schema]) (Some Correction) (Exact Zero)))",
+    );
+    assert!(
+        matches!(hidden_from_default_query, Output::Error(_)),
+        "zero-certainty records are hidden from ordinary observation, got {hidden_from_default_query:?}"
+    );
+
+    let explicit_candidate_query = run_cli(
+        &socket_path,
+        "(Observe ((Full [schema]) (Some Correction) (Exact Zero) (ExactCertainty Zero)))",
+    );
+    match explicit_candidate_query {
+        Output::RecordsStashed(stashed) => {
+            assert_eq!(stashed.record_count, 1);
+            assert_eq!(stashed.database_marker.commit_sequence, 2);
+        }
+        other => panic!("expected explicit zero-certainty query to stash record, got {other:?}"),
+    }
+
     let found = run_cli(
         &socket_path,
         &format!(
@@ -877,7 +898,9 @@ fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
         "SignalAdmitted",
         "SignalTriaged",
         "NexusEntered",
+        "NexusDecided",
         "SemaWriteApplied",
+        "NexusEntered",
         "NexusDecided",
         "SignalReplied",
     ]);
@@ -889,8 +912,8 @@ fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
     );
     // Designer 480: Observe flows through the recursive Nexus loop with
     // Stash; the slim wire reply carries a handle, not the full record set.
-    // The trace below shows the loop ran SEMA once and Nexus once — the
-    // additional Effect step is internal to one NexusEngine::execute call.
+    // The trace below shows each continuation step: command SEMA read,
+    // command Stash effect, then reply.
     assert!(
         matches!(observed.output, Output::RecordsStashed(_)),
         "observe reply should still be the first CLI line, got {:?}",
@@ -900,7 +923,11 @@ fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
         "SignalAdmitted",
         "SignalTriaged",
         "NexusEntered",
+        "NexusDecided",
         "SemaReadObserved",
+        "NexusEntered",
+        "NexusDecided",
+        "NexusEntered",
         "NexusDecided",
         "SignalReplied",
     ]);

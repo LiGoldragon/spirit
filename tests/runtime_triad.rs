@@ -9,10 +9,10 @@ use spirit::{
             WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
         },
         signal::{
-            Certainty, CertaintyChange, DatabaseMarker, Description, Entry, ErrorMessage,
-            ErrorReport, Input, Kind, Magnitude, MailLedgerEvent, MessageIdentifier, MessageSent,
-            MessageSentHook, OriginRoute, Output, Privacy, PrivacySelection, Query, RecordChange,
-            RecordIdentifier, RecordSelection, SemaReceipt, SentMail, SignalEngine,
+            Certainty, CertaintyChange, CertaintySelection, DatabaseMarker, Description, Entry,
+            ErrorMessage, ErrorReport, Input, Kind, Magnitude, MailLedgerEvent, MessageIdentifier,
+            MessageSent, MessageSentHook, OriginRoute, Output, Privacy, PrivacySelection, Query,
+            RecordChange, RecordIdentifier, RecordSelection, SemaReceipt, SentMail, SignalEngine,
             SignalRejection, StashHandle, Statement, StatementText, TopicMatch, Topics,
             ValidationError,
         },
@@ -109,6 +109,7 @@ fn full_query(topics: &[&str], kind: Option<Kind>) -> Query {
         topic_match: TopicMatch::full(topics_from_slice(topics)),
         kind,
         privacy_selection: PrivacySelection::default_observation_privacy(),
+        certainty_selection: CertaintySelection::default_observation_certainty(),
     }
 }
 
@@ -117,6 +118,7 @@ fn partial_query(topics: &[&str], kind: Option<Kind>) -> Query {
         topic_match: TopicMatch::partial(topics_from_slice(topics)),
         kind,
         privacy_selection: PrivacySelection::default_observation_privacy(),
+        certainty_selection: CertaintySelection::default_observation_certainty(),
     }
 }
 
@@ -1242,6 +1244,7 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
         topic_match: TopicMatch::full(Topics::from_strings(vec![String::from("runtime-triad")])),
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
+        certainty_selection: CertaintySelection::default_observation_certainty(),
     }));
 
     assert_eq!(observed.origin_route(), route(2));

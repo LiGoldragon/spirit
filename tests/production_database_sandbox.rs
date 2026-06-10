@@ -15,9 +15,9 @@ use sema_engine::{
 use spirit::{
     Configuration, SignalTransport, Store,
     schema::signal::{
-        Certainty, CertaintyChange, Description, Entry, Input, Kind, Magnitude, ObserverFilter,
-        Output, Privacy, PrivacySelection, Query, RecordChange, RecordIdentifier, Statement,
-        StatementText, TopicMatch, Topics,
+        Certainty, CertaintyChange, CertaintySelection, Description, Entry, Input, Kind, Magnitude,
+        ObserverFilter, Output, Privacy, PrivacySelection, Query, RecordChange, RecordIdentifier,
+        Statement, StatementText, TopicMatch, Topics,
     },
 };
 #[cfg(feature = "production-migration")]
@@ -361,6 +361,7 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
         topic_match: TopicMatch::Any,
         kind: None,
         privacy_selection: PrivacySelection::Any,
+        certainty_selection: CertaintySelection::Any,
     };
 
     match sandbox.run_input(Input::count(all_records_query.clone())) {
@@ -408,6 +409,7 @@ fn production_records_migrate_into_new_spirit_and_remain_queryable() {
         topic_match: TopicMatch::partial(Topics::from_strings(vec![observed_topic])),
         kind: None,
         privacy_selection: PrivacySelection::Any,
+        certainty_selection: CertaintySelection::Any,
     };
 
     match sandbox.run_input(Input::count(observed_query.clone())) {
@@ -558,6 +560,7 @@ fn production_migration_binary_preserves_ids_and_writes_queryable_new_store() {
         topic_match: TopicMatch::Any,
         kind: None,
         privacy_selection: PrivacySelection::Any,
+        certainty_selection: CertaintySelection::Any,
     };
     match sandbox.run_input(Input::count(all_records_query)) {
         Output::RecordsCounted(counted) => {
