@@ -49,6 +49,14 @@
       url = "github:LiGoldragon/signal-agent";
       flake = false;
     };
+    meta-signal-agent-source = {
+      url = "github:LiGoldragon/meta-signal-agent";
+      flake = false;
+    };
+    agent-source = {
+      url = "github:LiGoldragon/agent";
+      flake = false;
+    };
     version-projection-source = {
       url = "github:LiGoldragon/version-projection";
       flake = false;
@@ -72,6 +80,8 @@
       triad-runtime-source,
       signal-spirit-source,
       signal-agent-source,
+      meta-signal-agent-source,
+      agent-source,
       version-projection-source,
     }:
     flake-utils.lib.eachDefaultSystem (
@@ -115,6 +125,8 @@
               triadRuntimeSource = triad-runtime-source;
               signalSpiritSource = signal-spirit-source;
               signalAgentSource = signal-agent-source;
+              metaSignalAgentSource = meta-signal-agent-source;
+              agentSource = agent-source;
               versionProjectionSource = version-projection-source;
             }
             ''
@@ -131,7 +143,20 @@
               cp -R "$triadRuntimeSource" $out/vendor-sources/triad-runtime
               cp -R "$signalSpiritSource" $out/vendor-sources/signal-spirit
               cp -R "$signalAgentSource" $out/vendor-sources/signal-agent
+              cp -R "$metaSignalAgentSource" $out/vendor-sources/meta-signal-agent
+              cp -R "$agentSource" $out/vendor-sources/agent
               cp -R "$versionProjectionSource" $out/vendor-sources/version-projection
+
+              substituteInPlace $out/Cargo.toml \
+                --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota-next = { path = "vendor-sources/nota-next", optional = true }' \
+                --replace-fail 'sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main" }' 'sema-engine = { path = "vendor-sources/sema-engine" }' \
+                --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }' 'signal-frame = { path = "vendor-sources/signal-frame" }' \
+                --replace-fail 'signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main", optional = true }' 'signal-agent = { path = "vendor-sources/signal-agent", optional = true }' \
+                --replace-fail 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main" }' 'signal-spirit = { path = "vendor-sources/signal-spirit" }' \
+                --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "vendor-sources/triad-runtime" }' \
+                --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust-next = { path = "vendor-sources/schema-rust-next" }' \
+                --replace-fail 'agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", features = ["live-provider"] }' 'agent = { path = "vendor-sources/agent", features = ["live-provider"] }' \
+                --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "vendor-sources/schema-next" }'
 
               substituteInPlace $out/vendor-sources/schema-rust-next/Cargo.toml \
                 --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "../schema-next" }' \
@@ -169,6 +194,19 @@
                 --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' '{ path = "../nota-next", optional = true }' \
                 --replace-fail '{ git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' '{ path = "../schema-rust-next" }'
 
+              substituteInPlace $out/vendor-sources/meta-signal-agent/Cargo.toml \
+                --replace-fail 'nota-next    = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota-next    = { path = "../nota-next", optional = true }' \
+                --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main", default-features = false }' 'signal-frame = { path = "../signal-frame", default-features = false }' \
+                --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust-next = { path = "../schema-rust-next" }'
+
+              substituteInPlace $out/vendor-sources/agent/Cargo.toml \
+                --replace-fail 'nota-next        = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next        = { path = "../nota-next" }' \
+                --replace-fail 'signal-frame     = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }' 'signal-frame     = { path = "../signal-frame" }' \
+                --replace-fail 'signal-agent      = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main" }' 'signal-agent      = { path = "../signal-agent" }' \
+                --replace-fail 'meta-signal-agent = { git = "https://github.com/LiGoldragon/meta-signal-agent.git", branch = "main" }' 'meta-signal-agent = { path = "../meta-signal-agent" }' \
+                --replace-fail 'triad-runtime    = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime    = { path = "../triad-runtime" }' \
+                --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust-next = { path = "../schema-rust-next" }'
+
               substituteInPlace $out/vendor-sources/version-projection/Cargo.toml \
                 --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' '{ path = "../nota-next", optional = true }' \
                 --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' '{ path = "../nota-next" }'
@@ -205,6 +243,12 @@
 
               [patch."https://github.com/LiGoldragon/signal-agent.git"]
               signal-agent = { path = "vendor-sources/signal-agent" }
+
+              [patch."https://github.com/LiGoldragon/meta-signal-agent.git"]
+              meta-signal-agent = { path = "vendor-sources/meta-signal-agent" }
+
+              [patch."https://github.com/LiGoldragon/agent.git"]
+              agent = { path = "vendor-sources/agent" }
 
               [patch."https://github.com/LiGoldragon/version-projection.git"]
               version-projection = { path = "vendor-sources/version-projection" }
