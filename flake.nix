@@ -283,6 +283,13 @@
             cargoExtraArgs = "--features production-migration --bin spirit-migrate-production";
           }
         );
+        storeUpgradePackage = craneLib.buildPackage (
+          commonArguments
+          // {
+            cargoArtifacts = notaTextCargoArtifacts;
+            cargoExtraArgs = "--features production-migration --bin spirit-upgrade-store";
+          }
+        );
         traceDaemonPackage = craneLib.buildPackage (
           commonArguments
           // {
@@ -303,6 +310,7 @@
           ln -s "${daemonPackage}/bin/spirit-daemon" "$out/bin/spirit-daemon"
           ln -s "${configurationWriterPackage}/bin/spirit-write-configuration" "$out/bin/spirit-write-configuration"
           ln -s "${productionMigrationPackage}/bin/spirit-migrate-production" "$out/bin/spirit-migrate-production"
+          ln -s "${storeUpgradePackage}/bin/spirit-upgrade-store" "$out/bin/spirit-upgrade-store"
         '';
         traceCombinedPackage = pkgs.runCommand "spirit-trace" { } ''
           mkdir -p "$out/bin"
@@ -328,6 +336,7 @@
         packages.daemon = daemonPackage;
         packages.configuration-writer = configurationWriterPackage;
         packages.production-migration = productionMigrationPackage;
+        packages.store-upgrade = storeUpgradePackage;
         packages.trace = traceCombinedPackage;
         packages."trace-cli" = traceCliPackage;
         packages."trace-daemon" = traceDaemonPackage;

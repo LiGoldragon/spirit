@@ -1,4 +1,4 @@
-use std::{fs, io::ErrorKind, path::PathBuf};
+use std::{fs, path::PathBuf};
 
 use nota_next::{NotaDecodeError, NotaEncode, NotaSource};
 use spirit::{
@@ -95,6 +95,6 @@ enum ProductionMigrationCliError {
 
 impl From<ProductionMigrationCliError> for std::io::Error {
     fn from(error: ProductionMigrationCliError) -> Self {
-        std::io::Error::new(ErrorKind::Other, error)
+        std::io::Error::other(error)
     }
 }
