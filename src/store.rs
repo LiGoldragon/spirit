@@ -1371,7 +1371,7 @@ impl Entry {
             .domains
             .payload()
             .iter()
-            .map(|domain| DomainScope::from_path(domain.path_segments()).expand())
+            .map(|domain| DomainScope::from(domain.clone()).expand())
             .any(|scope_set| scope_set.matches_any_domain(&self.domains))
     }
 

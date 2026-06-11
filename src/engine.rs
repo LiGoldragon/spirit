@@ -909,16 +909,7 @@ impl DomainScopes {
     }
 
     pub fn from_domains(domains: &Domains) -> Self {
-        Self::new(
-            domains
-                .iter()
-                .map(|domain| DomainScope::from_path(domain.path_segments()))
-                .collect(),
-        )
-    }
-
-    pub fn from_paths(paths: Vec<Vec<String>>) -> Self {
-        Self::new(paths.into_iter().map(DomainScope::from_path).collect())
+        Self::new(domains.iter().cloned().map(DomainScope::from).collect())
     }
 
     pub fn is_empty(&self) -> bool {
@@ -937,7 +928,7 @@ impl DomainScopes {
 
 impl DomainScope {
     pub fn matches_domain(&self, domain: &Domain) -> bool {
-        domain.matches_scope(self)
+        self.contains_domain(domain)
     }
 }
 
@@ -956,50 +947,8 @@ impl ScopeSet {
 }
 
 impl Domain {
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::Health(payload) => Self::two_segment_path("Health", *payload),
-            Self::Food(payload) => Self::two_segment_path("Food", *payload),
-            Self::Home(payload) => Self::two_segment_path("Home", *payload),
-            Self::Finance(payload) => Self::two_segment_path("Finance", *payload),
-            Self::Work(payload) => Self::two_segment_path("Work", *payload),
-            Self::Craft(payload) => Self::two_segment_path("Craft", *payload),
-            Self::Knowledge(payload) => Self::two_segment_path("Knowledge", *payload),
-            Self::Education(payload) => Self::two_segment_path("Education", *payload),
-            Self::Language(payload) => Self::two_segment_path("Language", *payload),
-            Self::Art(payload) => Self::two_segment_path("Art", *payload),
-            Self::Kinship(payload) => Self::two_segment_path("Kinship", *payload),
-            Self::Selfhood(payload) => Self::two_segment_path("Selfhood", *payload),
-            Self::Spirituality(payload) => Self::two_segment_path("Spirituality", *payload),
-            Self::Governance(payload) => Self::two_segment_path("Governance", *payload),
-            Self::Law(payload) => Self::two_segment_path("Law", *payload),
-            Self::Community(payload) => Self::two_segment_path("Community", *payload),
-            Self::Nature(payload) => Self::two_segment_path("Nature", *payload),
-            Self::Travel(payload) => Self::two_segment_path("Travel", *payload),
-            Self::Commerce(payload) => Self::two_segment_path("Commerce", *payload),
-            Self::Leisure(payload) => Self::two_segment_path("Leisure", *payload),
-            Self::Appearance(payload) => Self::two_segment_path("Appearance", *payload),
-            Self::Safety(payload) => Self::two_segment_path("Safety", *payload),
-            Self::Information(payload) => Self::two_segment_path("Information", *payload),
-            Self::Technology(payload) => {
-                let mut path = vec![String::from("Technology")];
-                path.extend(payload.path_segments());
-                path
-            }
-        }
-    }
-
     pub fn matches_scope(&self, scope: &DomainScope) -> bool {
-        let scope_segments = scope.path_segments();
-        self.path_segments().starts_with(scope_segments.as_slice())
-    }
-
-    fn two_segment_path<T: std::fmt::Debug>(root: &str, leaf: T) -> Vec<String> {
-        vec![String::from(root), Self::segment(leaf)]
-    }
-
-    fn segment<T: std::fmt::Debug>(value: T) -> String {
-        format!("{value:?}")
+        scope.contains_domain(self)
     }
 
     fn software(payload: signal_schema::Software) -> Self {
@@ -1166,38 +1115,6 @@ impl Domain {
     fn push_unique(domains: &mut Vec<Self>, domain: Self) {
         if !domains.contains(&domain) {
             domains.push(domain);
-        }
-    }
-}
-
-impl signal_schema::Technology {
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::Hardware(payload) => Domain::two_segment_path("Hardware", *payload),
-            Self::Software(payload) => {
-                let mut path = vec![String::from("Software")];
-                path.extend(payload.path_segments());
-                path
-            }
-        }
-    }
-}
-
-impl signal_schema::Software {
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::Languages(payload) => Domain::two_segment_path("Languages", *payload),
-            Self::Theory(payload) => Domain::two_segment_path("Theory", *payload),
-            Self::Systems(payload) => Domain::two_segment_path("Systems", *payload),
-            Self::Distributed(payload) => Domain::two_segment_path("Distributed", *payload),
-            Self::Data(payload) => Domain::two_segment_path("Data", *payload),
-            Self::Intelligence(payload) => Domain::two_segment_path("Intelligence", *payload),
-            Self::Security(payload) => Domain::two_segment_path("Security", *payload),
-            Self::Quality(payload) => Domain::two_segment_path("Quality", *payload),
-            Self::Operations(payload) => Domain::two_segment_path("Operations", *payload),
-            Self::Observability(payload) => Domain::two_segment_path("Observability", *payload),
-            Self::Surfaces(payload) => Domain::two_segment_path("Surfaces", *payload),
-            Self::Engineering(payload) => Domain::two_segment_path("Engineering", *payload),
         }
     }
 }

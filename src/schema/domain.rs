@@ -1855,2167 +1855,1468 @@ pub enum HealthScope {
     Rehabilitation,
 }
 #[rustfmt::skip]
-impl HealthScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Body" if tail.is_empty() => Some(Self::Body),
-            "Mind" if tail.is_empty() => Some(Self::Mind),
-            "Nutrition" if tail.is_empty() => Some(Self::Nutrition),
-            "Exercise" if tail.is_empty() => Some(Self::Exercise),
-            "Sleep" if tail.is_empty() => Some(Self::Sleep),
-            "Medicine" if tail.is_empty() => Some(Self::Medicine),
-            "Disease" if tail.is_empty() => Some(Self::Disease),
-            "Medication" if tail.is_empty() => Some(Self::Medication),
-            "Therapy" if tail.is_empty() => Some(Self::Therapy),
-            "Reproduction" if tail.is_empty() => Some(Self::Reproduction),
-            "Sexuality" if tail.is_empty() => Some(Self::Sexuality),
-            "Aging" if tail.is_empty() => Some(Self::Aging),
-            "Disability" if tail.is_empty() => Some(Self::Disability),
-            "Addiction" if tail.is_empty() => Some(Self::Addiction),
-            "Dentistry" if tail.is_empty() => Some(Self::Dentistry),
-            "Senses" if tail.is_empty() => Some(Self::Senses),
-            "Pain" if tail.is_empty() => Some(Self::Pain),
-            "Prevention" if tail.is_empty() => Some(Self::Prevention),
-            "FirstAid" if tail.is_empty() => Some(Self::FirstAid),
-            "Rehabilitation" if tail.is_empty() => Some(Self::Rehabilitation),
-            _ => None,
+impl From<Health> for HealthScope {
+    fn from(value: Health) -> Self {
+        match value {
+            Health::Body => Self::Body,
+            Health::Mind => Self::Mind,
+            Health::Nutrition => Self::Nutrition,
+            Health::Exercise => Self::Exercise,
+            Health::Sleep => Self::Sleep,
+            Health::Medicine => Self::Medicine,
+            Health::Disease => Self::Disease,
+            Health::Medication => Self::Medication,
+            Health::Therapy => Self::Therapy,
+            Health::Reproduction => Self::Reproduction,
+            Health::Sexuality => Self::Sexuality,
+            Health::Aging => Self::Aging,
+            Health::Disability => Self::Disability,
+            Health::Addiction => Self::Addiction,
+            Health::Dentistry => Self::Dentistry,
+            Health::Senses => Self::Senses,
+            Health::Pain => Self::Pain,
+            Health::Prevention => Self::Prevention,
+            Health::FirstAid => Self::FirstAid,
+            Health::Rehabilitation => Self::Rehabilitation,
         }
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Body => vec![String::from("Body")],
-            Self::Mind => vec![String::from("Mind")],
-            Self::Nutrition => vec![String::from("Nutrition")],
-            Self::Exercise => vec![String::from("Exercise")],
-            Self::Sleep => vec![String::from("Sleep")],
-            Self::Medicine => vec![String::from("Medicine")],
-            Self::Disease => vec![String::from("Disease")],
-            Self::Medication => vec![String::from("Medication")],
-            Self::Therapy => vec![String::from("Therapy")],
-            Self::Reproduction => vec![String::from("Reproduction")],
-            Self::Sexuality => vec![String::from("Sexuality")],
-            Self::Aging => vec![String::from("Aging")],
-            Self::Disability => vec![String::from("Disability")],
-            Self::Addiction => vec![String::from("Addiction")],
-            Self::Dentistry => vec![String::from("Dentistry")],
-            Self::Senses => vec![String::from("Senses")],
-            Self::Pain => vec![String::from("Pain")],
-            Self::Prevention => vec![String::from("Prevention")],
-            Self::FirstAid => vec![String::from("FirstAid")],
-            Self::Rehabilitation => vec![String::from("Rehabilitation")],
+}
+#[rustfmt::skip]
+impl HealthScope {
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Body, Self::Body) | (Self::Mind,
+            Self::Mind) | (Self::Nutrition, Self::Nutrition) | (Self::Exercise,
+            Self::Exercise) | (Self::Sleep, Self::Sleep) | (Self::Medicine,
+            Self::Medicine) | (Self::Disease, Self::Disease) | (Self::Medication,
+            Self::Medication) | (Self::Therapy, Self::Therapy) | (Self::Reproduction,
+            Self::Reproduction) | (Self::Sexuality, Self::Sexuality) | (Self::Aging,
+            Self::Aging) | (Self::Disability, Self::Disability) | (Self::Addiction,
+            Self::Addiction) | (Self::Dentistry, Self::Dentistry) | (Self::Senses,
+            Self::Senses) | (Self::Pain, Self::Pain) | (Self::Prevention,
+            Self::Prevention) | (Self::FirstAid, Self::FirstAid) | (Self::Rehabilitation,
+            Self::Rehabilitation)
+        )
+    }
+}
+#[rustfmt::skip]
+impl From<Food> for FoodScope {
+    fn from(value: Food) -> Self {
+        match value {
+            Food::Cooking => Self::Cooking,
+            Food::Diet => Self::Diet,
+            Food::Recipe => Self::Recipe,
+            Food::Baking => Self::Baking,
+            Food::Preservation => Self::Preservation,
+            Food::Fermentation => Self::Fermentation,
+            Food::Beverage => Self::Beverage,
+            Food::Entertaining => Self::Entertaining,
+            Food::Foraging => Self::Foraging,
+            Food::Fasting => Self::Fasting,
+            Food::Dining => Self::Dining,
         }
     }
 }
 #[rustfmt::skip]
 impl FoodScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Cooking" if tail.is_empty() => Some(Self::Cooking),
-            "Diet" if tail.is_empty() => Some(Self::Diet),
-            "Recipe" if tail.is_empty() => Some(Self::Recipe),
-            "Baking" if tail.is_empty() => Some(Self::Baking),
-            "Preservation" if tail.is_empty() => Some(Self::Preservation),
-            "Fermentation" if tail.is_empty() => Some(Self::Fermentation),
-            "Beverage" if tail.is_empty() => Some(Self::Beverage),
-            "Entertaining" if tail.is_empty() => Some(Self::Entertaining),
-            "Foraging" if tail.is_empty() => Some(Self::Foraging),
-            "Fasting" if tail.is_empty() => Some(Self::Fasting),
-            "Dining" if tail.is_empty() => Some(Self::Dining),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Cooking, Self::Cooking) | (Self::Diet,
+            Self::Diet) | (Self::Recipe, Self::Recipe) | (Self::Baking, Self::Baking) |
+            (Self::Preservation, Self::Preservation) | (Self::Fermentation,
+            Self::Fermentation) | (Self::Beverage, Self::Beverage) | (Self::Entertaining,
+            Self::Entertaining) | (Self::Foraging, Self::Foraging) | (Self::Fasting,
+            Self::Fasting) | (Self::Dining, Self::Dining)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Cooking => vec![String::from("Cooking")],
-            Self::Diet => vec![String::from("Diet")],
-            Self::Recipe => vec![String::from("Recipe")],
-            Self::Baking => vec![String::from("Baking")],
-            Self::Preservation => vec![String::from("Preservation")],
-            Self::Fermentation => vec![String::from("Fermentation")],
-            Self::Beverage => vec![String::from("Beverage")],
-            Self::Entertaining => vec![String::from("Entertaining")],
-            Self::Foraging => vec![String::from("Foraging")],
-            Self::Fasting => vec![String::from("Fasting")],
-            Self::Dining => vec![String::from("Dining")],
+}
+#[rustfmt::skip]
+impl From<Home> for HomeScope {
+    fn from(value: Home) -> Self {
+        match value {
+            Home::Housing => Self::Housing,
+            Home::Maintenance => Self::Maintenance,
+            Home::Renovation => Self::Renovation,
+            Home::Furnishing => Self::Furnishing,
+            Home::Cleaning => Self::Cleaning,
+            Home::Tidying => Self::Tidying,
+            Home::Relocation => Self::Relocation,
+            Home::Realty => Self::Realty,
+            Home::Property => Self::Property,
+            Home::Utilities => Self::Utilities,
+            Home::Locksmithing => Self::Locksmithing,
+            Home::Appliances => Self::Appliances,
         }
     }
 }
 #[rustfmt::skip]
 impl HomeScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Housing" if tail.is_empty() => Some(Self::Housing),
-            "Maintenance" if tail.is_empty() => Some(Self::Maintenance),
-            "Renovation" if tail.is_empty() => Some(Self::Renovation),
-            "Furnishing" if tail.is_empty() => Some(Self::Furnishing),
-            "Cleaning" if tail.is_empty() => Some(Self::Cleaning),
-            "Tidying" if tail.is_empty() => Some(Self::Tidying),
-            "Relocation" if tail.is_empty() => Some(Self::Relocation),
-            "Realty" if tail.is_empty() => Some(Self::Realty),
-            "Property" if tail.is_empty() => Some(Self::Property),
-            "Utilities" if tail.is_empty() => Some(Self::Utilities),
-            "Locksmithing" if tail.is_empty() => Some(Self::Locksmithing),
-            "Appliances" if tail.is_empty() => Some(Self::Appliances),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Housing, Self::Housing) |
+            (Self::Maintenance, Self::Maintenance) | (Self::Renovation, Self::Renovation)
+            | (Self::Furnishing, Self::Furnishing) | (Self::Cleaning, Self::Cleaning) |
+            (Self::Tidying, Self::Tidying) | (Self::Relocation, Self::Relocation) |
+            (Self::Realty, Self::Realty) | (Self::Property, Self::Property) |
+            (Self::Utilities, Self::Utilities) | (Self::Locksmithing, Self::Locksmithing)
+            | (Self::Appliances, Self::Appliances)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Housing => vec![String::from("Housing")],
-            Self::Maintenance => vec![String::from("Maintenance")],
-            Self::Renovation => vec![String::from("Renovation")],
-            Self::Furnishing => vec![String::from("Furnishing")],
-            Self::Cleaning => vec![String::from("Cleaning")],
-            Self::Tidying => vec![String::from("Tidying")],
-            Self::Relocation => vec![String::from("Relocation")],
-            Self::Realty => vec![String::from("Realty")],
-            Self::Property => vec![String::from("Property")],
-            Self::Utilities => vec![String::from("Utilities")],
-            Self::Locksmithing => vec![String::from("Locksmithing")],
-            Self::Appliances => vec![String::from("Appliances")],
+}
+#[rustfmt::skip]
+impl From<Finance> for FinanceScope {
+    fn from(value: Finance) -> Self {
+        match value {
+            Finance::Budgeting => Self::Budgeting,
+            Finance::Saving => Self::Saving,
+            Finance::Spending => Self::Spending,
+            Finance::Debt => Self::Debt,
+            Finance::Credit => Self::Credit,
+            Finance::Investing => Self::Investing,
+            Finance::Retirement => Self::Retirement,
+            Finance::Tax => Self::Tax,
+            Finance::Insurance => Self::Insurance,
+            Finance::Income => Self::Income,
+            Finance::Banking => Self::Banking,
+            Finance::Charity => Self::Charity,
+            Finance::Planning => Self::Planning,
+            Finance::Accounting => Self::Accounting,
         }
     }
 }
 #[rustfmt::skip]
 impl FinanceScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Budgeting" if tail.is_empty() => Some(Self::Budgeting),
-            "Saving" if tail.is_empty() => Some(Self::Saving),
-            "Spending" if tail.is_empty() => Some(Self::Spending),
-            "Debt" if tail.is_empty() => Some(Self::Debt),
-            "Credit" if tail.is_empty() => Some(Self::Credit),
-            "Investing" if tail.is_empty() => Some(Self::Investing),
-            "Retirement" if tail.is_empty() => Some(Self::Retirement),
-            "Tax" if tail.is_empty() => Some(Self::Tax),
-            "Insurance" if tail.is_empty() => Some(Self::Insurance),
-            "Income" if tail.is_empty() => Some(Self::Income),
-            "Banking" if tail.is_empty() => Some(Self::Banking),
-            "Charity" if tail.is_empty() => Some(Self::Charity),
-            "Planning" if tail.is_empty() => Some(Self::Planning),
-            "Accounting" if tail.is_empty() => Some(Self::Accounting),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Budgeting, Self::Budgeting) |
+            (Self::Saving, Self::Saving) | (Self::Spending, Self::Spending) |
+            (Self::Debt, Self::Debt) | (Self::Credit, Self::Credit) | (Self::Investing,
+            Self::Investing) | (Self::Retirement, Self::Retirement) | (Self::Tax,
+            Self::Tax) | (Self::Insurance, Self::Insurance) | (Self::Income,
+            Self::Income) | (Self::Banking, Self::Banking) | (Self::Charity,
+            Self::Charity) | (Self::Planning, Self::Planning) | (Self::Accounting,
+            Self::Accounting)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Budgeting => vec![String::from("Budgeting")],
-            Self::Saving => vec![String::from("Saving")],
-            Self::Spending => vec![String::from("Spending")],
-            Self::Debt => vec![String::from("Debt")],
-            Self::Credit => vec![String::from("Credit")],
-            Self::Investing => vec![String::from("Investing")],
-            Self::Retirement => vec![String::from("Retirement")],
-            Self::Tax => vec![String::from("Tax")],
-            Self::Insurance => vec![String::from("Insurance")],
-            Self::Income => vec![String::from("Income")],
-            Self::Banking => vec![String::from("Banking")],
-            Self::Charity => vec![String::from("Charity")],
-            Self::Planning => vec![String::from("Planning")],
-            Self::Accounting => vec![String::from("Accounting")],
+}
+#[rustfmt::skip]
+impl From<Work> for WorkScope {
+    fn from(value: Work) -> Self {
+        match value {
+            Work::Career => Self::Career,
+            Work::JobSearch => Self::JobSearch,
+            Work::Workplace => Self::Workplace,
+            Work::Vocation => Self::Vocation,
+            Work::Leadership => Self::Leadership,
+            Work::Entrepreneurship => Self::Entrepreneurship,
+            Work::Employment => Self::Employment,
+            Work::Compensation => Self::Compensation,
+            Work::Scheduling => Self::Scheduling,
+            Work::Unemployment => Self::Unemployment,
+            Work::Freelancing => Self::Freelancing,
+            Work::Teamwork => Self::Teamwork,
+            Work::Productivity => Self::Productivity,
+            Work::Project => Self::Project,
         }
     }
 }
 #[rustfmt::skip]
 impl WorkScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Career" if tail.is_empty() => Some(Self::Career),
-            "JobSearch" if tail.is_empty() => Some(Self::JobSearch),
-            "Workplace" if tail.is_empty() => Some(Self::Workplace),
-            "Vocation" if tail.is_empty() => Some(Self::Vocation),
-            "Leadership" if tail.is_empty() => Some(Self::Leadership),
-            "Entrepreneurship" if tail.is_empty() => Some(Self::Entrepreneurship),
-            "Employment" if tail.is_empty() => Some(Self::Employment),
-            "Compensation" if tail.is_empty() => Some(Self::Compensation),
-            "Scheduling" if tail.is_empty() => Some(Self::Scheduling),
-            "Unemployment" if tail.is_empty() => Some(Self::Unemployment),
-            "Freelancing" if tail.is_empty() => Some(Self::Freelancing),
-            "Teamwork" if tail.is_empty() => Some(Self::Teamwork),
-            "Productivity" if tail.is_empty() => Some(Self::Productivity),
-            "Project" if tail.is_empty() => Some(Self::Project),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Career, Self::Career) |
+            (Self::JobSearch, Self::JobSearch) | (Self::Workplace, Self::Workplace) |
+            (Self::Vocation, Self::Vocation) | (Self::Leadership, Self::Leadership) |
+            (Self::Entrepreneurship, Self::Entrepreneurship) | (Self::Employment,
+            Self::Employment) | (Self::Compensation, Self::Compensation) |
+            (Self::Scheduling, Self::Scheduling) | (Self::Unemployment,
+            Self::Unemployment) | (Self::Freelancing, Self::Freelancing) |
+            (Self::Teamwork, Self::Teamwork) | (Self::Productivity, Self::Productivity) |
+            (Self::Project, Self::Project)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Career => vec![String::from("Career")],
-            Self::JobSearch => vec![String::from("JobSearch")],
-            Self::Workplace => vec![String::from("Workplace")],
-            Self::Vocation => vec![String::from("Vocation")],
-            Self::Leadership => vec![String::from("Leadership")],
-            Self::Entrepreneurship => vec![String::from("Entrepreneurship")],
-            Self::Employment => vec![String::from("Employment")],
-            Self::Compensation => vec![String::from("Compensation")],
-            Self::Scheduling => vec![String::from("Scheduling")],
-            Self::Unemployment => vec![String::from("Unemployment")],
-            Self::Freelancing => vec![String::from("Freelancing")],
-            Self::Teamwork => vec![String::from("Teamwork")],
-            Self::Productivity => vec![String::from("Productivity")],
-            Self::Project => vec![String::from("Project")],
+}
+#[rustfmt::skip]
+impl From<Craft> for CraftScope {
+    fn from(value: Craft) -> Self {
+        match value {
+            Craft::Electronics => Self::Electronics,
+            Craft::Construction => Self::Construction,
+            Craft::Carpentry => Self::Carpentry,
+            Craft::Metalworking => Self::Metalworking,
+            Craft::Sewing => Self::Sewing,
+            Craft::Manufacturing => Self::Manufacturing,
+            Craft::Repair => Self::Repair,
+            Craft::Engineering => Self::Engineering,
+            Craft::Handicraft => Self::Handicraft,
+            Craft::Invention => Self::Invention,
         }
     }
 }
 #[rustfmt::skip]
 impl CraftScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Electronics" if tail.is_empty() => Some(Self::Electronics),
-            "Construction" if tail.is_empty() => Some(Self::Construction),
-            "Carpentry" if tail.is_empty() => Some(Self::Carpentry),
-            "Metalworking" if tail.is_empty() => Some(Self::Metalworking),
-            "Sewing" if tail.is_empty() => Some(Self::Sewing),
-            "Manufacturing" if tail.is_empty() => Some(Self::Manufacturing),
-            "Repair" if tail.is_empty() => Some(Self::Repair),
-            "Engineering" if tail.is_empty() => Some(Self::Engineering),
-            "Handicraft" if tail.is_empty() => Some(Self::Handicraft),
-            "Invention" if tail.is_empty() => Some(Self::Invention),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Electronics, Self::Electronics) |
+            (Self::Construction, Self::Construction) | (Self::Carpentry, Self::Carpentry)
+            | (Self::Metalworking, Self::Metalworking) | (Self::Sewing, Self::Sewing) |
+            (Self::Manufacturing, Self::Manufacturing) | (Self::Repair, Self::Repair) |
+            (Self::Engineering, Self::Engineering) | (Self::Handicraft, Self::Handicraft)
+            | (Self::Invention, Self::Invention)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Electronics => vec![String::from("Electronics")],
-            Self::Construction => vec![String::from("Construction")],
-            Self::Carpentry => vec![String::from("Carpentry")],
-            Self::Metalworking => vec![String::from("Metalworking")],
-            Self::Sewing => vec![String::from("Sewing")],
-            Self::Manufacturing => vec![String::from("Manufacturing")],
-            Self::Repair => vec![String::from("Repair")],
-            Self::Engineering => vec![String::from("Engineering")],
-            Self::Handicraft => vec![String::from("Handicraft")],
-            Self::Invention => vec![String::from("Invention")],
+}
+#[rustfmt::skip]
+impl From<Knowledge> for KnowledgeScope {
+    fn from(value: Knowledge) -> Self {
+        match value {
+            Knowledge::Mathematics => Self::Mathematics,
+            Knowledge::Logic => Self::Logic,
+            Knowledge::Physics => Self::Physics,
+            Knowledge::Chemistry => Self::Chemistry,
+            Knowledge::Biology => Self::Biology,
+            Knowledge::Astronomy => Self::Astronomy,
+            Knowledge::Geology => Self::Geology,
+            Knowledge::Computing => Self::Computing,
+            Knowledge::Physiology => Self::Physiology,
+            Knowledge::Statistics => Self::Statistics,
+            Knowledge::Research => Self::Research,
+            Knowledge::History => Self::History,
+            Knowledge::Linguistics => Self::Linguistics,
+            Knowledge::Philosophy => Self::Philosophy,
+            Knowledge::Economics => Self::Economics,
+            Knowledge::Cognition => Self::Cognition,
+            Knowledge::Taxonomy => Self::Taxonomy,
         }
     }
 }
 #[rustfmt::skip]
 impl KnowledgeScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Mathematics" if tail.is_empty() => Some(Self::Mathematics),
-            "Logic" if tail.is_empty() => Some(Self::Logic),
-            "Physics" if tail.is_empty() => Some(Self::Physics),
-            "Chemistry" if tail.is_empty() => Some(Self::Chemistry),
-            "Biology" if tail.is_empty() => Some(Self::Biology),
-            "Astronomy" if tail.is_empty() => Some(Self::Astronomy),
-            "Geology" if tail.is_empty() => Some(Self::Geology),
-            "Computing" if tail.is_empty() => Some(Self::Computing),
-            "Physiology" if tail.is_empty() => Some(Self::Physiology),
-            "Statistics" if tail.is_empty() => Some(Self::Statistics),
-            "Research" if tail.is_empty() => Some(Self::Research),
-            "History" if tail.is_empty() => Some(Self::History),
-            "Linguistics" if tail.is_empty() => Some(Self::Linguistics),
-            "Philosophy" if tail.is_empty() => Some(Self::Philosophy),
-            "Economics" if tail.is_empty() => Some(Self::Economics),
-            "Cognition" if tail.is_empty() => Some(Self::Cognition),
-            "Taxonomy" if tail.is_empty() => Some(Self::Taxonomy),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Mathematics, Self::Mathematics) |
+            (Self::Logic, Self::Logic) | (Self::Physics, Self::Physics) |
+            (Self::Chemistry, Self::Chemistry) | (Self::Biology, Self::Biology) |
+            (Self::Astronomy, Self::Astronomy) | (Self::Geology, Self::Geology) |
+            (Self::Computing, Self::Computing) | (Self::Physiology, Self::Physiology) |
+            (Self::Statistics, Self::Statistics) | (Self::Research, Self::Research) |
+            (Self::History, Self::History) | (Self::Linguistics, Self::Linguistics) |
+            (Self::Philosophy, Self::Philosophy) | (Self::Economics, Self::Economics) |
+            (Self::Cognition, Self::Cognition) | (Self::Taxonomy, Self::Taxonomy)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Mathematics => vec![String::from("Mathematics")],
-            Self::Logic => vec![String::from("Logic")],
-            Self::Physics => vec![String::from("Physics")],
-            Self::Chemistry => vec![String::from("Chemistry")],
-            Self::Biology => vec![String::from("Biology")],
-            Self::Astronomy => vec![String::from("Astronomy")],
-            Self::Geology => vec![String::from("Geology")],
-            Self::Computing => vec![String::from("Computing")],
-            Self::Physiology => vec![String::from("Physiology")],
-            Self::Statistics => vec![String::from("Statistics")],
-            Self::Research => vec![String::from("Research")],
-            Self::History => vec![String::from("History")],
-            Self::Linguistics => vec![String::from("Linguistics")],
-            Self::Philosophy => vec![String::from("Philosophy")],
-            Self::Economics => vec![String::from("Economics")],
-            Self::Cognition => vec![String::from("Cognition")],
-            Self::Taxonomy => vec![String::from("Taxonomy")],
+}
+#[rustfmt::skip]
+impl From<Education> for EducationScope {
+    fn from(value: Education) -> Self {
+        match value {
+            Education::Studying => Self::Studying,
+            Education::Teaching => Self::Teaching,
+            Education::Schooling => Self::Schooling,
+            Education::Skill => Self::Skill,
+            Education::Reading => Self::Reading,
+            Education::Memorization => Self::Memorization,
+            Education::Pedagogy => Self::Pedagogy,
+            Education::Mentoring => Self::Mentoring,
+            Education::Autodidacticism => Self::Autodidacticism,
+            Education::Credential => Self::Credential,
         }
     }
 }
 #[rustfmt::skip]
 impl EducationScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Studying" if tail.is_empty() => Some(Self::Studying),
-            "Teaching" if tail.is_empty() => Some(Self::Teaching),
-            "Schooling" if tail.is_empty() => Some(Self::Schooling),
-            "Skill" if tail.is_empty() => Some(Self::Skill),
-            "Reading" if tail.is_empty() => Some(Self::Reading),
-            "Memorization" if tail.is_empty() => Some(Self::Memorization),
-            "Pedagogy" if tail.is_empty() => Some(Self::Pedagogy),
-            "Mentoring" if tail.is_empty() => Some(Self::Mentoring),
-            "Autodidacticism" if tail.is_empty() => Some(Self::Autodidacticism),
-            "Credential" if tail.is_empty() => Some(Self::Credential),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Studying, Self::Studying) |
+            (Self::Teaching, Self::Teaching) | (Self::Schooling, Self::Schooling) |
+            (Self::Skill, Self::Skill) | (Self::Reading, Self::Reading) |
+            (Self::Memorization, Self::Memorization) | (Self::Pedagogy, Self::Pedagogy) |
+            (Self::Mentoring, Self::Mentoring) | (Self::Autodidacticism,
+            Self::Autodidacticism) | (Self::Credential, Self::Credential)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Studying => vec![String::from("Studying")],
-            Self::Teaching => vec![String::from("Teaching")],
-            Self::Schooling => vec![String::from("Schooling")],
-            Self::Skill => vec![String::from("Skill")],
-            Self::Reading => vec![String::from("Reading")],
-            Self::Memorization => vec![String::from("Memorization")],
-            Self::Pedagogy => vec![String::from("Pedagogy")],
-            Self::Mentoring => vec![String::from("Mentoring")],
-            Self::Autodidacticism => vec![String::from("Autodidacticism")],
-            Self::Credential => vec![String::from("Credential")],
+}
+#[rustfmt::skip]
+impl From<Language> for LanguageScope {
+    fn from(value: Language) -> Self {
+        match value {
+            Language::Writing => Self::Writing,
+            Language::Rhetoric => Self::Rhetoric,
+            Language::Translation => Self::Translation,
+            Language::Grammar => Self::Grammar,
+            Language::Conversation => Self::Conversation,
+            Language::Correspondence => Self::Correspondence,
+            Language::Listening => Self::Listening,
+            Language::Oratory => Self::Oratory,
+            Language::Editing => Self::Editing,
+            Language::Terminology => Self::Terminology,
+            Language::Notation => Self::Notation,
         }
     }
 }
 #[rustfmt::skip]
 impl LanguageScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Writing" if tail.is_empty() => Some(Self::Writing),
-            "Rhetoric" if tail.is_empty() => Some(Self::Rhetoric),
-            "Translation" if tail.is_empty() => Some(Self::Translation),
-            "Grammar" if tail.is_empty() => Some(Self::Grammar),
-            "Conversation" if tail.is_empty() => Some(Self::Conversation),
-            "Correspondence" if tail.is_empty() => Some(Self::Correspondence),
-            "Listening" if tail.is_empty() => Some(Self::Listening),
-            "Oratory" if tail.is_empty() => Some(Self::Oratory),
-            "Editing" if tail.is_empty() => Some(Self::Editing),
-            "Terminology" if tail.is_empty() => Some(Self::Terminology),
-            "Notation" if tail.is_empty() => Some(Self::Notation),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Writing, Self::Writing) |
+            (Self::Rhetoric, Self::Rhetoric) | (Self::Translation, Self::Translation) |
+            (Self::Grammar, Self::Grammar) | (Self::Conversation, Self::Conversation) |
+            (Self::Correspondence, Self::Correspondence) | (Self::Listening,
+            Self::Listening) | (Self::Oratory, Self::Oratory) | (Self::Editing,
+            Self::Editing) | (Self::Terminology, Self::Terminology) | (Self::Notation,
+            Self::Notation)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Writing => vec![String::from("Writing")],
-            Self::Rhetoric => vec![String::from("Rhetoric")],
-            Self::Translation => vec![String::from("Translation")],
-            Self::Grammar => vec![String::from("Grammar")],
-            Self::Conversation => vec![String::from("Conversation")],
-            Self::Correspondence => vec![String::from("Correspondence")],
-            Self::Listening => vec![String::from("Listening")],
-            Self::Oratory => vec![String::from("Oratory")],
-            Self::Editing => vec![String::from("Editing")],
-            Self::Terminology => vec![String::from("Terminology")],
-            Self::Notation => vec![String::from("Notation")],
+}
+#[rustfmt::skip]
+impl From<Art> for ArtScope {
+    fn from(value: Art) -> Self {
+        match value {
+            Art::Fiction => Self::Fiction,
+            Art::Poetry => Self::Poetry,
+            Art::Music => Self::Music,
+            Art::Painting => Self::Painting,
+            Art::Photography => Self::Photography,
+            Art::Film => Self::Film,
+            Art::Theater => Self::Theater,
+            Art::Dance => Self::Dance,
+            Art::Design => Self::Design,
+            Art::Sculpture => Self::Sculpture,
+            Art::Creativity => Self::Creativity,
+            Art::Storytelling => Self::Storytelling,
+            Art::Publishing => Self::Publishing,
         }
     }
 }
 #[rustfmt::skip]
 impl ArtScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Fiction" if tail.is_empty() => Some(Self::Fiction),
-            "Poetry" if tail.is_empty() => Some(Self::Poetry),
-            "Music" if tail.is_empty() => Some(Self::Music),
-            "Painting" if tail.is_empty() => Some(Self::Painting),
-            "Photography" if tail.is_empty() => Some(Self::Photography),
-            "Film" if tail.is_empty() => Some(Self::Film),
-            "Theater" if tail.is_empty() => Some(Self::Theater),
-            "Dance" if tail.is_empty() => Some(Self::Dance),
-            "Design" if tail.is_empty() => Some(Self::Design),
-            "Sculpture" if tail.is_empty() => Some(Self::Sculpture),
-            "Creativity" if tail.is_empty() => Some(Self::Creativity),
-            "Storytelling" if tail.is_empty() => Some(Self::Storytelling),
-            "Publishing" if tail.is_empty() => Some(Self::Publishing),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Fiction, Self::Fiction) |
+            (Self::Poetry, Self::Poetry) | (Self::Music, Self::Music) | (Self::Painting,
+            Self::Painting) | (Self::Photography, Self::Photography) | (Self::Film,
+            Self::Film) | (Self::Theater, Self::Theater) | (Self::Dance, Self::Dance) |
+            (Self::Design, Self::Design) | (Self::Sculpture, Self::Sculpture) |
+            (Self::Creativity, Self::Creativity) | (Self::Storytelling,
+            Self::Storytelling) | (Self::Publishing, Self::Publishing)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Fiction => vec![String::from("Fiction")],
-            Self::Poetry => vec![String::from("Poetry")],
-            Self::Music => vec![String::from("Music")],
-            Self::Painting => vec![String::from("Painting")],
-            Self::Photography => vec![String::from("Photography")],
-            Self::Film => vec![String::from("Film")],
-            Self::Theater => vec![String::from("Theater")],
-            Self::Dance => vec![String::from("Dance")],
-            Self::Design => vec![String::from("Design")],
-            Self::Sculpture => vec![String::from("Sculpture")],
-            Self::Creativity => vec![String::from("Creativity")],
-            Self::Storytelling => vec![String::from("Storytelling")],
-            Self::Publishing => vec![String::from("Publishing")],
+}
+#[rustfmt::skip]
+impl From<Kinship> for KinshipScope {
+    fn from(value: Kinship) -> Self {
+        match value {
+            Kinship::Friendship => Self::Friendship,
+            Kinship::Romance => Self::Romance,
+            Kinship::Marriage => Self::Marriage,
+            Kinship::Family => Self::Family,
+            Kinship::Parenting => Self::Parenting,
+            Kinship::Relatives => Self::Relatives,
+            Kinship::Reconciliation => Self::Reconciliation,
+            Kinship::Boundaries => Self::Boundaries,
+            Kinship::Intimacy => Self::Intimacy,
+            Kinship::Rapport => Self::Rapport,
+            Kinship::Caregiving => Self::Caregiving,
+            Kinship::Grief => Self::Grief,
+            Kinship::Belonging => Self::Belonging,
         }
     }
 }
 #[rustfmt::skip]
 impl KinshipScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Friendship" if tail.is_empty() => Some(Self::Friendship),
-            "Romance" if tail.is_empty() => Some(Self::Romance),
-            "Marriage" if tail.is_empty() => Some(Self::Marriage),
-            "Family" if tail.is_empty() => Some(Self::Family),
-            "Parenting" if tail.is_empty() => Some(Self::Parenting),
-            "Relatives" if tail.is_empty() => Some(Self::Relatives),
-            "Reconciliation" if tail.is_empty() => Some(Self::Reconciliation),
-            "Boundaries" if tail.is_empty() => Some(Self::Boundaries),
-            "Intimacy" if tail.is_empty() => Some(Self::Intimacy),
-            "Rapport" if tail.is_empty() => Some(Self::Rapport),
-            "Caregiving" if tail.is_empty() => Some(Self::Caregiving),
-            "Grief" if tail.is_empty() => Some(Self::Grief),
-            "Belonging" if tail.is_empty() => Some(Self::Belonging),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Friendship, Self::Friendship) |
+            (Self::Romance, Self::Romance) | (Self::Marriage, Self::Marriage) |
+            (Self::Family, Self::Family) | (Self::Parenting, Self::Parenting) |
+            (Self::Relatives, Self::Relatives) | (Self::Reconciliation,
+            Self::Reconciliation) | (Self::Boundaries, Self::Boundaries) |
+            (Self::Intimacy, Self::Intimacy) | (Self::Rapport, Self::Rapport) |
+            (Self::Caregiving, Self::Caregiving) | (Self::Grief, Self::Grief) |
+            (Self::Belonging, Self::Belonging)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Friendship => vec![String::from("Friendship")],
-            Self::Romance => vec![String::from("Romance")],
-            Self::Marriage => vec![String::from("Marriage")],
-            Self::Family => vec![String::from("Family")],
-            Self::Parenting => vec![String::from("Parenting")],
-            Self::Relatives => vec![String::from("Relatives")],
-            Self::Reconciliation => vec![String::from("Reconciliation")],
-            Self::Boundaries => vec![String::from("Boundaries")],
-            Self::Intimacy => vec![String::from("Intimacy")],
-            Self::Rapport => vec![String::from("Rapport")],
-            Self::Caregiving => vec![String::from("Caregiving")],
-            Self::Grief => vec![String::from("Grief")],
-            Self::Belonging => vec![String::from("Belonging")],
+}
+#[rustfmt::skip]
+impl From<Selfhood> for SelfhoodScope {
+    fn from(value: Selfhood) -> Self {
+        match value {
+            Selfhood::Growth => Self::Growth,
+            Selfhood::Introspection => Self::Introspection,
+            Selfhood::Discipline => Self::Discipline,
+            Selfhood::Emotion => Self::Emotion,
+            Selfhood::Virtue => Self::Virtue,
+            Selfhood::Motivation => Self::Motivation,
+            Selfhood::Confidence => Self::Confidence,
+            Selfhood::Identity => Self::Identity,
+            Selfhood::Purpose => Self::Purpose,
+            Selfhood::Decision => Self::Decision,
+            Selfhood::Temperament => Self::Temperament,
+            Selfhood::Wellbeing => Self::Wellbeing,
+            Selfhood::Composure => Self::Composure,
         }
     }
 }
 #[rustfmt::skip]
 impl SelfhoodScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Growth" if tail.is_empty() => Some(Self::Growth),
-            "Introspection" if tail.is_empty() => Some(Self::Introspection),
-            "Discipline" if tail.is_empty() => Some(Self::Discipline),
-            "Emotion" if tail.is_empty() => Some(Self::Emotion),
-            "Virtue" if tail.is_empty() => Some(Self::Virtue),
-            "Motivation" if tail.is_empty() => Some(Self::Motivation),
-            "Confidence" if tail.is_empty() => Some(Self::Confidence),
-            "Identity" if tail.is_empty() => Some(Self::Identity),
-            "Purpose" if tail.is_empty() => Some(Self::Purpose),
-            "Decision" if tail.is_empty() => Some(Self::Decision),
-            "Temperament" if tail.is_empty() => Some(Self::Temperament),
-            "Wellbeing" if tail.is_empty() => Some(Self::Wellbeing),
-            "Composure" if tail.is_empty() => Some(Self::Composure),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Growth, Self::Growth) |
+            (Self::Introspection, Self::Introspection) | (Self::Discipline,
+            Self::Discipline) | (Self::Emotion, Self::Emotion) | (Self::Virtue,
+            Self::Virtue) | (Self::Motivation, Self::Motivation) | (Self::Confidence,
+            Self::Confidence) | (Self::Identity, Self::Identity) | (Self::Purpose,
+            Self::Purpose) | (Self::Decision, Self::Decision) | (Self::Temperament,
+            Self::Temperament) | (Self::Wellbeing, Self::Wellbeing) | (Self::Composure,
+            Self::Composure)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Growth => vec![String::from("Growth")],
-            Self::Introspection => vec![String::from("Introspection")],
-            Self::Discipline => vec![String::from("Discipline")],
-            Self::Emotion => vec![String::from("Emotion")],
-            Self::Virtue => vec![String::from("Virtue")],
-            Self::Motivation => vec![String::from("Motivation")],
-            Self::Confidence => vec![String::from("Confidence")],
-            Self::Identity => vec![String::from("Identity")],
-            Self::Purpose => vec![String::from("Purpose")],
-            Self::Decision => vec![String::from("Decision")],
-            Self::Temperament => vec![String::from("Temperament")],
-            Self::Wellbeing => vec![String::from("Wellbeing")],
-            Self::Composure => vec![String::from("Composure")],
+}
+#[rustfmt::skip]
+impl From<Spirituality> for SpiritualityScope {
+    fn from(value: Spirituality) -> Self {
+        match value {
+            Spirituality::Worship => Self::Worship,
+            Spirituality::Prayer => Self::Prayer,
+            Spirituality::Meditation => Self::Meditation,
+            Spirituality::Ritual => Self::Ritual,
+            Spirituality::Faith => Self::Faith,
+            Spirituality::Theology => Self::Theology,
+            Spirituality::Contemplation => Self::Contemplation,
+            Spirituality::Pilgrimage => Self::Pilgrimage,
+            Spirituality::Scripture => Self::Scripture,
+            Spirituality::Ethics => Self::Ethics,
+            Spirituality::Mortality => Self::Mortality,
+            Spirituality::Transcendence => Self::Transcendence,
+            Spirituality::Asceticism => Self::Asceticism,
+            Spirituality::Wisdom => Self::Wisdom,
         }
     }
 }
 #[rustfmt::skip]
 impl SpiritualityScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Worship" if tail.is_empty() => Some(Self::Worship),
-            "Prayer" if tail.is_empty() => Some(Self::Prayer),
-            "Meditation" if tail.is_empty() => Some(Self::Meditation),
-            "Ritual" if tail.is_empty() => Some(Self::Ritual),
-            "Faith" if tail.is_empty() => Some(Self::Faith),
-            "Theology" if tail.is_empty() => Some(Self::Theology),
-            "Contemplation" if tail.is_empty() => Some(Self::Contemplation),
-            "Pilgrimage" if tail.is_empty() => Some(Self::Pilgrimage),
-            "Scripture" if tail.is_empty() => Some(Self::Scripture),
-            "Ethics" if tail.is_empty() => Some(Self::Ethics),
-            "Mortality" if tail.is_empty() => Some(Self::Mortality),
-            "Transcendence" if tail.is_empty() => Some(Self::Transcendence),
-            "Asceticism" if tail.is_empty() => Some(Self::Asceticism),
-            "Wisdom" if tail.is_empty() => Some(Self::Wisdom),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Worship, Self::Worship) |
+            (Self::Prayer, Self::Prayer) | (Self::Meditation, Self::Meditation) |
+            (Self::Ritual, Self::Ritual) | (Self::Faith, Self::Faith) | (Self::Theology,
+            Self::Theology) | (Self::Contemplation, Self::Contemplation) |
+            (Self::Pilgrimage, Self::Pilgrimage) | (Self::Scripture, Self::Scripture) |
+            (Self::Ethics, Self::Ethics) | (Self::Mortality, Self::Mortality) |
+            (Self::Transcendence, Self::Transcendence) | (Self::Asceticism,
+            Self::Asceticism) | (Self::Wisdom, Self::Wisdom)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Worship => vec![String::from("Worship")],
-            Self::Prayer => vec![String::from("Prayer")],
-            Self::Meditation => vec![String::from("Meditation")],
-            Self::Ritual => vec![String::from("Ritual")],
-            Self::Faith => vec![String::from("Faith")],
-            Self::Theology => vec![String::from("Theology")],
-            Self::Contemplation => vec![String::from("Contemplation")],
-            Self::Pilgrimage => vec![String::from("Pilgrimage")],
-            Self::Scripture => vec![String::from("Scripture")],
-            Self::Ethics => vec![String::from("Ethics")],
-            Self::Mortality => vec![String::from("Mortality")],
-            Self::Transcendence => vec![String::from("Transcendence")],
-            Self::Asceticism => vec![String::from("Asceticism")],
-            Self::Wisdom => vec![String::from("Wisdom")],
+}
+#[rustfmt::skip]
+impl From<Governance> for GovernanceScope {
+    fn from(value: Governance) -> Self {
+        match value {
+            Governance::Politics => Self::Politics,
+            Governance::Government => Self::Government,
+            Governance::Administration => Self::Administration,
+            Governance::Citizenship => Self::Citizenship,
+            Governance::Elections => Self::Elections,
+            Governance::Activism => Self::Activism,
+            Governance::Policy => Self::Policy,
+            Governance::Diplomacy => Self::Diplomacy,
+            Governance::Movements => Self::Movements,
+            Governance::Organizing => Self::Organizing,
+            Governance::Services => Self::Services,
+            Governance::Naturalization => Self::Naturalization,
+            Governance::War => Self::War,
         }
     }
 }
 #[rustfmt::skip]
 impl GovernanceScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Politics" if tail.is_empty() => Some(Self::Politics),
-            "Government" if tail.is_empty() => Some(Self::Government),
-            "Administration" if tail.is_empty() => Some(Self::Administration),
-            "Citizenship" if tail.is_empty() => Some(Self::Citizenship),
-            "Elections" if tail.is_empty() => Some(Self::Elections),
-            "Activism" if tail.is_empty() => Some(Self::Activism),
-            "Policy" if tail.is_empty() => Some(Self::Policy),
-            "Diplomacy" if tail.is_empty() => Some(Self::Diplomacy),
-            "Movements" if tail.is_empty() => Some(Self::Movements),
-            "Organizing" if tail.is_empty() => Some(Self::Organizing),
-            "Services" if tail.is_empty() => Some(Self::Services),
-            "Naturalization" if tail.is_empty() => Some(Self::Naturalization),
-            "War" if tail.is_empty() => Some(Self::War),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Politics, Self::Politics) |
+            (Self::Government, Self::Government) | (Self::Administration,
+            Self::Administration) | (Self::Citizenship, Self::Citizenship) |
+            (Self::Elections, Self::Elections) | (Self::Activism, Self::Activism) |
+            (Self::Policy, Self::Policy) | (Self::Diplomacy, Self::Diplomacy) |
+            (Self::Movements, Self::Movements) | (Self::Organizing, Self::Organizing) |
+            (Self::Services, Self::Services) | (Self::Naturalization,
+            Self::Naturalization) | (Self::War, Self::War)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Politics => vec![String::from("Politics")],
-            Self::Government => vec![String::from("Government")],
-            Self::Administration => vec![String::from("Administration")],
-            Self::Citizenship => vec![String::from("Citizenship")],
-            Self::Elections => vec![String::from("Elections")],
-            Self::Activism => vec![String::from("Activism")],
-            Self::Policy => vec![String::from("Policy")],
-            Self::Diplomacy => vec![String::from("Diplomacy")],
-            Self::Movements => vec![String::from("Movements")],
-            Self::Organizing => vec![String::from("Organizing")],
-            Self::Services => vec![String::from("Services")],
-            Self::Naturalization => vec![String::from("Naturalization")],
-            Self::War => vec![String::from("War")],
+}
+#[rustfmt::skip]
+impl From<Law> for LawScope {
+    fn from(value: Law) -> Self {
+        match value {
+            Law::Rights => Self::Rights,
+            Law::Contract => Self::Contract,
+            Law::Title => Self::Title,
+            Law::Crime => Self::Crime,
+            Law::Litigation => Self::Litigation,
+            Law::Compliance => Self::Compliance,
+            Law::Custody => Self::Custody,
+            Law::Liability => Self::Liability,
+            Law::Procedure => Self::Procedure,
+            Law::Justice => Self::Justice,
+            Law::Policing => Self::Policing,
+            Law::Arbitration => Self::Arbitration,
         }
     }
 }
 #[rustfmt::skip]
 impl LawScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Rights" if tail.is_empty() => Some(Self::Rights),
-            "Contract" if tail.is_empty() => Some(Self::Contract),
-            "Title" if tail.is_empty() => Some(Self::Title),
-            "Crime" if tail.is_empty() => Some(Self::Crime),
-            "Litigation" if tail.is_empty() => Some(Self::Litigation),
-            "Compliance" if tail.is_empty() => Some(Self::Compliance),
-            "Custody" if tail.is_empty() => Some(Self::Custody),
-            "Liability" if tail.is_empty() => Some(Self::Liability),
-            "Procedure" if tail.is_empty() => Some(Self::Procedure),
-            "Justice" if tail.is_empty() => Some(Self::Justice),
-            "Policing" if tail.is_empty() => Some(Self::Policing),
-            "Arbitration" if tail.is_empty() => Some(Self::Arbitration),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Rights, Self::Rights) |
+            (Self::Contract, Self::Contract) | (Self::Title, Self::Title) | (Self::Crime,
+            Self::Crime) | (Self::Litigation, Self::Litigation) | (Self::Compliance,
+            Self::Compliance) | (Self::Custody, Self::Custody) | (Self::Liability,
+            Self::Liability) | (Self::Procedure, Self::Procedure) | (Self::Justice,
+            Self::Justice) | (Self::Policing, Self::Policing) | (Self::Arbitration,
+            Self::Arbitration)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Rights => vec![String::from("Rights")],
-            Self::Contract => vec![String::from("Contract")],
-            Self::Title => vec![String::from("Title")],
-            Self::Crime => vec![String::from("Crime")],
-            Self::Litigation => vec![String::from("Litigation")],
-            Self::Compliance => vec![String::from("Compliance")],
-            Self::Custody => vec![String::from("Custody")],
-            Self::Liability => vec![String::from("Liability")],
-            Self::Procedure => vec![String::from("Procedure")],
-            Self::Justice => vec![String::from("Justice")],
-            Self::Policing => vec![String::from("Policing")],
-            Self::Arbitration => vec![String::from("Arbitration")],
+}
+#[rustfmt::skip]
+impl From<Community> for CommunityScope {
+    fn from(value: Community) -> Self {
+        match value {
+            Community::Neighborliness => Self::Neighborliness,
+            Community::Volunteering => Self::Volunteering,
+            Community::Solidarity => Self::Solidarity,
+            Community::Membership => Self::Membership,
+            Community::Gatherings => Self::Gatherings,
+            Community::Reputation => Self::Reputation,
+            Community::Service => Self::Service,
+            Community::Hospitality => Self::Hospitality,
+            Community::Institutions => Self::Institutions,
         }
     }
 }
 #[rustfmt::skip]
 impl CommunityScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Neighborliness" if tail.is_empty() => Some(Self::Neighborliness),
-            "Volunteering" if tail.is_empty() => Some(Self::Volunteering),
-            "Solidarity" if tail.is_empty() => Some(Self::Solidarity),
-            "Membership" if tail.is_empty() => Some(Self::Membership),
-            "Gatherings" if tail.is_empty() => Some(Self::Gatherings),
-            "Reputation" if tail.is_empty() => Some(Self::Reputation),
-            "Service" if tail.is_empty() => Some(Self::Service),
-            "Hospitality" if tail.is_empty() => Some(Self::Hospitality),
-            "Institutions" if tail.is_empty() => Some(Self::Institutions),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Neighborliness, Self::Neighborliness)
+            | (Self::Volunteering, Self::Volunteering) | (Self::Solidarity,
+            Self::Solidarity) | (Self::Membership, Self::Membership) | (Self::Gatherings,
+            Self::Gatherings) | (Self::Reputation, Self::Reputation) | (Self::Service,
+            Self::Service) | (Self::Hospitality, Self::Hospitality) |
+            (Self::Institutions, Self::Institutions)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Neighborliness => vec![String::from("Neighborliness")],
-            Self::Volunteering => vec![String::from("Volunteering")],
-            Self::Solidarity => vec![String::from("Solidarity")],
-            Self::Membership => vec![String::from("Membership")],
-            Self::Gatherings => vec![String::from("Gatherings")],
-            Self::Reputation => vec![String::from("Reputation")],
-            Self::Service => vec![String::from("Service")],
-            Self::Hospitality => vec![String::from("Hospitality")],
-            Self::Institutions => vec![String::from("Institutions")],
+}
+#[rustfmt::skip]
+impl From<Nature> for NatureScope {
+    fn from(value: Nature) -> Self {
+        match value {
+            Nature::Agriculture => Self::Agriculture,
+            Nature::Gardening => Self::Gardening,
+            Nature::Horticulture => Self::Horticulture,
+            Nature::Husbandry => Self::Husbandry,
+            Nature::Pets => Self::Pets,
+            Nature::Forestry => Self::Forestry,
+            Nature::Fishing => Self::Fishing,
+            Nature::Hunting => Self::Hunting,
+            Nature::Conservation => Self::Conservation,
+            Nature::Weather => Self::Weather,
+            Nature::Wilderness => Self::Wilderness,
+            Nature::Sustainability => Self::Sustainability,
+            Nature::Resources => Self::Resources,
+            Nature::Stewardship => Self::Stewardship,
         }
     }
 }
 #[rustfmt::skip]
 impl NatureScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Agriculture" if tail.is_empty() => Some(Self::Agriculture),
-            "Gardening" if tail.is_empty() => Some(Self::Gardening),
-            "Horticulture" if tail.is_empty() => Some(Self::Horticulture),
-            "Husbandry" if tail.is_empty() => Some(Self::Husbandry),
-            "Pets" if tail.is_empty() => Some(Self::Pets),
-            "Forestry" if tail.is_empty() => Some(Self::Forestry),
-            "Fishing" if tail.is_empty() => Some(Self::Fishing),
-            "Hunting" if tail.is_empty() => Some(Self::Hunting),
-            "Conservation" if tail.is_empty() => Some(Self::Conservation),
-            "Weather" if tail.is_empty() => Some(Self::Weather),
-            "Wilderness" if tail.is_empty() => Some(Self::Wilderness),
-            "Sustainability" if tail.is_empty() => Some(Self::Sustainability),
-            "Resources" if tail.is_empty() => Some(Self::Resources),
-            "Stewardship" if tail.is_empty() => Some(Self::Stewardship),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Agriculture, Self::Agriculture) |
+            (Self::Gardening, Self::Gardening) | (Self::Horticulture, Self::Horticulture)
+            | (Self::Husbandry, Self::Husbandry) | (Self::Pets, Self::Pets) |
+            (Self::Forestry, Self::Forestry) | (Self::Fishing, Self::Fishing) |
+            (Self::Hunting, Self::Hunting) | (Self::Conservation, Self::Conservation) |
+            (Self::Weather, Self::Weather) | (Self::Wilderness, Self::Wilderness) |
+            (Self::Sustainability, Self::Sustainability) | (Self::Resources,
+            Self::Resources) | (Self::Stewardship, Self::Stewardship)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Agriculture => vec![String::from("Agriculture")],
-            Self::Gardening => vec![String::from("Gardening")],
-            Self::Horticulture => vec![String::from("Horticulture")],
-            Self::Husbandry => vec![String::from("Husbandry")],
-            Self::Pets => vec![String::from("Pets")],
-            Self::Forestry => vec![String::from("Forestry")],
-            Self::Fishing => vec![String::from("Fishing")],
-            Self::Hunting => vec![String::from("Hunting")],
-            Self::Conservation => vec![String::from("Conservation")],
-            Self::Weather => vec![String::from("Weather")],
-            Self::Wilderness => vec![String::from("Wilderness")],
-            Self::Sustainability => vec![String::from("Sustainability")],
-            Self::Resources => vec![String::from("Resources")],
-            Self::Stewardship => vec![String::from("Stewardship")],
+}
+#[rustfmt::skip]
+impl From<Travel> for TravelScope {
+    fn from(value: Travel) -> Self {
+        match value {
+            Travel::Itinerary => Self::Itinerary,
+            Travel::Destination => Self::Destination,
+            Travel::Transportation => Self::Transportation,
+            Travel::Driving => Self::Driving,
+            Travel::Navigation => Self::Navigation,
+            Travel::Commuting => Self::Commuting,
+            Travel::Logistics => Self::Logistics,
+            Travel::Migration => Self::Migration,
+            Travel::Tourism => Self::Tourism,
+            Travel::Transit => Self::Transit,
+            Travel::Cycling => Self::Cycling,
         }
     }
 }
 #[rustfmt::skip]
 impl TravelScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Itinerary" if tail.is_empty() => Some(Self::Itinerary),
-            "Destination" if tail.is_empty() => Some(Self::Destination),
-            "Transportation" if tail.is_empty() => Some(Self::Transportation),
-            "Driving" if tail.is_empty() => Some(Self::Driving),
-            "Navigation" if tail.is_empty() => Some(Self::Navigation),
-            "Commuting" if tail.is_empty() => Some(Self::Commuting),
-            "Logistics" if tail.is_empty() => Some(Self::Logistics),
-            "Migration" if tail.is_empty() => Some(Self::Migration),
-            "Tourism" if tail.is_empty() => Some(Self::Tourism),
-            "Transit" if tail.is_empty() => Some(Self::Transit),
-            "Cycling" if tail.is_empty() => Some(Self::Cycling),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Itinerary, Self::Itinerary) |
+            (Self::Destination, Self::Destination) | (Self::Transportation,
+            Self::Transportation) | (Self::Driving, Self::Driving) | (Self::Navigation,
+            Self::Navigation) | (Self::Commuting, Self::Commuting) | (Self::Logistics,
+            Self::Logistics) | (Self::Migration, Self::Migration) | (Self::Tourism,
+            Self::Tourism) | (Self::Transit, Self::Transit) | (Self::Cycling,
+            Self::Cycling)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Itinerary => vec![String::from("Itinerary")],
-            Self::Destination => vec![String::from("Destination")],
-            Self::Transportation => vec![String::from("Transportation")],
-            Self::Driving => vec![String::from("Driving")],
-            Self::Navigation => vec![String::from("Navigation")],
-            Self::Commuting => vec![String::from("Commuting")],
-            Self::Logistics => vec![String::from("Logistics")],
-            Self::Migration => vec![String::from("Migration")],
-            Self::Tourism => vec![String::from("Tourism")],
-            Self::Transit => vec![String::from("Transit")],
-            Self::Cycling => vec![String::from("Cycling")],
+}
+#[rustfmt::skip]
+impl From<Commerce> for CommerceScope {
+    fn from(value: Commerce) -> Self {
+        match value {
+            Commerce::Selling => Self::Selling,
+            Commerce::Buying => Self::Buying,
+            Commerce::Marketing => Self::Marketing,
+            Commerce::Retail => Self::Retail,
+            Commerce::Sourcing => Self::Sourcing,
+            Commerce::Trade => Self::Trade,
+            Commerce::Support => Self::Support,
+            Commerce::Pricing => Self::Pricing,
+            Commerce::Negotiation => Self::Negotiation,
+            Commerce::Assets => Self::Assets,
+            Commerce::Market => Self::Market,
         }
     }
 }
 #[rustfmt::skip]
 impl CommerceScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Selling" if tail.is_empty() => Some(Self::Selling),
-            "Buying" if tail.is_empty() => Some(Self::Buying),
-            "Marketing" if tail.is_empty() => Some(Self::Marketing),
-            "Retail" if tail.is_empty() => Some(Self::Retail),
-            "Sourcing" if tail.is_empty() => Some(Self::Sourcing),
-            "Trade" if tail.is_empty() => Some(Self::Trade),
-            "Support" if tail.is_empty() => Some(Self::Support),
-            "Pricing" if tail.is_empty() => Some(Self::Pricing),
-            "Negotiation" if tail.is_empty() => Some(Self::Negotiation),
-            "Assets" if tail.is_empty() => Some(Self::Assets),
-            "Market" if tail.is_empty() => Some(Self::Market),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Selling, Self::Selling) |
+            (Self::Buying, Self::Buying) | (Self::Marketing, Self::Marketing) |
+            (Self::Retail, Self::Retail) | (Self::Sourcing, Self::Sourcing) |
+            (Self::Trade, Self::Trade) | (Self::Support, Self::Support) | (Self::Pricing,
+            Self::Pricing) | (Self::Negotiation, Self::Negotiation) | (Self::Assets,
+            Self::Assets) | (Self::Market, Self::Market)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Selling => vec![String::from("Selling")],
-            Self::Buying => vec![String::from("Buying")],
-            Self::Marketing => vec![String::from("Marketing")],
-            Self::Retail => vec![String::from("Retail")],
-            Self::Sourcing => vec![String::from("Sourcing")],
-            Self::Trade => vec![String::from("Trade")],
-            Self::Support => vec![String::from("Support")],
-            Self::Pricing => vec![String::from("Pricing")],
-            Self::Negotiation => vec![String::from("Negotiation")],
-            Self::Assets => vec![String::from("Assets")],
-            Self::Market => vec![String::from("Market")],
+}
+#[rustfmt::skip]
+impl From<Leisure> for LeisureScope {
+    fn from(value: Leisure) -> Self {
+        match value {
+            Leisure::Recreation => Self::Recreation,
+            Leisure::Sport => Self::Sport,
+            Leisure::Games => Self::Games,
+            Leisure::Hobby => Self::Hobby,
+            Leisure::Entertainment => Self::Entertainment,
+            Leisure::Collecting => Self::Collecting,
+            Leisure::Outdoors => Self::Outdoors,
+            Leisure::Play => Self::Play,
+            Leisure::Relaxation => Self::Relaxation,
+            Leisure::Celebration => Self::Celebration,
+            Leisure::Fandom => Self::Fandom,
         }
     }
 }
 #[rustfmt::skip]
 impl LeisureScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Recreation" if tail.is_empty() => Some(Self::Recreation),
-            "Sport" if tail.is_empty() => Some(Self::Sport),
-            "Games" if tail.is_empty() => Some(Self::Games),
-            "Hobby" if tail.is_empty() => Some(Self::Hobby),
-            "Entertainment" if tail.is_empty() => Some(Self::Entertainment),
-            "Collecting" if tail.is_empty() => Some(Self::Collecting),
-            "Outdoors" if tail.is_empty() => Some(Self::Outdoors),
-            "Play" if tail.is_empty() => Some(Self::Play),
-            "Relaxation" if tail.is_empty() => Some(Self::Relaxation),
-            "Celebration" if tail.is_empty() => Some(Self::Celebration),
-            "Fandom" if tail.is_empty() => Some(Self::Fandom),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Recreation, Self::Recreation) |
+            (Self::Sport, Self::Sport) | (Self::Games, Self::Games) | (Self::Hobby,
+            Self::Hobby) | (Self::Entertainment, Self::Entertainment) |
+            (Self::Collecting, Self::Collecting) | (Self::Outdoors, Self::Outdoors) |
+            (Self::Play, Self::Play) | (Self::Relaxation, Self::Relaxation) |
+            (Self::Celebration, Self::Celebration) | (Self::Fandom, Self::Fandom)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Recreation => vec![String::from("Recreation")],
-            Self::Sport => vec![String::from("Sport")],
-            Self::Games => vec![String::from("Games")],
-            Self::Hobby => vec![String::from("Hobby")],
-            Self::Entertainment => vec![String::from("Entertainment")],
-            Self::Collecting => vec![String::from("Collecting")],
-            Self::Outdoors => vec![String::from("Outdoors")],
-            Self::Play => vec![String::from("Play")],
-            Self::Relaxation => vec![String::from("Relaxation")],
-            Self::Celebration => vec![String::from("Celebration")],
-            Self::Fandom => vec![String::from("Fandom")],
+}
+#[rustfmt::skip]
+impl From<Appearance> for AppearanceScope {
+    fn from(value: Appearance) -> Self {
+        match value {
+            Appearance::Clothing => Self::Clothing,
+            Appearance::Grooming => Self::Grooming,
+            Appearance::Style => Self::Style,
+            Appearance::Cosmetics => Self::Cosmetics,
+            Appearance::Etiquette => Self::Etiquette,
+            Appearance::Comportment => Self::Comportment,
         }
     }
 }
 #[rustfmt::skip]
 impl AppearanceScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Clothing" if tail.is_empty() => Some(Self::Clothing),
-            "Grooming" if tail.is_empty() => Some(Self::Grooming),
-            "Style" if tail.is_empty() => Some(Self::Style),
-            "Cosmetics" if tail.is_empty() => Some(Self::Cosmetics),
-            "Etiquette" if tail.is_empty() => Some(Self::Etiquette),
-            "Comportment" if tail.is_empty() => Some(Self::Comportment),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Clothing, Self::Clothing) |
+            (Self::Grooming, Self::Grooming) | (Self::Style, Self::Style) |
+            (Self::Cosmetics, Self::Cosmetics) | (Self::Etiquette, Self::Etiquette) |
+            (Self::Comportment, Self::Comportment)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Clothing => vec![String::from("Clothing")],
-            Self::Grooming => vec![String::from("Grooming")],
-            Self::Style => vec![String::from("Style")],
-            Self::Cosmetics => vec![String::from("Cosmetics")],
-            Self::Etiquette => vec![String::from("Etiquette")],
-            Self::Comportment => vec![String::from("Comportment")],
+}
+#[rustfmt::skip]
+impl From<Safety> for SafetyScope {
+    fn from(value: Safety) -> Self {
+        match value {
+            Safety::Protection => Self::Protection,
+            Safety::Preparedness => Self::Preparedness,
+            Safety::Risk => Self::Risk,
+            Safety::Cybersecurity => Self::Cybersecurity,
+            Safety::Privacy => Self::Privacy,
+            Safety::Disaster => Self::Disaster,
+            Safety::Military => Self::Military,
+            Safety::Deterrence => Self::Deterrence,
         }
     }
 }
 #[rustfmt::skip]
 impl SafetyScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Protection" if tail.is_empty() => Some(Self::Protection),
-            "Preparedness" if tail.is_empty() => Some(Self::Preparedness),
-            "Risk" if tail.is_empty() => Some(Self::Risk),
-            "Cybersecurity" if tail.is_empty() => Some(Self::Cybersecurity),
-            "Privacy" if tail.is_empty() => Some(Self::Privacy),
-            "Disaster" if tail.is_empty() => Some(Self::Disaster),
-            "Military" if tail.is_empty() => Some(Self::Military),
-            "Deterrence" if tail.is_empty() => Some(Self::Deterrence),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Protection, Self::Protection) |
+            (Self::Preparedness, Self::Preparedness) | (Self::Risk, Self::Risk) |
+            (Self::Cybersecurity, Self::Cybersecurity) | (Self::Privacy, Self::Privacy) |
+            (Self::Disaster, Self::Disaster) | (Self::Military, Self::Military) |
+            (Self::Deterrence, Self::Deterrence)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Protection => vec![String::from("Protection")],
-            Self::Preparedness => vec![String::from("Preparedness")],
-            Self::Risk => vec![String::from("Risk")],
-            Self::Cybersecurity => vec![String::from("Cybersecurity")],
-            Self::Privacy => vec![String::from("Privacy")],
-            Self::Disaster => vec![String::from("Disaster")],
-            Self::Military => vec![String::from("Military")],
-            Self::Deterrence => vec![String::from("Deterrence")],
+}
+#[rustfmt::skip]
+impl From<Information> for InformationScope {
+    fn from(value: Information) -> Self {
+        match value {
+            Information::Curation => Self::Curation,
+            Information::RecordKeeping => Self::RecordKeeping,
+            Information::Documentation => Self::Documentation,
+            Information::News => Self::News,
+            Information::Broadcasting => Self::Broadcasting,
+            Information::Archives => Self::Archives,
+            Information::Database => Self::Database,
+            Information::Retrieval => Self::Retrieval,
+            Information::Classification => Self::Classification,
         }
     }
 }
 #[rustfmt::skip]
 impl InformationScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Curation" if tail.is_empty() => Some(Self::Curation),
-            "RecordKeeping" if tail.is_empty() => Some(Self::RecordKeeping),
-            "Documentation" if tail.is_empty() => Some(Self::Documentation),
-            "News" if tail.is_empty() => Some(Self::News),
-            "Broadcasting" if tail.is_empty() => Some(Self::Broadcasting),
-            "Archives" if tail.is_empty() => Some(Self::Archives),
-            "Database" if tail.is_empty() => Some(Self::Database),
-            "Retrieval" if tail.is_empty() => Some(Self::Retrieval),
-            "Classification" if tail.is_empty() => Some(Self::Classification),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Curation, Self::Curation) |
+            (Self::RecordKeeping, Self::RecordKeeping) | (Self::Documentation,
+            Self::Documentation) | (Self::News, Self::News) | (Self::Broadcasting,
+            Self::Broadcasting) | (Self::Archives, Self::Archives) | (Self::Database,
+            Self::Database) | (Self::Retrieval, Self::Retrieval) | (Self::Classification,
+            Self::Classification)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Curation => vec![String::from("Curation")],
-            Self::RecordKeeping => vec![String::from("RecordKeeping")],
-            Self::Documentation => vec![String::from("Documentation")],
-            Self::News => vec![String::from("News")],
-            Self::Broadcasting => vec![String::from("Broadcasting")],
-            Self::Archives => vec![String::from("Archives")],
-            Self::Database => vec![String::from("Database")],
-            Self::Retrieval => vec![String::from("Retrieval")],
-            Self::Classification => vec![String::from("Classification")],
+}
+#[rustfmt::skip]
+impl From<Hardware> for HardwareScope {
+    fn from(value: Hardware) -> Self {
+        match value {
+            Hardware::Energy => Self::Energy,
+            Hardware::Power => Self::Power,
+            Hardware::Automation => Self::Automation,
+            Hardware::Robotics => Self::Robotics,
+            Hardware::Networking => Self::Networking,
+            Hardware::Materials => Self::Materials,
+            Hardware::Machinery => Self::Machinery,
+            Hardware::Instrumentation => Self::Instrumentation,
+            Hardware::Aerospace => Self::Aerospace,
         }
     }
 }
 #[rustfmt::skip]
 impl HardwareScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Energy" if tail.is_empty() => Some(Self::Energy),
-            "Power" if tail.is_empty() => Some(Self::Power),
-            "Automation" if tail.is_empty() => Some(Self::Automation),
-            "Robotics" if tail.is_empty() => Some(Self::Robotics),
-            "Networking" if tail.is_empty() => Some(Self::Networking),
-            "Materials" if tail.is_empty() => Some(Self::Materials),
-            "Machinery" if tail.is_empty() => Some(Self::Machinery),
-            "Instrumentation" if tail.is_empty() => Some(Self::Instrumentation),
-            "Aerospace" if tail.is_empty() => Some(Self::Aerospace),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Energy, Self::Energy) | (Self::Power,
+            Self::Power) | (Self::Automation, Self::Automation) | (Self::Robotics,
+            Self::Robotics) | (Self::Networking, Self::Networking) | (Self::Materials,
+            Self::Materials) | (Self::Machinery, Self::Machinery) |
+            (Self::Instrumentation, Self::Instrumentation) | (Self::Aerospace,
+            Self::Aerospace)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Energy => vec![String::from("Energy")],
-            Self::Power => vec![String::from("Power")],
-            Self::Automation => vec![String::from("Automation")],
-            Self::Robotics => vec![String::from("Robotics")],
-            Self::Networking => vec![String::from("Networking")],
-            Self::Materials => vec![String::from("Materials")],
-            Self::Machinery => vec![String::from("Machinery")],
-            Self::Instrumentation => vec![String::from("Instrumentation")],
-            Self::Aerospace => vec![String::from("Aerospace")],
+}
+#[rustfmt::skip]
+impl From<Languages> for LanguagesScope {
+    fn from(value: Languages) -> Self {
+        match value {
+            Languages::ProgrammingLanguages => Self::ProgrammingLanguages,
+            Languages::ProgrammingParadigms => Self::ProgrammingParadigms,
+            Languages::TypeSystems => Self::TypeSystems,
+            Languages::Compilation => Self::Compilation,
+            Languages::Interpretation => Self::Interpretation,
+            Languages::Parsing => Self::Parsing,
+            Languages::LexicalAnalysis => Self::LexicalAnalysis,
+            Languages::Grammars => Self::Grammars,
+            Languages::CodeGeneration => Self::CodeGeneration,
+            Languages::Metaprogramming => Self::Metaprogramming,
+            Languages::Macros => Self::Macros,
+            Languages::DomainSpecificLanguages => Self::DomainSpecificLanguages,
+            Languages::RuntimeEnvironments => Self::RuntimeEnvironments,
+            Languages::GarbageCollection => Self::GarbageCollection,
+            Languages::MemoryManagement => Self::MemoryManagement,
+            Languages::ForeignFunctionInterfaces => Self::ForeignFunctionInterfaces,
         }
     }
 }
 #[rustfmt::skip]
 impl LanguagesScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "ProgrammingLanguages" if tail.is_empty() => Some(Self::ProgrammingLanguages),
-            "ProgrammingParadigms" if tail.is_empty() => Some(Self::ProgrammingParadigms),
-            "TypeSystems" if tail.is_empty() => Some(Self::TypeSystems),
-            "Compilation" if tail.is_empty() => Some(Self::Compilation),
-            "Interpretation" if tail.is_empty() => Some(Self::Interpretation),
-            "Parsing" if tail.is_empty() => Some(Self::Parsing),
-            "LexicalAnalysis" if tail.is_empty() => Some(Self::LexicalAnalysis),
-            "Grammars" if tail.is_empty() => Some(Self::Grammars),
-            "CodeGeneration" if tail.is_empty() => Some(Self::CodeGeneration),
-            "Metaprogramming" if tail.is_empty() => Some(Self::Metaprogramming),
-            "Macros" if tail.is_empty() => Some(Self::Macros),
-            "DomainSpecificLanguages" if tail.is_empty() => {
-                Some(Self::DomainSpecificLanguages)
-            }
-            "RuntimeEnvironments" if tail.is_empty() => Some(Self::RuntimeEnvironments),
-            "GarbageCollection" if tail.is_empty() => Some(Self::GarbageCollection),
-            "MemoryManagement" if tail.is_empty() => Some(Self::MemoryManagement),
-            "ForeignFunctionInterfaces" if tail.is_empty() => {
-                Some(Self::ForeignFunctionInterfaces)
-            }
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::ProgrammingLanguages,
+            Self::ProgrammingLanguages) | (Self::ProgrammingParadigms,
+            Self::ProgrammingParadigms) | (Self::TypeSystems, Self::TypeSystems) |
+            (Self::Compilation, Self::Compilation) | (Self::Interpretation,
+            Self::Interpretation) | (Self::Parsing, Self::Parsing) |
+            (Self::LexicalAnalysis, Self::LexicalAnalysis) | (Self::Grammars,
+            Self::Grammars) | (Self::CodeGeneration, Self::CodeGeneration) |
+            (Self::Metaprogramming, Self::Metaprogramming) | (Self::Macros, Self::Macros)
+            | (Self::DomainSpecificLanguages, Self::DomainSpecificLanguages) |
+            (Self::RuntimeEnvironments, Self::RuntimeEnvironments) |
+            (Self::GarbageCollection, Self::GarbageCollection) | (Self::MemoryManagement,
+            Self::MemoryManagement) | (Self::ForeignFunctionInterfaces,
+            Self::ForeignFunctionInterfaces)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::ProgrammingLanguages => vec![String::from("ProgrammingLanguages")],
-            Self::ProgrammingParadigms => vec![String::from("ProgrammingParadigms")],
-            Self::TypeSystems => vec![String::from("TypeSystems")],
-            Self::Compilation => vec![String::from("Compilation")],
-            Self::Interpretation => vec![String::from("Interpretation")],
-            Self::Parsing => vec![String::from("Parsing")],
-            Self::LexicalAnalysis => vec![String::from("LexicalAnalysis")],
-            Self::Grammars => vec![String::from("Grammars")],
-            Self::CodeGeneration => vec![String::from("CodeGeneration")],
-            Self::Metaprogramming => vec![String::from("Metaprogramming")],
-            Self::Macros => vec![String::from("Macros")],
-            Self::DomainSpecificLanguages => {
-                vec![String::from("DomainSpecificLanguages")]
-            }
-            Self::RuntimeEnvironments => vec![String::from("RuntimeEnvironments")],
-            Self::GarbageCollection => vec![String::from("GarbageCollection")],
-            Self::MemoryManagement => vec![String::from("MemoryManagement")],
-            Self::ForeignFunctionInterfaces => {
-                vec![String::from("ForeignFunctionInterfaces")]
-            }
+}
+#[rustfmt::skip]
+impl From<Theory> for TheoryScope {
+    fn from(value: Theory) -> Self {
+        match value {
+            Theory::Algorithms => Self::Algorithms,
+            Theory::DataStructures => Self::DataStructures,
+            Theory::ComputationalComplexity => Self::ComputationalComplexity,
+            Theory::AutomataTheory => Self::AutomataTheory,
+            Theory::FormalLanguages => Self::FormalLanguages,
+            Theory::GraphAlgorithms => Self::GraphAlgorithms,
+            Theory::TypeTheory => Self::TypeTheory,
+            Theory::ProgramSemantics => Self::ProgramSemantics,
+            Theory::FormalMethods => Self::FormalMethods,
+            Theory::FormalVerification => Self::FormalVerification,
+            Theory::ModelChecking => Self::ModelChecking,
+            Theory::StaticAnalysis => Self::StaticAnalysis,
+            Theory::NumericalComputing => Self::NumericalComputing,
+            Theory::Cryptanalysis => Self::Cryptanalysis,
         }
     }
 }
 #[rustfmt::skip]
 impl TheoryScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Algorithms" if tail.is_empty() => Some(Self::Algorithms),
-            "DataStructures" if tail.is_empty() => Some(Self::DataStructures),
-            "ComputationalComplexity" if tail.is_empty() => {
-                Some(Self::ComputationalComplexity)
-            }
-            "AutomataTheory" if tail.is_empty() => Some(Self::AutomataTheory),
-            "FormalLanguages" if tail.is_empty() => Some(Self::FormalLanguages),
-            "GraphAlgorithms" if tail.is_empty() => Some(Self::GraphAlgorithms),
-            "TypeTheory" if tail.is_empty() => Some(Self::TypeTheory),
-            "ProgramSemantics" if tail.is_empty() => Some(Self::ProgramSemantics),
-            "FormalMethods" if tail.is_empty() => Some(Self::FormalMethods),
-            "FormalVerification" if tail.is_empty() => Some(Self::FormalVerification),
-            "ModelChecking" if tail.is_empty() => Some(Self::ModelChecking),
-            "StaticAnalysis" if tail.is_empty() => Some(Self::StaticAnalysis),
-            "NumericalComputing" if tail.is_empty() => Some(Self::NumericalComputing),
-            "Cryptanalysis" if tail.is_empty() => Some(Self::Cryptanalysis),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Algorithms, Self::Algorithms) |
+            (Self::DataStructures, Self::DataStructures) |
+            (Self::ComputationalComplexity, Self::ComputationalComplexity) |
+            (Self::AutomataTheory, Self::AutomataTheory) | (Self::FormalLanguages,
+            Self::FormalLanguages) | (Self::GraphAlgorithms, Self::GraphAlgorithms) |
+            (Self::TypeTheory, Self::TypeTheory) | (Self::ProgramSemantics,
+            Self::ProgramSemantics) | (Self::FormalMethods, Self::FormalMethods) |
+            (Self::FormalVerification, Self::FormalVerification) | (Self::ModelChecking,
+            Self::ModelChecking) | (Self::StaticAnalysis, Self::StaticAnalysis) |
+            (Self::NumericalComputing, Self::NumericalComputing) | (Self::Cryptanalysis,
+            Self::Cryptanalysis)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Algorithms => vec![String::from("Algorithms")],
-            Self::DataStructures => vec![String::from("DataStructures")],
-            Self::ComputationalComplexity => {
-                vec![String::from("ComputationalComplexity")]
-            }
-            Self::AutomataTheory => vec![String::from("AutomataTheory")],
-            Self::FormalLanguages => vec![String::from("FormalLanguages")],
-            Self::GraphAlgorithms => vec![String::from("GraphAlgorithms")],
-            Self::TypeTheory => vec![String::from("TypeTheory")],
-            Self::ProgramSemantics => vec![String::from("ProgramSemantics")],
-            Self::FormalMethods => vec![String::from("FormalMethods")],
-            Self::FormalVerification => vec![String::from("FormalVerification")],
-            Self::ModelChecking => vec![String::from("ModelChecking")],
-            Self::StaticAnalysis => vec![String::from("StaticAnalysis")],
-            Self::NumericalComputing => vec![String::from("NumericalComputing")],
-            Self::Cryptanalysis => vec![String::from("Cryptanalysis")],
+}
+#[rustfmt::skip]
+impl From<Systems> for SystemsScope {
+    fn from(value: Systems) -> Self {
+        match value {
+            Systems::OperatingSystems => Self::OperatingSystems,
+            Systems::SystemsProgramming => Self::SystemsProgramming,
+            Systems::Concurrency => Self::Concurrency,
+            Systems::Parallelism => Self::Parallelism,
+            Systems::Asynchrony => Self::Asynchrony,
+            Systems::Synchronization => Self::Synchronization,
+            Systems::Scheduling => Self::Scheduling,
+            Systems::FileSystems => Self::FileSystems,
+            Systems::Virtualization => Self::Virtualization,
+            Systems::Containerization => Self::Containerization,
+            Systems::EmbeddedSystems => Self::EmbeddedSystems,
+            Systems::RealTimeSystems => Self::RealTimeSystems,
+            Systems::Firmware => Self::Firmware,
+            Systems::ResourceManagement => Self::ResourceManagement,
+            Systems::KernelDevelopment => Self::KernelDevelopment,
+            Systems::DeviceDrivers => Self::DeviceDrivers,
         }
     }
 }
 #[rustfmt::skip]
 impl SystemsScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "OperatingSystems" if tail.is_empty() => Some(Self::OperatingSystems),
-            "SystemsProgramming" if tail.is_empty() => Some(Self::SystemsProgramming),
-            "Concurrency" if tail.is_empty() => Some(Self::Concurrency),
-            "Parallelism" if tail.is_empty() => Some(Self::Parallelism),
-            "Asynchrony" if tail.is_empty() => Some(Self::Asynchrony),
-            "Synchronization" if tail.is_empty() => Some(Self::Synchronization),
-            "Scheduling" if tail.is_empty() => Some(Self::Scheduling),
-            "FileSystems" if tail.is_empty() => Some(Self::FileSystems),
-            "Virtualization" if tail.is_empty() => Some(Self::Virtualization),
-            "Containerization" if tail.is_empty() => Some(Self::Containerization),
-            "EmbeddedSystems" if tail.is_empty() => Some(Self::EmbeddedSystems),
-            "RealTimeSystems" if tail.is_empty() => Some(Self::RealTimeSystems),
-            "Firmware" if tail.is_empty() => Some(Self::Firmware),
-            "ResourceManagement" if tail.is_empty() => Some(Self::ResourceManagement),
-            "KernelDevelopment" if tail.is_empty() => Some(Self::KernelDevelopment),
-            "DeviceDrivers" if tail.is_empty() => Some(Self::DeviceDrivers),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::OperatingSystems,
+            Self::OperatingSystems) | (Self::SystemsProgramming,
+            Self::SystemsProgramming) | (Self::Concurrency, Self::Concurrency) |
+            (Self::Parallelism, Self::Parallelism) | (Self::Asynchrony, Self::Asynchrony)
+            | (Self::Synchronization, Self::Synchronization) | (Self::Scheduling,
+            Self::Scheduling) | (Self::FileSystems, Self::FileSystems) |
+            (Self::Virtualization, Self::Virtualization) | (Self::Containerization,
+            Self::Containerization) | (Self::EmbeddedSystems, Self::EmbeddedSystems) |
+            (Self::RealTimeSystems, Self::RealTimeSystems) | (Self::Firmware,
+            Self::Firmware) | (Self::ResourceManagement, Self::ResourceManagement) |
+            (Self::KernelDevelopment, Self::KernelDevelopment) | (Self::DeviceDrivers,
+            Self::DeviceDrivers)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::OperatingSystems => vec![String::from("OperatingSystems")],
-            Self::SystemsProgramming => vec![String::from("SystemsProgramming")],
-            Self::Concurrency => vec![String::from("Concurrency")],
-            Self::Parallelism => vec![String::from("Parallelism")],
-            Self::Asynchrony => vec![String::from("Asynchrony")],
-            Self::Synchronization => vec![String::from("Synchronization")],
-            Self::Scheduling => vec![String::from("Scheduling")],
-            Self::FileSystems => vec![String::from("FileSystems")],
-            Self::Virtualization => vec![String::from("Virtualization")],
-            Self::Containerization => vec![String::from("Containerization")],
-            Self::EmbeddedSystems => vec![String::from("EmbeddedSystems")],
-            Self::RealTimeSystems => vec![String::from("RealTimeSystems")],
-            Self::Firmware => vec![String::from("Firmware")],
-            Self::ResourceManagement => vec![String::from("ResourceManagement")],
-            Self::KernelDevelopment => vec![String::from("KernelDevelopment")],
-            Self::DeviceDrivers => vec![String::from("DeviceDrivers")],
+}
+#[rustfmt::skip]
+impl From<Distributed> for DistributedScope {
+    fn from(value: Distributed) -> Self {
+        match value {
+            Distributed::DistributedSystems => Self::DistributedSystems,
+            Distributed::Networking => Self::Networking,
+            Distributed::NetworkProtocols => Self::NetworkProtocols,
+            Distributed::ProtocolDesign => Self::ProtocolDesign,
+            Distributed::Consensus => Self::Consensus,
+            Distributed::Replication => Self::Replication,
+            Distributed::MessageQueuing => Self::MessageQueuing,
+            Distributed::EventDrivenArchitecture => Self::EventDrivenArchitecture,
+            Distributed::ServiceMesh => Self::ServiceMesh,
+            Distributed::LoadBalancing => Self::LoadBalancing,
+            Distributed::RemoteProcedureCall => Self::RemoteProcedureCall,
+            Distributed::InterprocessCommunication => Self::InterprocessCommunication,
+            Distributed::Routing => Self::Routing,
+            Distributed::FaultTolerance => Self::FaultTolerance,
+            Distributed::Sharding => Self::Sharding,
         }
     }
 }
 #[rustfmt::skip]
 impl DistributedScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "DistributedSystems" if tail.is_empty() => Some(Self::DistributedSystems),
-            "Networking" if tail.is_empty() => Some(Self::Networking),
-            "NetworkProtocols" if tail.is_empty() => Some(Self::NetworkProtocols),
-            "ProtocolDesign" if tail.is_empty() => Some(Self::ProtocolDesign),
-            "Consensus" if tail.is_empty() => Some(Self::Consensus),
-            "Replication" if tail.is_empty() => Some(Self::Replication),
-            "MessageQueuing" if tail.is_empty() => Some(Self::MessageQueuing),
-            "EventDrivenArchitecture" if tail.is_empty() => {
-                Some(Self::EventDrivenArchitecture)
-            }
-            "ServiceMesh" if tail.is_empty() => Some(Self::ServiceMesh),
-            "LoadBalancing" if tail.is_empty() => Some(Self::LoadBalancing),
-            "RemoteProcedureCall" if tail.is_empty() => Some(Self::RemoteProcedureCall),
-            "InterprocessCommunication" if tail.is_empty() => {
-                Some(Self::InterprocessCommunication)
-            }
-            "Routing" if tail.is_empty() => Some(Self::Routing),
-            "FaultTolerance" if tail.is_empty() => Some(Self::FaultTolerance),
-            "Sharding" if tail.is_empty() => Some(Self::Sharding),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::DistributedSystems,
+            Self::DistributedSystems) | (Self::Networking, Self::Networking) |
+            (Self::NetworkProtocols, Self::NetworkProtocols) | (Self::ProtocolDesign,
+            Self::ProtocolDesign) | (Self::Consensus, Self::Consensus) |
+            (Self::Replication, Self::Replication) | (Self::MessageQueuing,
+            Self::MessageQueuing) | (Self::EventDrivenArchitecture,
+            Self::EventDrivenArchitecture) | (Self::ServiceMesh, Self::ServiceMesh) |
+            (Self::LoadBalancing, Self::LoadBalancing) | (Self::RemoteProcedureCall,
+            Self::RemoteProcedureCall) | (Self::InterprocessCommunication,
+            Self::InterprocessCommunication) | (Self::Routing, Self::Routing) |
+            (Self::FaultTolerance, Self::FaultTolerance) | (Self::Sharding,
+            Self::Sharding)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::DistributedSystems => vec![String::from("DistributedSystems")],
-            Self::Networking => vec![String::from("Networking")],
-            Self::NetworkProtocols => vec![String::from("NetworkProtocols")],
-            Self::ProtocolDesign => vec![String::from("ProtocolDesign")],
-            Self::Consensus => vec![String::from("Consensus")],
-            Self::Replication => vec![String::from("Replication")],
-            Self::MessageQueuing => vec![String::from("MessageQueuing")],
-            Self::EventDrivenArchitecture => {
-                vec![String::from("EventDrivenArchitecture")]
-            }
-            Self::ServiceMesh => vec![String::from("ServiceMesh")],
-            Self::LoadBalancing => vec![String::from("LoadBalancing")],
-            Self::RemoteProcedureCall => vec![String::from("RemoteProcedureCall")],
-            Self::InterprocessCommunication => {
-                vec![String::from("InterprocessCommunication")]
-            }
-            Self::Routing => vec![String::from("Routing")],
-            Self::FaultTolerance => vec![String::from("FaultTolerance")],
-            Self::Sharding => vec![String::from("Sharding")],
+}
+#[rustfmt::skip]
+impl From<Data> for DataScope {
+    fn from(value: Data) -> Self {
+        match value {
+            Data::DatabaseSystems => Self::DatabaseSystems,
+            Data::QueryProcessing => Self::QueryProcessing,
+            Data::Indexing => Self::Indexing,
+            Data::Transactions => Self::Transactions,
+            Data::Caching => Self::Caching,
+            Data::Storage => Self::Storage,
+            Data::Persistence => Self::Persistence,
+            Data::Serialization => Self::Serialization,
+            Data::DataFormats => Self::DataFormats,
+            Data::Compression => Self::Compression,
+            Data::Encoding => Self::Encoding,
+            Data::DataModeling => Self::DataModeling,
+            Data::DataPipelines => Self::DataPipelines,
+            Data::StreamProcessing => Self::StreamProcessing,
+            Data::BatchProcessing => Self::BatchProcessing,
+            Data::SchemaEvolution => Self::SchemaEvolution,
+            Data::DataMigration => Self::DataMigration,
+            Data::DataValidation => Self::DataValidation,
         }
     }
 }
 #[rustfmt::skip]
 impl DataScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "DatabaseSystems" if tail.is_empty() => Some(Self::DatabaseSystems),
-            "QueryProcessing" if tail.is_empty() => Some(Self::QueryProcessing),
-            "Indexing" if tail.is_empty() => Some(Self::Indexing),
-            "Transactions" if tail.is_empty() => Some(Self::Transactions),
-            "Caching" if tail.is_empty() => Some(Self::Caching),
-            "Storage" if tail.is_empty() => Some(Self::Storage),
-            "Persistence" if tail.is_empty() => Some(Self::Persistence),
-            "Serialization" if tail.is_empty() => Some(Self::Serialization),
-            "DataFormats" if tail.is_empty() => Some(Self::DataFormats),
-            "Compression" if tail.is_empty() => Some(Self::Compression),
-            "Encoding" if tail.is_empty() => Some(Self::Encoding),
-            "DataModeling" if tail.is_empty() => Some(Self::DataModeling),
-            "DataPipelines" if tail.is_empty() => Some(Self::DataPipelines),
-            "StreamProcessing" if tail.is_empty() => Some(Self::StreamProcessing),
-            "BatchProcessing" if tail.is_empty() => Some(Self::BatchProcessing),
-            "SchemaEvolution" if tail.is_empty() => Some(Self::SchemaEvolution),
-            "DataMigration" if tail.is_empty() => Some(Self::DataMigration),
-            "DataValidation" if tail.is_empty() => Some(Self::DataValidation),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::DatabaseSystems,
+            Self::DatabaseSystems) | (Self::QueryProcessing, Self::QueryProcessing) |
+            (Self::Indexing, Self::Indexing) | (Self::Transactions, Self::Transactions) |
+            (Self::Caching, Self::Caching) | (Self::Storage, Self::Storage) |
+            (Self::Persistence, Self::Persistence) | (Self::Serialization,
+            Self::Serialization) | (Self::DataFormats, Self::DataFormats) |
+            (Self::Compression, Self::Compression) | (Self::Encoding, Self::Encoding) |
+            (Self::DataModeling, Self::DataModeling) | (Self::DataPipelines,
+            Self::DataPipelines) | (Self::StreamProcessing, Self::StreamProcessing) |
+            (Self::BatchProcessing, Self::BatchProcessing) | (Self::SchemaEvolution,
+            Self::SchemaEvolution) | (Self::DataMigration, Self::DataMigration) |
+            (Self::DataValidation, Self::DataValidation)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::DatabaseSystems => vec![String::from("DatabaseSystems")],
-            Self::QueryProcessing => vec![String::from("QueryProcessing")],
-            Self::Indexing => vec![String::from("Indexing")],
-            Self::Transactions => vec![String::from("Transactions")],
-            Self::Caching => vec![String::from("Caching")],
-            Self::Storage => vec![String::from("Storage")],
-            Self::Persistence => vec![String::from("Persistence")],
-            Self::Serialization => vec![String::from("Serialization")],
-            Self::DataFormats => vec![String::from("DataFormats")],
-            Self::Compression => vec![String::from("Compression")],
-            Self::Encoding => vec![String::from("Encoding")],
-            Self::DataModeling => vec![String::from("DataModeling")],
-            Self::DataPipelines => vec![String::from("DataPipelines")],
-            Self::StreamProcessing => vec![String::from("StreamProcessing")],
-            Self::BatchProcessing => vec![String::from("BatchProcessing")],
-            Self::SchemaEvolution => vec![String::from("SchemaEvolution")],
-            Self::DataMigration => vec![String::from("DataMigration")],
-            Self::DataValidation => vec![String::from("DataValidation")],
+}
+#[rustfmt::skip]
+impl From<Intelligence> for IntelligenceScope {
+    fn from(value: Intelligence) -> Self {
+        match value {
+            Intelligence::MachineLearning => Self::MachineLearning,
+            Intelligence::DeepLearning => Self::DeepLearning,
+            Intelligence::NeuralNetworks => Self::NeuralNetworks,
+            Intelligence::NaturalLanguageProcessing => Self::NaturalLanguageProcessing,
+            Intelligence::ComputerVision => Self::ComputerVision,
+            Intelligence::ReinforcementLearning => Self::ReinforcementLearning,
+            Intelligence::ModelTraining => Self::ModelTraining,
+            Intelligence::ModelInference => Self::ModelInference,
+            Intelligence::FeatureEngineering => Self::FeatureEngineering,
+            Intelligence::PromptEngineering => Self::PromptEngineering,
+            Intelligence::RetrievalAugmentedGeneration => {
+                Self::RetrievalAugmentedGeneration
+            }
+            Intelligence::AgentSystems => Self::AgentSystems,
+            Intelligence::InformationRetrieval => Self::InformationRetrieval,
+            Intelligence::Search => Self::Search,
+            Intelligence::Ranking => Self::Ranking,
+            Intelligence::RecommendationSystems => Self::RecommendationSystems,
+            Intelligence::KnowledgeRepresentation => Self::KnowledgeRepresentation,
+            Intelligence::AutomatedReasoning => Self::AutomatedReasoning,
         }
     }
 }
 #[rustfmt::skip]
 impl IntelligenceScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "MachineLearning" if tail.is_empty() => Some(Self::MachineLearning),
-            "DeepLearning" if tail.is_empty() => Some(Self::DeepLearning),
-            "NeuralNetworks" if tail.is_empty() => Some(Self::NeuralNetworks),
-            "NaturalLanguageProcessing" if tail.is_empty() => {
-                Some(Self::NaturalLanguageProcessing)
-            }
-            "ComputerVision" if tail.is_empty() => Some(Self::ComputerVision),
-            "ReinforcementLearning" if tail.is_empty() => {
-                Some(Self::ReinforcementLearning)
-            }
-            "ModelTraining" if tail.is_empty() => Some(Self::ModelTraining),
-            "ModelInference" if tail.is_empty() => Some(Self::ModelInference),
-            "FeatureEngineering" if tail.is_empty() => Some(Self::FeatureEngineering),
-            "PromptEngineering" if tail.is_empty() => Some(Self::PromptEngineering),
-            "RetrievalAugmentedGeneration" if tail.is_empty() => {
-                Some(Self::RetrievalAugmentedGeneration)
-            }
-            "AgentSystems" if tail.is_empty() => Some(Self::AgentSystems),
-            "InformationRetrieval" if tail.is_empty() => Some(Self::InformationRetrieval),
-            "Search" if tail.is_empty() => Some(Self::Search),
-            "Ranking" if tail.is_empty() => Some(Self::Ranking),
-            "RecommendationSystems" if tail.is_empty() => {
-                Some(Self::RecommendationSystems)
-            }
-            "KnowledgeRepresentation" if tail.is_empty() => {
-                Some(Self::KnowledgeRepresentation)
-            }
-            "AutomatedReasoning" if tail.is_empty() => Some(Self::AutomatedReasoning),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::MachineLearning,
+            Self::MachineLearning) | (Self::DeepLearning, Self::DeepLearning) |
+            (Self::NeuralNetworks, Self::NeuralNetworks) |
+            (Self::NaturalLanguageProcessing, Self::NaturalLanguageProcessing) |
+            (Self::ComputerVision, Self::ComputerVision) | (Self::ReinforcementLearning,
+            Self::ReinforcementLearning) | (Self::ModelTraining, Self::ModelTraining) |
+            (Self::ModelInference, Self::ModelInference) | (Self::FeatureEngineering,
+            Self::FeatureEngineering) | (Self::PromptEngineering,
+            Self::PromptEngineering) | (Self::RetrievalAugmentedGeneration,
+            Self::RetrievalAugmentedGeneration) | (Self::AgentSystems,
+            Self::AgentSystems) | (Self::InformationRetrieval,
+            Self::InformationRetrieval) | (Self::Search, Self::Search) | (Self::Ranking,
+            Self::Ranking) | (Self::RecommendationSystems, Self::RecommendationSystems) |
+            (Self::KnowledgeRepresentation, Self::KnowledgeRepresentation) |
+            (Self::AutomatedReasoning, Self::AutomatedReasoning)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::MachineLearning => vec![String::from("MachineLearning")],
-            Self::DeepLearning => vec![String::from("DeepLearning")],
-            Self::NeuralNetworks => vec![String::from("NeuralNetworks")],
-            Self::NaturalLanguageProcessing => {
-                vec![String::from("NaturalLanguageProcessing")]
-            }
-            Self::ComputerVision => vec![String::from("ComputerVision")],
-            Self::ReinforcementLearning => vec![String::from("ReinforcementLearning")],
-            Self::ModelTraining => vec![String::from("ModelTraining")],
-            Self::ModelInference => vec![String::from("ModelInference")],
-            Self::FeatureEngineering => vec![String::from("FeatureEngineering")],
-            Self::PromptEngineering => vec![String::from("PromptEngineering")],
-            Self::RetrievalAugmentedGeneration => {
-                vec![String::from("RetrievalAugmentedGeneration")]
-            }
-            Self::AgentSystems => vec![String::from("AgentSystems")],
-            Self::InformationRetrieval => vec![String::from("InformationRetrieval")],
-            Self::Search => vec![String::from("Search")],
-            Self::Ranking => vec![String::from("Ranking")],
-            Self::RecommendationSystems => vec![String::from("RecommendationSystems")],
-            Self::KnowledgeRepresentation => {
-                vec![String::from("KnowledgeRepresentation")]
-            }
-            Self::AutomatedReasoning => vec![String::from("AutomatedReasoning")],
+}
+#[rustfmt::skip]
+impl From<Security> for SecurityScope {
+    fn from(value: Security) -> Self {
+        match value {
+            Security::Cryptography => Self::Cryptography,
+            Security::Authentication => Self::Authentication,
+            Security::Authorization => Self::Authorization,
+            Security::AccessControl => Self::AccessControl,
+            Security::AdmissionControl => Self::AdmissionControl,
+            Security::SecretsManagement => Self::SecretsManagement,
+            Security::ThreatModeling => Self::ThreatModeling,
+            Security::VulnerabilityManagement => Self::VulnerabilityManagement,
+            Security::PenetrationTesting => Self::PenetrationTesting,
+            Security::ApplicationSecurity => Self::ApplicationSecurity,
+            Security::NetworkSecurity => Self::NetworkSecurity,
+            Security::Sandboxing => Self::Sandboxing,
+            Security::Hardening => Self::Hardening,
+            Security::Privacy => Self::Privacy,
+            Security::IntrusionDetection => Self::IntrusionDetection,
+            Security::ReverseEngineering => Self::ReverseEngineering,
+            Security::InputSanitization => Self::InputSanitization,
         }
     }
 }
 #[rustfmt::skip]
 impl SecurityScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Cryptography" if tail.is_empty() => Some(Self::Cryptography),
-            "Authentication" if tail.is_empty() => Some(Self::Authentication),
-            "Authorization" if tail.is_empty() => Some(Self::Authorization),
-            "AccessControl" if tail.is_empty() => Some(Self::AccessControl),
-            "AdmissionControl" if tail.is_empty() => Some(Self::AdmissionControl),
-            "SecretsManagement" if tail.is_empty() => Some(Self::SecretsManagement),
-            "ThreatModeling" if tail.is_empty() => Some(Self::ThreatModeling),
-            "VulnerabilityManagement" if tail.is_empty() => {
-                Some(Self::VulnerabilityManagement)
-            }
-            "PenetrationTesting" if tail.is_empty() => Some(Self::PenetrationTesting),
-            "ApplicationSecurity" if tail.is_empty() => Some(Self::ApplicationSecurity),
-            "NetworkSecurity" if tail.is_empty() => Some(Self::NetworkSecurity),
-            "Sandboxing" if tail.is_empty() => Some(Self::Sandboxing),
-            "Hardening" if tail.is_empty() => Some(Self::Hardening),
-            "Privacy" if tail.is_empty() => Some(Self::Privacy),
-            "IntrusionDetection" if tail.is_empty() => Some(Self::IntrusionDetection),
-            "ReverseEngineering" if tail.is_empty() => Some(Self::ReverseEngineering),
-            "InputSanitization" if tail.is_empty() => Some(Self::InputSanitization),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Cryptography, Self::Cryptography) |
+            (Self::Authentication, Self::Authentication) | (Self::Authorization,
+            Self::Authorization) | (Self::AccessControl, Self::AccessControl) |
+            (Self::AdmissionControl, Self::AdmissionControl) | (Self::SecretsManagement,
+            Self::SecretsManagement) | (Self::ThreatModeling, Self::ThreatModeling) |
+            (Self::VulnerabilityManagement, Self::VulnerabilityManagement) |
+            (Self::PenetrationTesting, Self::PenetrationTesting) |
+            (Self::ApplicationSecurity, Self::ApplicationSecurity) |
+            (Self::NetworkSecurity, Self::NetworkSecurity) | (Self::Sandboxing,
+            Self::Sandboxing) | (Self::Hardening, Self::Hardening) | (Self::Privacy,
+            Self::Privacy) | (Self::IntrusionDetection, Self::IntrusionDetection) |
+            (Self::ReverseEngineering, Self::ReverseEngineering) |
+            (Self::InputSanitization, Self::InputSanitization)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Cryptography => vec![String::from("Cryptography")],
-            Self::Authentication => vec![String::from("Authentication")],
-            Self::Authorization => vec![String::from("Authorization")],
-            Self::AccessControl => vec![String::from("AccessControl")],
-            Self::AdmissionControl => vec![String::from("AdmissionControl")],
-            Self::SecretsManagement => vec![String::from("SecretsManagement")],
-            Self::ThreatModeling => vec![String::from("ThreatModeling")],
-            Self::VulnerabilityManagement => {
-                vec![String::from("VulnerabilityManagement")]
-            }
-            Self::PenetrationTesting => vec![String::from("PenetrationTesting")],
-            Self::ApplicationSecurity => vec![String::from("ApplicationSecurity")],
-            Self::NetworkSecurity => vec![String::from("NetworkSecurity")],
-            Self::Sandboxing => vec![String::from("Sandboxing")],
-            Self::Hardening => vec![String::from("Hardening")],
-            Self::Privacy => vec![String::from("Privacy")],
-            Self::IntrusionDetection => vec![String::from("IntrusionDetection")],
-            Self::ReverseEngineering => vec![String::from("ReverseEngineering")],
-            Self::InputSanitization => vec![String::from("InputSanitization")],
+}
+#[rustfmt::skip]
+impl From<Quality> for QualityScope {
+    fn from(value: Quality) -> Self {
+        match value {
+            Quality::Testing => Self::Testing,
+            Quality::UnitTesting => Self::UnitTesting,
+            Quality::IntegrationTesting => Self::IntegrationTesting,
+            Quality::EndToEndTesting => Self::EndToEndTesting,
+            Quality::PropertyBasedTesting => Self::PropertyBasedTesting,
+            Quality::Fuzzing => Self::Fuzzing,
+            Quality::TestAutomation => Self::TestAutomation,
+            Quality::Mocking => Self::Mocking,
+            Quality::CodeCoverage => Self::CodeCoverage,
+            Quality::Debugging => Self::Debugging,
+            Quality::Profiling => Self::Profiling,
+            Quality::Benchmarking => Self::Benchmarking,
+            Quality::PerformanceOptimization => Self::PerformanceOptimization,
+            Quality::LoadTesting => Self::LoadTesting,
+            Quality::CodeReview => Self::CodeReview,
+            Quality::Refactoring => Self::Refactoring,
+            Quality::Linting => Self::Linting,
+            Quality::Formatting => Self::Formatting,
+            Quality::TechnicalDebt => Self::TechnicalDebt,
         }
     }
 }
 #[rustfmt::skip]
 impl QualityScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Testing" if tail.is_empty() => Some(Self::Testing),
-            "UnitTesting" if tail.is_empty() => Some(Self::UnitTesting),
-            "IntegrationTesting" if tail.is_empty() => Some(Self::IntegrationTesting),
-            "EndToEndTesting" if tail.is_empty() => Some(Self::EndToEndTesting),
-            "PropertyBasedTesting" if tail.is_empty() => Some(Self::PropertyBasedTesting),
-            "Fuzzing" if tail.is_empty() => Some(Self::Fuzzing),
-            "TestAutomation" if tail.is_empty() => Some(Self::TestAutomation),
-            "Mocking" if tail.is_empty() => Some(Self::Mocking),
-            "CodeCoverage" if tail.is_empty() => Some(Self::CodeCoverage),
-            "Debugging" if tail.is_empty() => Some(Self::Debugging),
-            "Profiling" if tail.is_empty() => Some(Self::Profiling),
-            "Benchmarking" if tail.is_empty() => Some(Self::Benchmarking),
-            "PerformanceOptimization" if tail.is_empty() => {
-                Some(Self::PerformanceOptimization)
-            }
-            "LoadTesting" if tail.is_empty() => Some(Self::LoadTesting),
-            "CodeReview" if tail.is_empty() => Some(Self::CodeReview),
-            "Refactoring" if tail.is_empty() => Some(Self::Refactoring),
-            "Linting" if tail.is_empty() => Some(Self::Linting),
-            "Formatting" if tail.is_empty() => Some(Self::Formatting),
-            "TechnicalDebt" if tail.is_empty() => Some(Self::TechnicalDebt),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Testing, Self::Testing) |
+            (Self::UnitTesting, Self::UnitTesting) | (Self::IntegrationTesting,
+            Self::IntegrationTesting) | (Self::EndToEndTesting, Self::EndToEndTesting) |
+            (Self::PropertyBasedTesting, Self::PropertyBasedTesting) | (Self::Fuzzing,
+            Self::Fuzzing) | (Self::TestAutomation, Self::TestAutomation) |
+            (Self::Mocking, Self::Mocking) | (Self::CodeCoverage, Self::CodeCoverage) |
+            (Self::Debugging, Self::Debugging) | (Self::Profiling, Self::Profiling) |
+            (Self::Benchmarking, Self::Benchmarking) | (Self::PerformanceOptimization,
+            Self::PerformanceOptimization) | (Self::LoadTesting, Self::LoadTesting) |
+            (Self::CodeReview, Self::CodeReview) | (Self::Refactoring, Self::Refactoring)
+            | (Self::Linting, Self::Linting) | (Self::Formatting, Self::Formatting) |
+            (Self::TechnicalDebt, Self::TechnicalDebt)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Testing => vec![String::from("Testing")],
-            Self::UnitTesting => vec![String::from("UnitTesting")],
-            Self::IntegrationTesting => vec![String::from("IntegrationTesting")],
-            Self::EndToEndTesting => vec![String::from("EndToEndTesting")],
-            Self::PropertyBasedTesting => vec![String::from("PropertyBasedTesting")],
-            Self::Fuzzing => vec![String::from("Fuzzing")],
-            Self::TestAutomation => vec![String::from("TestAutomation")],
-            Self::Mocking => vec![String::from("Mocking")],
-            Self::CodeCoverage => vec![String::from("CodeCoverage")],
-            Self::Debugging => vec![String::from("Debugging")],
-            Self::Profiling => vec![String::from("Profiling")],
-            Self::Benchmarking => vec![String::from("Benchmarking")],
-            Self::PerformanceOptimization => {
-                vec![String::from("PerformanceOptimization")]
-            }
-            Self::LoadTesting => vec![String::from("LoadTesting")],
-            Self::CodeReview => vec![String::from("CodeReview")],
-            Self::Refactoring => vec![String::from("Refactoring")],
-            Self::Linting => vec![String::from("Linting")],
-            Self::Formatting => vec![String::from("Formatting")],
-            Self::TechnicalDebt => vec![String::from("TechnicalDebt")],
+}
+#[rustfmt::skip]
+impl From<Operations> for OperationsScope {
+    fn from(value: Operations) -> Self {
+        match value {
+            Operations::ContinuousIntegration => Self::ContinuousIntegration,
+            Operations::ContinuousDelivery => Self::ContinuousDelivery,
+            Operations::BuildSystem => Self::BuildSystem,
+            Operations::ReleaseEngineering => Self::ReleaseEngineering,
+            Operations::DependencyManagement => Self::DependencyManagement,
+            Operations::PackageManagement => Self::PackageManagement,
+            Operations::ArtifactManagement => Self::ArtifactManagement,
+            Operations::Deployment => Self::Deployment,
+            Operations::Provisioning => Self::Provisioning,
+            Operations::InfrastructureAsCode => Self::InfrastructureAsCode,
+            Operations::Orchestration => Self::Orchestration,
+            Operations::ConfigurationManagement => Self::ConfigurationManagement,
+            Operations::AutoScaling => Self::AutoScaling,
+            Operations::CapacityPlanning => Self::CapacityPlanning,
+            Operations::SiteReliability => Self::SiteReliability,
+            Operations::IncidentResponse => Self::IncidentResponse,
+            Operations::DisasterRecovery => Self::DisasterRecovery,
+            Operations::RateLimiting => Self::RateLimiting,
         }
     }
 }
 #[rustfmt::skip]
 impl OperationsScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "ContinuousIntegration" if tail.is_empty() => {
-                Some(Self::ContinuousIntegration)
-            }
-            "ContinuousDelivery" if tail.is_empty() => Some(Self::ContinuousDelivery),
-            "BuildSystem" if tail.is_empty() => Some(Self::BuildSystem),
-            "ReleaseEngineering" if tail.is_empty() => Some(Self::ReleaseEngineering),
-            "DependencyManagement" if tail.is_empty() => Some(Self::DependencyManagement),
-            "PackageManagement" if tail.is_empty() => Some(Self::PackageManagement),
-            "ArtifactManagement" if tail.is_empty() => Some(Self::ArtifactManagement),
-            "Deployment" if tail.is_empty() => Some(Self::Deployment),
-            "Provisioning" if tail.is_empty() => Some(Self::Provisioning),
-            "InfrastructureAsCode" if tail.is_empty() => Some(Self::InfrastructureAsCode),
-            "Orchestration" if tail.is_empty() => Some(Self::Orchestration),
-            "ConfigurationManagement" if tail.is_empty() => {
-                Some(Self::ConfigurationManagement)
-            }
-            "AutoScaling" if tail.is_empty() => Some(Self::AutoScaling),
-            "CapacityPlanning" if tail.is_empty() => Some(Self::CapacityPlanning),
-            "SiteReliability" if tail.is_empty() => Some(Self::SiteReliability),
-            "IncidentResponse" if tail.is_empty() => Some(Self::IncidentResponse),
-            "DisasterRecovery" if tail.is_empty() => Some(Self::DisasterRecovery),
-            "RateLimiting" if tail.is_empty() => Some(Self::RateLimiting),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::ContinuousIntegration,
+            Self::ContinuousIntegration) | (Self::ContinuousDelivery,
+            Self::ContinuousDelivery) | (Self::BuildSystem, Self::BuildSystem) |
+            (Self::ReleaseEngineering, Self::ReleaseEngineering) |
+            (Self::DependencyManagement, Self::DependencyManagement) |
+            (Self::PackageManagement, Self::PackageManagement) |
+            (Self::ArtifactManagement, Self::ArtifactManagement) | (Self::Deployment,
+            Self::Deployment) | (Self::Provisioning, Self::Provisioning) |
+            (Self::InfrastructureAsCode, Self::InfrastructureAsCode) |
+            (Self::Orchestration, Self::Orchestration) | (Self::ConfigurationManagement,
+            Self::ConfigurationManagement) | (Self::AutoScaling, Self::AutoScaling) |
+            (Self::CapacityPlanning, Self::CapacityPlanning) | (Self::SiteReliability,
+            Self::SiteReliability) | (Self::IncidentResponse, Self::IncidentResponse) |
+            (Self::DisasterRecovery, Self::DisasterRecovery) | (Self::RateLimiting,
+            Self::RateLimiting)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::ContinuousIntegration => vec![String::from("ContinuousIntegration")],
-            Self::ContinuousDelivery => vec![String::from("ContinuousDelivery")],
-            Self::BuildSystem => vec![String::from("BuildSystem")],
-            Self::ReleaseEngineering => vec![String::from("ReleaseEngineering")],
-            Self::DependencyManagement => vec![String::from("DependencyManagement")],
-            Self::PackageManagement => vec![String::from("PackageManagement")],
-            Self::ArtifactManagement => vec![String::from("ArtifactManagement")],
-            Self::Deployment => vec![String::from("Deployment")],
-            Self::Provisioning => vec![String::from("Provisioning")],
-            Self::InfrastructureAsCode => vec![String::from("InfrastructureAsCode")],
-            Self::Orchestration => vec![String::from("Orchestration")],
-            Self::ConfigurationManagement => {
-                vec![String::from("ConfigurationManagement")]
-            }
-            Self::AutoScaling => vec![String::from("AutoScaling")],
-            Self::CapacityPlanning => vec![String::from("CapacityPlanning")],
-            Self::SiteReliability => vec![String::from("SiteReliability")],
-            Self::IncidentResponse => vec![String::from("IncidentResponse")],
-            Self::DisasterRecovery => vec![String::from("DisasterRecovery")],
-            Self::RateLimiting => vec![String::from("RateLimiting")],
+}
+#[rustfmt::skip]
+impl From<Observability> for ObservabilityScope {
+    fn from(value: Observability) -> Self {
+        match value {
+            Observability::Logging => Self::Logging,
+            Observability::Monitoring => Self::Monitoring,
+            Observability::Alerting => Self::Alerting,
+            Observability::Tracing => Self::Tracing,
+            Observability::DistributedTracing => Self::DistributedTracing,
+            Observability::Metrics => Self::Metrics,
+            Observability::Telemetry => Self::Telemetry,
+            Observability::ErrorHandling => Self::ErrorHandling,
+            Observability::AuditLogging => Self::AuditLogging,
         }
     }
 }
 #[rustfmt::skip]
 impl ObservabilityScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Logging" if tail.is_empty() => Some(Self::Logging),
-            "Monitoring" if tail.is_empty() => Some(Self::Monitoring),
-            "Alerting" if tail.is_empty() => Some(Self::Alerting),
-            "Tracing" if tail.is_empty() => Some(Self::Tracing),
-            "DistributedTracing" if tail.is_empty() => Some(Self::DistributedTracing),
-            "Metrics" if tail.is_empty() => Some(Self::Metrics),
-            "Telemetry" if tail.is_empty() => Some(Self::Telemetry),
-            "ErrorHandling" if tail.is_empty() => Some(Self::ErrorHandling),
-            "AuditLogging" if tail.is_empty() => Some(Self::AuditLogging),
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::Logging, Self::Logging) |
+            (Self::Monitoring, Self::Monitoring) | (Self::Alerting, Self::Alerting) |
+            (Self::Tracing, Self::Tracing) | (Self::DistributedTracing,
+            Self::DistributedTracing) | (Self::Metrics, Self::Metrics) |
+            (Self::Telemetry, Self::Telemetry) | (Self::ErrorHandling,
+            Self::ErrorHandling) | (Self::AuditLogging, Self::AuditLogging)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Logging => vec![String::from("Logging")],
-            Self::Monitoring => vec![String::from("Monitoring")],
-            Self::Alerting => vec![String::from("Alerting")],
-            Self::Tracing => vec![String::from("Tracing")],
-            Self::DistributedTracing => vec![String::from("DistributedTracing")],
-            Self::Metrics => vec![String::from("Metrics")],
-            Self::Telemetry => vec![String::from("Telemetry")],
-            Self::ErrorHandling => vec![String::from("ErrorHandling")],
-            Self::AuditLogging => vec![String::from("AuditLogging")],
+}
+#[rustfmt::skip]
+impl From<Surfaces> for SurfacesScope {
+    fn from(value: Surfaces) -> Self {
+        match value {
+            Surfaces::WebDevelopment => Self::WebDevelopment,
+            Surfaces::FrontendDevelopment => Self::FrontendDevelopment,
+            Surfaces::BackendDevelopment => Self::BackendDevelopment,
+            Surfaces::UserInterface => Self::UserInterface,
+            Surfaces::InteractionDesign => Self::InteractionDesign,
+            Surfaces::Rendering => Self::Rendering,
+            Surfaces::ComputerGraphics => Self::ComputerGraphics,
+            Surfaces::Animation => Self::Animation,
+            Surfaces::Layout => Self::Layout,
+            Surfaces::Styling => Self::Styling,
+            Surfaces::StateManagement => Self::StateManagement,
+            Surfaces::Accessibility => Self::Accessibility,
+            Surfaces::Usability => Self::Usability,
+            Surfaces::Internationalization => Self::Internationalization,
+            Surfaces::Localization => Self::Localization,
+            Surfaces::MobileDevelopment => Self::MobileDevelopment,
+            Surfaces::GameDevelopment => Self::GameDevelopment,
+            Surfaces::Visualization => Self::Visualization,
+            Surfaces::SyntaxHighlighting => Self::SyntaxHighlighting,
+            Surfaces::CommandLineInterfaces => Self::CommandLineInterfaces,
         }
     }
 }
 #[rustfmt::skip]
 impl SurfacesScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "WebDevelopment" if tail.is_empty() => Some(Self::WebDevelopment),
-            "FrontendDevelopment" if tail.is_empty() => Some(Self::FrontendDevelopment),
-            "BackendDevelopment" if tail.is_empty() => Some(Self::BackendDevelopment),
-            "UserInterface" if tail.is_empty() => Some(Self::UserInterface),
-            "InteractionDesign" if tail.is_empty() => Some(Self::InteractionDesign),
-            "Rendering" if tail.is_empty() => Some(Self::Rendering),
-            "ComputerGraphics" if tail.is_empty() => Some(Self::ComputerGraphics),
-            "Animation" if tail.is_empty() => Some(Self::Animation),
-            "Layout" if tail.is_empty() => Some(Self::Layout),
-            "Styling" if tail.is_empty() => Some(Self::Styling),
-            "StateManagement" if tail.is_empty() => Some(Self::StateManagement),
-            "Accessibility" if tail.is_empty() => Some(Self::Accessibility),
-            "Usability" if tail.is_empty() => Some(Self::Usability),
-            "Internationalization" if tail.is_empty() => Some(Self::Internationalization),
-            "Localization" if tail.is_empty() => Some(Self::Localization),
-            "MobileDevelopment" if tail.is_empty() => Some(Self::MobileDevelopment),
-            "GameDevelopment" if tail.is_empty() => Some(Self::GameDevelopment),
-            "Visualization" if tail.is_empty() => Some(Self::Visualization),
-            "SyntaxHighlighting" if tail.is_empty() => Some(Self::SyntaxHighlighting),
-            "CommandLineInterfaces" if tail.is_empty() => {
-                Some(Self::CommandLineInterfaces)
-            }
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::WebDevelopment, Self::WebDevelopment)
+            | (Self::FrontendDevelopment, Self::FrontendDevelopment) |
+            (Self::BackendDevelopment, Self::BackendDevelopment) | (Self::UserInterface,
+            Self::UserInterface) | (Self::InteractionDesign, Self::InteractionDesign) |
+            (Self::Rendering, Self::Rendering) | (Self::ComputerGraphics,
+            Self::ComputerGraphics) | (Self::Animation, Self::Animation) | (Self::Layout,
+            Self::Layout) | (Self::Styling, Self::Styling) | (Self::StateManagement,
+            Self::StateManagement) | (Self::Accessibility, Self::Accessibility) |
+            (Self::Usability, Self::Usability) | (Self::Internationalization,
+            Self::Internationalization) | (Self::Localization, Self::Localization) |
+            (Self::MobileDevelopment, Self::MobileDevelopment) | (Self::GameDevelopment,
+            Self::GameDevelopment) | (Self::Visualization, Self::Visualization) |
+            (Self::SyntaxHighlighting, Self::SyntaxHighlighting) |
+            (Self::CommandLineInterfaces, Self::CommandLineInterfaces)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::WebDevelopment => vec![String::from("WebDevelopment")],
-            Self::FrontendDevelopment => vec![String::from("FrontendDevelopment")],
-            Self::BackendDevelopment => vec![String::from("BackendDevelopment")],
-            Self::UserInterface => vec![String::from("UserInterface")],
-            Self::InteractionDesign => vec![String::from("InteractionDesign")],
-            Self::Rendering => vec![String::from("Rendering")],
-            Self::ComputerGraphics => vec![String::from("ComputerGraphics")],
-            Self::Animation => vec![String::from("Animation")],
-            Self::Layout => vec![String::from("Layout")],
-            Self::Styling => vec![String::from("Styling")],
-            Self::StateManagement => vec![String::from("StateManagement")],
-            Self::Accessibility => vec![String::from("Accessibility")],
-            Self::Usability => vec![String::from("Usability")],
-            Self::Internationalization => vec![String::from("Internationalization")],
-            Self::Localization => vec![String::from("Localization")],
-            Self::MobileDevelopment => vec![String::from("MobileDevelopment")],
-            Self::GameDevelopment => vec![String::from("GameDevelopment")],
-            Self::Visualization => vec![String::from("Visualization")],
-            Self::SyntaxHighlighting => vec![String::from("SyntaxHighlighting")],
-            Self::CommandLineInterfaces => vec![String::from("CommandLineInterfaces")],
+}
+#[rustfmt::skip]
+impl From<Engineering> for EngineeringScope {
+    fn from(value: Engineering) -> Self {
+        match value {
+            Engineering::SoftwareArchitecture => Self::SoftwareArchitecture,
+            Engineering::SoftwareDesign => Self::SoftwareDesign,
+            Engineering::DesignPatterns => Self::DesignPatterns,
+            Engineering::DomainDrivenDesign => Self::DomainDrivenDesign,
+            Engineering::ApplicationProgrammingInterfaces => {
+                Self::ApplicationProgrammingInterfaces
+            }
+            Engineering::Microservices => Self::Microservices,
+            Engineering::Serverless => Self::Serverless,
+            Engineering::CloudComputing => Self::CloudComputing,
+            Engineering::EdgeComputing => Self::EdgeComputing,
+            Engineering::Scalability => Self::Scalability,
+            Engineering::Reliability => Self::Reliability,
+            Engineering::Maintainability => Self::Maintainability,
+            Engineering::Portability => Self::Portability,
+            Engineering::Interoperability => Self::Interoperability,
+            Engineering::Modularity => Self::Modularity,
+            Engineering::Abstraction => Self::Abstraction,
+            Engineering::RequirementsEngineering => Self::RequirementsEngineering,
+            Engineering::Documentation => Self::Documentation,
+            Engineering::VersionControl => Self::VersionControl,
+            Engineering::SoftwareDevelopmentProcess => Self::SoftwareDevelopmentProcess,
+            Engineering::SoftwareMaintenance => Self::SoftwareMaintenance,
+            Engineering::SoftwareEngineeringManagement => {
+                Self::SoftwareEngineeringManagement
+            }
         }
     }
 }
 #[rustfmt::skip]
 impl EngineeringScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "SoftwareArchitecture" if tail.is_empty() => Some(Self::SoftwareArchitecture),
-            "SoftwareDesign" if tail.is_empty() => Some(Self::SoftwareDesign),
-            "DesignPatterns" if tail.is_empty() => Some(Self::DesignPatterns),
-            "DomainDrivenDesign" if tail.is_empty() => Some(Self::DomainDrivenDesign),
-            "ApplicationProgrammingInterfaces" if tail.is_empty() => {
-                Some(Self::ApplicationProgrammingInterfaces)
-            }
-            "Microservices" if tail.is_empty() => Some(Self::Microservices),
-            "Serverless" if tail.is_empty() => Some(Self::Serverless),
-            "CloudComputing" if tail.is_empty() => Some(Self::CloudComputing),
-            "EdgeComputing" if tail.is_empty() => Some(Self::EdgeComputing),
-            "Scalability" if tail.is_empty() => Some(Self::Scalability),
-            "Reliability" if tail.is_empty() => Some(Self::Reliability),
-            "Maintainability" if tail.is_empty() => Some(Self::Maintainability),
-            "Portability" if tail.is_empty() => Some(Self::Portability),
-            "Interoperability" if tail.is_empty() => Some(Self::Interoperability),
-            "Modularity" if tail.is_empty() => Some(Self::Modularity),
-            "Abstraction" if tail.is_empty() => Some(Self::Abstraction),
-            "RequirementsEngineering" if tail.is_empty() => {
-                Some(Self::RequirementsEngineering)
-            }
-            "Documentation" if tail.is_empty() => Some(Self::Documentation),
-            "VersionControl" if tail.is_empty() => Some(Self::VersionControl),
-            "SoftwareDevelopmentProcess" if tail.is_empty() => {
-                Some(Self::SoftwareDevelopmentProcess)
-            }
-            "SoftwareMaintenance" if tail.is_empty() => Some(Self::SoftwareMaintenance),
-            "SoftwareEngineeringManagement" if tail.is_empty() => {
-                Some(Self::SoftwareEngineeringManagement)
-            }
-            _ => None,
-        }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        matches!(
+            (self, scope), (Self::All, _) | (Self::SoftwareArchitecture,
+            Self::SoftwareArchitecture) | (Self::SoftwareDesign, Self::SoftwareDesign) |
+            (Self::DesignPatterns, Self::DesignPatterns) | (Self::DomainDrivenDesign,
+            Self::DomainDrivenDesign) | (Self::ApplicationProgrammingInterfaces,
+            Self::ApplicationProgrammingInterfaces) | (Self::Microservices,
+            Self::Microservices) | (Self::Serverless, Self::Serverless) |
+            (Self::CloudComputing, Self::CloudComputing) | (Self::EdgeComputing,
+            Self::EdgeComputing) | (Self::Scalability, Self::Scalability) |
+            (Self::Reliability, Self::Reliability) | (Self::Maintainability,
+            Self::Maintainability) | (Self::Portability, Self::Portability) |
+            (Self::Interoperability, Self::Interoperability) | (Self::Modularity,
+            Self::Modularity) | (Self::Abstraction, Self::Abstraction) |
+            (Self::RequirementsEngineering, Self::RequirementsEngineering) |
+            (Self::Documentation, Self::Documentation) | (Self::VersionControl,
+            Self::VersionControl) | (Self::SoftwareDevelopmentProcess,
+            Self::SoftwareDevelopmentProcess) | (Self::SoftwareMaintenance,
+            Self::SoftwareMaintenance) | (Self::SoftwareEngineeringManagement,
+            Self::SoftwareEngineeringManagement)
+        )
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::SoftwareArchitecture => vec![String::from("SoftwareArchitecture")],
-            Self::SoftwareDesign => vec![String::from("SoftwareDesign")],
-            Self::DesignPatterns => vec![String::from("DesignPatterns")],
-            Self::DomainDrivenDesign => vec![String::from("DomainDrivenDesign")],
-            Self::ApplicationProgrammingInterfaces => {
-                vec![String::from("ApplicationProgrammingInterfaces")]
-            }
-            Self::Microservices => vec![String::from("Microservices")],
-            Self::Serverless => vec![String::from("Serverless")],
-            Self::CloudComputing => vec![String::from("CloudComputing")],
-            Self::EdgeComputing => vec![String::from("EdgeComputing")],
-            Self::Scalability => vec![String::from("Scalability")],
-            Self::Reliability => vec![String::from("Reliability")],
-            Self::Maintainability => vec![String::from("Maintainability")],
-            Self::Portability => vec![String::from("Portability")],
-            Self::Interoperability => vec![String::from("Interoperability")],
-            Self::Modularity => vec![String::from("Modularity")],
-            Self::Abstraction => vec![String::from("Abstraction")],
-            Self::RequirementsEngineering => {
-                vec![String::from("RequirementsEngineering")]
-            }
-            Self::Documentation => vec![String::from("Documentation")],
-            Self::VersionControl => vec![String::from("VersionControl")],
-            Self::SoftwareDevelopmentProcess => {
-                vec![String::from("SoftwareDevelopmentProcess")]
-            }
-            Self::SoftwareMaintenance => vec![String::from("SoftwareMaintenance")],
-            Self::SoftwareEngineeringManagement => {
-                vec![String::from("SoftwareEngineeringManagement")]
-            }
+}
+#[rustfmt::skip]
+impl From<Software> for SoftwareScope {
+    fn from(value: Software) -> Self {
+        match value {
+            Software::Languages(payload) => Self::Languages(payload.into()),
+            Software::Theory(payload) => Self::Theory(payload.into()),
+            Software::Systems(payload) => Self::Systems(payload.into()),
+            Software::Distributed(payload) => Self::Distributed(payload.into()),
+            Software::Data(payload) => Self::Data(payload.into()),
+            Software::Intelligence(payload) => Self::Intelligence(payload.into()),
+            Software::Security(payload) => Self::Security(payload.into()),
+            Software::Quality(payload) => Self::Quality(payload.into()),
+            Software::Operations(payload) => Self::Operations(payload.into()),
+            Software::Observability(payload) => Self::Observability(payload.into()),
+            Software::Surfaces(payload) => Self::Surfaces(payload.into()),
+            Software::Engineering(payload) => Self::Engineering(payload.into()),
         }
     }
 }
 #[rustfmt::skip]
 impl SoftwareScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Languages" => {
-                if tail.is_empty() {
-                    Some(Self::Languages(LanguagesScope::All))
-                } else {
-                    LanguagesScope::try_from_path(tail).map(Self::Languages)
-                }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        match (self, scope) {
+            (Self::All, _) => true,
+            (Self::Languages(left), Self::Languages(right)) => left.contains_scope(right),
+            (Self::Theory(left), Self::Theory(right)) => left.contains_scope(right),
+            (Self::Systems(left), Self::Systems(right)) => left.contains_scope(right),
+            (Self::Distributed(left), Self::Distributed(right)) => {
+                left.contains_scope(right)
             }
-            "Theory" => {
-                if tail.is_empty() {
-                    Some(Self::Theory(TheoryScope::All))
-                } else {
-                    TheoryScope::try_from_path(tail).map(Self::Theory)
-                }
+            (Self::Data(left), Self::Data(right)) => left.contains_scope(right),
+            (Self::Intelligence(left), Self::Intelligence(right)) => {
+                left.contains_scope(right)
             }
-            "Systems" => {
-                if tail.is_empty() {
-                    Some(Self::Systems(SystemsScope::All))
-                } else {
-                    SystemsScope::try_from_path(tail).map(Self::Systems)
-                }
+            (Self::Security(left), Self::Security(right)) => left.contains_scope(right),
+            (Self::Quality(left), Self::Quality(right)) => left.contains_scope(right),
+            (Self::Operations(left), Self::Operations(right)) => {
+                left.contains_scope(right)
             }
-            "Distributed" => {
-                if tail.is_empty() {
-                    Some(Self::Distributed(DistributedScope::All))
-                } else {
-                    DistributedScope::try_from_path(tail).map(Self::Distributed)
-                }
+            (Self::Observability(left), Self::Observability(right)) => {
+                left.contains_scope(right)
             }
-            "Data" => {
-                if tail.is_empty() {
-                    Some(Self::Data(DataScope::All))
-                } else {
-                    DataScope::try_from_path(tail).map(Self::Data)
-                }
+            (Self::Surfaces(left), Self::Surfaces(right)) => left.contains_scope(right),
+            (Self::Engineering(left), Self::Engineering(right)) => {
+                left.contains_scope(right)
             }
-            "Intelligence" => {
-                if tail.is_empty() {
-                    Some(Self::Intelligence(IntelligenceScope::All))
-                } else {
-                    IntelligenceScope::try_from_path(tail).map(Self::Intelligence)
-                }
-            }
-            "Security" => {
-                if tail.is_empty() {
-                    Some(Self::Security(SecurityScope::All))
-                } else {
-                    SecurityScope::try_from_path(tail).map(Self::Security)
-                }
-            }
-            "Quality" => {
-                if tail.is_empty() {
-                    Some(Self::Quality(QualityScope::All))
-                } else {
-                    QualityScope::try_from_path(tail).map(Self::Quality)
-                }
-            }
-            "Operations" => {
-                if tail.is_empty() {
-                    Some(Self::Operations(OperationsScope::All))
-                } else {
-                    OperationsScope::try_from_path(tail).map(Self::Operations)
-                }
-            }
-            "Observability" => {
-                if tail.is_empty() {
-                    Some(Self::Observability(ObservabilityScope::All))
-                } else {
-                    ObservabilityScope::try_from_path(tail).map(Self::Observability)
-                }
-            }
-            "Surfaces" => {
-                if tail.is_empty() {
-                    Some(Self::Surfaces(SurfacesScope::All))
-                } else {
-                    SurfacesScope::try_from_path(tail).map(Self::Surfaces)
-                }
-            }
-            "Engineering" => {
-                if tail.is_empty() {
-                    Some(Self::Engineering(EngineeringScope::All))
-                } else {
-                    EngineeringScope::try_from_path(tail).map(Self::Engineering)
-                }
-            }
-            _ => None,
+            _ => false,
         }
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Languages(payload) => {
-                let mut path = vec![String::from("Languages")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Theory(payload) => {
-                let mut path = vec![String::from("Theory")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Systems(payload) => {
-                let mut path = vec![String::from("Systems")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Distributed(payload) => {
-                let mut path = vec![String::from("Distributed")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Data(payload) => {
-                let mut path = vec![String::from("Data")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Intelligence(payload) => {
-                let mut path = vec![String::from("Intelligence")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Security(payload) => {
-                let mut path = vec![String::from("Security")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Quality(payload) => {
-                let mut path = vec![String::from("Quality")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Operations(payload) => {
-                let mut path = vec![String::from("Operations")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Observability(payload) => {
-                let mut path = vec![String::from("Observability")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Surfaces(payload) => {
-                let mut path = vec![String::from("Surfaces")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Engineering(payload) => {
-                let mut path = vec![String::from("Engineering")];
-                path.extend(payload.path_segments());
-                path
-            }
+}
+#[rustfmt::skip]
+impl From<Technology> for TechnologyScope {
+    fn from(value: Technology) -> Self {
+        match value {
+            Technology::Hardware(payload) => Self::Hardware(payload.into()),
+            Technology::Software(payload) => Self::Software(payload.into()),
         }
     }
 }
 #[rustfmt::skip]
 impl TechnologyScope {
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return Some(Self::All);
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Hardware" => {
-                if tail.is_empty() {
-                    Some(Self::Hardware(HardwareScope::All))
-                } else {
-                    HardwareScope::try_from_path(tail).map(Self::Hardware)
-                }
-            }
-            "Software" => {
-                if tail.is_empty() {
-                    Some(Self::Software(SoftwareScope::All))
-                } else {
-                    SoftwareScope::try_from_path(tail).map(Self::Software)
-                }
-            }
-            _ => None,
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        match (self, scope) {
+            (Self::All, _) => true,
+            (Self::Hardware(left), Self::Hardware(right)) => left.contains_scope(right),
+            (Self::Software(left), Self::Software(right)) => left.contains_scope(right),
+            _ => false,
         }
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::All => Vec::new(),
-            Self::Hardware(payload) => {
-                let mut path = vec![String::from("Hardware")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Software(payload) => {
-                let mut path = vec![String::from("Software")];
-                path.extend(payload.path_segments());
-                path
-            }
+}
+#[rustfmt::skip]
+impl From<Domain> for DomainScope {
+    fn from(value: Domain) -> Self {
+        match value {
+            Domain::Health(payload) => Self::Health(payload.into()),
+            Domain::Food(payload) => Self::Food(payload.into()),
+            Domain::Home(payload) => Self::Home(payload.into()),
+            Domain::Finance(payload) => Self::Finance(payload.into()),
+            Domain::Work(payload) => Self::Work(payload.into()),
+            Domain::Craft(payload) => Self::Craft(payload.into()),
+            Domain::Knowledge(payload) => Self::Knowledge(payload.into()),
+            Domain::Education(payload) => Self::Education(payload.into()),
+            Domain::Language(payload) => Self::Language(payload.into()),
+            Domain::Art(payload) => Self::Art(payload.into()),
+            Domain::Kinship(payload) => Self::Kinship(payload.into()),
+            Domain::Selfhood(payload) => Self::Selfhood(payload.into()),
+            Domain::Spirituality(payload) => Self::Spirituality(payload.into()),
+            Domain::Governance(payload) => Self::Governance(payload.into()),
+            Domain::Law(payload) => Self::Law(payload.into()),
+            Domain::Community(payload) => Self::Community(payload.into()),
+            Domain::Nature(payload) => Self::Nature(payload.into()),
+            Domain::Travel(payload) => Self::Travel(payload.into()),
+            Domain::Commerce(payload) => Self::Commerce(payload.into()),
+            Domain::Leisure(payload) => Self::Leisure(payload.into()),
+            Domain::Appearance(payload) => Self::Appearance(payload.into()),
+            Domain::Safety(payload) => Self::Safety(payload.into()),
+            Domain::Information(payload) => Self::Information(payload.into()),
+            Domain::Technology(payload) => Self::Technology(payload.into()),
         }
     }
 }
 #[rustfmt::skip]
 impl DomainScope {
-    pub fn from_path(path: Vec<String>) -> Self {
-        Self::try_from_path(&path)
-            .unwrap_or_else(|| { panic!("invalid {} path {:?}", "DomainScope", path) })
-    }
-    pub fn try_from_path(path: &[String]) -> Option<Self> {
-        if path.is_empty() {
-            return None;
-        }
-        let (head, tail) = path.split_first()?;
-        match head.as_str() {
-            "Health" => {
-                if tail.is_empty() {
-                    Some(Self::Health(HealthScope::All))
-                } else {
-                    HealthScope::try_from_path(tail).map(Self::Health)
-                }
+    pub fn contains_scope(&self, scope: &Self) -> bool {
+        match (self, scope) {
+            (Self::Health(left), Self::Health(right)) => left.contains_scope(right),
+            (Self::Food(left), Self::Food(right)) => left.contains_scope(right),
+            (Self::Home(left), Self::Home(right)) => left.contains_scope(right),
+            (Self::Finance(left), Self::Finance(right)) => left.contains_scope(right),
+            (Self::Work(left), Self::Work(right)) => left.contains_scope(right),
+            (Self::Craft(left), Self::Craft(right)) => left.contains_scope(right),
+            (Self::Knowledge(left), Self::Knowledge(right)) => left.contains_scope(right),
+            (Self::Education(left), Self::Education(right)) => left.contains_scope(right),
+            (Self::Language(left), Self::Language(right)) => left.contains_scope(right),
+            (Self::Art(left), Self::Art(right)) => left.contains_scope(right),
+            (Self::Kinship(left), Self::Kinship(right)) => left.contains_scope(right),
+            (Self::Selfhood(left), Self::Selfhood(right)) => left.contains_scope(right),
+            (Self::Spirituality(left), Self::Spirituality(right)) => {
+                left.contains_scope(right)
             }
-            "Food" => {
-                if tail.is_empty() {
-                    Some(Self::Food(FoodScope::All))
-                } else {
-                    FoodScope::try_from_path(tail).map(Self::Food)
-                }
+            (Self::Governance(left), Self::Governance(right)) => {
+                left.contains_scope(right)
             }
-            "Home" => {
-                if tail.is_empty() {
-                    Some(Self::Home(HomeScope::All))
-                } else {
-                    HomeScope::try_from_path(tail).map(Self::Home)
-                }
+            (Self::Law(left), Self::Law(right)) => left.contains_scope(right),
+            (Self::Community(left), Self::Community(right)) => left.contains_scope(right),
+            (Self::Nature(left), Self::Nature(right)) => left.contains_scope(right),
+            (Self::Travel(left), Self::Travel(right)) => left.contains_scope(right),
+            (Self::Commerce(left), Self::Commerce(right)) => left.contains_scope(right),
+            (Self::Leisure(left), Self::Leisure(right)) => left.contains_scope(right),
+            (Self::Appearance(left), Self::Appearance(right)) => {
+                left.contains_scope(right)
             }
-            "Finance" => {
-                if tail.is_empty() {
-                    Some(Self::Finance(FinanceScope::All))
-                } else {
-                    FinanceScope::try_from_path(tail).map(Self::Finance)
-                }
+            (Self::Safety(left), Self::Safety(right)) => left.contains_scope(right),
+            (Self::Information(left), Self::Information(right)) => {
+                left.contains_scope(right)
             }
-            "Work" => {
-                if tail.is_empty() {
-                    Some(Self::Work(WorkScope::All))
-                } else {
-                    WorkScope::try_from_path(tail).map(Self::Work)
-                }
+            (Self::Technology(left), Self::Technology(right)) => {
+                left.contains_scope(right)
             }
-            "Craft" => {
-                if tail.is_empty() {
-                    Some(Self::Craft(CraftScope::All))
-                } else {
-                    CraftScope::try_from_path(tail).map(Self::Craft)
-                }
-            }
-            "Knowledge" => {
-                if tail.is_empty() {
-                    Some(Self::Knowledge(KnowledgeScope::All))
-                } else {
-                    KnowledgeScope::try_from_path(tail).map(Self::Knowledge)
-                }
-            }
-            "Education" => {
-                if tail.is_empty() {
-                    Some(Self::Education(EducationScope::All))
-                } else {
-                    EducationScope::try_from_path(tail).map(Self::Education)
-                }
-            }
-            "Language" => {
-                if tail.is_empty() {
-                    Some(Self::Language(LanguageScope::All))
-                } else {
-                    LanguageScope::try_from_path(tail).map(Self::Language)
-                }
-            }
-            "Art" => {
-                if tail.is_empty() {
-                    Some(Self::Art(ArtScope::All))
-                } else {
-                    ArtScope::try_from_path(tail).map(Self::Art)
-                }
-            }
-            "Kinship" => {
-                if tail.is_empty() {
-                    Some(Self::Kinship(KinshipScope::All))
-                } else {
-                    KinshipScope::try_from_path(tail).map(Self::Kinship)
-                }
-            }
-            "Selfhood" => {
-                if tail.is_empty() {
-                    Some(Self::Selfhood(SelfhoodScope::All))
-                } else {
-                    SelfhoodScope::try_from_path(tail).map(Self::Selfhood)
-                }
-            }
-            "Spirituality" => {
-                if tail.is_empty() {
-                    Some(Self::Spirituality(SpiritualityScope::All))
-                } else {
-                    SpiritualityScope::try_from_path(tail).map(Self::Spirituality)
-                }
-            }
-            "Governance" => {
-                if tail.is_empty() {
-                    Some(Self::Governance(GovernanceScope::All))
-                } else {
-                    GovernanceScope::try_from_path(tail).map(Self::Governance)
-                }
-            }
-            "Law" => {
-                if tail.is_empty() {
-                    Some(Self::Law(LawScope::All))
-                } else {
-                    LawScope::try_from_path(tail).map(Self::Law)
-                }
-            }
-            "Community" => {
-                if tail.is_empty() {
-                    Some(Self::Community(CommunityScope::All))
-                } else {
-                    CommunityScope::try_from_path(tail).map(Self::Community)
-                }
-            }
-            "Nature" => {
-                if tail.is_empty() {
-                    Some(Self::Nature(NatureScope::All))
-                } else {
-                    NatureScope::try_from_path(tail).map(Self::Nature)
-                }
-            }
-            "Travel" => {
-                if tail.is_empty() {
-                    Some(Self::Travel(TravelScope::All))
-                } else {
-                    TravelScope::try_from_path(tail).map(Self::Travel)
-                }
-            }
-            "Commerce" => {
-                if tail.is_empty() {
-                    Some(Self::Commerce(CommerceScope::All))
-                } else {
-                    CommerceScope::try_from_path(tail).map(Self::Commerce)
-                }
-            }
-            "Leisure" => {
-                if tail.is_empty() {
-                    Some(Self::Leisure(LeisureScope::All))
-                } else {
-                    LeisureScope::try_from_path(tail).map(Self::Leisure)
-                }
-            }
-            "Appearance" => {
-                if tail.is_empty() {
-                    Some(Self::Appearance(AppearanceScope::All))
-                } else {
-                    AppearanceScope::try_from_path(tail).map(Self::Appearance)
-                }
-            }
-            "Safety" => {
-                if tail.is_empty() {
-                    Some(Self::Safety(SafetyScope::All))
-                } else {
-                    SafetyScope::try_from_path(tail).map(Self::Safety)
-                }
-            }
-            "Information" => {
-                if tail.is_empty() {
-                    Some(Self::Information(InformationScope::All))
-                } else {
-                    InformationScope::try_from_path(tail).map(Self::Information)
-                }
-            }
-            "Technology" => {
-                if tail.is_empty() {
-                    Some(Self::Technology(TechnologyScope::All))
-                } else {
-                    TechnologyScope::try_from_path(tail).map(Self::Technology)
-                }
-            }
-            _ => None,
+            _ => false,
         }
     }
-    pub fn path_segments(&self) -> Vec<String> {
-        match self {
-            Self::Health(payload) => {
-                let mut path = vec![String::from("Health")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Food(payload) => {
-                let mut path = vec![String::from("Food")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Home(payload) => {
-                let mut path = vec![String::from("Home")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Finance(payload) => {
-                let mut path = vec![String::from("Finance")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Work(payload) => {
-                let mut path = vec![String::from("Work")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Craft(payload) => {
-                let mut path = vec![String::from("Craft")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Knowledge(payload) => {
-                let mut path = vec![String::from("Knowledge")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Education(payload) => {
-                let mut path = vec![String::from("Education")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Language(payload) => {
-                let mut path = vec![String::from("Language")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Art(payload) => {
-                let mut path = vec![String::from("Art")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Kinship(payload) => {
-                let mut path = vec![String::from("Kinship")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Selfhood(payload) => {
-                let mut path = vec![String::from("Selfhood")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Spirituality(payload) => {
-                let mut path = vec![String::from("Spirituality")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Governance(payload) => {
-                let mut path = vec![String::from("Governance")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Law(payload) => {
-                let mut path = vec![String::from("Law")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Community(payload) => {
-                let mut path = vec![String::from("Community")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Nature(payload) => {
-                let mut path = vec![String::from("Nature")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Travel(payload) => {
-                let mut path = vec![String::from("Travel")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Commerce(payload) => {
-                let mut path = vec![String::from("Commerce")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Leisure(payload) => {
-                let mut path = vec![String::from("Leisure")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Appearance(payload) => {
-                let mut path = vec![String::from("Appearance")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Safety(payload) => {
-                let mut path = vec![String::from("Safety")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Information(payload) => {
-                let mut path = vec![String::from("Information")];
-                path.extend(payload.path_segments());
-                path
-            }
-            Self::Technology(payload) => {
-                let mut path = vec![String::from("Technology")];
-                path.extend(payload.path_segments());
-                path
-            }
-        }
+    pub fn contains_domain(&self, domain: &Domain) -> bool {
+        self.contains_scope(&domain.clone().into())
     }
 }
 #[rustfmt::skip]
@@ -4952,16 +4253,10 @@ impl DomainScope {
     }
     pub fn equivalence_relations() -> Vec<Vec<DomainScope>> {
         vec![
-            vec![DomainScope::from_path(vec![String::from("Technology"),
-            String::from("Hardware"), String::from("Networking")]),
-            DomainScope::from_path(vec![String::from("Technology"),
-            String::from("Software"), String::from("Distributed"),
-            String::from("Networking")])],
-            vec![DomainScope::from_path(vec![String::from("Information"),
-            String::from("Database")]),
-            DomainScope::from_path(vec![String::from("Technology"),
-            String::from("Software"), String::from("Data"),
-            String::from("DatabaseSystems")])]
+            vec![DomainScope::Technology(TechnologyScope::Hardware(HardwareScope::Networking)),
+            DomainScope::Technology(TechnologyScope::Software(SoftwareScope::Distributed(DistributedScope::Networking)))],
+            vec![DomainScope::Information(InformationScope::Database),
+            DomainScope::Technology(TechnologyScope::Software(SoftwareScope::Data(DataScope::DatabaseSystems)))]
         ]
     }
 }

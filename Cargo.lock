@@ -1105,7 +1105,7 @@ dependencies = [
 [[package]]
 name = "schema-rust-next"
 version = "0.5.3"
-source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#0bc4591f2da09208228f28f4d30a83cddf6ab2c5"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#d3bc2289c28720242a58a6957bdabd28185fdb04"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -1299,7 +1299,7 @@ dependencies = [
 
 [[package]]
 name = "spirit"
-version = "0.9.2"
+version = "0.9.3"
 dependencies = [
  "agent",
  "blake3",

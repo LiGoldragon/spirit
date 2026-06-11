@@ -3,6 +3,7 @@ use spirit::schema::signal::{Export, Import};
 use spirit::{
     Engine, Nexus, SignalAdmission, Store,
     schema::{
+        domain::{SoftwareScope, TechnologyScope},
         nexus::{self, CommandSemaWrite, NexusAction, NexusEffectCommand, NexusEngine, NexusWork},
         sema::{
             self, ReadInput as SemaReadInput, ReadOutput as SemaReadOutput, SemaEngine,
@@ -10,8 +11,8 @@ use spirit::{
         },
         signal::{
             Certainty, CertaintyChange, CertaintySelection, Clarification, Data, DatabaseMarker,
-            Description, Domain, DomainMatch, DomainScope, DomainScopes, Domains, Entry,
-            ErrorMessage, ErrorReport, GuardianRejectionReason, Hardware, ImportanceBump,
+            Description, Distributed, Domain, DomainMatch, DomainScope, DomainScopes, Domains,
+            Entry, ErrorMessage, ErrorReport, GuardianRejectionReason, Hardware, ImportanceBump,
             ImportanceSelection, Information, Input, Justification, Keyword, KeywordMatch,
             Keywords, Kind, Magnitude, MailLedgerEvent, MessageIdentifier, MessageSent,
             MessageSentHook, OriginRoute, Output, Privacy, PrivacySelection, Proposal, Query,
@@ -285,17 +286,34 @@ fn domain_scopes_from_slice(domains: &[&str]) -> DomainScopes {
     DomainScopes::from_strings(domains.iter().map(|domain| String::from(*domain)).collect())
 }
 
-fn domain_scope_from_path(path: &[&str]) -> DomainScope {
-    DomainScope::from_path(path.iter().map(|segment| String::from(*segment)).collect())
+fn software_scope() -> DomainScope {
+    DomainScope::Technology(TechnologyScope::Software(SoftwareScope::All))
 }
 
-fn domain_scopes_from_paths(paths: &[&[&str]]) -> DomainScopes {
-    DomainScopes::new(
-        paths
-            .iter()
-            .map(|path| domain_scope_from_path(path))
-            .collect(),
-    )
+fn technology_scope() -> DomainScope {
+    DomainScope::Technology(TechnologyScope::All)
+}
+
+fn schema_evolution_scope() -> DomainScope {
+    DomainScope::from(Domain::Technology(Technology::Software(Software::Data(
+        Data::SchemaEvolution,
+    ))))
+}
+
+fn software_networking_scope() -> DomainScope {
+    DomainScope::from(Domain::Technology(Technology::Software(
+        Software::Distributed(Distributed::Networking),
+    )))
+}
+
+fn database_systems_scope() -> DomainScope {
+    DomainScope::from(Domain::Technology(Technology::Software(Software::Data(
+        Data::DatabaseSystems,
+    ))))
+}
+
+fn domain_scopes_from_scopes(scopes: &[DomainScope]) -> DomainScopes {
+    DomainScopes::new(scopes.to_vec())
 }
 
 fn keywords_from_slice(keywords: &[&str]) -> Keywords {
@@ -1859,10 +1877,9 @@ fn sema_engine_queries_domain_scopes_by_prefix_breadth() {
     let software = SemaEngine::observe(
         &store,
         sema_read_message(
-            sema_observe(query_with_domain_scopes(domain_scopes_from_paths(&[&[
-                "Technology",
-                "Software",
-            ]]))),
+            sema_observe(query_with_domain_scopes(domain_scopes_from_scopes(&[
+                software_scope(),
+            ]))),
             4,
         ),
     );
@@ -1877,9 +1894,9 @@ fn sema_engine_queries_domain_scopes_by_prefix_breadth() {
     let technology = SemaEngine::observe(
         &store,
         sema_read_message(
-            sema_observe(query_with_domain_scopes(domain_scopes_from_paths(&[&[
-                "Technology",
-            ]]))),
+            sema_observe(query_with_domain_scopes(domain_scopes_from_scopes(&[
+                technology_scope(),
+            ]))),
             5,
         ),
     );
@@ -1895,12 +1912,9 @@ fn sema_engine_queries_domain_scopes_by_prefix_breadth() {
     let leaf = SemaEngine::observe(
         &store,
         sema_read_message(
-            sema_observe(query_with_domain_scopes(domain_scopes_from_paths(&[&[
-                "Technology",
-                "Software",
-                "Data",
-                "SchemaEvolution",
-            ]]))),
+            sema_observe(query_with_domain_scopes(domain_scopes_from_scopes(&[
+                schema_evolution_scope(),
+            ]))),
             6,
         ),
     );
@@ -1941,12 +1955,9 @@ fn sema_engine_expands_symmetric_domain_equivalence_without_chaining() {
     let software_network = SemaEngine::observe(
         &store,
         sema_read_message(
-            sema_observe(query_with_domain_scopes(domain_scopes_from_paths(&[&[
-                "Technology",
-                "Software",
-                "Distributed",
-                "Networking",
-            ]]))),
+            sema_observe(query_with_domain_scopes(domain_scopes_from_scopes(&[
+                software_networking_scope(),
+            ]))),
             3,
         ),
     );
@@ -1963,12 +1974,9 @@ fn sema_engine_expands_symmetric_domain_equivalence_without_chaining() {
     let database_systems = SemaEngine::observe(
         &store,
         sema_read_message(
-            sema_observe(query_with_domain_scopes(domain_scopes_from_paths(&[&[
-                "Technology",
-                "Software",
-                "Data",
-                "DatabaseSystems",
-            ]]))),
+            sema_observe(query_with_domain_scopes(domain_scopes_from_scopes(&[
+                database_systems_scope(),
+            ]))),
             4,
         ),
     );
@@ -1985,8 +1993,7 @@ fn sema_engine_expands_symmetric_domain_equivalence_without_chaining() {
         ),
     }
 
-    let networking_expansion =
-        domain_scope_from_path(&["Technology", "Software", "Distributed", "Networking"]).expand();
+    let networking_expansion = software_networking_scope().expand();
     assert!(
         !networking_expansion.matches_domain(&Domain::Information(Information::Database)),
         "equivalence expansion must not chain from networking into unrelated relation classes"
