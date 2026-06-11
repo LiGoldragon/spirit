@@ -384,18 +384,20 @@ fn generated_public_private_record_shortcuts_round_trip_nota() {
 fn generated_domain_scope_is_a_recursive_enum_text_surface() {
     use spirit::schema::signal::DomainScope;
 
-    let technology = "Technology"
+    let technology = "(Technology All)"
         .parse::<DomainScope>()
         .expect("parse root scope");
-    let software = "(Technology Software)"
+    let software = "(Technology (Software All))"
         .parse::<DomainScope>()
         .expect("parse internal scope");
     let schema_evolution = "(Technology (Software (Data SchemaEvolution)))"
         .parse::<DomainScope>()
         .expect("parse leaf scope");
+    let impossible = "(Technology Software)".parse::<DomainScope>();
 
-    assert_eq!(technology.to_string(), "Technology");
-    assert_eq!(software.to_string(), "(Technology Software)");
+    assert!(impossible.is_err());
+    assert_eq!(technology.to_string(), "(Technology All)");
+    assert_eq!(software.to_string(), "(Technology (Software All))");
     assert_eq!(
         schema_evolution.path_segments(),
         vec![

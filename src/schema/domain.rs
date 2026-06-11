@@ -1097,6 +1097,7 @@ pub enum Domain {
 }
 
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum DomainScope {
     Health(HealthScope),
@@ -1125,18 +1126,18 @@ pub enum DomainScope {
     Technology(TechnologyScope),
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum TechnologyScope {
-    #[doc(hidden)]
-    This,
+    All,
     Hardware(HardwareScope),
     Software(SoftwareScope),
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum SoftwareScope {
-    #[doc(hidden)]
-    This,
+    All,
     Languages(LanguagesScope),
     Theory(TheoryScope),
     Systems(SystemsScope),
@@ -1151,10 +1152,10 @@ pub enum SoftwareScope {
     Engineering(EngineeringScope),
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum EngineeringScope {
-    #[doc(hidden)]
-    This,
+    All,
     SoftwareArchitecture,
     SoftwareDesign,
     DesignPatterns,
@@ -1179,10 +1180,10 @@ pub enum EngineeringScope {
     SoftwareEngineeringManagement,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum SurfacesScope {
-    #[doc(hidden)]
-    This,
+    All,
     WebDevelopment,
     FrontendDevelopment,
     BackendDevelopment,
@@ -1205,10 +1206,10 @@ pub enum SurfacesScope {
     CommandLineInterfaces,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum ObservabilityScope {
-    #[doc(hidden)]
-    This,
+    All,
     Logging,
     Monitoring,
     Alerting,
@@ -1220,10 +1221,10 @@ pub enum ObservabilityScope {
     AuditLogging,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum OperationsScope {
-    #[doc(hidden)]
-    This,
+    All,
     ContinuousIntegration,
     ContinuousDelivery,
     BuildSystem,
@@ -1244,10 +1245,10 @@ pub enum OperationsScope {
     RateLimiting,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum QualityScope {
-    #[doc(hidden)]
-    This,
+    All,
     Testing,
     UnitTesting,
     IntegrationTesting,
@@ -1269,10 +1270,10 @@ pub enum QualityScope {
     TechnicalDebt,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum SecurityScope {
-    #[doc(hidden)]
-    This,
+    All,
     Cryptography,
     Authentication,
     Authorization,
@@ -1292,10 +1293,10 @@ pub enum SecurityScope {
     InputSanitization,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum IntelligenceScope {
-    #[doc(hidden)]
-    This,
+    All,
     MachineLearning,
     DeepLearning,
     NeuralNetworks,
@@ -1316,10 +1317,10 @@ pub enum IntelligenceScope {
     AutomatedReasoning,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum DataScope {
-    #[doc(hidden)]
-    This,
+    All,
     DatabaseSystems,
     QueryProcessing,
     Indexing,
@@ -1340,10 +1341,10 @@ pub enum DataScope {
     DataValidation,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum DistributedScope {
-    #[doc(hidden)]
-    This,
+    All,
     DistributedSystems,
     Networking,
     NetworkProtocols,
@@ -1361,10 +1362,10 @@ pub enum DistributedScope {
     Sharding,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum SystemsScope {
-    #[doc(hidden)]
-    This,
+    All,
     OperatingSystems,
     SystemsProgramming,
     Concurrency,
@@ -1383,10 +1384,10 @@ pub enum SystemsScope {
     DeviceDrivers,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum TheoryScope {
-    #[doc(hidden)]
-    This,
+    All,
     Algorithms,
     DataStructures,
     ComputationalComplexity,
@@ -1403,10 +1404,10 @@ pub enum TheoryScope {
     Cryptanalysis,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum LanguagesScope {
-    #[doc(hidden)]
-    This,
+    All,
     ProgrammingLanguages,
     ProgrammingParadigms,
     TypeSystems,
@@ -1425,10 +1426,10 @@ pub enum LanguagesScope {
     ForeignFunctionInterfaces,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum HardwareScope {
-    #[doc(hidden)]
-    This,
+    All,
     Energy,
     Power,
     Automation,
@@ -1440,10 +1441,10 @@ pub enum HardwareScope {
     Aerospace,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum InformationScope {
-    #[doc(hidden)]
-    This,
+    All,
     Curation,
     RecordKeeping,
     Documentation,
@@ -1455,10 +1456,10 @@ pub enum InformationScope {
     Classification,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum SafetyScope {
-    #[doc(hidden)]
-    This,
+    All,
     Protection,
     Preparedness,
     Risk,
@@ -1469,10 +1470,10 @@ pub enum SafetyScope {
     Deterrence,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum AppearanceScope {
-    #[doc(hidden)]
-    This,
+    All,
     Clothing,
     Grooming,
     Style,
@@ -1481,10 +1482,10 @@ pub enum AppearanceScope {
     Comportment,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum LeisureScope {
-    #[doc(hidden)]
-    This,
+    All,
     Recreation,
     Sport,
     Games,
@@ -1498,10 +1499,10 @@ pub enum LeisureScope {
     Fandom,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum CommerceScope {
-    #[doc(hidden)]
-    This,
+    All,
     Selling,
     Buying,
     Marketing,
@@ -1515,10 +1516,10 @@ pub enum CommerceScope {
     Market,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum TravelScope {
-    #[doc(hidden)]
-    This,
+    All,
     Itinerary,
     Destination,
     Transportation,
@@ -1532,10 +1533,10 @@ pub enum TravelScope {
     Cycling,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum NatureScope {
-    #[doc(hidden)]
-    This,
+    All,
     Agriculture,
     Gardening,
     Horticulture,
@@ -1552,10 +1553,10 @@ pub enum NatureScope {
     Stewardship,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum CommunityScope {
-    #[doc(hidden)]
-    This,
+    All,
     Neighborliness,
     Volunteering,
     Solidarity,
@@ -1567,10 +1568,10 @@ pub enum CommunityScope {
     Institutions,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum LawScope {
-    #[doc(hidden)]
-    This,
+    All,
     Rights,
     Contract,
     Title,
@@ -1585,10 +1586,10 @@ pub enum LawScope {
     Arbitration,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum GovernanceScope {
-    #[doc(hidden)]
-    This,
+    All,
     Politics,
     Government,
     Administration,
@@ -1604,10 +1605,10 @@ pub enum GovernanceScope {
     War,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum SpiritualityScope {
-    #[doc(hidden)]
-    This,
+    All,
     Worship,
     Prayer,
     Meditation,
@@ -1624,10 +1625,10 @@ pub enum SpiritualityScope {
     Wisdom,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum SelfhoodScope {
-    #[doc(hidden)]
-    This,
+    All,
     Growth,
     Introspection,
     Discipline,
@@ -1643,10 +1644,10 @@ pub enum SelfhoodScope {
     Composure,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum KinshipScope {
-    #[doc(hidden)]
-    This,
+    All,
     Friendship,
     Romance,
     Marriage,
@@ -1662,10 +1663,10 @@ pub enum KinshipScope {
     Belonging,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum ArtScope {
-    #[doc(hidden)]
-    This,
+    All,
     Fiction,
     Poetry,
     Music,
@@ -1681,10 +1682,10 @@ pub enum ArtScope {
     Publishing,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum LanguageScope {
-    #[doc(hidden)]
-    This,
+    All,
     Writing,
     Rhetoric,
     Translation,
@@ -1698,10 +1699,10 @@ pub enum LanguageScope {
     Notation,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum EducationScope {
-    #[doc(hidden)]
-    This,
+    All,
     Studying,
     Teaching,
     Schooling,
@@ -1714,10 +1715,10 @@ pub enum EducationScope {
     Credential,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum KnowledgeScope {
-    #[doc(hidden)]
-    This,
+    All,
     Mathematics,
     Logic,
     Physics,
@@ -1737,10 +1738,10 @@ pub enum KnowledgeScope {
     Taxonomy,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum CraftScope {
-    #[doc(hidden)]
-    This,
+    All,
     Electronics,
     Construction,
     Carpentry,
@@ -1753,10 +1754,10 @@ pub enum CraftScope {
     Invention,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum WorkScope {
-    #[doc(hidden)]
-    This,
+    All,
     Career,
     JobSearch,
     Workplace,
@@ -1773,10 +1774,10 @@ pub enum WorkScope {
     Project,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum FinanceScope {
-    #[doc(hidden)]
-    This,
+    All,
     Budgeting,
     Saving,
     Spending,
@@ -1793,10 +1794,10 @@ pub enum FinanceScope {
     Accounting,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum HomeScope {
-    #[doc(hidden)]
-    This,
+    All,
     Housing,
     Maintenance,
     Renovation,
@@ -1811,10 +1812,10 @@ pub enum HomeScope {
     Appliances,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum FoodScope {
-    #[doc(hidden)]
-    This,
+    All,
     Cooking,
     Diet,
     Recipe,
@@ -1828,10 +1829,10 @@ pub enum FoodScope {
     Dining,
 }
 #[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum HealthScope {
-    #[doc(hidden)]
-    This,
+    All,
     Body,
     Mind,
     Nutrition,
@@ -1857,7 +1858,7 @@ pub enum HealthScope {
 impl HealthScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -1886,7 +1887,7 @@ impl HealthScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Body => vec![String::from("Body")],
             Self::Mind => vec![String::from("Mind")],
             Self::Nutrition => vec![String::from("Nutrition")],
@@ -1914,7 +1915,7 @@ impl HealthScope {
 impl FoodScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -1934,7 +1935,7 @@ impl FoodScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Cooking => vec![String::from("Cooking")],
             Self::Diet => vec![String::from("Diet")],
             Self::Recipe => vec![String::from("Recipe")],
@@ -1953,7 +1954,7 @@ impl FoodScope {
 impl HomeScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -1974,7 +1975,7 @@ impl HomeScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Housing => vec![String::from("Housing")],
             Self::Maintenance => vec![String::from("Maintenance")],
             Self::Renovation => vec![String::from("Renovation")],
@@ -1994,7 +1995,7 @@ impl HomeScope {
 impl FinanceScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2017,7 +2018,7 @@ impl FinanceScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Budgeting => vec![String::from("Budgeting")],
             Self::Saving => vec![String::from("Saving")],
             Self::Spending => vec![String::from("Spending")],
@@ -2039,7 +2040,7 @@ impl FinanceScope {
 impl WorkScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2062,7 +2063,7 @@ impl WorkScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Career => vec![String::from("Career")],
             Self::JobSearch => vec![String::from("JobSearch")],
             Self::Workplace => vec![String::from("Workplace")],
@@ -2084,7 +2085,7 @@ impl WorkScope {
 impl CraftScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2103,7 +2104,7 @@ impl CraftScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Electronics => vec![String::from("Electronics")],
             Self::Construction => vec![String::from("Construction")],
             Self::Carpentry => vec![String::from("Carpentry")],
@@ -2121,7 +2122,7 @@ impl CraftScope {
 impl KnowledgeScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2147,7 +2148,7 @@ impl KnowledgeScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Mathematics => vec![String::from("Mathematics")],
             Self::Logic => vec![String::from("Logic")],
             Self::Physics => vec![String::from("Physics")],
@@ -2172,7 +2173,7 @@ impl KnowledgeScope {
 impl EducationScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2191,7 +2192,7 @@ impl EducationScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Studying => vec![String::from("Studying")],
             Self::Teaching => vec![String::from("Teaching")],
             Self::Schooling => vec![String::from("Schooling")],
@@ -2209,7 +2210,7 @@ impl EducationScope {
 impl LanguageScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2229,7 +2230,7 @@ impl LanguageScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Writing => vec![String::from("Writing")],
             Self::Rhetoric => vec![String::from("Rhetoric")],
             Self::Translation => vec![String::from("Translation")],
@@ -2248,7 +2249,7 @@ impl LanguageScope {
 impl ArtScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2270,7 +2271,7 @@ impl ArtScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Fiction => vec![String::from("Fiction")],
             Self::Poetry => vec![String::from("Poetry")],
             Self::Music => vec![String::from("Music")],
@@ -2291,7 +2292,7 @@ impl ArtScope {
 impl KinshipScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2313,7 +2314,7 @@ impl KinshipScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Friendship => vec![String::from("Friendship")],
             Self::Romance => vec![String::from("Romance")],
             Self::Marriage => vec![String::from("Marriage")],
@@ -2334,7 +2335,7 @@ impl KinshipScope {
 impl SelfhoodScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2356,7 +2357,7 @@ impl SelfhoodScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Growth => vec![String::from("Growth")],
             Self::Introspection => vec![String::from("Introspection")],
             Self::Discipline => vec![String::from("Discipline")],
@@ -2377,7 +2378,7 @@ impl SelfhoodScope {
 impl SpiritualityScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2400,7 +2401,7 @@ impl SpiritualityScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Worship => vec![String::from("Worship")],
             Self::Prayer => vec![String::from("Prayer")],
             Self::Meditation => vec![String::from("Meditation")],
@@ -2422,7 +2423,7 @@ impl SpiritualityScope {
 impl GovernanceScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2444,7 +2445,7 @@ impl GovernanceScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Politics => vec![String::from("Politics")],
             Self::Government => vec![String::from("Government")],
             Self::Administration => vec![String::from("Administration")],
@@ -2465,7 +2466,7 @@ impl GovernanceScope {
 impl LawScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2486,7 +2487,7 @@ impl LawScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Rights => vec![String::from("Rights")],
             Self::Contract => vec![String::from("Contract")],
             Self::Title => vec![String::from("Title")],
@@ -2506,7 +2507,7 @@ impl LawScope {
 impl CommunityScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2524,7 +2525,7 @@ impl CommunityScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Neighborliness => vec![String::from("Neighborliness")],
             Self::Volunteering => vec![String::from("Volunteering")],
             Self::Solidarity => vec![String::from("Solidarity")],
@@ -2541,7 +2542,7 @@ impl CommunityScope {
 impl NatureScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2564,7 +2565,7 @@ impl NatureScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Agriculture => vec![String::from("Agriculture")],
             Self::Gardening => vec![String::from("Gardening")],
             Self::Horticulture => vec![String::from("Horticulture")],
@@ -2586,7 +2587,7 @@ impl NatureScope {
 impl TravelScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2606,7 +2607,7 @@ impl TravelScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Itinerary => vec![String::from("Itinerary")],
             Self::Destination => vec![String::from("Destination")],
             Self::Transportation => vec![String::from("Transportation")],
@@ -2625,7 +2626,7 @@ impl TravelScope {
 impl CommerceScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2645,7 +2646,7 @@ impl CommerceScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Selling => vec![String::from("Selling")],
             Self::Buying => vec![String::from("Buying")],
             Self::Marketing => vec![String::from("Marketing")],
@@ -2664,7 +2665,7 @@ impl CommerceScope {
 impl LeisureScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2684,7 +2685,7 @@ impl LeisureScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Recreation => vec![String::from("Recreation")],
             Self::Sport => vec![String::from("Sport")],
             Self::Games => vec![String::from("Games")],
@@ -2703,7 +2704,7 @@ impl LeisureScope {
 impl AppearanceScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2718,7 +2719,7 @@ impl AppearanceScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Clothing => vec![String::from("Clothing")],
             Self::Grooming => vec![String::from("Grooming")],
             Self::Style => vec![String::from("Style")],
@@ -2732,7 +2733,7 @@ impl AppearanceScope {
 impl SafetyScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2749,7 +2750,7 @@ impl SafetyScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Protection => vec![String::from("Protection")],
             Self::Preparedness => vec![String::from("Preparedness")],
             Self::Risk => vec![String::from("Risk")],
@@ -2765,7 +2766,7 @@ impl SafetyScope {
 impl InformationScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2783,7 +2784,7 @@ impl InformationScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Curation => vec![String::from("Curation")],
             Self::RecordKeeping => vec![String::from("RecordKeeping")],
             Self::Documentation => vec![String::from("Documentation")],
@@ -2800,7 +2801,7 @@ impl InformationScope {
 impl HardwareScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2818,7 +2819,7 @@ impl HardwareScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Energy => vec![String::from("Energy")],
             Self::Power => vec![String::from("Power")],
             Self::Automation => vec![String::from("Automation")],
@@ -2835,7 +2836,7 @@ impl HardwareScope {
 impl LanguagesScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2864,7 +2865,7 @@ impl LanguagesScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::ProgrammingLanguages => vec![String::from("ProgrammingLanguages")],
             Self::ProgrammingParadigms => vec![String::from("ProgrammingParadigms")],
             Self::TypeSystems => vec![String::from("TypeSystems")],
@@ -2892,7 +2893,7 @@ impl LanguagesScope {
 impl TheoryScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2917,7 +2918,7 @@ impl TheoryScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Algorithms => vec![String::from("Algorithms")],
             Self::DataStructures => vec![String::from("DataStructures")],
             Self::ComputationalComplexity => {
@@ -2941,7 +2942,7 @@ impl TheoryScope {
 impl SystemsScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -2966,7 +2967,7 @@ impl SystemsScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::OperatingSystems => vec![String::from("OperatingSystems")],
             Self::SystemsProgramming => vec![String::from("SystemsProgramming")],
             Self::Concurrency => vec![String::from("Concurrency")],
@@ -2990,7 +2991,7 @@ impl SystemsScope {
 impl DistributedScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -3018,7 +3019,7 @@ impl DistributedScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::DistributedSystems => vec![String::from("DistributedSystems")],
             Self::Networking => vec![String::from("Networking")],
             Self::NetworkProtocols => vec![String::from("NetworkProtocols")],
@@ -3045,7 +3046,7 @@ impl DistributedScope {
 impl DataScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -3072,7 +3073,7 @@ impl DataScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::DatabaseSystems => vec![String::from("DatabaseSystems")],
             Self::QueryProcessing => vec![String::from("QueryProcessing")],
             Self::Indexing => vec![String::from("Indexing")],
@@ -3098,7 +3099,7 @@ impl DataScope {
 impl IntelligenceScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -3135,7 +3136,7 @@ impl IntelligenceScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::MachineLearning => vec![String::from("MachineLearning")],
             Self::DeepLearning => vec![String::from("DeepLearning")],
             Self::NeuralNetworks => vec![String::from("NeuralNetworks")],
@@ -3167,7 +3168,7 @@ impl IntelligenceScope {
 impl SecurityScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -3195,7 +3196,7 @@ impl SecurityScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Cryptography => vec![String::from("Cryptography")],
             Self::Authentication => vec![String::from("Authentication")],
             Self::Authorization => vec![String::from("Authorization")],
@@ -3222,7 +3223,7 @@ impl SecurityScope {
 impl QualityScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -3252,7 +3253,7 @@ impl QualityScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Testing => vec![String::from("Testing")],
             Self::UnitTesting => vec![String::from("UnitTesting")],
             Self::IntegrationTesting => vec![String::from("IntegrationTesting")],
@@ -3281,7 +3282,7 @@ impl QualityScope {
 impl OperationsScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -3312,7 +3313,7 @@ impl OperationsScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::ContinuousIntegration => vec![String::from("ContinuousIntegration")],
             Self::ContinuousDelivery => vec![String::from("ContinuousDelivery")],
             Self::BuildSystem => vec![String::from("BuildSystem")],
@@ -3340,7 +3341,7 @@ impl OperationsScope {
 impl ObservabilityScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -3358,7 +3359,7 @@ impl ObservabilityScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Logging => vec![String::from("Logging")],
             Self::Monitoring => vec![String::from("Monitoring")],
             Self::Alerting => vec![String::from("Alerting")],
@@ -3375,7 +3376,7 @@ impl ObservabilityScope {
 impl SurfacesScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -3406,7 +3407,7 @@ impl SurfacesScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::WebDevelopment => vec![String::from("WebDevelopment")],
             Self::FrontendDevelopment => vec![String::from("FrontendDevelopment")],
             Self::BackendDevelopment => vec![String::from("BackendDevelopment")],
@@ -3434,7 +3435,7 @@ impl SurfacesScope {
 impl EngineeringScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
@@ -3473,7 +3474,7 @@ impl EngineeringScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::SoftwareArchitecture => vec![String::from("SoftwareArchitecture")],
             Self::SoftwareDesign => vec![String::from("SoftwareDesign")],
             Self::DesignPatterns => vec![String::from("DesignPatterns")],
@@ -3511,90 +3512,90 @@ impl EngineeringScope {
 impl SoftwareScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
             "Languages" => {
                 if tail.is_empty() {
-                    Some(Self::Languages(LanguagesScope::This))
+                    Some(Self::Languages(LanguagesScope::All))
                 } else {
                     LanguagesScope::try_from_path(tail).map(Self::Languages)
                 }
             }
             "Theory" => {
                 if tail.is_empty() {
-                    Some(Self::Theory(TheoryScope::This))
+                    Some(Self::Theory(TheoryScope::All))
                 } else {
                     TheoryScope::try_from_path(tail).map(Self::Theory)
                 }
             }
             "Systems" => {
                 if tail.is_empty() {
-                    Some(Self::Systems(SystemsScope::This))
+                    Some(Self::Systems(SystemsScope::All))
                 } else {
                     SystemsScope::try_from_path(tail).map(Self::Systems)
                 }
             }
             "Distributed" => {
                 if tail.is_empty() {
-                    Some(Self::Distributed(DistributedScope::This))
+                    Some(Self::Distributed(DistributedScope::All))
                 } else {
                     DistributedScope::try_from_path(tail).map(Self::Distributed)
                 }
             }
             "Data" => {
                 if tail.is_empty() {
-                    Some(Self::Data(DataScope::This))
+                    Some(Self::Data(DataScope::All))
                 } else {
                     DataScope::try_from_path(tail).map(Self::Data)
                 }
             }
             "Intelligence" => {
                 if tail.is_empty() {
-                    Some(Self::Intelligence(IntelligenceScope::This))
+                    Some(Self::Intelligence(IntelligenceScope::All))
                 } else {
                     IntelligenceScope::try_from_path(tail).map(Self::Intelligence)
                 }
             }
             "Security" => {
                 if tail.is_empty() {
-                    Some(Self::Security(SecurityScope::This))
+                    Some(Self::Security(SecurityScope::All))
                 } else {
                     SecurityScope::try_from_path(tail).map(Self::Security)
                 }
             }
             "Quality" => {
                 if tail.is_empty() {
-                    Some(Self::Quality(QualityScope::This))
+                    Some(Self::Quality(QualityScope::All))
                 } else {
                     QualityScope::try_from_path(tail).map(Self::Quality)
                 }
             }
             "Operations" => {
                 if tail.is_empty() {
-                    Some(Self::Operations(OperationsScope::This))
+                    Some(Self::Operations(OperationsScope::All))
                 } else {
                     OperationsScope::try_from_path(tail).map(Self::Operations)
                 }
             }
             "Observability" => {
                 if tail.is_empty() {
-                    Some(Self::Observability(ObservabilityScope::This))
+                    Some(Self::Observability(ObservabilityScope::All))
                 } else {
                     ObservabilityScope::try_from_path(tail).map(Self::Observability)
                 }
             }
             "Surfaces" => {
                 if tail.is_empty() {
-                    Some(Self::Surfaces(SurfacesScope::This))
+                    Some(Self::Surfaces(SurfacesScope::All))
                 } else {
                     SurfacesScope::try_from_path(tail).map(Self::Surfaces)
                 }
             }
             "Engineering" => {
                 if tail.is_empty() {
-                    Some(Self::Engineering(EngineeringScope::This))
+                    Some(Self::Engineering(EngineeringScope::All))
                 } else {
                     EngineeringScope::try_from_path(tail).map(Self::Engineering)
                 }
@@ -3604,7 +3605,7 @@ impl SoftwareScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Languages(payload) => {
                 let mut path = vec![String::from("Languages")];
                 path.extend(payload.path_segments());
@@ -3672,20 +3673,20 @@ impl SoftwareScope {
 impl TechnologyScope {
     pub fn try_from_path(path: &[String]) -> Option<Self> {
         if path.is_empty() {
-            return Some(Self::This);
+            return Some(Self::All);
         }
         let (head, tail) = path.split_first()?;
         match head.as_str() {
             "Hardware" => {
                 if tail.is_empty() {
-                    Some(Self::Hardware(HardwareScope::This))
+                    Some(Self::Hardware(HardwareScope::All))
                 } else {
                     HardwareScope::try_from_path(tail).map(Self::Hardware)
                 }
             }
             "Software" => {
                 if tail.is_empty() {
-                    Some(Self::Software(SoftwareScope::This))
+                    Some(Self::Software(SoftwareScope::All))
                 } else {
                     SoftwareScope::try_from_path(tail).map(Self::Software)
                 }
@@ -3695,7 +3696,7 @@ impl TechnologyScope {
     }
     pub fn path_segments(&self) -> Vec<String> {
         match self {
-            Self::This => Vec::new(),
+            Self::All => Vec::new(),
             Self::Hardware(payload) => {
                 let mut path = vec![String::from("Hardware")];
                 path.extend(payload.path_segments());
@@ -3723,168 +3724,168 @@ impl DomainScope {
         match head.as_str() {
             "Health" => {
                 if tail.is_empty() {
-                    Some(Self::Health(HealthScope::This))
+                    Some(Self::Health(HealthScope::All))
                 } else {
                     HealthScope::try_from_path(tail).map(Self::Health)
                 }
             }
             "Food" => {
                 if tail.is_empty() {
-                    Some(Self::Food(FoodScope::This))
+                    Some(Self::Food(FoodScope::All))
                 } else {
                     FoodScope::try_from_path(tail).map(Self::Food)
                 }
             }
             "Home" => {
                 if tail.is_empty() {
-                    Some(Self::Home(HomeScope::This))
+                    Some(Self::Home(HomeScope::All))
                 } else {
                     HomeScope::try_from_path(tail).map(Self::Home)
                 }
             }
             "Finance" => {
                 if tail.is_empty() {
-                    Some(Self::Finance(FinanceScope::This))
+                    Some(Self::Finance(FinanceScope::All))
                 } else {
                     FinanceScope::try_from_path(tail).map(Self::Finance)
                 }
             }
             "Work" => {
                 if tail.is_empty() {
-                    Some(Self::Work(WorkScope::This))
+                    Some(Self::Work(WorkScope::All))
                 } else {
                     WorkScope::try_from_path(tail).map(Self::Work)
                 }
             }
             "Craft" => {
                 if tail.is_empty() {
-                    Some(Self::Craft(CraftScope::This))
+                    Some(Self::Craft(CraftScope::All))
                 } else {
                     CraftScope::try_from_path(tail).map(Self::Craft)
                 }
             }
             "Knowledge" => {
                 if tail.is_empty() {
-                    Some(Self::Knowledge(KnowledgeScope::This))
+                    Some(Self::Knowledge(KnowledgeScope::All))
                 } else {
                     KnowledgeScope::try_from_path(tail).map(Self::Knowledge)
                 }
             }
             "Education" => {
                 if tail.is_empty() {
-                    Some(Self::Education(EducationScope::This))
+                    Some(Self::Education(EducationScope::All))
                 } else {
                     EducationScope::try_from_path(tail).map(Self::Education)
                 }
             }
             "Language" => {
                 if tail.is_empty() {
-                    Some(Self::Language(LanguageScope::This))
+                    Some(Self::Language(LanguageScope::All))
                 } else {
                     LanguageScope::try_from_path(tail).map(Self::Language)
                 }
             }
             "Art" => {
                 if tail.is_empty() {
-                    Some(Self::Art(ArtScope::This))
+                    Some(Self::Art(ArtScope::All))
                 } else {
                     ArtScope::try_from_path(tail).map(Self::Art)
                 }
             }
             "Kinship" => {
                 if tail.is_empty() {
-                    Some(Self::Kinship(KinshipScope::This))
+                    Some(Self::Kinship(KinshipScope::All))
                 } else {
                     KinshipScope::try_from_path(tail).map(Self::Kinship)
                 }
             }
             "Selfhood" => {
                 if tail.is_empty() {
-                    Some(Self::Selfhood(SelfhoodScope::This))
+                    Some(Self::Selfhood(SelfhoodScope::All))
                 } else {
                     SelfhoodScope::try_from_path(tail).map(Self::Selfhood)
                 }
             }
             "Spirituality" => {
                 if tail.is_empty() {
-                    Some(Self::Spirituality(SpiritualityScope::This))
+                    Some(Self::Spirituality(SpiritualityScope::All))
                 } else {
                     SpiritualityScope::try_from_path(tail).map(Self::Spirituality)
                 }
             }
             "Governance" => {
                 if tail.is_empty() {
-                    Some(Self::Governance(GovernanceScope::This))
+                    Some(Self::Governance(GovernanceScope::All))
                 } else {
                     GovernanceScope::try_from_path(tail).map(Self::Governance)
                 }
             }
             "Law" => {
                 if tail.is_empty() {
-                    Some(Self::Law(LawScope::This))
+                    Some(Self::Law(LawScope::All))
                 } else {
                     LawScope::try_from_path(tail).map(Self::Law)
                 }
             }
             "Community" => {
                 if tail.is_empty() {
-                    Some(Self::Community(CommunityScope::This))
+                    Some(Self::Community(CommunityScope::All))
                 } else {
                     CommunityScope::try_from_path(tail).map(Self::Community)
                 }
             }
             "Nature" => {
                 if tail.is_empty() {
-                    Some(Self::Nature(NatureScope::This))
+                    Some(Self::Nature(NatureScope::All))
                 } else {
                     NatureScope::try_from_path(tail).map(Self::Nature)
                 }
             }
             "Travel" => {
                 if tail.is_empty() {
-                    Some(Self::Travel(TravelScope::This))
+                    Some(Self::Travel(TravelScope::All))
                 } else {
                     TravelScope::try_from_path(tail).map(Self::Travel)
                 }
             }
             "Commerce" => {
                 if tail.is_empty() {
-                    Some(Self::Commerce(CommerceScope::This))
+                    Some(Self::Commerce(CommerceScope::All))
                 } else {
                     CommerceScope::try_from_path(tail).map(Self::Commerce)
                 }
             }
             "Leisure" => {
                 if tail.is_empty() {
-                    Some(Self::Leisure(LeisureScope::This))
+                    Some(Self::Leisure(LeisureScope::All))
                 } else {
                     LeisureScope::try_from_path(tail).map(Self::Leisure)
                 }
             }
             "Appearance" => {
                 if tail.is_empty() {
-                    Some(Self::Appearance(AppearanceScope::This))
+                    Some(Self::Appearance(AppearanceScope::All))
                 } else {
                     AppearanceScope::try_from_path(tail).map(Self::Appearance)
                 }
             }
             "Safety" => {
                 if tail.is_empty() {
-                    Some(Self::Safety(SafetyScope::This))
+                    Some(Self::Safety(SafetyScope::All))
                 } else {
                     SafetyScope::try_from_path(tail).map(Self::Safety)
                 }
             }
             "Information" => {
                 if tail.is_empty() {
-                    Some(Self::Information(InformationScope::This))
+                    Some(Self::Information(InformationScope::All))
                 } else {
                     InformationScope::try_from_path(tail).map(Self::Information)
                 }
             }
             "Technology" => {
                 if tail.is_empty() {
-                    Some(Self::Technology(TechnologyScope::This))
+                    Some(Self::Technology(TechnologyScope::All))
                 } else {
                     TechnologyScope::try_from_path(tail).map(Self::Technology)
                 }
@@ -4025,52 +4026,6 @@ impl DomainScope {
     }
     pub fn to_nota(&self) -> String {
         <Self as NotaEncode>::to_nota(self)
-    }
-    fn nota_path_from_block(
-        block: &nota_next::Block,
-    ) -> Result<Vec<String>, NotaDecodeError> {
-        if let Some(segment) = block.demote_to_string() {
-            return Ok(vec![segment.to_owned()]);
-        }
-        let children = nota_next::NotaBlock::new(block)
-            .expect_children(nota_next::Delimiter::Parenthesis, "DomainScope", 2)?;
-        let head = children[0]
-            .demote_to_string()
-            .ok_or(NotaDecodeError::ExpectedAtom {
-                type_name: "scope segment",
-            })?;
-        let mut path = vec![head.to_owned()];
-        path.extend(Self::nota_path_from_block(&children[1])?);
-        Ok(path)
-    }
-    fn nota_path_to_string(path: &[String]) -> String {
-        match path {
-            [] => String::new(),
-            [segment] => segment.clone(),
-            [head, tail @ ..] => {
-                format!("({} {})", head, Self::nota_path_to_string(tail))
-            }
-        }
-    }
-}
-#[rustfmt::skip]
-#[cfg(feature = "nota-text")]
-impl NotaDecode for DomainScope {
-    fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        let path = Self::nota_path_from_block(block)?;
-        Self::try_from_path(&path)
-            .ok_or_else(|| NotaDecodeError::InvalidValue {
-                type_name: "DomainScope",
-                value: Self::nota_path_to_string(&path),
-                reason: String::from("path does not match the scoped enum tree"),
-            })
-    }
-}
-#[rustfmt::skip]
-#[cfg(feature = "nota-text")]
-impl NotaEncode for DomainScope {
-    fn to_nota(&self) -> String {
-        Self::nota_path_to_string(&self.path_segments())
     }
 }
 #[rustfmt::skip]
