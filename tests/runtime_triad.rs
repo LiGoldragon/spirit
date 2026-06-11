@@ -142,6 +142,7 @@ impl FakeGuardianAgent {
                 .payload()
                 .contains("Operation:")
         );
+        assert_eq!(call.payload().options.maximum_output_tokens, None);
         let output = AgentOutput::completed(Completion {
             text: CompletionText::new(reply),
             stop_reason: StopReasonText::new("stop"),
@@ -165,7 +166,7 @@ impl FakeGuardianAgent {
             None,
             None,
             Duration::from_secs(5),
-            128,
+            None,
         ))
     }
 
@@ -1266,6 +1267,33 @@ fn agent_guardian_repairs_malformed_verdict_shape() {
             );
         }
         other => panic!("expected repaired GuardianRejected, got {other:?}"),
+    }
+    assert_eq!(engine.record_count(), 0);
+    fake_agent.join();
+}
+
+#[cfg(feature = "agent-guardian")]
+#[test]
+fn agent_guardian_preserves_large_rejection_explanation() {
+    let sema = SemaFile::new();
+    let explanation = vec!["This rejection explanation is intentionally long."; 300].join(" ");
+    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::reject(Reject {
+        guardian_rejection_reason: GuardianRejectionReason::Contradiction,
+        explanation: spirit::schema::signal::Explanation::new(explanation.clone()),
+    }));
+    let mut engine = sema.engine_with_guardian(fake_agent.guardian());
+
+    let output = engine.handle(input_propose(entry("model provides a long explanation")));
+
+    match output.root() {
+        Output::GuardianRejected(rejection) => {
+            assert_eq!(
+                rejection.payload().guardian_rejection_reason,
+                GuardianRejectionReason::Contradiction
+            );
+            assert_eq!(rejection.payload().explanation.payload(), &explanation);
+        }
+        other => panic!("expected GuardianRejected, got {other:?}"),
     }
     assert_eq!(engine.record_count(), 0);
     fake_agent.join();

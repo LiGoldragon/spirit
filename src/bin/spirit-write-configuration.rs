@@ -58,7 +58,7 @@ struct ConfigurationWriterGuardianAgent {
     provider_name: Option<ConfigurationWriterProviderName>,
     model_name: Option<ConfigurationWriterModelName>,
     timeout_milliseconds: ConfigurationWriterTimeoutMilliseconds,
-    maximum_output_tokens: ConfigurationWriterMaximumOutputTokens,
+    maximum_output_tokens: Option<ConfigurationWriterMaximumOutputTokens>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -216,7 +216,8 @@ impl ConfigurationWriterGuardianAgent {
             self.model_name
                 .map(ConfigurationWriterModelName::into_model_name),
             self.timeout_milliseconds.into_timeout_milliseconds(),
-            self.maximum_output_tokens.into_maximum_output_tokens(),
+            self.maximum_output_tokens
+                .map(ConfigurationWriterMaximumOutputTokens::into_maximum_output_tokens),
         )
     }
 }

@@ -30,7 +30,7 @@ pub struct AgentGuardianConfiguration {
     provider_name: Option<String>,
     model_name: Option<String>,
     timeout: Duration,
-    maximum_output_tokens: u64,
+    maximum_output_tokens: Option<u64>,
 }
 
 #[derive(Clone, Debug)]
@@ -91,7 +91,7 @@ impl AgentGuardianConfiguration {
         provider_name: Option<String>,
         model_name: Option<String>,
         timeout: Duration,
-        maximum_output_tokens: u64,
+        maximum_output_tokens: Option<u64>,
     ) -> Self {
         Self {
             socket_path: socket_path.into(),

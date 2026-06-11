@@ -42,6 +42,7 @@ struct LiveAgentServer {
 struct GuardianScenario {
     name: &'static str,
     proposal: Entry,
+    justification: String,
     expected: ExpectedVerdict,
 }
 
@@ -120,7 +121,7 @@ impl LiveAgentServer {
             Some(DEEPSEEK_PROVIDER.to_owned()),
             Some(DEEPSEEK_MODEL.to_owned()),
             Duration::from_secs(120),
-            1024,
+            None,
         ))
     }
 
@@ -132,9 +133,24 @@ impl LiveAgentServer {
 
 impl GuardianScenario {
     fn accepts(name: &'static str, proposal: Entry) -> Self {
+        let justification = proposal.description.payload().clone();
         Self {
             name,
             proposal,
+            justification,
+            expected: ExpectedVerdict::Accept,
+        }
+    }
+
+    fn accepts_with_justification(
+        name: &'static str,
+        proposal: Entry,
+        justification: &'static str,
+    ) -> Self {
+        Self {
+            name,
+            proposal,
+            justification: justification.to_owned(),
             expected: ExpectedVerdict::Accept,
         }
     }
@@ -144,9 +160,25 @@ impl GuardianScenario {
         proposal: Entry,
         allowed_reasons: &'static [GuardianRejectionReason],
     ) -> Self {
+        let justification = proposal.description.payload().clone();
         Self {
             name,
             proposal,
+            justification,
+            expected: ExpectedVerdict::Reject(allowed_reasons),
+        }
+    }
+
+    fn rejects_with_justification(
+        name: &'static str,
+        proposal: Entry,
+        justification: &'static str,
+        allowed_reasons: &'static [GuardianRejectionReason],
+    ) -> Self {
+        Self {
+            name,
+            proposal,
+            justification: justification.to_owned(),
             expected: ExpectedVerdict::Reject(allowed_reasons),
         }
     }
@@ -175,7 +207,10 @@ fn live_deepseek_guardian_accepts_and_rejects_realistic_scenarios() {
     engine.set_guardian(live_agent.guardian());
 
     for scenario in scenarios {
-        let output = engine.handle(Input::propose(proposal(scenario.proposal)));
+        let output = engine.handle(Input::propose(proposal(
+            scenario.proposal,
+            scenario.justification.as_str(),
+        )));
         match scenario.expected {
             ExpectedVerdict::Accept => {
                 assert!(
@@ -254,6 +289,23 @@ fn scenarios() -> Vec<GuardianScenario> {
                 "Agent live-provider tests should verify gopass-backed DeepSeek calls through the same signal protocol Spirit uses.",
             ),
         ),
+        GuardianScenario::accepts_with_justification(
+            "detailed justification is source evidence",
+            entry(
+                &["software", "spirit"],
+                "Spirit guardian admission should judge the Entry as the candidate intent and use Justification only as source evidence.",
+            ),
+            "This regression test exists because the current Proposal shape carries both an Entry and a Justification. The admission question is only whether the Entry can enter the live intent store; this paragraph explains why the test matters and must not be counted as a second intent arrow.",
+        ),
+        GuardianScenario::rejects_with_justification(
+            "duplicate provider secret policy",
+            entry(
+                &["software", "agent"],
+                "Agent provider secrets are resolved by the agent daemon from configured secret-source backends.",
+            ),
+            "This repeats a seeded record exactly so the model can reject it as a duplicate instead of treating the justification text as the candidate.",
+            &[GuardianRejectionReason::Duplicate],
+        ),
         GuardianScenario::rejects(
             "nota quotation contradiction",
             entry(
@@ -301,11 +353,10 @@ fn record_request(entry: Entry) -> RecordRequest {
     }
 }
 
-fn proposal(entry: Entry) -> Proposal {
-    let statement = entry.description.payload().clone();
+fn proposal(entry: Entry, justification_text: &str) -> Proposal {
     Proposal {
         entry,
-        justification: justification(&statement),
+        justification: justification(justification_text),
     }
 }
 

@@ -18,7 +18,7 @@ use crate::{
 pub(crate) struct GuardianPromptBuilder<'configuration> {
     provider_name: Option<&'configuration str>,
     model_name: Option<&'configuration str>,
-    maximum_output_tokens: u64,
+    maximum_output_tokens: Option<u64>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -35,7 +35,7 @@ impl<'configuration> GuardianPromptBuilder<'configuration> {
     pub(crate) fn new(
         provider_name: Option<&'configuration str>,
         model_name: Option<&'configuration str>,
-        maximum_output_tokens: u64,
+        maximum_output_tokens: Option<u64>,
     ) -> Self {
         Self {
             provider_name,
@@ -61,7 +61,7 @@ impl<'configuration> GuardianPromptBuilder<'configuration> {
             .unwrap_or_default();
         Prompt {
             system: Some(SystemText::new(format!(
-                "You are Spirit's guardian. Judge whether one write operation may change the live intent store. The model checks every semantic admission issue: duplicates, contradictions, compound arrows, non-intent, unclear privacy, unclear domain, clarification damage, supersession damage, and retrieval insufficiency. Code only validates structure and applies the typed verdict. Decide directly. Reply with exactly one NOTA value of the GuardianVerdict type in the final assistant content and no surrounding prose. Accept exactly as {accept}. Reject with the nested form exactly like {reject}; never write a flat rejection like (Reject Reason [explanation]). The candidate operation may contain an Entry plus a Justification; the Justification is source evidence for admission, not a second intent arrow. Closed rejection reasons: Duplicate, Contradiction, Compound, NonIntent, UnclearPrivacy, UnclearDomain, ClarifyTramples, ClarifyLosesMeaning, SupersedeTargetMissing, RetrievalInsufficient, HarnessUnavailable, HarnessMalformed, HarnessTimedOut. Duplicate means the candidate already says the same forward arrow as a live record. Contradiction means it conflicts with a live arrow. Compound means the Entry itself bundles multiple separable arrows. NonIntent means the Entry is task chatter, status, or transient reaction rather than durable intent. UnclearPrivacy means the privacy level is unsafe or underspecified. UnclearDomain means the domain classification is missing or wrong enough to block admission. ClarifyTramples means a clarification overwrites the prior arrow instead of making it clearer. ClarifyLosesMeaning means a clarification drops material meaning. SupersedeTargetMissing means the replacement cannot be judged against the claimed target. RetrievalInsufficient means the supplied bundle is too thin to judge."
+                "You are Spirit's guardian. Judge whether one write operation may change the live intent store. The model checks every semantic admission issue: duplicates, contradictions, compound arrows, non-intent, unclear privacy, unclear domain, clarification damage, supersession damage, and retrieval insufficiency. Code only validates structure and applies the typed verdict. Decide directly. Reply with exactly one NOTA value of the GuardianVerdict type in the final assistant content and no surrounding prose. Accept exactly as {accept}. Reject with the nested form exactly like {reject}; never write a flat rejection like (Reject Reason [explanation]). The candidate operation may contain an Entry plus a Justification; the Justification is source evidence for admission, not a second intent arrow. A brief Justification, or one that repeats the Entry, is enough when the Entry itself is clear; do not reject merely because the Justification is not an external citation. Closed rejection reasons: Duplicate, Contradiction, Compound, NonIntent, UnclearPrivacy, UnclearDomain, ClarifyTramples, ClarifyLosesMeaning, SupersedeTargetMissing, RetrievalInsufficient, HarnessUnavailable, HarnessMalformed, HarnessTimedOut. Duplicate means the candidate already says the same forward arrow as a live record. Contradiction means it conflicts with a live arrow. Compound means the Entry itself bundles multiple separable arrows. NonIntent means the Entry is task chatter, status, or transient reaction rather than durable intent. UnclearPrivacy means the privacy level is unsafe or underspecified. UnclearDomain means the domain classification is missing or wrong enough to block admission. ClarifyTramples means a clarification overwrites the prior arrow instead of making it clearer. ClarifyLosesMeaning means a clarification drops material meaning. SupersedeTargetMissing means the replacement cannot be judged against the claimed target. RetrievalInsufficient means the supplied relevant-existing-record bundle is too thin to judge duplicates, contradictions, or target-sensitive mutations; it does not mean the Justification lacks external proof."
             ))),
             transcript: ChatTranscript::new(vec![ChatMessage::user(format!(
                 "Operation: {}\n\nCandidate:\n{}\n\nRelevant existing records:\n{}{}",
@@ -112,7 +112,7 @@ impl<'configuration> GuardianPromptBuilder<'configuration> {
                 .provider_name
                 .map(|provider| ProviderName::new(provider.to_owned())),
             temperature_milli: Some(TemperatureMilli::new(0)),
-            maximum_output_tokens: Some(MaximumOutputTokens::new(self.maximum_output_tokens)),
+            maximum_output_tokens: self.maximum_output_tokens.map(MaximumOutputTokens::new),
             output_mode: OutputMode::Nota,
         }
     }
