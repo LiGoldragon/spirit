@@ -3,6 +3,8 @@ use signal_agent::{
     Prompt, PromptOptions, ProviderName, SystemText, TemperatureMilli,
 };
 
+use nota_next::NotaEncode;
+
 use crate::{
     guardian_journal::GuardianOperation,
     schema::{
