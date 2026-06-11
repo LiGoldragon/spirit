@@ -90,12 +90,18 @@ struct FakeGuardianAgent {
 #[cfg(feature = "agent-guardian")]
 impl FakeGuardianAgent {
     fn spawn(verdict: GuardianVerdict) -> Self {
+        Self::spawn_many(vec![verdict])
+    }
+
+    fn spawn_many(verdicts: Vec<GuardianVerdict>) -> Self {
         let directory = TempDir::new().expect("agent tempdir");
         let socket_path = directory.path().join("agent.sock");
         let listener = UnixListener::bind(&socket_path).expect("bind fake agent socket");
         let thread = thread::spawn(move || {
-            let (stream, _) = listener.accept().expect("accept agent call");
-            Self::answer(stream, verdict);
+            for verdict in verdicts {
+                let (stream, _) = listener.accept().expect("accept agent call");
+                Self::answer(stream, verdict);
+            }
         });
         Self {
             _directory: directory,
@@ -119,7 +125,7 @@ impl FakeGuardianAgent {
             call.payload().transcript.payload()[0]
                 .text
                 .payload()
-                .contains("Proposal:")
+                .contains("Operation:")
         );
         let output = AgentOutput::completed(Completion {
             text: CompletionText::new(verdict.to_nota()),
@@ -966,6 +972,7 @@ fn agent_guardian_accept_verdict_admits_proposal() {
 
     assert!(matches!(output.root(), Output::Proposed(_)));
     assert_eq!(engine.record_count(), 1);
+    assert_eq!(engine.guardian_decision_count(), 1);
     fake_agent.join();
 }
 
@@ -995,6 +1002,122 @@ fn agent_guardian_reject_verdict_blocks_proposal() {
         other => panic!("expected GuardianRejected, got {other:?}"),
     }
     assert_eq!(engine.record_count(), 0);
+    assert_eq!(engine.guardian_decision_count(), 1);
+    fake_agent.join();
+}
+
+#[cfg(feature = "agent-guardian")]
+#[test]
+fn agent_guardian_reject_verdict_blocks_record() {
+    let sema = SemaFile::new();
+    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::reject(Reject {
+        guardian_rejection_reason: GuardianRejectionReason::NonIntent,
+        explanation: spirit::schema::signal::Explanation::new("not durable intent"),
+    }));
+    let mut engine = sema.engine_with_guardian(fake_agent.guardian());
+
+    let output = engine.handle(input_record(entry("raw record should still be guarded")));
+
+    assert!(matches!(output.root(), Output::GuardianRejected(_)));
+    assert_eq!(engine.record_count(), 0);
+    assert_eq!(engine.guardian_decision_count(), 1);
+    fake_agent.join();
+}
+
+#[cfg(feature = "agent-guardian")]
+#[test]
+fn agent_guardian_duplicate_rejection_bumps_importance() {
+    let sema = SemaFile::new();
+    let mut setup_engine = sema.engine();
+    let original_identifier = match setup_engine
+        .handle(input_propose(entry("duplicate model verdict")))
+        .into_root()
+    {
+        Output::Proposed(identifier) => identifier.into_payload(),
+        other => panic!("expected setup Proposed, got {other:?}"),
+    };
+    drop(setup_engine);
+    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::reject(Reject {
+        guardian_rejection_reason: GuardianRejectionReason::Duplicate,
+        explanation: spirit::schema::signal::Explanation::new("same arrow already exists"),
+    }));
+    let mut engine = sema.engine_with_guardian(fake_agent.guardian());
+
+    let output = engine.handle(input_propose(entry("duplicate model verdict")));
+
+    match output.root() {
+        Output::GuardianRejected(rejection) => {
+            assert_eq!(
+                rejection.payload().guardian_rejection_reason,
+                GuardianRejectionReason::Duplicate
+            );
+            assert_eq!(rejection.payload().record_set.len(), 1);
+            assert_eq!(
+                rejection.payload().record_set[0].record_identifier,
+                original_identifier
+            );
+            assert_eq!(
+                rejection.payload().record_set[0].entry.importance.payload(),
+                &Magnitude::VeryLow
+            );
+        }
+        other => panic!("expected duplicate GuardianRejected, got {other:?}"),
+    }
+    assert_eq!(engine.record_count(), 1);
+    assert_eq!(engine.guardian_decision_count(), 1);
+    fake_agent.join();
+}
+
+#[cfg(feature = "agent-guardian")]
+#[test]
+fn agent_guardian_reject_verdict_blocks_clarify_supersede_and_retire() {
+    let sema = SemaFile::new();
+    let mut setup_engine = sema.engine();
+    let original_identifier = match setup_engine
+        .handle(input_record(entry("original guarded mutation target")))
+        .into_root()
+    {
+        Output::RecordAccepted(identifier) => identifier.into_payload(),
+        other => panic!("expected setup RecordAccepted, got {other:?}"),
+    };
+    drop(setup_engine);
+    let fake_agent = FakeGuardianAgent::spawn_many(vec![
+        GuardianVerdict::reject(Reject {
+            guardian_rejection_reason: GuardianRejectionReason::ClarifyTramples,
+            explanation: spirit::schema::signal::Explanation::new("changes the arrow"),
+        }),
+        GuardianVerdict::reject(Reject {
+            guardian_rejection_reason: GuardianRejectionReason::Contradiction,
+            explanation: spirit::schema::signal::Explanation::new("replacement conflicts"),
+        }),
+        GuardianVerdict::reject(Reject {
+            guardian_rejection_reason: GuardianRejectionReason::NonIntent,
+            explanation: spirit::schema::signal::Explanation::new("retirement not justified"),
+        }),
+    ]);
+    let mut engine = sema.engine_with_guardian(fake_agent.guardian());
+
+    let clarified = engine.handle(input_clarify(
+        original_identifier.clone(),
+        "trampling replacement text",
+    ));
+    assert!(matches!(clarified.root(), Output::GuardianRejected(_)));
+    let superseded = engine.handle(input_supersede(
+        original_identifier.clone(),
+        entry("blocked replacement"),
+    ));
+    assert!(matches!(superseded.root(), Output::GuardianRejected(_)));
+    let retired = engine.handle(input_retire(original_identifier.clone()));
+    assert!(matches!(retired.root(), Output::GuardianRejected(_)));
+
+    match engine.handle(input_lookup(original_identifier)).into_root() {
+        Output::RecordFound(found) => {
+            assert_eq!(found.entry.description, "original guarded mutation target");
+        }
+        other => panic!("expected original record to remain, got {other:?}"),
+    }
+    assert_eq!(engine.record_count(), 1);
+    assert_eq!(engine.guardian_decision_count(), 3);
     fake_agent.join();
 }
 

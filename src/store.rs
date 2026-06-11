@@ -1,3 +1,5 @@
+#[cfg(feature = "agent-guardian")]
+use std::collections::BTreeMap;
 use std::{
     collections::BTreeSet,
     fmt,
@@ -10,6 +12,8 @@ use sema_engine::{
 };
 use thiserror::Error;
 
+#[cfg(feature = "agent-guardian")]
+use crate::guardian_journal::{GuardianDecision, GuardianJournal, GuardianOperation};
 use crate::schema::{
     meta_signal::ArchiveDatabaseTarget,
     sema::{
@@ -20,17 +24,16 @@ use crate::schema::{
     },
     signal::{
         Certainty, CertaintyChange, CertaintyChangeReceipt, CertaintySelection, Clarification,
-        ClarificationReceipt, CountedRecords, DatabaseMarker, Description, DomainMatch, Entry,
-        ErrorMessage, ErrorReport, Explanation, FoundRecord, GuardianRejection,
-        GuardianRejectionReason, Importance, ImportanceBump, ImportanceBumpReceipt,
-        ImportanceSelection, Keyword, KeywordMatch, Keywords, Magnitude, ObservedRecord,
-        ObservedRecords, Privacy, PrivacySelection, Query, RecordChange, RecordChangeReceipt,
-        RecordCount, RecordIdentifier, RecordSet, Referent, ReferentRegistration,
-        ReferentRegistrationReceipt, ReferentSelection, Referents, RemovalArchiveRecord,
-        RemovalArchiveRecords, RemovalCandidateCollection, RemovalCandidatesCollection,
-        RemoveReceipt, RemovedIdentifier, RemovedIdentifiers, Retirement, RetirementReceipt,
-        SearchText, SemaReceipt, SkippedRemovalCandidate, SkippedRemovalCandidates, Supersession,
-        SupersessionReceipt, TextMatch,
+        ClarificationReceipt, CountedRecords, DatabaseMarker, Description, Entry, ErrorMessage,
+        ErrorReport, Explanation, FoundRecord, GuardianRejection, GuardianRejectionReason,
+        Importance, ImportanceBump, ImportanceBumpReceipt, ImportanceSelection, Keyword,
+        KeywordMatch, Keywords, Magnitude, ObservedRecord, ObservedRecords, Privacy,
+        PrivacySelection, Query, RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier,
+        RecordSet, Referent, ReferentRegistration, ReferentRegistrationReceipt, ReferentSelection,
+        Referents, RemovalArchiveRecord, RemovalArchiveRecords, RemovalCandidateCollection,
+        RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifier, RemovedIdentifiers,
+        Retirement, RetirementReceipt, SearchText, SemaReceipt, SkippedRemovalCandidate,
+        SkippedRemovalCandidates, Supersession, SupersessionReceipt, TextMatch,
     },
 };
 
@@ -40,6 +43,8 @@ use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
 const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(7);
 const ENTRIES_TABLE: TableName = TableName::new("records");
 const REFERENTS_TABLE: TableName = TableName::new("referents");
+#[cfg(feature = "agent-guardian")]
+const GUARDIAN_RECORD_LIMIT: usize = 64;
 const RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH: usize = 4;
 const RECORD_IDENTIFIER_MAXIMUM_CODE_LENGTH: usize = 7;
 const RECORD_IDENTIFIER_CODE_RADIX: u64 = 36;
@@ -340,6 +345,34 @@ impl Store {
         }
     }
 
+    #[cfg(feature = "agent-guardian")]
+    fn guardian_journal_path(&self) -> PathBuf {
+        let stem = self
+            .path
+            .file_stem()
+            .map(|stem| stem.to_string_lossy().into_owned())
+            .unwrap_or_else(|| String::from("spirit"));
+        self.path.with_file_name(format!("{stem}.guardian.sema"))
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn open_guardian_journal(&self) -> Result<GuardianJournal, StoreError> {
+        GuardianJournal::open(self.guardian_journal_path())
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    pub(crate) fn record_guardian_decision(
+        &self,
+        decision: GuardianDecision,
+    ) -> Result<(), StoreError> {
+        self.open_guardian_journal()?.append(decision)
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    pub fn guardian_decision_count(&self) -> Result<usize, StoreError> {
+        self.open_guardian_journal()?.len()
+    }
+
     /// Collect removal-candidate records, archive them into the SEPARATE
     /// archive database at the owner-configured target, and remove them from
     /// the live log.
@@ -454,6 +487,10 @@ impl Store {
     }
 
     pub fn propose(&self, entry: Entry) -> Result<SemaReceipt, StoreError> {
+        self.record_entry(entry)
+    }
+
+    pub fn record_entry(&self, entry: Entry) -> Result<SemaReceipt, StoreError> {
         let record_identifier = RecordIdentifier::new(self.record(entry)?);
         Ok(SemaReceipt {
             record_identifier,
@@ -509,21 +546,82 @@ impl Store {
             .collect())
     }
 
-    pub fn guardian_records_for(&self, proposed: &Entry) -> Result<RecordSet, StoreError> {
-        self.observe(&Query {
-            domain_match: DomainMatch::partial(proposed.domains.clone()),
-            keyword_match: KeywordMatch::Any,
-            text_match: TextMatch::Any,
-            referent_selection: ReferentSelection::Any,
-            kind: None,
-            privacy_selection: PrivacySelection::Any,
-            certainty_selection: CertaintySelection::default_observation_certainty(),
-            importance_selection: ImportanceSelection::Any,
-        })
-        .map(RecordSet::new)
+    #[cfg(feature = "agent-guardian")]
+    pub(crate) fn guardian_records_for_operation(
+        &self,
+        operation: &GuardianOperation,
+    ) -> Result<RecordSet, StoreError> {
+        let mut bundle = GuardianRecordBundle::new();
+        if let Some(candidate) = operation.candidate_entry() {
+            bundle.extend(self.guardian_records_for_entry(candidate)?);
+        }
+        match operation {
+            GuardianOperation::Clarify(clarification) => {
+                if let Some(current) =
+                    self.observed_record_by_identifier(clarification.record_identifier.payload())?
+                {
+                    bundle.insert(current.clone());
+                    let mut candidate = current.entry;
+                    candidate.description = clarification.description.clone();
+                    bundle.extend(self.guardian_records_for_entry(&candidate)?);
+                }
+            }
+            GuardianOperation::Supersede(supersession) => {
+                for retired_identifier in supersession.retired_identifiers.payload() {
+                    if let Some(current) =
+                        self.observed_record_by_identifier(retired_identifier.payload().payload())?
+                    {
+                        bundle.insert(current);
+                    }
+                }
+            }
+            GuardianOperation::Retire(retirement) => {
+                if let Some(current) =
+                    self.observed_record_by_identifier(retirement.payload().payload())?
+                {
+                    bundle.insert(current);
+                }
+            }
+            GuardianOperation::Record(_) | GuardianOperation::Propose(_) => {}
+        }
+        Ok(bundle.into_record_set())
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn guardian_records_for_entry(&self, proposed: &Entry) -> Result<RecordSet, StoreError> {
+        let proposed = self.canonicalized_entry(proposed.clone())?;
+        let mut records = self
+            .records()?
+            .into_iter()
+            .filter_map(|record| GuardianRecordCandidate::new(record, &proposed))
+            .collect::<Vec<_>>();
+        records.sort_by_key(GuardianRecordCandidate::sort_key);
+        Ok(RecordSet::new(
+            records
+                .into_iter()
+                .take(GUARDIAN_RECORD_LIMIT)
+                .map(GuardianRecordCandidate::into_observed_record)
+                .collect(),
+        ))
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn observed_record_by_identifier(
+        &self,
+        identifier: &str,
+    ) -> Result<Option<ObservedRecord>, StoreError> {
+        Ok(self
+            .database
+            .match_records(QueryPlan::key(self.entries, RecordKey::new(identifier)))?
+            .records()
+            .iter()
+            .next()
+            .cloned()
+            .map(StoredRecord::into_observed_record))
     }
 
     fn duplicate_record(&self, proposed: &Entry) -> Result<Option<StoredRecord>, StoreError> {
+        let proposed = self.canonicalized_entry(proposed.clone())?;
         Ok(self.records()?.into_iter().find(|record| {
             record.entry.kind == proposed.kind
                 && record.entry.domains == proposed.domains
@@ -534,6 +632,37 @@ impl Store {
                     .trim()
                     .eq_ignore_ascii_case(proposed.description.payload().trim())
         }))
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    pub(crate) fn apply_duplicate_guardian_rejection(
+        &self,
+        entry: &Entry,
+        fallback: GuardianRejection,
+    ) -> Result<GuardianRejection, StoreError> {
+        let Some(duplicate) = self.duplicate_record(entry)? else {
+            return Ok(fallback);
+        };
+        let record_identifier = RecordIdentifier::new(duplicate.record_identifier.clone());
+        let importance_receipt = self
+            .bump_importance(ImportanceBump::new(record_identifier.clone()))?
+            .ok_or_else(|| {
+                StoreError::DuplicateRecordVanished(record_identifier.payload().clone())
+            })?;
+        let updated_entry = self
+            .entry_by_identifier(record_identifier.payload())?
+            .ok_or_else(|| {
+                StoreError::DuplicateRecordVanished(record_identifier.payload().clone())
+            })?;
+        Ok(GuardianRejection {
+            guardian_rejection_reason: GuardianRejectionReason::Duplicate,
+            record_set: RecordSet::new(vec![ObservedRecord {
+                record_identifier,
+                entry: updated_entry,
+            }]),
+            explanation: Explanation::new("guardian judged the write as a duplicate"),
+            database_marker: importance_receipt.database_marker,
+        })
     }
 
     pub fn entry_by_identifier(&self, identifier: &str) -> Result<Option<Entry>, StoreError> {
@@ -912,6 +1041,80 @@ impl EngineRecord for StoredReferent {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg(feature = "agent-guardian")]
+struct GuardianRecordBundle {
+    records: BTreeMap<String, ObservedRecord>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg(feature = "agent-guardian")]
+struct GuardianRecordCandidate {
+    score: u64,
+    record_identifier: String,
+    observed_record: ObservedRecord,
+}
+
+#[cfg(feature = "agent-guardian")]
+impl GuardianRecordBundle {
+    fn new() -> Self {
+        Self {
+            records: BTreeMap::new(),
+        }
+    }
+
+    fn insert(&mut self, record: ObservedRecord) {
+        self.records
+            .insert(record.record_identifier.payload().clone(), record);
+    }
+
+    fn extend(&mut self, record_set: RecordSet) {
+        for record in record_set.into_payload() {
+            self.insert(record);
+        }
+    }
+
+    fn into_record_set(self) -> RecordSet {
+        RecordSet::new(self.records.into_values().collect())
+    }
+}
+
+#[cfg(feature = "agent-guardian")]
+impl GuardianRecordCandidate {
+    fn new(record: StoredRecord, proposed: &Entry) -> Option<Self> {
+        let score = record.entry.guardian_relevance_score(proposed);
+        if score == 0 {
+            return None;
+        }
+        let record_identifier = record.record_identifier.clone();
+        Some(Self {
+            score,
+            record_identifier,
+            observed_record: record.into_observed_record(),
+        })
+    }
+
+    fn sort_key(
+        &self,
+    ) -> (
+        std::cmp::Reverse<u64>,
+        std::cmp::Reverse<u64>,
+        std::cmp::Reverse<u64>,
+        String,
+    ) {
+        (
+            std::cmp::Reverse(self.score),
+            std::cmp::Reverse(self.observed_record.entry.certainty_rank()),
+            std::cmp::Reverse(self.observed_record.entry.importance_rank()),
+            self.record_identifier.clone(),
+        )
+    }
+
+    fn into_observed_record(self) -> ObservedRecord {
+        self.observed_record
+    }
+}
+
 impl RecordIdentifierMint {
     fn from_records(records: &[StoredRecord]) -> Self {
         Self {
@@ -1071,6 +1274,78 @@ impl Entry {
     pub fn importance_rank(&self) -> u64 {
         self.importance.payload().rank()
     }
+
+    #[cfg(feature = "agent-guardian")]
+    fn guardian_relevance_score(&self, proposed: &Entry) -> u64 {
+        if !CertaintySelection::default_observation_certainty().matches(&self.certainty) {
+            return 0;
+        }
+        let mut score = 0;
+        if self.duplicates(proposed) {
+            score += 100;
+        }
+        if self.shares_domain(proposed) {
+            score += 30;
+        }
+        if self.shares_referent(proposed) {
+            score += 30;
+        }
+        if self.shares_keyword(proposed) {
+            score += 20;
+        }
+        if self.shares_text(proposed) {
+            score += 10;
+        }
+        if self.kind == proposed.kind {
+            score += 1;
+        }
+        score
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn duplicates(&self, proposed: &Entry) -> bool {
+        self.kind == proposed.kind
+            && self.domains == proposed.domains
+            && self
+                .description
+                .payload()
+                .trim()
+                .eq_ignore_ascii_case(proposed.description.payload().trim())
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn shares_domain(&self, proposed: &Entry) -> bool {
+        self.domains
+            .payload()
+            .iter()
+            .any(|domain| proposed.domains.payload().contains(domain))
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn shares_referent(&self, proposed: &Entry) -> bool {
+        !self.referents.payload().is_empty()
+            && self
+                .referents
+                .payload()
+                .iter()
+                .any(|referent| proposed.referents.payload().contains(referent))
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn shares_keyword(&self, proposed: &Entry) -> bool {
+        self.description
+            .keywords()
+            .contains_any(&proposed.description.keywords())
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn shares_text(&self, proposed: &Entry) -> bool {
+        self.description
+            .contains_description_text(&proposed.description)
+            || proposed
+                .description
+                .contains_description_text(&self.description)
+    }
 }
 
 impl Description {
@@ -1103,6 +1378,12 @@ impl Description {
         self.payload()
             .to_lowercase()
             .contains(&search_text.payload().trim().to_lowercase())
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    pub fn contains_description_text(&self, other: &Description) -> bool {
+        let other = other.payload().trim();
+        !other.is_empty() && self.contains_search_text(&SearchText::new(other))
     }
 }
 

@@ -1,5 +1,8 @@
 use std::collections::HashMap;
 
+#[cfg(feature = "agent-guardian")]
+use crate::guardian_journal::GuardianOperation;
+
 use crate::{
     MailLedger,
     schema::{
@@ -14,15 +17,16 @@ use crate::{
             SemaEngine, WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
         },
         signal::{
-            Certainty, ClarificationReceipt, DatabaseMarker, Description, Domain, Domains, Entry,
-            ErrorMessage, ErrorReport, Importance, Input, IntentClarified, IntentEvent,
-            IntentRecorded, IntentRetired, IntentSubscription, IntentSuperseded, Kind, Magnitude,
-            ObservedOperation, ObservedOperations, ObserverFilter, ObserverRetraction,
-            ObserverSubscription, OperationKind, Output, Privacy, RecordCount, RecordIdentifier,
-            Records, Referents, RemovalArchiveRecords, RemovalCandidateCollection,
-            RemovalCandidatesCollection, RemovedIdentifiers, RetirementReceipt, SemaReceipt,
-            SignalRejection, SkippedRemovalCandidates, StashHandle, StashedObservation, Statement,
-            SubscriptionToken, SupersessionReceipt, ValidationError, VersionReport, VersionText,
+            Certainty, Clarification, ClarificationReceipt, DatabaseMarker, Description, Domain,
+            Domains, Entry, ErrorMessage, ErrorReport, GuardianRejection, Importance, Input,
+            IntentClarified, IntentEvent, IntentRecorded, IntentRetired, IntentSubscription,
+            IntentSuperseded, Kind, Magnitude, ObservedOperation, ObservedOperations,
+            ObserverFilter, ObserverRetraction, ObserverSubscription, OperationKind, Output,
+            Privacy, RecordCount, RecordIdentifier, Records, Referents, RemovalArchiveRecords,
+            RemovalCandidateCollection, RemovalCandidatesCollection, RemovedIdentifiers,
+            Retirement, RetirementReceipt, SemaReceipt, SignalRejection, SkippedRemovalCandidates,
+            StashHandle, StashedObservation, Statement, SubscriptionToken, Supersession,
+            SupersessionReceipt, ValidationError, VersionReport, VersionText,
         },
     },
     store::{Store, StoreError},
@@ -417,6 +421,13 @@ impl Nexus {
                     .classify(statement.into_payload());
                 NexusEffectResult::state_classified(entry)
             }
+            NexusEffectCommand::GuardRecord(record) => {
+                match self.guard_record(record.into_payload()) {
+                    Ok(Ok(receipt)) => NexusEffectResult::recorded(receipt),
+                    Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
+                    Err(error) => self.operation_failed(error.to_string()),
+                }
+            }
             NexusEffectCommand::Propose(propose) => {
                 match self.guard_propose(propose.into_payload()) {
                     Ok(Ok(receipt)) => NexusEffectResult::proposed(receipt),
@@ -425,22 +436,25 @@ impl Nexus {
                 }
             }
             NexusEffectCommand::Clarify(clarify) => {
-                match self.store.clarify(clarify.into_payload()) {
-                    Ok(Some(receipt)) => NexusEffectResult::clarified(receipt),
-                    Ok(None) => self.operation_failed("record not found"),
+                match self.guard_clarify(clarify.into_payload()) {
+                    Ok(Ok(Some(receipt))) => NexusEffectResult::clarified(receipt),
+                    Ok(Ok(None)) => self.operation_failed("record not found"),
+                    Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
                     Err(error) => self.operation_failed(error.to_string()),
                 }
             }
             NexusEffectCommand::Supersede(supersede) => {
-                match self.store.supersede(supersede.into_payload()) {
-                    Ok(Some(receipt)) => NexusEffectResult::superseded(receipt),
-                    Ok(None) => self.operation_failed("supersede target not found"),
+                match self.guard_supersede(supersede.into_payload()) {
+                    Ok(Ok(Some(receipt))) => NexusEffectResult::superseded(receipt),
+                    Ok(Ok(None)) => self.operation_failed("supersede target not found"),
+                    Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
                     Err(error) => self.operation_failed(error.to_string()),
                 }
             }
-            NexusEffectCommand::Retire(retire) => match self.store.retire(retire.into_payload()) {
-                Ok(Some(receipt)) => NexusEffectResult::retired(receipt),
-                Ok(None) => self.operation_failed("record not found"),
+            NexusEffectCommand::Retire(retire) => match self.guard_retire(retire.into_payload()) {
+                Ok(Ok(Some(receipt))) => NexusEffectResult::retired(receipt),
+                Ok(Ok(None)) => self.operation_failed("record not found"),
+                Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
                 Err(error) => self.operation_failed(error.to_string()),
             },
             NexusEffectCommand::Stash(stash) => {
@@ -487,10 +501,30 @@ impl Nexus {
     }
 
     #[cfg(not(feature = "agent-guardian"))]
+    fn guard_record(
+        &mut self,
+        entry: Entry,
+    ) -> Result<Result<SemaReceipt, GuardianRejection>, StoreError> {
+        Ok(Ok(self.store.record_entry(entry)?))
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn guard_record(
+        &mut self,
+        entry: Entry,
+    ) -> Result<Result<SemaReceipt, GuardianRejection>, StoreError> {
+        let operation = GuardianOperation::record(entry.clone());
+        if let Some(rejection) = self.guard_model(operation)? {
+            return Ok(Err(self.duplicate_rejection_if_needed(&entry, rejection)?));
+        }
+        Ok(Ok(self.store.record_entry(entry)?))
+    }
+
+    #[cfg(not(feature = "agent-guardian"))]
     fn guard_propose(
         &mut self,
         entry: Entry,
-    ) -> Result<Result<SemaReceipt, crate::schema::signal::GuardianRejection>, StoreError> {
+    ) -> Result<Result<SemaReceipt, GuardianRejection>, StoreError> {
         self.store.guard_propose(entry)
     }
 
@@ -498,16 +532,107 @@ impl Nexus {
     fn guard_propose(
         &mut self,
         entry: Entry,
-    ) -> Result<Result<SemaReceipt, crate::schema::signal::GuardianRejection>, StoreError> {
-        if let Some(guardian) = &self.guardian {
-            let records = self.store.guardian_records_for(&entry)?;
-            if let Some(rejection) =
-                guardian.guard_proposal(&entry, records, self.store.database_marker())
-            {
-                return Ok(Err(rejection.into_guardian_rejection()));
-            }
+    ) -> Result<Result<SemaReceipt, GuardianRejection>, StoreError> {
+        if self.guardian.is_none() {
+            return self.store.guard_propose(entry);
         }
-        self.store.guard_propose(entry)
+        let operation = GuardianOperation::propose(entry.clone());
+        if let Some(rejection) = self.guard_model(operation)? {
+            return Ok(Err(self.duplicate_rejection_if_needed(&entry, rejection)?));
+        }
+        Ok(Ok(self.store.propose(entry)?))
+    }
+
+    #[cfg(not(feature = "agent-guardian"))]
+    fn guard_clarify(
+        &mut self,
+        clarification: Clarification,
+    ) -> Result<Result<Option<ClarificationReceipt>, GuardianRejection>, StoreError> {
+        Ok(Ok(self.store.clarify(clarification)?))
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn guard_clarify(
+        &mut self,
+        clarification: Clarification,
+    ) -> Result<Result<Option<ClarificationReceipt>, GuardianRejection>, StoreError> {
+        let operation = GuardianOperation::clarify(clarification.clone());
+        if let Some(rejection) = self.guard_model(operation)? {
+            return Ok(Err(rejection));
+        }
+        Ok(Ok(self.store.clarify(clarification)?))
+    }
+
+    #[cfg(not(feature = "agent-guardian"))]
+    fn guard_supersede(
+        &mut self,
+        supersession: Supersession,
+    ) -> Result<Result<Option<SupersessionReceipt>, GuardianRejection>, StoreError> {
+        Ok(Ok(self.store.supersede(supersession)?))
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn guard_supersede(
+        &mut self,
+        supersession: Supersession,
+    ) -> Result<Result<Option<SupersessionReceipt>, GuardianRejection>, StoreError> {
+        let operation = GuardianOperation::supersede(supersession.clone());
+        if let Some(rejection) = self.guard_model(operation)? {
+            return Ok(Err(rejection));
+        }
+        Ok(Ok(self.store.supersede(supersession)?))
+    }
+
+    #[cfg(not(feature = "agent-guardian"))]
+    fn guard_retire(
+        &mut self,
+        retirement: Retirement,
+    ) -> Result<Result<Option<RetirementReceipt>, GuardianRejection>, StoreError> {
+        Ok(Ok(self.store.retire(retirement)?))
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn guard_retire(
+        &mut self,
+        retirement: Retirement,
+    ) -> Result<Result<Option<RetirementReceipt>, GuardianRejection>, StoreError> {
+        let operation = GuardianOperation::retire(retirement.clone());
+        if let Some(rejection) = self.guard_model(operation)? {
+            return Ok(Err(rejection));
+        }
+        Ok(Ok(self.store.retire(retirement)?))
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn guard_model(
+        &mut self,
+        operation: GuardianOperation,
+    ) -> Result<Option<GuardianRejection>, StoreError> {
+        let Some(guardian) = &self.guardian else {
+            return Ok(None);
+        };
+        let records = self.store.guardian_records_for_operation(&operation)?;
+        let decision = guardian.guard(&operation, records, self.store.database_marker());
+        let rejection = decision.clone().into_guardian_rejection();
+        self.store
+            .record_guardian_decision(decision.journal_decision(operation))?;
+        Ok(rejection)
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn duplicate_rejection_if_needed(
+        &self,
+        entry: &Entry,
+        rejection: GuardianRejection,
+    ) -> Result<GuardianRejection, StoreError> {
+        if rejection.guardian_rejection_reason
+            == crate::schema::signal::GuardianRejectionReason::Duplicate
+        {
+            self.store
+                .apply_duplicate_guardian_rejection(entry, rejection)
+        } else {
+            Ok(rejection)
+        }
     }
 
     /// Run the `CollectRemovalCandidates` working operation: archive the
@@ -568,6 +693,21 @@ impl Nexus {
         }
     }
 
+    /// Run effect work with the same async-runtime boundary as SEMA work.
+    ///
+    /// Agent-backed Guardian calls use blocking Unix sockets; on a
+    /// multi-thread Tokio runtime they must not occupy the async worker that
+    /// owns the Nexus mailbox for the full model round-trip.
+    fn apply_effect_operation(&mut self, command: NexusEffectCommand) -> NexusEffectResult {
+        match Handle::current().runtime_flavor() {
+            RuntimeFlavor::MultiThread => {
+                tokio::task::block_in_place(|| self.apply_effect(command))
+            }
+            RuntimeFlavor::CurrentThread => self.apply_effect(command),
+            _ => self.apply_effect(command),
+        }
+    }
+
     pub async fn execute_to_reply(
         &mut self,
         input: nexus_schema::nexus::Nexus<NexusWork>,
@@ -607,7 +747,7 @@ impl Nexus {
                 }
                 NexusAction::CommandEffect(command) => {
                     let Err(exhausted) = budget.spend_next_step() else {
-                        let output = self.apply_effect(command.into_payload());
+                        let output = self.apply_effect_operation(command.into_payload());
                         work = NexusWork::effect_completed(output);
                         continue;
                     };
@@ -718,7 +858,16 @@ impl Nexus {
                 NexusEffectCommand::classify_state(statement.into_payload()),
             ),
             Input::Record(record) => {
-                NexusAction::command_sema_write(CommandSemaWrite::record(record.into_payload()))
+                #[cfg(feature = "agent-guardian")]
+                {
+                    NexusAction::command_effect(NexusEffectCommand::guard_record(
+                        record.into_payload(),
+                    ))
+                }
+                #[cfg(not(feature = "agent-guardian"))]
+                {
+                    NexusAction::command_sema_write(CommandSemaWrite::record(record.into_payload()))
+                }
             }
             Input::Propose(propose) => {
                 NexusAction::command_effect(NexusEffectCommand::propose(propose.into_payload()))
@@ -850,8 +999,20 @@ impl Nexus {
     fn decide_effect_completion(&self, result: NexusEffectResult) -> NexusAction {
         match result {
             NexusEffectResult::StateClassified(entry) => {
-                NexusAction::command_sema_write(CommandSemaWrite::record(entry.into_payload()))
+                #[cfg(feature = "agent-guardian")]
+                {
+                    NexusAction::command_effect(NexusEffectCommand::guard_record(
+                        entry.into_payload(),
+                    ))
+                }
+                #[cfg(not(feature = "agent-guardian"))]
+                {
+                    NexusAction::command_sema_write(CommandSemaWrite::record(entry.into_payload()))
+                }
             }
+            NexusEffectResult::Recorded(receipt) => NexusAction::reply_to_signal(
+                Output::record_accepted(receipt.into_payload().record_identifier),
+            ),
             NexusEffectResult::Proposed(receipt) => NexusAction::reply_to_signal(Output::proposed(
                 receipt.into_payload().record_identifier,
             )),

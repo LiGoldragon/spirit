@@ -168,6 +168,11 @@ impl Engine {
         self.nexus.store().len()
     }
 
+    #[cfg(feature = "agent-guardian")]
+    pub fn guardian_decision_count(&self) -> usize {
+        self.nexus.store().guardian_decision_count().unwrap_or(0)
+    }
+
     pub fn sent_message_count(&self) -> usize {
         self.nexus.mail_ledger().sent_message_count()
     }

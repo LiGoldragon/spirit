@@ -193,6 +193,7 @@ pub enum NexusAction {
 pub enum NexusEffectCommand {
     Stash(Stash),
     ClassifyState(ClassifyState),
+    GuardRecord(GuardRecord),
     Propose(Propose),
     Clarify(Clarify),
     Supersede(Supersede),
@@ -212,6 +213,11 @@ pub struct Stash(StashRequest);
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ClassifyState(Statement);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct GuardRecord(Entry);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -259,6 +265,7 @@ pub struct CloseObserverTap(SubscriptionToken);
 pub enum NexusEffectResult {
     Stashed(Stashed),
     StateClassified(StateClassified),
+    Recorded(Recorded),
     Proposed(Proposed),
     Clarified(Clarified),
     Superseded(Superseded),
@@ -280,6 +287,11 @@ pub struct Stashed(StashResult);
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct StateClassified(Entry);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Recorded(SemaReceipt);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -690,6 +702,25 @@ impl From<Statement> for ClassifyState {
 }
 
 #[rustfmt::skip]
+impl GuardRecord {
+    pub fn new(payload: Entry) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Entry {
+        &self.0
+    }
+    pub fn into_payload(self) -> Entry {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Entry> for GuardRecord {
+    fn from(payload: Entry) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl Propose {
     pub fn new(payload: Entry) -> Self {
         Self(payload)
@@ -875,6 +906,25 @@ impl StateClassified {
 #[rustfmt::skip]
 impl From<Entry> for StateClassified {
     fn from(payload: Entry) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Recorded {
+    pub fn new(payload: SemaReceipt) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &SemaReceipt {
+        &self.0
+    }
+    pub fn into_payload(self) -> SemaReceipt {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<SemaReceipt> for Recorded {
+    fn from(payload: SemaReceipt) -> Self {
         Self::new(payload)
     }
 }
@@ -1134,6 +1184,9 @@ impl NexusEffectCommand {
     pub fn classify_state(payload: Statement) -> Self {
         Self::ClassifyState(ClassifyState::new(payload))
     }
+    pub fn guard_record(payload: Entry) -> Self {
+        Self::GuardRecord(GuardRecord::new(payload))
+    }
     pub fn propose(payload: Entry) -> Self {
         Self::Propose(Propose::new(payload))
     }
@@ -1167,6 +1220,9 @@ impl NexusEffectResult {
     }
     pub fn state_classified(payload: Entry) -> Self {
         Self::StateClassified(StateClassified::new(payload))
+    }
+    pub fn recorded(payload: SemaReceipt) -> Self {
+        Self::Recorded(Recorded::new(payload))
     }
     pub fn proposed(payload: SemaReceipt) -> Self {
         Self::Proposed(Proposed::new(payload))
@@ -1362,6 +1418,13 @@ impl From<ClassifyState> for NexusEffectCommand {
 }
 
 #[rustfmt::skip]
+impl From<GuardRecord> for NexusEffectCommand {
+    fn from(payload: GuardRecord) -> Self {
+        Self::GuardRecord(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl From<Propose> for NexusEffectCommand {
     fn from(payload: Propose) -> Self {
         Self::Propose(payload)
@@ -1428,6 +1491,13 @@ impl From<Stashed> for NexusEffectResult {
 impl From<StateClassified> for NexusEffectResult {
     fn from(payload: StateClassified) -> Self {
         Self::StateClassified(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Recorded> for NexusEffectResult {
+    fn from(payload: Recorded) -> Self {
+        Self::Recorded(payload)
     }
 }
 
@@ -1793,6 +1863,17 @@ impl ClassifyState {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
+impl GuardRecord {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
 impl Propose {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -1904,6 +1985,17 @@ impl Stashed {
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
 impl StateClassified {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Recorded {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }

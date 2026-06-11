@@ -30,6 +30,8 @@ pub mod daemon;
 pub mod engine;
 #[cfg(feature = "agent-guardian")]
 pub mod guardian;
+#[cfg(feature = "agent-guardian")]
+mod guardian_journal;
 pub mod meta_transport;
 pub mod nexus;
 mod plane;
