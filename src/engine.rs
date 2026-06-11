@@ -994,7 +994,9 @@ impl Domain {
     }
 
     fn schema() -> Self {
-        Self::Craft(signal_schema::Craft::Schema)
+        Self::Software(signal_schema::Software::Data(
+            signal_schema::Data::SchemaEvolution,
+        ))
     }
 
     fn notation() -> Self {
@@ -1006,15 +1008,21 @@ impl Domain {
     }
 
     fn programming() -> Self {
-        Self::Craft(signal_schema::Craft::Programming)
+        Self::Software(signal_schema::Software::Languages(
+            signal_schema::Languages::ProgrammingLanguages,
+        ))
     }
 
     fn testing() -> Self {
-        Self::Craft(signal_schema::Craft::Testing)
+        Self::Software(signal_schema::Software::Quality(
+            signal_schema::Quality::Testing,
+        ))
     }
 
     fn architecture() -> Self {
-        Self::Craft(signal_schema::Craft::Architecture)
+        Self::Software(signal_schema::Software::Engineering(
+            signal_schema::Engineering::SoftwareArchitecture,
+        ))
     }
 
     fn documentation() -> Self {
@@ -1022,11 +1030,15 @@ impl Domain {
     }
 
     fn intelligence() -> Self {
-        Self::Technology(signal_schema::Technology::Intelligence)
+        Self::Software(signal_schema::Software::Intelligence(
+            signal_schema::Intelligence::AgentSystems,
+        ))
     }
 
     fn infrastructure() -> Self {
-        Self::Craft(signal_schema::Craft::Infrastructure)
+        Self::Software(signal_schema::Software::Operations(
+            signal_schema::Operations::InfrastructureAsCode,
+        ))
     }
 
     fn wellbeing() -> Self {

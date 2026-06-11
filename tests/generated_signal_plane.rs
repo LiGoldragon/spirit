@@ -311,7 +311,7 @@ fn generated_change_certainty_round_trips_the_canonical_shape() {
 #[cfg(feature = "nota-text")]
 #[test]
 fn generated_change_record_round_trips_the_canonical_shape() {
-    let input = "(ChangeRecord (003g ([(Craft Schema)] Correction replacement High Minimum Zero []) (replacement None)))"
+    let input = "(ChangeRecord (003g ([(Software (Data SchemaEvolution))] Correction replacement High Minimum Zero []) (replacement None)))"
         .parse::<Input>()
         .expect("parse change record input");
 
@@ -333,17 +333,18 @@ fn generated_change_record_round_trips_the_canonical_shape() {
     );
     assert_eq!(
         input.to_string(),
-        "(ChangeRecord (003g ([(Craft Schema)] Correction replacement High Minimum Zero []) (replacement None)))"
+        "(ChangeRecord (003g ([(Software (Data SchemaEvolution))] Correction replacement High Minimum Zero []) (replacement None)))"
     );
 }
 
 #[cfg(feature = "nota-text")]
 #[test]
 fn generated_public_private_record_shortcuts_round_trip_nota() {
-    let public_input = "(PublicRecords ((Full [(Craft Schema)]) (Some Decision)))"
-        .parse::<Input>()
-        .expect("parse public records input");
-    let private_input = "(PrivateRecords ((Partial [(Craft Schema)]) None))"
+    let public_input =
+        "(PublicRecords ((Full [(Software (Data SchemaEvolution))]) (Some Decision)))"
+            .parse::<Input>()
+            .expect("parse public records input");
+    let private_input = "(PrivateRecords ((Partial [(Software (Data SchemaEvolution))]) None))"
         .parse::<Input>()
         .expect("parse private records input");
 
@@ -363,11 +364,11 @@ fn generated_public_private_record_shortcuts_round_trip_nota() {
     );
     assert_eq!(
         public_input.to_string(),
-        "(PublicRecords ((Full [(Craft Schema)]) (Some Decision)))"
+        "(PublicRecords ((Full [(Software (Data SchemaEvolution))]) (Some Decision)))"
     );
     assert_eq!(
         private_input.to_string(),
-        "(PrivateRecords ((Partial [(Craft Schema)]) None))"
+        "(PrivateRecords ((Partial [(Software (Data SchemaEvolution))]) None))"
     );
 }
 
@@ -389,7 +390,7 @@ fn generated_record_input_renders_bracket_bearing_strings_losslessly() {
 
     assert_eq!(
         rendered,
-        "(Record (([(Craft Schema)] Correction [|text contains [brackets] and the pipe close marker \\|]|] High Minimum Zero []) ([|text contains [brackets] and the pipe close marker \\|]|] None)))"
+        "(Record (([(Software (Data SchemaEvolution))] Correction [|text contains [brackets] and the pipe close marker \\|]|] High Minimum Zero []) ([|text contains [brackets] and the pipe close marker \\|]|] None)))"
     );
     let reparsed = rendered
         .parse::<Input>()

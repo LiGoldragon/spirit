@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use nota_next::{NotaDecode, NotaEncode};
+use nota_next::{NotaDecode, NotaDecodeError, NotaEncode, NotaSource};
 use sema_engine::{
     Engine as SemaDatabase, EngineOpen, EngineRecord, QueryPlan, RecordKey, SchemaVersion,
     StorageKernelError, TableDescriptor, TableName, TableReference,
@@ -13,7 +13,8 @@ use thiserror::Error;
 use crate::{
     Store, StoreError,
     schema::signal::{
-        Certainty, Description, Domains, Entry, Importance, Kind, Magnitude, Privacy, Referents,
+        Certainty, Description, Domain, Domains, Entry, Importance, Kind, Magnitude, Privacy,
+        Referents,
     },
 };
 
@@ -24,7 +25,8 @@ const SPIRIT_STORE_V3_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(3);
 const SPIRIT_STORE_V4_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(4);
 const SPIRIT_STORE_V5_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(5);
 const SPIRIT_STORE_V6_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(6);
-const SPIRIT_STORE_CURRENT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(7);
+const SPIRIT_STORE_V7_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(7);
+const SPIRIT_STORE_CURRENT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(8);
 const RECORDS_TABLE: TableName = TableName::new("records");
 
 #[derive(Debug, Clone, PartialEq, Eq, NotaDecode, NotaEncode)]
@@ -65,6 +67,8 @@ pub enum ProductionMigrationError {
     ProductionDatabase(#[from] sema_engine::Error),
     #[error("new spirit store: {0}")]
     Store(#[from] StoreError),
+    #[error("store upgrade domain decode: {0}")]
+    DomainDecode(#[from] NotaDecodeError),
     #[error("store upgrade io: {0}")]
     Io(#[from] std::io::Error),
 }
@@ -105,6 +109,11 @@ struct SpiritStoreV5Database {
 struct SpiritStoreV6Database {
     database: SemaDatabase,
     records: TableReference<SpiritStoreV6Record>,
+}
+
+struct SpiritStoreV7Database {
+    database: SemaDatabase,
+    records: TableReference<SpiritStoreV7Record>,
 }
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -202,6 +211,23 @@ struct SpiritStoreV6Entry {
 }
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+struct SpiritStoreV7Record {
+    record_identifier: String,
+    entry: SpiritStoreV7Entry,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+struct SpiritStoreV7Entry {
+    domains: store_version_seven::Domains,
+    kind: Kind,
+    description: Description,
+    certainty: Certainty,
+    importance: Importance,
+    privacy: Privacy,
+    referents: Referents,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct LegacyTextCategory(String);
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -228,6 +254,558 @@ struct LegacyCategories(Vec<LegacyCategory>);
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
 struct LegacyWeight(u64);
+
+#[allow(dead_code)]
+mod store_version_seven {
+    use std::fmt;
+
+    use super::{Domain as CurrentDomain, Domains as CurrentDomains, NotaDecodeError, NotaSource};
+
+    #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+    pub(super) struct Domains(pub(super) Vec<Domain>);
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Health {
+        Body,
+        Mind,
+        Nutrition,
+        Exercise,
+        Sleep,
+        Medicine,
+        Disease,
+        Medication,
+        Therapy,
+        Reproduction,
+        Sexuality,
+        Aging,
+        Disability,
+        Addiction,
+        Dentistry,
+        Senses,
+        Pain,
+        Prevention,
+        FirstAid,
+        Rehabilitation,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Food {
+        Cooking,
+        Diet,
+        Recipe,
+        Baking,
+        Preservation,
+        Fermentation,
+        Beverage,
+        Entertaining,
+        Foraging,
+        Fasting,
+        Dining,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Home {
+        Housing,
+        Maintenance,
+        Renovation,
+        Furnishing,
+        Cleaning,
+        Tidying,
+        Relocation,
+        Realty,
+        Property,
+        Utilities,
+        Locksmithing,
+        Appliances,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Finance {
+        Budgeting,
+        Saving,
+        Spending,
+        Debt,
+        Credit,
+        Investing,
+        Retirement,
+        Tax,
+        Insurance,
+        Income,
+        Banking,
+        Charity,
+        Planning,
+        Accounting,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Work {
+        Career,
+        JobSearch,
+        Workplace,
+        Vocation,
+        Leadership,
+        Entrepreneurship,
+        Employment,
+        Compensation,
+        Scheduling,
+        Unemployment,
+        Freelancing,
+        Teamwork,
+        Productivity,
+        Project,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Craft {
+        Programming,
+        Architecture,
+        Schema,
+        Infrastructure,
+        Versioning,
+        Testing,
+        Electronics,
+        Construction,
+        Carpentry,
+        Metalworking,
+        Sewing,
+        Manufacturing,
+        Repair,
+        Engineering,
+        Tooling,
+        Handicraft,
+        Invention,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Knowledge {
+        Mathematics,
+        Logic,
+        Physics,
+        Chemistry,
+        Biology,
+        Astronomy,
+        Geology,
+        Computing,
+        Physiology,
+        Statistics,
+        Research,
+        History,
+        Linguistics,
+        Philosophy,
+        Economics,
+        Cognition,
+        Taxonomy,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Education {
+        Studying,
+        Teaching,
+        Schooling,
+        Skill,
+        Reading,
+        Memorization,
+        Pedagogy,
+        Mentoring,
+        Autodidacticism,
+        Credential,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Language {
+        Writing,
+        Rhetoric,
+        Translation,
+        Grammar,
+        Conversation,
+        Correspondence,
+        Listening,
+        Oratory,
+        Editing,
+        Terminology,
+        Notation,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Art {
+        Fiction,
+        Poetry,
+        Music,
+        Painting,
+        Photography,
+        Film,
+        Theater,
+        Dance,
+        Design,
+        Sculpture,
+        Creativity,
+        Storytelling,
+        Publishing,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Kinship {
+        Friendship,
+        Romance,
+        Marriage,
+        Family,
+        Parenting,
+        Relatives,
+        Reconciliation,
+        Boundaries,
+        Intimacy,
+        Rapport,
+        Caregiving,
+        Grief,
+        Belonging,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Selfhood {
+        Growth,
+        Introspection,
+        Discipline,
+        Emotion,
+        Virtue,
+        Motivation,
+        Confidence,
+        Identity,
+        Purpose,
+        Decision,
+        Temperament,
+        Wellbeing,
+        Composure,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Spirituality {
+        Worship,
+        Prayer,
+        Meditation,
+        Ritual,
+        Faith,
+        Theology,
+        Contemplation,
+        Pilgrimage,
+        Scripture,
+        Ethics,
+        Mortality,
+        Transcendence,
+        Asceticism,
+        Wisdom,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Governance {
+        Politics,
+        Government,
+        Administration,
+        Citizenship,
+        Elections,
+        Activism,
+        Policy,
+        Diplomacy,
+        Movements,
+        Organizing,
+        Services,
+        Naturalization,
+        War,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Law {
+        Rights,
+        Contract,
+        Title,
+        Crime,
+        Litigation,
+        Compliance,
+        Custody,
+        Liability,
+        Procedure,
+        Justice,
+        Policing,
+        Arbitration,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Community {
+        Neighborliness,
+        Volunteering,
+        Solidarity,
+        Membership,
+        Gatherings,
+        Reputation,
+        Service,
+        Hospitality,
+        Institutions,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Nature {
+        Agriculture,
+        Gardening,
+        Horticulture,
+        Husbandry,
+        Pets,
+        Forestry,
+        Fishing,
+        Hunting,
+        Conservation,
+        Weather,
+        Wilderness,
+        Sustainability,
+        Resources,
+        Stewardship,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Travel {
+        Itinerary,
+        Destination,
+        Transportation,
+        Driving,
+        Navigation,
+        Commuting,
+        Logistics,
+        Migration,
+        Tourism,
+        Transit,
+        Cycling,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Commerce {
+        Selling,
+        Buying,
+        Marketing,
+        Retail,
+        Sourcing,
+        Trade,
+        Support,
+        Pricing,
+        Negotiation,
+        Assets,
+        Market,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Leisure {
+        Recreation,
+        Sport,
+        Games,
+        Hobby,
+        Entertainment,
+        Collecting,
+        Outdoors,
+        Play,
+        Relaxation,
+        Celebration,
+        Fandom,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Appearance {
+        Clothing,
+        Grooming,
+        Style,
+        Cosmetics,
+        Etiquette,
+        Comportment,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Safety {
+        Protection,
+        Preparedness,
+        Risk,
+        Cybersecurity,
+        Privacy,
+        Disaster,
+        Military,
+        Deterrence,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Information {
+        Curation,
+        RecordKeeping,
+        Documentation,
+        News,
+        Broadcasting,
+        Archives,
+        Database,
+        Retrieval,
+        Classification,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum Technology {
+        Energy,
+        Power,
+        Automation,
+        Robotics,
+        Intelligence,
+        Networking,
+        Materials,
+        Machinery,
+        Instrumentation,
+        Aerospace,
+    }
+
+    #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+    pub(super) enum Domain {
+        Health(Health),
+        Food(Food),
+        Home(Home),
+        Finance(Finance),
+        Work(Work),
+        Craft(Craft),
+        Knowledge(Knowledge),
+        Education(Education),
+        Language(Language),
+        Art(Art),
+        Kinship(Kinship),
+        Selfhood(Selfhood),
+        Spirituality(Spirituality),
+        Governance(Governance),
+        Law(Law),
+        Community(Community),
+        Nature(Nature),
+        Travel(Travel),
+        Commerce(Commerce),
+        Leisure(Leisure),
+        Appearance(Appearance),
+        Safety(Safety),
+        Information(Information),
+        Technology(Technology),
+    }
+
+    impl Domains {
+        pub(super) fn into_current(self) -> Result<CurrentDomains, NotaDecodeError> {
+            Ok(CurrentDomains::new(
+                self.0
+                    .into_iter()
+                    .map(Domain::into_current)
+                    .collect::<Result<Vec<_>, _>>()?,
+            ))
+        }
+    }
+
+    impl Domain {
+        fn into_current(self) -> Result<CurrentDomain, NotaDecodeError> {
+            let source = self.current_nota();
+            NotaSource::new(&source).parse::<CurrentDomain>()
+        }
+
+        fn current_nota(self) -> String {
+            match self {
+                Self::Health(value) => Self::same_path("Health", value),
+                Self::Food(value) => Self::same_path("Food", value),
+                Self::Home(value) => Self::same_path("Home", value),
+                Self::Finance(value) => Self::same_path("Finance", value),
+                Self::Work(value) => Self::same_path("Work", value),
+                Self::Craft(value) => value.current_nota(),
+                Self::Knowledge(value) => Self::same_path("Knowledge", value),
+                Self::Education(value) => Self::same_path("Education", value),
+                Self::Language(value) => Self::same_path("Language", value),
+                Self::Art(value) => Self::same_path("Art", value),
+                Self::Kinship(value) => Self::same_path("Kinship", value),
+                Self::Selfhood(value) => Self::same_path("Selfhood", value),
+                Self::Spirituality(value) => Self::same_path("Spirituality", value),
+                Self::Governance(value) => Self::same_path("Governance", value),
+                Self::Law(value) => Self::same_path("Law", value),
+                Self::Community(value) => Self::same_path("Community", value),
+                Self::Nature(value) => Self::same_path("Nature", value),
+                Self::Travel(value) => Self::same_path("Travel", value),
+                Self::Commerce(value) => Self::same_path("Commerce", value),
+                Self::Leisure(value) => Self::same_path("Leisure", value),
+                Self::Appearance(value) => Self::same_path("Appearance", value),
+                Self::Safety(value) => Self::same_path("Safety", value),
+                Self::Information(value) => Self::same_path("Information", value),
+                Self::Technology(value) => Self::same_path("Technology", value),
+            }
+        }
+
+        fn same_path(area: &str, leaf: impl fmt::Debug) -> String {
+            format!("({area} {leaf:?})")
+        }
+    }
+
+    impl Craft {
+        fn current_nota(self) -> String {
+            match self {
+                Self::Programming => String::from("(Software (Languages ProgrammingLanguages))"),
+                Self::Architecture => String::from("(Software (Engineering SoftwareArchitecture))"),
+                Self::Schema => String::from("(Software (Data SchemaEvolution))"),
+                Self::Infrastructure => {
+                    String::from("(Software (Operations InfrastructureAsCode))")
+                }
+                Self::Versioning => String::from("(Software (Engineering VersionControl))"),
+                Self::Testing => String::from("(Software (Quality Testing))"),
+                Self::Tooling => String::from("(Software (Operations BuildSystem))"),
+                Self::Electronics
+                | Self::Construction
+                | Self::Carpentry
+                | Self::Metalworking
+                | Self::Sewing
+                | Self::Manufacturing
+                | Self::Repair
+                | Self::Engineering
+                | Self::Handicraft
+                | Self::Invention => format!("(Craft {self:?})"),
+            }
+        }
+    }
+}
 
 impl ProductionMigrationRequest {
     pub fn new(
@@ -334,7 +912,8 @@ impl SpiritStoreUpgrade {
                     || found == SPIRIT_STORE_V3_SCHEMA_VERSION
                     || found == SPIRIT_STORE_V4_SCHEMA_VERSION
                     || found == SPIRIT_STORE_V5_SCHEMA_VERSION
-                    || found == SPIRIT_STORE_V6_SCHEMA_VERSION) =>
+                    || found == SPIRIT_STORE_V6_SCHEMA_VERSION
+                    || found == SPIRIT_STORE_V7_SCHEMA_VERSION) =>
             {
                 self.upgrade_previous_store(database_path, found)
             }
@@ -366,6 +945,9 @@ impl SpiritStoreUpgrade {
             SPIRIT_STORE_V6_SCHEMA_VERSION => {
                 SpiritStorePreviousRecords::from_v6(SpiritStoreV6Database::open(&database_path)?)
             }
+            SPIRIT_STORE_V7_SCHEMA_VERSION => {
+                SpiritStorePreviousRecords::from_v7(SpiritStoreV7Database::open(&database_path)?)
+            }
             _ => unreachable!("upgrade is only called for known previous schema versions"),
         }?;
         let temporary_path = Self::temporary_path(&database_path);
@@ -388,7 +970,7 @@ impl SpiritStoreUpgrade {
     }
 
     fn temporary_path(database_path: &Path) -> PathBuf {
-        database_path.with_extension(format!("schema-7-migrating-{}.sema", std::process::id()))
+        database_path.with_extension(format!("schema-8-migrating-{}.sema", std::process::id()))
     }
 
     fn backup_path(database_path: &Path) -> PathBuf {
@@ -503,6 +1085,23 @@ impl SpiritStoreV6Database {
     }
 }
 
+impl SpiritStoreV7Database {
+    fn open(path: &Path) -> Result<Self, ProductionMigrationError> {
+        let mut database =
+            SemaDatabase::open(EngineOpen::new(path, SPIRIT_STORE_V7_SCHEMA_VERSION))?;
+        let records = database.register_table(TableDescriptor::new(RECORDS_TABLE))?;
+        Ok(Self { database, records })
+    }
+
+    fn records(&self) -> Result<Vec<SpiritStoreV7Record>, ProductionMigrationError> {
+        Ok(self
+            .database
+            .match_records(QueryPlan::all(self.records))?
+            .records()
+            .to_vec())
+    }
+}
+
 struct SpiritStorePreviousRecords {
     records: Vec<SpiritStorePreviousRecord>,
 }
@@ -563,6 +1162,16 @@ impl SpiritStorePreviousRecords {
         })
     }
 
+    fn from_v7(database: SpiritStoreV7Database) -> Result<Self, ProductionMigrationError> {
+        Ok(Self {
+            records: database
+                .records()?
+                .into_iter()
+                .map(SpiritStorePreviousRecord::from_v7)
+                .collect::<Result<Vec<_>, _>>()?,
+        })
+    }
+
     fn into_records(self) -> Vec<SpiritStorePreviousRecord> {
         self.records
     }
@@ -607,6 +1216,13 @@ impl SpiritStorePreviousRecord {
             entry: record.entry.into_new_entry(),
         }
     }
+
+    fn from_v7(record: SpiritStoreV7Record) -> Result<Self, ProductionMigrationError> {
+        Ok(Self {
+            record_identifier: record.record_identifier,
+            entry: record.entry.into_new_entry()?,
+        })
+    }
 }
 
 impl ProductionStoredRecord {
@@ -650,6 +1266,12 @@ impl EngineRecord for SpiritStoreV5Record {
 }
 
 impl EngineRecord for SpiritStoreV6Record {
+    fn record_key(&self) -> RecordKey {
+        RecordKey::new(self.record_identifier.clone())
+    }
+}
+
+impl EngineRecord for SpiritStoreV7Record {
     fn record_key(&self) -> RecordKey {
         RecordKey::new(self.record_identifier.clone())
     }
@@ -724,6 +1346,20 @@ impl SpiritStoreV6Entry {
             privacy: self.privacy,
             referents: Referents::new(Vec::new()),
         }
+    }
+}
+
+impl SpiritStoreV7Entry {
+    fn into_new_entry(self) -> Result<Entry, ProductionMigrationError> {
+        Ok(Entry {
+            domains: self.domains.into_current()?,
+            kind: self.kind,
+            description: self.description,
+            certainty: self.certainty,
+            importance: self.importance,
+            privacy: self.privacy,
+            referents: self.referents,
+        })
     }
 }
 
@@ -825,10 +1461,12 @@ mod tests {
     use super::{
         PRODUCTION_SCHEMA_VERSION, ProductionMigration, ProductionMigrationRequest,
         ProductionStampedEntry, ProductionStoredRecord, RECORDS_TABLE,
+        SPIRIT_STORE_V7_SCHEMA_VERSION, SpiritStoreUpgrade, SpiritStoreUpgradeRequest,
+        SpiritStoreV7Entry, SpiritStoreV7Record, store_version_seven,
     };
     use crate::{
         Store,
-        schema::signal::{Craft, Domain, Magnitude},
+        schema::signal::{Data, Domain, Domains, Information, Magnitude, Operations, Software},
     };
 
     #[test]
@@ -896,7 +1534,74 @@ mod tests {
         assert_eq!(migrated_entry.referents.payload(), &Vec::new());
         assert_eq!(
             migrated_entry.domains.payload(),
-            &vec![Domain::Craft(Craft::Schema)]
+            &vec![Domain::Software(Software::Data(Data::SchemaEvolution))]
+        );
+    }
+
+    #[test]
+    fn upgrades_version_seven_domains_into_software_branch() {
+        let temporary = tempfile::tempdir().expect("create upgrade sandbox");
+        let database_path = temporary.path().join("store.sema");
+
+        let mut version_seven_database = SemaDatabase::open(EngineOpen::new(
+            &database_path,
+            SPIRIT_STORE_V7_SCHEMA_VERSION,
+        ))
+        .expect("open version seven database");
+        let records = version_seven_database
+            .register_table(TableDescriptor::new(RECORDS_TABLE))
+            .expect("register version seven records table");
+        version_seven_database
+            .assert(Assertion::new(
+                records,
+                SpiritStoreV7Record {
+                    record_identifier: String::from("0001"),
+                    entry: SpiritStoreV7Entry {
+                        domains: store_version_seven::Domains(vec![
+                            store_version_seven::Domain::Craft(store_version_seven::Craft::Schema),
+                            store_version_seven::Domain::Craft(
+                                store_version_seven::Craft::Infrastructure,
+                            ),
+                            store_version_seven::Domain::Information(
+                                store_version_seven::Information::Documentation,
+                            ),
+                        ]),
+                        kind: crate::schema::signal::Kind::Decision,
+                        description: crate::schema::signal::Description::new(
+                            "version seven record survives upgrade",
+                        ),
+                        certainty: crate::schema::signal::Certainty::new(Magnitude::High),
+                        importance: crate::schema::signal::Importance::new(Magnitude::Medium),
+                        privacy: crate::schema::signal::Privacy::new(Magnitude::Zero),
+                        referents: crate::schema::signal::Referents::new(Vec::new()),
+                    },
+                },
+            ))
+            .expect("seed version seven record");
+        drop(version_seven_database);
+
+        let output = SpiritStoreUpgrade::new(SpiritStoreUpgradeRequest::new(
+            database_path.display().to_string(),
+        ))
+        .run()
+        .expect("run store upgrade");
+        let target_store = Store::open(database_path).expect("open upgraded store");
+        let migrated_entry = target_store
+            .entry_by_identifier("0001")
+            .expect("query upgraded entry")
+            .expect("upgraded entry exists");
+
+        assert!(matches!(
+            output,
+            super::SpiritStoreUpgradeOutput::Upgraded(_)
+        ));
+        assert_eq!(
+            migrated_entry.domains,
+            Domains::new(vec![
+                Domain::Software(Software::Data(Data::SchemaEvolution)),
+                Domain::Software(Software::Operations(Operations::InfrastructureAsCode)),
+                Domain::Information(Information::Documentation),
+            ])
         );
     }
 }

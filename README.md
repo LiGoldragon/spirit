@@ -44,16 +44,16 @@ Call it from the CLI:
 
 ```sh
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Record (([(Craft Schema)] Constraint [schema creates the interface] Maximum Minimum Zero []) ([schema creates the interface] None)))"
+  spirit "(Record (([(Software (Data SchemaEvolution))] Constraint [schema creates the interface] Maximum Minimum Zero []) ([schema creates the interface] None)))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Observe ((Full [(Craft Schema)]) Any Any Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))"
+  spirit "(Observe ((Full [(Software (Data SchemaEvolution))]) Any Any Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Observe ((Full [(Craft Schema)]) Any Any Any (Some Constraint) (Exact Zero) (ExactCertainty Zero) Any))"
+  spirit "(Observe ((Full [(Software (Data SchemaEvolution))]) Any Any Any (Some Constraint) (Exact Zero) (ExactCertainty Zero) Any))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Observe ((Full [(Craft Schema)]) (AllKeywords [schema]) (ContainsText interface) Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))"
+  spirit "(Observe ((Full [(Software (Data SchemaEvolution))]) (AllKeywords [schema]) (ContainsText interface) Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
   spirit "(Remove (1 ([remove obsolete record] None)))"
@@ -66,8 +66,8 @@ The CLI accepts NOTA. The daemon socket carries length-prefixed rkyv bytes
 with an 8-byte short header.
 
 Entries carry a vector of domains. Queries use generated `DomainMatch` values:
-`(Partial [(Craft Schema) (Information Documentation)])` matches any requested
-domain, while `(Full [(Craft Schema) (Information Documentation)])` requires
+`(Partial [(Software (Data SchemaEvolution)) (Information Documentation)])` matches any requested
+domain, while `(Full [(Software (Data SchemaEvolution)) (Information Documentation)])` requires
 every requested domain. The query kind is optional: `(Some Decision)` filters
 by kind and `None` searches without a kind predicate. The full generated query
 carries domain, keyword, text, referent, kind, privacy, certainty, and

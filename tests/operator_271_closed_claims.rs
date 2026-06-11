@@ -118,6 +118,37 @@ fn signal_schema_input_uses_exported_object_variant_names() {
     witness.must_not_contain("@Map", "4");
 }
 
+#[test]
+fn signal_schema_domains_put_software_under_the_software_branch() {
+    let witness = SchemaSourceWitness::new("schema/signal.schema", SIGNAL_SCHEMA);
+
+    witness.must_contain(
+        "(Craft [Electronics Construction Carpentry Metalworking Sewing Manufacturing Repair Engineering Handicraft Invention])",
+        "software-domain",
+    );
+    witness.must_contain("(Software [", "software-domain");
+    witness.must_contain(
+        "(Languages [ProgrammingLanguages ProgrammingParadigms TypeSystems Compilation Interpretation Parsing LexicalAnalysis Grammars CodeGeneration Metaprogramming Macros DomainSpecificLanguages RuntimeEnvironments GarbageCollection MemoryManagement ForeignFunctionInterfaces])",
+        "software-domain",
+    );
+    witness.must_contain(
+        "(Quality [Testing UnitTesting IntegrationTesting EndToEndTesting PropertyBasedTesting Fuzzing TestAutomation Mocking CodeCoverage Debugging Profiling Benchmarking PerformanceOptimization LoadTesting CodeReview Refactoring Linting Formatting TechnicalDebt])",
+        "software-domain",
+    );
+    witness.must_contain(
+        "(Operations [ContinuousIntegration ContinuousDelivery BuildSystem ReleaseEngineering DependencyManagement PackageManagement ArtifactManagement Deployment Provisioning InfrastructureAsCode Orchestration ConfigurationManagement AutoScaling CapacityPlanning SiteReliability IncidentResponse DisasterRecovery RateLimiting])",
+        "software-domain",
+    );
+    witness.must_contain(
+        "(Engineering [SoftwareArchitecture SoftwareDesign DesignPatterns DomainDrivenDesign ApplicationProgrammingInterfaces Microservices Serverless CloudComputing EdgeComputing Scalability Reliability Maintainability Portability Interoperability Modularity Abstraction RequirementsEngineering Documentation VersionControl SoftwareDevelopmentProcess SoftwareMaintenance SoftwareEngineeringManagement])",
+        "software-domain",
+    );
+    witness.must_not_contain(
+        "(Craft [Programming Architecture Schema Infrastructure Versioning Testing",
+        "software-domain",
+    );
+}
+
 /// Claim 4 — `schema/signal.schema` declares the `Output` enum body with
 /// compact exported object names and namespace declarations.
 #[test]

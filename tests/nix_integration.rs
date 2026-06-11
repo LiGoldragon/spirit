@@ -451,7 +451,7 @@ fn nix_built_spirit_cli_records_through_real_socket_to_nix_built_daemon() {
     let daemon = DaemonProcess::spawn(&binaries);
 
     let nota_input = record_nota(
-        "[(Craft Infrastructure)]",
+        "[(Software (Operations InfrastructureAsCode))]",
         "Decision",
         "end to end through nix built binaries",
     );
@@ -507,7 +507,11 @@ fn nix_built_daemon_persists_state_across_two_cli_invocations() {
     let first = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        &record_nota("[(Craft Infrastructure)]", "Decision", "first commit"),
+        &record_nota(
+            "[(Software (Operations InfrastructureAsCode))]",
+            "Decision",
+            "first commit",
+        ),
     );
     match first {
         Output::RecordAccepted(receipt) => assert_short_record_identifier(receipt.payload()),
@@ -521,7 +525,11 @@ fn nix_built_daemon_persists_state_across_two_cli_invocations() {
     let second = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        &record_nota("[(Craft Infrastructure)]", "Decision", "second commit"),
+        &record_nota(
+            "[(Software (Operations InfrastructureAsCode))]",
+            "Decision",
+            "second commit",
+        ),
     );
     match second {
         Output::RecordAccepted(receipt) => assert_short_record_identifier(receipt.payload()),
@@ -560,13 +568,17 @@ fn nix_built_daemon_observes_recorded_entries_back_through_query() {
     let _recorded = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        &record_nota("[(Craft Infrastructure)]", "Decision", "observe round trip"),
+        &record_nota(
+            "[(Software (Operations InfrastructureAsCode))]",
+            "Decision",
+            "observe round trip",
+        ),
     );
 
     let observed = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [(Craft Infrastructure)]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Software (Operations InfrastructureAsCode))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
 
     let stash_handle = match observed {
@@ -615,7 +627,7 @@ fn nix_built_daemon_returns_missed_when_no_matching_record_exists() {
     let output = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [(Technology Intelligence)]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Software (Intelligence AgentSystems))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
 
     match output {
@@ -643,7 +655,11 @@ fn nix_built_daemon_handles_back_to_back_inputs_through_one_socket() {
     let mut markers = Vec::new();
 
     for description in descriptions {
-        let nota_input = record_nota("[(Craft Infrastructure)]", "Decision", description);
+        let nota_input = record_nota(
+            "[(Software (Operations InfrastructureAsCode))]",
+            "Decision",
+            description,
+        );
         let output = run_cli_for_output(&binaries, daemon.socket(), &nota_input);
         match output {
             Output::RecordAccepted(receipt) => assert_short_record_identifier(receipt.payload()),
@@ -709,7 +725,11 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let recorded = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        &record_nota("[(Craft Infrastructure)]", "Decision", "variant tour"),
+        &record_nota(
+            "[(Software (Operations InfrastructureAsCode))]",
+            "Decision",
+            "variant tour",
+        ),
     );
     let recorded_identifier = match &recorded {
         Output::RecordAccepted(receipt) => receipt.payload().clone(),
@@ -734,7 +754,11 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let rerecorded = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        &record_nota("[(Craft Infrastructure)]", "Decision", "variant tour"),
+        &record_nota(
+            "[(Software (Operations InfrastructureAsCode))]",
+            "Decision",
+            "variant tour",
+        ),
     );
     let rerecorded_identifier = match &rerecorded {
         Output::RecordAccepted(receipt) => receipt.payload().clone(),
@@ -767,7 +791,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let errored = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [(Technology Intelligence)]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Software (Intelligence AgentSystems))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
     assert!(matches!(errored, Output::Error(_)));
     assert_eq!(errored.route(), OutputRoute::Error);
@@ -776,7 +800,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let observed = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [(Craft Infrastructure)]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Software (Operations InfrastructureAsCode))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
     assert!(matches!(observed, Output::RecordsStashed(_)));
     assert_eq!(observed.route(), OutputRoute::RecordsStashed);
@@ -803,7 +827,7 @@ fn nix_built_daemon_alias_state_across_separate_cli_processes() {
     // Independent processes — exec a fresh CLI binary each time.
     let mut child_a = Command::new(&binaries.spirit_cli)
         .arg(record_nota(
-            "[(Craft Infrastructure)]",
+            "[(Software (Operations InfrastructureAsCode))]",
             "Decision",
             "process a record",
         ))
@@ -825,7 +849,7 @@ fn nix_built_daemon_alias_state_across_separate_cli_processes() {
     let observed = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [(Craft Infrastructure)]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Software (Operations InfrastructureAsCode))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
     let stash_handle = match observed {
         Output::RecordsStashed(stashed) => {

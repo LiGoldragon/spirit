@@ -44,7 +44,7 @@ use crate::schema::signal::{RegisteredReferent, RegisteredReferents};
 #[cfg(feature = "testing-trace")]
 use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
 
-const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(7);
+const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(8);
 const ENTRIES_TABLE: TableName = TableName::new("records");
 const REFERENTS_TABLE: TableName = TableName::new("referents");
 #[cfg(feature = "agent-guardian")]

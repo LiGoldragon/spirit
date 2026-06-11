@@ -426,12 +426,6 @@ pub enum Work {
     Eq,
 )]
 pub enum Craft {
-    Programming,
-    Architecture,
-    Schema,
-    Infrastructure,
-    Versioning,
-    Testing,
     Electronics,
     Construction,
     Carpentry,
@@ -440,9 +434,408 @@ pub enum Craft {
     Manufacturing,
     Repair,
     Engineering,
-    Tooling,
     Handicraft,
     Invention,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Languages {
+    ProgrammingLanguages,
+    ProgrammingParadigms,
+    TypeSystems,
+    Compilation,
+    Interpretation,
+    Parsing,
+    LexicalAnalysis,
+    Grammars,
+    CodeGeneration,
+    Metaprogramming,
+    Macros,
+    DomainSpecificLanguages,
+    RuntimeEnvironments,
+    GarbageCollection,
+    MemoryManagement,
+    ForeignFunctionInterfaces,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Theory {
+    Algorithms,
+    DataStructures,
+    ComputationalComplexity,
+    AutomataTheory,
+    FormalLanguages,
+    GraphAlgorithms,
+    TypeTheory,
+    ProgramSemantics,
+    FormalMethods,
+    FormalVerification,
+    ModelChecking,
+    StaticAnalysis,
+    NumericalComputing,
+    Cryptanalysis,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Systems {
+    OperatingSystems,
+    SystemsProgramming,
+    Concurrency,
+    Parallelism,
+    Asynchrony,
+    Synchronization,
+    Scheduling,
+    FileSystems,
+    Virtualization,
+    Containerization,
+    EmbeddedSystems,
+    RealTimeSystems,
+    Firmware,
+    ResourceManagement,
+    KernelDevelopment,
+    DeviceDrivers,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Distributed {
+    DistributedSystems,
+    Networking,
+    NetworkProtocols,
+    ProtocolDesign,
+    Consensus,
+    Replication,
+    MessageQueuing,
+    EventDrivenArchitecture,
+    ServiceMesh,
+    LoadBalancing,
+    RemoteProcedureCall,
+    InterprocessCommunication,
+    Routing,
+    FaultTolerance,
+    Sharding,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Data {
+    DatabaseSystems,
+    QueryProcessing,
+    Indexing,
+    Transactions,
+    Caching,
+    Storage,
+    Persistence,
+    Serialization,
+    DataFormats,
+    Compression,
+    Encoding,
+    DataModeling,
+    DataPipelines,
+    StreamProcessing,
+    BatchProcessing,
+    SchemaEvolution,
+    DataMigration,
+    DataValidation,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Intelligence {
+    MachineLearning,
+    DeepLearning,
+    NeuralNetworks,
+    NaturalLanguageProcessing,
+    ComputerVision,
+    ReinforcementLearning,
+    ModelTraining,
+    ModelInference,
+    FeatureEngineering,
+    PromptEngineering,
+    RetrievalAugmentedGeneration,
+    AgentSystems,
+    InformationRetrieval,
+    Search,
+    Ranking,
+    RecommendationSystems,
+    KnowledgeRepresentation,
+    AutomatedReasoning,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Security {
+    Cryptography,
+    Authentication,
+    Authorization,
+    AccessControl,
+    AdmissionControl,
+    SecretsManagement,
+    ThreatModeling,
+    VulnerabilityManagement,
+    PenetrationTesting,
+    ApplicationSecurity,
+    NetworkSecurity,
+    Sandboxing,
+    Hardening,
+    Privacy,
+    IntrusionDetection,
+    ReverseEngineering,
+    InputSanitization,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Quality {
+    Testing,
+    UnitTesting,
+    IntegrationTesting,
+    EndToEndTesting,
+    PropertyBasedTesting,
+    Fuzzing,
+    TestAutomation,
+    Mocking,
+    CodeCoverage,
+    Debugging,
+    Profiling,
+    Benchmarking,
+    PerformanceOptimization,
+    LoadTesting,
+    CodeReview,
+    Refactoring,
+    Linting,
+    Formatting,
+    TechnicalDebt,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Operations {
+    ContinuousIntegration,
+    ContinuousDelivery,
+    BuildSystem,
+    ReleaseEngineering,
+    DependencyManagement,
+    PackageManagement,
+    ArtifactManagement,
+    Deployment,
+    Provisioning,
+    InfrastructureAsCode,
+    Orchestration,
+    ConfigurationManagement,
+    AutoScaling,
+    CapacityPlanning,
+    SiteReliability,
+    IncidentResponse,
+    DisasterRecovery,
+    RateLimiting,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Observability {
+    Logging,
+    Monitoring,
+    Alerting,
+    Tracing,
+    DistributedTracing,
+    Metrics,
+    Telemetry,
+    ErrorHandling,
+    AuditLogging,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Surfaces {
+    WebDevelopment,
+    FrontendDevelopment,
+    BackendDevelopment,
+    UserInterface,
+    InteractionDesign,
+    Rendering,
+    ComputerGraphics,
+    Animation,
+    Layout,
+    Styling,
+    StateManagement,
+    Accessibility,
+    Usability,
+    Internationalization,
+    Localization,
+    MobileDevelopment,
+    GameDevelopment,
+    Visualization,
+    SyntaxHighlighting,
+    CommandLineInterfaces,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Engineering {
+    SoftwareArchitecture,
+    SoftwareDesign,
+    DesignPatterns,
+    DomainDrivenDesign,
+    ApplicationProgrammingInterfaces,
+    Microservices,
+    Serverless,
+    CloudComputing,
+    EdgeComputing,
+    Scalability,
+    Reliability,
+    Maintainability,
+    Portability,
+    Interoperability,
+    Modularity,
+    Abstraction,
+    RequirementsEngineering,
+    Documentation,
+    VersionControl,
+    SoftwareDevelopmentProcess,
+    SoftwareMaintenance,
+    SoftwareEngineeringManagement,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum Software {
+    Languages(Languages),
+    Theory(Theory),
+    Systems(Systems),
+    Distributed(Distributed),
+    Data(Data),
+    Intelligence(Intelligence),
+    Security(Security),
+    Quality(Quality),
+    Operations(Operations),
+    Observability(Observability),
+    Surfaces(Surfaces),
+    Engineering(Engineering),
 }
 
 #[rustfmt::skip]
@@ -930,6 +1323,7 @@ pub enum Domain {
     Finance(Finance),
     Work(Work),
     Craft(Craft),
+    Software(Software),
     Knowledge(Knowledge),
     Education(Education),
     Language(Language),
@@ -3885,6 +4279,46 @@ impl From<Vec<ObservedRecord>> for RecordSet {
 }
 
 #[rustfmt::skip]
+impl Software {
+    pub fn languages(payload: Languages) -> Self {
+        Self::Languages(payload)
+    }
+    pub fn theory(payload: Theory) -> Self {
+        Self::Theory(payload)
+    }
+    pub fn systems(payload: Systems) -> Self {
+        Self::Systems(payload)
+    }
+    pub fn distributed(payload: Distributed) -> Self {
+        Self::Distributed(payload)
+    }
+    pub fn data(payload: Data) -> Self {
+        Self::Data(payload)
+    }
+    pub fn intelligence(payload: Intelligence) -> Self {
+        Self::Intelligence(payload)
+    }
+    pub fn security(payload: Security) -> Self {
+        Self::Security(payload)
+    }
+    pub fn quality(payload: Quality) -> Self {
+        Self::Quality(payload)
+    }
+    pub fn operations(payload: Operations) -> Self {
+        Self::Operations(payload)
+    }
+    pub fn observability(payload: Observability) -> Self {
+        Self::Observability(payload)
+    }
+    pub fn surfaces(payload: Surfaces) -> Self {
+        Self::Surfaces(payload)
+    }
+    pub fn engineering(payload: Engineering) -> Self {
+        Self::Engineering(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl Domain {
     pub fn health(payload: Health) -> Self {
         Self::Health(payload)
@@ -3903,6 +4337,9 @@ impl Domain {
     }
     pub fn craft(payload: Craft) -> Self {
         Self::Craft(payload)
+    }
+    pub fn software(payload: Software) -> Self {
+        Self::Software(payload)
     }
     pub fn knowledge(payload: Knowledge) -> Self {
         Self::Knowledge(payload)
@@ -4206,6 +4643,90 @@ impl Output {
 }
 
 #[rustfmt::skip]
+impl From<Languages> for Software {
+    fn from(payload: Languages) -> Self {
+        Self::Languages(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Theory> for Software {
+    fn from(payload: Theory) -> Self {
+        Self::Theory(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Systems> for Software {
+    fn from(payload: Systems) -> Self {
+        Self::Systems(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Distributed> for Software {
+    fn from(payload: Distributed) -> Self {
+        Self::Distributed(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Data> for Software {
+    fn from(payload: Data) -> Self {
+        Self::Data(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Intelligence> for Software {
+    fn from(payload: Intelligence) -> Self {
+        Self::Intelligence(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Security> for Software {
+    fn from(payload: Security) -> Self {
+        Self::Security(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Quality> for Software {
+    fn from(payload: Quality) -> Self {
+        Self::Quality(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Operations> for Software {
+    fn from(payload: Operations) -> Self {
+        Self::Operations(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Observability> for Software {
+    fn from(payload: Observability) -> Self {
+        Self::Observability(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Surfaces> for Software {
+    fn from(payload: Surfaces) -> Self {
+        Self::Surfaces(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Engineering> for Software {
+    fn from(payload: Engineering) -> Self {
+        Self::Engineering(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl From<Health> for Domain {
     fn from(payload: Health) -> Self {
         Self::Health(payload)
@@ -4244,6 +4765,13 @@ impl From<Work> for Domain {
 impl From<Craft> for Domain {
     fn from(payload: Craft) -> Self {
         Self::Craft(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Software> for Domain {
+    fn from(payload: Software) -> Self {
+        Self::Software(payload)
     }
 }
 
@@ -5444,6 +5972,149 @@ impl Craft {
     }
     pub fn to_nota(self) -> String {
         <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Languages {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Theory {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Systems {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Distributed {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Data {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Intelligence {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Security {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Quality {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Operations {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Observability {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Surfaces {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Engineering {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Software {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
     }
 }
 
