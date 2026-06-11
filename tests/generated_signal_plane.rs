@@ -4,11 +4,11 @@ use signal_frame::{
 };
 use spirit::schema::signal::{
     Certainty, CertaintyChange, CertaintyChangeReceipt, DatabaseMarker, Description, DomainMatch,
-    Domains, Entry, Input, InputRoute, IntentEvent, IntentRecorded, Justification, Kind, Magnitude,
-    MessageIdentifier, MessageRoot, OriginRoute, Output, OutputRoute, Privacy, Record,
-    RecordChange, RecordChangeReceipt, RecordIdentifier, RecordRequest, RecordSelection, Rejected,
-    SemaReceipt, SignalFrameError, SignalRejection, Statement, StatementText, ValidationError,
-    VersionReport, VersionText,
+    DomainScopes, Domains, Entry, Input, InputRoute, IntentEvent, IntentRecorded, Justification,
+    Kind, Magnitude, MessageIdentifier, MessageRoot, OriginRoute, Output, OutputRoute, Privacy,
+    Record, RecordChange, RecordChangeReceipt, RecordIdentifier, RecordRequest, RecordSelection,
+    Rejected, SemaReceipt, SignalFrameError, SignalRejection, Statement, StatementText,
+    ValidationError, VersionReport, VersionText,
 };
 
 fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
@@ -110,11 +110,13 @@ fn generated_state_input_surface_owns_route_header_and_rkyv_frame() {
 #[test]
 fn generated_public_private_record_shortcut_roots_own_route_header_and_rkyv_frame() {
     let public_input = Input::public_records(RecordSelection {
-        domain_match: DomainMatch::full(Domains::from_strings(vec![String::from("schema")])),
+        domain_match: DomainMatch::full(DomainScopes::from_strings(vec![String::from("schema")])),
         kind: Some(Kind::Decision),
     });
     let private_input = Input::private_records(RecordSelection {
-        domain_match: DomainMatch::partial(Domains::from_strings(vec![String::from("schema")])),
+        domain_match: DomainMatch::partial(DomainScopes::from_strings(vec![String::from(
+            "schema",
+        )])),
         kind: None,
     });
 
@@ -311,7 +313,7 @@ fn generated_change_certainty_round_trips_the_canonical_shape() {
 #[cfg(feature = "nota-text")]
 #[test]
 fn generated_change_record_round_trips_the_canonical_shape() {
-    let input = "(ChangeRecord (003g ([(Software (Data SchemaEvolution))] Correction replacement High Minimum Zero []) (replacement None)))"
+    let input = "(ChangeRecord (003g ([(Technology (Software (Data SchemaEvolution)))] Correction replacement High Minimum Zero []) (replacement None)))"
         .parse::<Input>()
         .expect("parse change record input");
 
@@ -333,7 +335,7 @@ fn generated_change_record_round_trips_the_canonical_shape() {
     );
     assert_eq!(
         input.to_string(),
-        "(ChangeRecord (003g ([(Software (Data SchemaEvolution))] Correction replacement High Minimum Zero []) (replacement None)))"
+        "(ChangeRecord (003g ([(Technology (Software (Data SchemaEvolution)))] Correction replacement High Minimum Zero []) (replacement None)))"
     );
 }
 
@@ -341,34 +343,39 @@ fn generated_change_record_round_trips_the_canonical_shape() {
 #[test]
 fn generated_public_private_record_shortcuts_round_trip_nota() {
     let public_input =
-        "(PublicRecords ((Full [(Software (Data SchemaEvolution))]) (Some Decision)))"
+        "(PublicRecords ((Full [[Technology Software Data SchemaEvolution]]) (Some Decision)))"
             .parse::<Input>()
             .expect("parse public records input");
-    let private_input = "(PrivateRecords ((Partial [(Software (Data SchemaEvolution))]) None))"
-        .parse::<Input>()
-        .expect("parse private records input");
+    let private_input =
+        "(PrivateRecords ((Partial [[Technology Software Data SchemaEvolution]]) None))"
+            .parse::<Input>()
+            .expect("parse private records input");
 
     assert_eq!(
         public_input,
         Input::public_records(RecordSelection {
-            domain_match: DomainMatch::full(Domains::from_strings(vec![String::from("schema")])),
+            domain_match: DomainMatch::full(DomainScopes::from_strings(vec![String::from(
+                "schema"
+            )])),
             kind: Some(Kind::Decision),
         })
     );
     assert_eq!(
         private_input,
         Input::private_records(RecordSelection {
-            domain_match: DomainMatch::partial(Domains::from_strings(vec![String::from("schema")])),
+            domain_match: DomainMatch::partial(DomainScopes::from_strings(vec![String::from(
+                "schema"
+            )])),
             kind: None,
         })
     );
     assert_eq!(
         public_input.to_string(),
-        "(PublicRecords ((Full [(Software (Data SchemaEvolution))]) (Some Decision)))"
+        "(PublicRecords ((Full [[Technology Software Data SchemaEvolution]]) (Some Decision)))"
     );
     assert_eq!(
         private_input.to_string(),
-        "(PrivateRecords ((Partial [(Software (Data SchemaEvolution))]) None))"
+        "(PrivateRecords ((Partial [[Technology Software Data SchemaEvolution]]) None))"
     );
 }
 
@@ -390,7 +397,7 @@ fn generated_record_input_renders_bracket_bearing_strings_losslessly() {
 
     assert_eq!(
         rendered,
-        "(Record (([(Software (Data SchemaEvolution))] Correction [|text contains [brackets] and the pipe close marker \\|]|] High Minimum Zero []) ([|text contains [brackets] and the pipe close marker \\|]|] None)))"
+        "(Record (([(Technology (Software (Data SchemaEvolution)))] Correction [|text contains [brackets] and the pipe close marker \\|]|] High Minimum Zero []) ([|text contains [brackets] and the pipe close marker \\|]|] None)))"
     );
     let reparsed = rendered
         .parse::<Input>()

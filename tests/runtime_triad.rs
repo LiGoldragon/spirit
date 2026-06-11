@@ -9,16 +9,17 @@ use spirit::{
             WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
         },
         signal::{
-            Certainty, CertaintyChange, CertaintySelection, Clarification, DatabaseMarker,
-            Description, DomainMatch, Domains, Entry, ErrorMessage, ErrorReport,
-            GuardianRejectionReason, ImportanceBump, ImportanceSelection, Input, Justification,
-            Keyword, KeywordMatch, Keywords, Kind, Magnitude, MailLedgerEvent, MessageIdentifier,
-            MessageSent, MessageSentHook, OriginRoute, Output, Privacy, PrivacySelection, Proposal,
-            Query, RecordChange, RecordIdentifier, RecordRequest, RecordSelection, Referent,
+            Certainty, CertaintyChange, CertaintySelection, Clarification, Data, DatabaseMarker,
+            Description, Domain, DomainMatch, DomainScope, DomainScopes, Domains, Entry,
+            ErrorMessage, ErrorReport, GuardianRejectionReason, Hardware, ImportanceBump,
+            ImportanceSelection, Information, Input, Justification, Keyword, KeywordMatch,
+            Keywords, Kind, Magnitude, MailLedgerEvent, MessageIdentifier, MessageSent,
+            MessageSentHook, OriginRoute, Output, Privacy, PrivacySelection, Proposal, Query,
+            RecordChange, RecordIdentifier, RecordRequest, RecordSelection, Referent,
             ReferentRegistration, ReferentSelection, Referents, Removal, RetiredIdentifier,
             RetiredIdentifiers, Retirement, SearchText, SemaReceipt, SentMail, SignalEngine,
-            SignalRejection, StashHandle, Statement, StatementText, Supersession, TextMatch,
-            ValidationError,
+            SignalRejection, Software, StashHandle, Statement, StatementText, Supersession,
+            Technology, TextMatch, ValidationError,
         },
     },
 };
@@ -38,6 +39,7 @@ use {
     std::{
         io::Write,
         os::unix::net::{UnixListener, UnixStream},
+        sync::{Arc, Mutex},
         thread,
         time::Duration,
     },
@@ -86,6 +88,7 @@ struct SentHookProbe {
 struct FakeGuardianAgent {
     _directory: TempDir,
     socket_path: std::path::PathBuf,
+    captured_prompts: Arc<Mutex<Vec<String>>>,
     thread: thread::JoinHandle<()>,
 }
 
@@ -109,23 +112,32 @@ impl FakeGuardianAgent {
     }
 
     fn spawn_texts(replies: Vec<String>) -> Self {
+        Self::spawn_texts_with_capture(replies, Arc::new(Mutex::new(Vec::new())))
+    }
+
+    fn spawn_texts_with_capture(
+        replies: Vec<String>,
+        captured_prompts: Arc<Mutex<Vec<String>>>,
+    ) -> Self {
         let directory = TempDir::new().expect("agent tempdir");
         let socket_path = directory.path().join("agent.sock");
         let listener = UnixListener::bind(&socket_path).expect("bind fake agent socket");
+        let thread_captured_prompts = Arc::clone(&captured_prompts);
         let thread = thread::spawn(move || {
             for reply in replies {
                 let (stream, _) = listener.accept().expect("accept agent call");
-                Self::answer(stream, reply);
+                Self::answer(stream, reply, &thread_captured_prompts);
             }
         });
         Self {
             _directory: directory,
             socket_path,
+            captured_prompts,
             thread,
         }
     }
 
-    fn answer(mut stream: UnixStream, reply: String) {
+    fn answer(mut stream: UnixStream, reply: String, captured_prompts: &Arc<Mutex<Vec<String>>>) {
         let codec = LengthPrefixedCodec::default();
         let request = codec
             .read_body(&mut stream)
@@ -141,6 +153,12 @@ impl FakeGuardianAgent {
                 .text
                 .payload()
                 .contains("Operation:")
+        );
+        captured_prompts.lock().expect("capture prompts").push(
+            call.payload().transcript.payload()[0]
+                .text
+                .payload()
+                .clone(),
         );
         assert_eq!(call.payload().options.maximum_output_tokens, None);
         let output = AgentOutput::completed(Completion {
@@ -173,6 +191,13 @@ impl FakeGuardianAgent {
     fn join(self) {
         self.thread.join().expect("fake agent joins");
     }
+
+    fn captured_prompts(&self) -> Vec<String> {
+        self.captured_prompts
+            .lock()
+            .expect("read captured prompts")
+            .clone()
+    }
 }
 
 impl MessageSentHook for SentHookProbe {
@@ -191,6 +216,18 @@ fn entry(description: &str) -> Entry {
 fn entry_with_domains(domains: &[&str], description: &str) -> Entry {
     Entry {
         domains: domains_from_slice(domains),
+        kind: Kind::Decision,
+        description: Description::new(description),
+        certainty: Magnitude::Maximum.into(),
+        importance: Magnitude::Minimum.into(),
+        privacy: Privacy::new(Magnitude::Zero),
+        referents: spirit::schema::signal::Referents::new(Vec::new()),
+    }
+}
+
+fn entry_with_domain(domain: Domain, description: &str) -> Entry {
+    Entry {
+        domains: Domains::new(vec![domain]),
         kind: Kind::Decision,
         description: Description::new(description),
         certainty: Magnitude::Maximum.into(),
@@ -244,6 +281,23 @@ fn domains_from_slice(domains: &[&str]) -> Domains {
     Domains::from_strings(domains.iter().map(|domain| String::from(*domain)).collect())
 }
 
+fn domain_scopes_from_slice(domains: &[&str]) -> DomainScopes {
+    DomainScopes::from_strings(domains.iter().map(|domain| String::from(*domain)).collect())
+}
+
+fn domain_scope_from_path(path: &[&str]) -> DomainScope {
+    DomainScope::from_path(path.iter().map(|segment| String::from(*segment)).collect())
+}
+
+fn domain_scopes_from_paths(paths: &[&[&str]]) -> DomainScopes {
+    DomainScopes::new(
+        paths
+            .iter()
+            .map(|path| domain_scope_from_path(path))
+            .collect(),
+    )
+}
+
 fn keywords_from_slice(keywords: &[&str]) -> Keywords {
     Keywords::new(
         keywords
@@ -284,7 +338,7 @@ fn query() -> Query {
 
 fn full_query(domains: &[&str], kind: Option<Kind>) -> Query {
     Query {
-        domain_match: DomainMatch::full(domains_from_slice(domains)),
+        domain_match: DomainMatch::full(domain_scopes_from_slice(domains)),
         keyword_match: KeywordMatch::Any,
         text_match: TextMatch::Any,
         referent_selection: spirit::schema::signal::ReferentSelection::Any,
@@ -297,11 +351,24 @@ fn full_query(domains: &[&str], kind: Option<Kind>) -> Query {
 
 fn partial_query(domains: &[&str], kind: Option<Kind>) -> Query {
     Query {
-        domain_match: DomainMatch::partial(domains_from_slice(domains)),
+        domain_match: DomainMatch::partial(domain_scopes_from_slice(domains)),
         keyword_match: KeywordMatch::Any,
         text_match: TextMatch::Any,
         referent_selection: spirit::schema::signal::ReferentSelection::Any,
         kind,
+        privacy_selection: PrivacySelection::default_observation_privacy(),
+        certainty_selection: CertaintySelection::default_observation_certainty(),
+        importance_selection: ImportanceSelection::default_observation_importance(),
+    }
+}
+
+fn query_with_domain_scopes(domain_scopes: DomainScopes) -> Query {
+    Query {
+        domain_match: DomainMatch::full(domain_scopes),
+        keyword_match: KeywordMatch::Any,
+        text_match: TextMatch::Any,
+        referent_selection: spirit::schema::signal::ReferentSelection::Any,
+        kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
@@ -1131,6 +1198,47 @@ fn agent_guardian_duplicate_rejection_bumps_importance() {
 
 #[cfg(feature = "agent-guardian")]
 #[test]
+fn agent_guardian_prompt_bundle_includes_equivalent_domain_records() {
+    let sema = SemaFile::new();
+    let mut setup_engine = sema.engine();
+    assert!(matches!(
+        setup_engine
+            .handle(input_record(entry_with_domain(
+                Domain::Technology(Technology::Hardware(Hardware::Networking)),
+                "hardware-network-live",
+            )))
+            .root(),
+        Output::RecordAccepted(_)
+    ));
+    drop(setup_engine);
+
+    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::Accept);
+    let mut engine = sema.engine_with_guardian(fake_agent.guardian());
+    let output = engine.handle(input_propose(entry_with_domain(
+        Domain::Technology(Technology::Software(Software::Distributed(
+            spirit::schema::signal::Distributed::Networking,
+        ))),
+        "software-network-candidate",
+    )));
+
+    assert!(matches!(output.root(), Output::Proposed(_)));
+    let prompts = fake_agent.captured_prompts();
+    assert_eq!(prompts.len(), 1);
+    assert!(
+        prompts[0].contains("hardware-network-live"),
+        "guardian prompt should include the equivalent hardware-network record: {}",
+        prompts[0]
+    );
+    assert!(
+        prompts[0].contains("(Technology (Hardware Networking))"),
+        "guardian prompt should preserve the equivalent record's enum domain: {}",
+        prompts[0]
+    );
+    fake_agent.join();
+}
+
+#[cfg(feature = "agent-guardian")]
+#[test]
 fn agent_guardian_reject_verdict_blocks_clarify_supersede_and_retire() {
     let sema = SemaFile::new();
     let mut setup_engine = sema.engine();
@@ -1568,6 +1676,178 @@ fn sema_engine_queries_partial_and_full_domain_sets() {
         }
         other => panic!("expected full query to require every domain, got {other:?}"),
     }
+}
+
+#[test]
+fn sema_engine_queries_domain_scopes_by_prefix_breadth() {
+    let sema = SemaFile::new();
+    let mut store = sema.open_store();
+    SemaEngine::apply(
+        &mut store,
+        sema_write_message(
+            sema_record(entry_with_domain(
+                Domain::Technology(Technology::Software(Software::Data(Data::SchemaEvolution))),
+                "software schema",
+            )),
+            1,
+        ),
+    );
+    SemaEngine::apply(
+        &mut store,
+        sema_write_message(
+            sema_record(entry_with_domain(
+                Domain::Technology(Technology::Hardware(Hardware::Networking)),
+                "hardware network",
+            )),
+            2,
+        ),
+    );
+    SemaEngine::apply(
+        &mut store,
+        sema_write_message(
+            sema_record(entry_with_domain(
+                Domain::Information(Information::Documentation),
+                "documentation",
+            )),
+            3,
+        ),
+    );
+
+    let software = SemaEngine::observe(
+        &store,
+        sema_read_message(
+            sema_observe(query_with_domain_scopes(domain_scopes_from_paths(&[&[
+                "Technology",
+                "Software",
+            ]]))),
+            4,
+        ),
+    );
+    match software.root() {
+        SemaReadOutput::Observed(records) => {
+            assert_eq!(records.record_set.len(), 1);
+            assert_eq!(records.record_set[0].entry.description, "software schema");
+        }
+        other => panic!("expected software scope to observe software record, got {other:?}"),
+    }
+
+    let technology = SemaEngine::observe(
+        &store,
+        sema_read_message(
+            sema_observe(query_with_domain_scopes(domain_scopes_from_paths(&[&[
+                "Technology",
+            ]]))),
+            5,
+        ),
+    );
+    match technology.root() {
+        SemaReadOutput::Observed(records) => {
+            assert_eq!(records.record_set.len(), 2);
+        }
+        other => {
+            panic!("expected technology scope to observe both technology records, got {other:?}")
+        }
+    }
+
+    let leaf = SemaEngine::observe(
+        &store,
+        sema_read_message(
+            sema_observe(query_with_domain_scopes(domain_scopes_from_paths(&[&[
+                "Technology",
+                "Software",
+                "Data",
+                "SchemaEvolution",
+            ]]))),
+            6,
+        ),
+    );
+    match leaf.root() {
+        SemaReadOutput::Observed(records) => {
+            assert_eq!(records.record_set.len(), 1);
+            assert_eq!(records.record_set[0].entry.description, "software schema");
+        }
+        other => panic!("expected leaf scope to observe only the leaf record, got {other:?}"),
+    }
+}
+
+#[test]
+fn sema_engine_expands_symmetric_domain_equivalence_without_chaining() {
+    let sema = SemaFile::new();
+    let mut store = sema.open_store();
+    SemaEngine::apply(
+        &mut store,
+        sema_write_message(
+            sema_record(entry_with_domain(
+                Domain::Technology(Technology::Hardware(Hardware::Networking)),
+                "hardware network",
+            )),
+            1,
+        ),
+    );
+    SemaEngine::apply(
+        &mut store,
+        sema_write_message(
+            sema_record(entry_with_domain(
+                Domain::Information(Information::Database),
+                "information database",
+            )),
+            2,
+        ),
+    );
+
+    let software_network = SemaEngine::observe(
+        &store,
+        sema_read_message(
+            sema_observe(query_with_domain_scopes(domain_scopes_from_paths(&[&[
+                "Technology",
+                "Software",
+                "Distributed",
+                "Networking",
+            ]]))),
+            3,
+        ),
+    );
+    match software_network.root() {
+        SemaReadOutput::Observed(records) => {
+            assert_eq!(records.record_set.len(), 1);
+            assert_eq!(records.record_set[0].entry.description, "hardware network");
+        }
+        other => panic!(
+            "expected software-network scope to observe equivalent hardware network, got {other:?}"
+        ),
+    }
+
+    let database_systems = SemaEngine::observe(
+        &store,
+        sema_read_message(
+            sema_observe(query_with_domain_scopes(domain_scopes_from_paths(&[&[
+                "Technology",
+                "Software",
+                "Data",
+                "DatabaseSystems",
+            ]]))),
+            4,
+        ),
+    );
+    match database_systems.root() {
+        SemaReadOutput::Observed(records) => {
+            assert_eq!(records.record_set.len(), 1);
+            assert_eq!(
+                records.record_set[0].entry.description,
+                "information database"
+            );
+        }
+        other => panic!(
+            "expected database-system scope to observe equivalent information database, got {other:?}"
+        ),
+    }
+
+    let networking_expansion =
+        domain_scope_from_path(&["Technology", "Software", "Distributed", "Networking"]).expand();
+    assert!(
+        !networking_expansion.matches_domain(&Domain::Information(Information::Database)),
+        "equivalence expansion must not chain from networking into unrelated relation classes"
+    );
 }
 
 #[test]
@@ -2195,7 +2475,9 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
     assert_eq!(engine.processed_message_count(), 1);
 
     let observed = engine.handle(input_observe(Query {
-        domain_match: DomainMatch::full(Domains::from_strings(vec![String::from("runtime-triad")])),
+        domain_match: DomainMatch::full(DomainScopes::from_strings(vec![String::from(
+            "runtime-triad",
+        )])),
         keyword_match: KeywordMatch::Any,
         text_match: TextMatch::Any,
         referent_selection: spirit::schema::signal::ReferentSelection::Any,

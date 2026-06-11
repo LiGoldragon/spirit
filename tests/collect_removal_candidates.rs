@@ -11,15 +11,19 @@
 
 use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest};
 use spirit::schema::signal::{
-    CertaintySelection, Description, DomainMatch, Domains, Entry, ImportanceSelection, Input,
-    Justification, Kind, Magnitude, Output, Privacy, PrivacySelection, Query, RecordRequest,
-    RemovalCandidateCollection, StatementText,
+    CertaintySelection, Description, DomainMatch, DomainScopes, Domains, Entry,
+    ImportanceSelection, Input, Justification, Kind, Magnitude, Output, Privacy, PrivacySelection,
+    Query, RecordRequest, RemovalCandidateCollection, StatementText,
 };
 use spirit::{Engine, Store};
 use tempfile::TempDir;
 
 fn domains(label: &str) -> Domains {
     Domains::from_strings(vec![String::from(label)])
+}
+
+fn domain_scopes(label: &str) -> DomainScopes {
+    DomainScopes::from_strings(vec![String::from(label)])
 }
 
 fn entry(domain: &str, description: &str) -> Entry {
@@ -51,7 +55,7 @@ fn record_request(entry: Entry) -> RecordRequest {
 
 fn domain_query(domain: &str) -> Query {
     Query {
-        domain_match: DomainMatch::full(domains(domain)),
+        domain_match: DomainMatch::full(domain_scopes(domain)),
         keyword_match: spirit::schema::signal::KeywordMatch::Any,
         text_match: spirit::schema::signal::TextMatch::Any,
         referent_selection: spirit::schema::signal::ReferentSelection::Any,
@@ -64,7 +68,7 @@ fn domain_query(domain: &str) -> Query {
 
 fn removal_candidate_query(domain: &str) -> Query {
     Query {
-        domain_match: DomainMatch::full(domains(domain)),
+        domain_match: DomainMatch::full(domain_scopes(domain)),
         keyword_match: spirit::schema::signal::KeywordMatch::Any,
         text_match: spirit::schema::signal::TextMatch::Any,
         referent_selection: spirit::schema::signal::ReferentSelection::Any,

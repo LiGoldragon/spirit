@@ -20,6 +20,7 @@
 //! `tests/generated_signal_plane.rs` and `tests/runtime_triad.rs`.
 
 const SIGNAL_SCHEMA: &str = include_str!("../schema/signal.schema");
+const DOMAIN_SCHEMA: &str = include_str!("../schema/domain.schema");
 const NEXUS_SCHEMA: &str = include_str!("../schema/nexus.schema");
 const SEMA_SCHEMA: &str = include_str!("../schema/sema.schema");
 
@@ -120,13 +121,15 @@ fn signal_schema_input_uses_exported_object_variant_names() {
 
 #[test]
 fn signal_schema_domains_put_software_under_the_software_branch() {
-    let witness = SchemaSourceWitness::new("schema/signal.schema", SIGNAL_SCHEMA);
+    let witness = SchemaSourceWitness::new("schema/domain.schema", DOMAIN_SCHEMA);
 
     witness.must_contain(
         "(Craft [Electronics Construction Carpentry Metalworking Sewing Manufacturing Repair Engineering Handicraft Invention])",
         "software-domain",
     );
     witness.must_contain("(Software [", "software-domain");
+    witness.must_contain("(Technology [", "software-domain");
+    witness.must_contain("(Hardware [Energy Power Automation Robotics Networking Materials Machinery Instrumentation Aerospace])", "software-domain");
     witness.must_contain(
         "(Languages [ProgrammingLanguages ProgrammingParadigms TypeSystems Compilation Interpretation Parsing LexicalAnalysis Grammars CodeGeneration Metaprogramming Macros DomainSpecificLanguages RuntimeEnvironments GarbageCollection MemoryManagement ForeignFunctionInterfaces])",
         "software-domain",
@@ -145,6 +148,10 @@ fn signal_schema_domains_put_software_under_the_software_branch() {
     );
     witness.must_not_contain(
         "(Craft [Programming Architecture Schema Infrastructure Versioning Testing",
+        "software-domain",
+    );
+    witness.must_contain(
+        "(Equivalence [(Technology Hardware Networking) (Technology Software Distributed Networking)])",
         "software-domain",
     );
 }
@@ -219,10 +226,12 @@ fn signal_schema_unit_variant_enum_uses_bare_pascal_case_atoms() {
 #[test]
 fn split_schemas_carry_no_at_sigil_anywhere() {
     let signal_witness = SchemaSourceWitness::new("schema/signal.schema", SIGNAL_SCHEMA);
+    let domain_witness = SchemaSourceWitness::new("schema/domain.schema", DOMAIN_SCHEMA);
     let nexus_witness = SchemaSourceWitness::new("schema/nexus.schema", NEXUS_SCHEMA);
     let sema_witness = SchemaSourceWitness::new("schema/sema.schema", SEMA_SCHEMA);
 
     signal_witness.must_not_contain("@", "4");
+    domain_witness.must_not_contain("@", "4");
     nexus_witness.must_not_contain("@", "4");
     sema_witness.must_not_contain("@", "4");
 }
@@ -233,10 +242,12 @@ fn split_schemas_carry_no_at_sigil_anywhere() {
 #[test]
 fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     let signal_witness = SchemaSourceWitness::new("schema/signal.schema", SIGNAL_SCHEMA);
+    let domain_witness = SchemaSourceWitness::new("schema/domain.schema", DOMAIN_SCHEMA);
     let nexus_witness = SchemaSourceWitness::new("schema/nexus.schema", NEXUS_SCHEMA);
     let sema_witness = SchemaSourceWitness::new("schema/sema.schema", SEMA_SCHEMA);
 
     signal_witness.must_round_trip_as_schema_source();
+    domain_witness.must_round_trip_as_schema_source();
     nexus_witness.must_round_trip_as_schema_source();
     sema_witness.must_round_trip_as_schema_source();
 

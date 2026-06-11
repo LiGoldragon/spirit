@@ -4,8 +4,8 @@ use spirit::{
         nexus::NexusObjectName,
         sema::SemaObjectName,
         signal::{
-            CertaintySelection, DatabaseMarker, Description, DomainMatch, Domains, Entry,
-            ImportanceSelection, Input, Justification, Kind, Magnitude, Output, Privacy,
+            CertaintySelection, DatabaseMarker, Description, DomainMatch, DomainScopes, Domains,
+            Entry, ImportanceSelection, Input, Justification, Kind, Magnitude, Output, Privacy,
             PrivacySelection, Query, RecordRequest, SignalObjectName, SignalRejection,
             StatementText, ValidationError,
         },
@@ -67,7 +67,7 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
     };
 
     let observed = engine.handle(Input::observe(Query {
-        domain_match: DomainMatch::full(Domains::from_strings(vec![String::from("trace")])),
+        domain_match: DomainMatch::full(DomainScopes::from_strings(vec![String::from("trace")])),
         keyword_match: spirit::schema::signal::KeywordMatch::Any,
         text_match: spirit::schema::signal::TextMatch::Any,
         referent_selection: spirit::schema::signal::ReferentSelection::Any,

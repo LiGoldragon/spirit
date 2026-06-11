@@ -28,6 +28,8 @@ impl SchemaBuild {
     fn run(&self) {
         println!("cargo:rerun-if-changed=schema/signal.schema");
         println!("cargo:rerun-if-changed=src/schema/signal.rs");
+        println!("cargo:rerun-if-changed=schema/domain.schema");
+        println!("cargo:rerun-if-changed=src/schema/domain.rs");
         println!("cargo:rerun-if-changed=schema/nexus.schema");
         println!("cargo:rerun-if-changed=src/schema/nexus.rs");
         println!("cargo:rerun-if-changed=schema/sema.schema");
@@ -37,6 +39,7 @@ impl SchemaBuild {
         println!("cargo:rerun-if-changed=src/schema/daemon.rs");
 
         let plan = GenerationPlan::new(&self.crate_root, "spirit", "0.3.0")
+            .with_module(ModuleEmission::declaration_module("domain"))
             .with_module(ModuleEmission::signal_runtime_module("signal"))
             .with_module(ModuleEmission::nexus_runtime())
             .with_module(ModuleEmission::sema_runtime())

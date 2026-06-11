@@ -12,9 +12,9 @@
 //! un-covered half — token-based cancellation — is what `Untap` restores.
 
 use spirit::schema::signal::{
-    CertaintySelection, Description, DomainMatch, Domains, Entry, ImportanceSelection, Input,
-    Justification, Kind, Magnitude, ObserverFilter, OperationKind, Output, Privacy,
-    PrivacySelection, Query, RecordRequest, StatementText,
+    CertaintySelection, Description, DomainMatch, DomainScopes, Domains, Entry,
+    ImportanceSelection, Input, Justification, Kind, Magnitude, ObserverFilter, OperationKind,
+    Output, Privacy, PrivacySelection, Query, RecordRequest, StatementText,
 };
 use spirit::{Engine, Store};
 use tempfile::TempDir;
@@ -43,7 +43,9 @@ fn record_request(description: &str) -> RecordRequest {
 
 fn observe_query() -> Query {
     Query {
-        domain_match: DomainMatch::full(Domains::from_strings(vec![String::from("observer-tap")])),
+        domain_match: DomainMatch::full(DomainScopes::from_strings(vec![String::from(
+            "observer-tap",
+        )])),
         keyword_match: spirit::schema::signal::KeywordMatch::Any,
         text_match: spirit::schema::signal::TextMatch::Any,
         referent_selection: spirit::schema::signal::ReferentSelection::Any,

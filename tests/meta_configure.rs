@@ -16,8 +16,8 @@ use std::time::{Duration, Instant};
 
 use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest, Output as MetaOutput};
 use spirit::schema::signal::{
-    Description, DomainMatch, Domains, Entry, ImportanceSelection, Input, Justification, Kind,
-    Magnitude, Output, Privacy, Query, RecordRequest, StatementText,
+    Description, DomainMatch, DomainScopes, Domains, Entry, ImportanceSelection, Input,
+    Justification, Kind, Magnitude, Output, Privacy, Query, RecordRequest, StatementText,
 };
 use spirit::{
     Configuration, Daemon, DaemonError, MetaSignalTransport, SignalTransport, SpiritDaemon,
@@ -84,7 +84,7 @@ fn record_request(description: &str) -> RecordRequest {
 
 fn observe_query() -> Query {
     Query {
-        domain_match: DomainMatch::full(Domains::from_strings(vec![String::from(
+        domain_match: DomainMatch::full(DomainScopes::from_strings(vec![String::from(
             "meta-configure",
         )])),
         keyword_match: spirit::schema::signal::KeywordMatch::Any,

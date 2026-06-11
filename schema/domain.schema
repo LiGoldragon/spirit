@@ -1,0 +1,55 @@
+{}
+[]
+[]
+{
+  Domain [
+    (Health [Body Mind Nutrition Exercise Sleep Medicine Disease Medication Therapy Reproduction Sexuality Aging Disability Addiction Dentistry Senses Pain Prevention FirstAid Rehabilitation])
+    (Food [Cooking Diet Recipe Baking Preservation Fermentation Beverage Entertaining Foraging Fasting Dining])
+    (Home [Housing Maintenance Renovation Furnishing Cleaning Tidying Relocation Realty Property Utilities Locksmithing Appliances])
+    (Finance [Budgeting Saving Spending Debt Credit Investing Retirement Tax Insurance Income Banking Charity Planning Accounting])
+    (Work [Career JobSearch Workplace Vocation Leadership Entrepreneurship Employment Compensation Scheduling Unemployment Freelancing Teamwork Productivity Project])
+    (Craft [Electronics Construction Carpentry Metalworking Sewing Manufacturing Repair Engineering Handicraft Invention])
+    (Knowledge [Mathematics Logic Physics Chemistry Biology Astronomy Geology Computing Physiology Statistics Research History Linguistics Philosophy Economics Cognition Taxonomy])
+    (Education [Studying Teaching Schooling Skill Reading Memorization Pedagogy Mentoring Autodidacticism Credential])
+    (Language [Writing Rhetoric Translation Grammar Conversation Correspondence Listening Oratory Editing Terminology Notation])
+    (Art [Fiction Poetry Music Painting Photography Film Theater Dance Design Sculpture Creativity Storytelling Publishing])
+    (Kinship [Friendship Romance Marriage Family Parenting Relatives Reconciliation Boundaries Intimacy Rapport Caregiving Grief Belonging])
+    (Selfhood [Growth Introspection Discipline Emotion Virtue Motivation Confidence Identity Purpose Decision Temperament Wellbeing Composure])
+    (Spirituality [Worship Prayer Meditation Ritual Faith Theology Contemplation Pilgrimage Scripture Ethics Mortality Transcendence Asceticism Wisdom])
+    (Governance [Politics Government Administration Citizenship Elections Activism Policy Diplomacy Movements Organizing Services Naturalization War])
+    (Law [Rights Contract Title Crime Litigation Compliance Custody Liability Procedure Justice Policing Arbitration])
+    (Community [Neighborliness Volunteering Solidarity Membership Gatherings Reputation Service Hospitality Institutions])
+    (Nature [Agriculture Gardening Horticulture Husbandry Pets Forestry Fishing Hunting Conservation Weather Wilderness Sustainability Resources Stewardship])
+    (Travel [Itinerary Destination Transportation Driving Navigation Commuting Logistics Migration Tourism Transit Cycling])
+    (Commerce [Selling Buying Marketing Retail Sourcing Trade Support Pricing Negotiation Assets Market])
+    (Leisure [Recreation Sport Games Hobby Entertainment Collecting Outdoors Play Relaxation Celebration Fandom])
+    (Appearance [Clothing Grooming Style Cosmetics Etiquette Comportment])
+    (Safety [Protection Preparedness Risk Cybersecurity Privacy Disaster Military Deterrence])
+    (Information [Curation RecordKeeping Documentation News Broadcasting Archives Database Retrieval Classification])
+    (Technology [
+      (Hardware [Energy Power Automation Robotics Networking Materials Machinery Instrumentation Aerospace])
+      (Software [
+        (Languages [ProgrammingLanguages ProgrammingParadigms TypeSystems Compilation Interpretation Parsing LexicalAnalysis Grammars CodeGeneration Metaprogramming Macros DomainSpecificLanguages RuntimeEnvironments GarbageCollection MemoryManagement ForeignFunctionInterfaces])
+        (Theory [Algorithms DataStructures ComputationalComplexity AutomataTheory FormalLanguages GraphAlgorithms TypeTheory ProgramSemantics FormalMethods FormalVerification ModelChecking StaticAnalysis NumericalComputing Cryptanalysis])
+        (Systems [OperatingSystems SystemsProgramming Concurrency Parallelism Asynchrony Synchronization Scheduling FileSystems Virtualization Containerization EmbeddedSystems RealTimeSystems Firmware ResourceManagement KernelDevelopment DeviceDrivers])
+        (Distributed [DistributedSystems Networking NetworkProtocols ProtocolDesign Consensus Replication MessageQueuing EventDrivenArchitecture ServiceMesh LoadBalancing RemoteProcedureCall InterprocessCommunication Routing FaultTolerance Sharding])
+        (Data [DatabaseSystems QueryProcessing Indexing Transactions Caching Storage Persistence Serialization DataFormats Compression Encoding DataModeling DataPipelines StreamProcessing BatchProcessing SchemaEvolution DataMigration DataValidation])
+        (Intelligence [MachineLearning DeepLearning NeuralNetworks NaturalLanguageProcessing ComputerVision ReinforcementLearning ModelTraining ModelInference FeatureEngineering PromptEngineering RetrievalAugmentedGeneration AgentSystems InformationRetrieval Search Ranking RecommendationSystems KnowledgeRepresentation AutomatedReasoning])
+        (Security [Cryptography Authentication Authorization AccessControl AdmissionControl SecretsManagement ThreatModeling VulnerabilityManagement PenetrationTesting ApplicationSecurity NetworkSecurity Sandboxing Hardening Privacy IntrusionDetection ReverseEngineering InputSanitization])
+        (Quality [Testing UnitTesting IntegrationTesting EndToEndTesting PropertyBasedTesting Fuzzing TestAutomation Mocking CodeCoverage Debugging Profiling Benchmarking PerformanceOptimization LoadTesting CodeReview Refactoring Linting Formatting TechnicalDebt])
+        (Operations [ContinuousIntegration ContinuousDelivery BuildSystem ReleaseEngineering DependencyManagement PackageManagement ArtifactManagement Deployment Provisioning InfrastructureAsCode Orchestration ConfigurationManagement AutoScaling CapacityPlanning SiteReliability IncidentResponse DisasterRecovery RateLimiting])
+        (Observability [Logging Monitoring Alerting Tracing DistributedTracing Metrics Telemetry ErrorHandling AuditLogging])
+        (Surfaces [WebDevelopment FrontendDevelopment BackendDevelopment UserInterface InteractionDesign Rendering ComputerGraphics Animation Layout Styling StateManagement Accessibility Usability Internationalization Localization MobileDevelopment GameDevelopment Visualization SyntaxHighlighting CommandLineInterfaces])
+        (Engineering [SoftwareArchitecture SoftwareDesign DesignPatterns DomainDrivenDesign ApplicationProgrammingInterfaces Microservices Serverless CloudComputing EdgeComputing Scalability Reliability Maintainability Portability Interoperability Modularity Abstraction RequirementsEngineering Documentation VersionControl SoftwareDevelopmentProcess SoftwareMaintenance SoftwareEngineeringManagement])
+      ])
+    ])
+  ]
+  DomainPath (Vec String)
+  DomainScope DomainPath
+  DomainScopes (Vec DomainScope)
+  ScopeSet (Vec DomainScope)
+}
+[
+  (Equivalence [(Technology Hardware Networking) (Technology Software Distributed Networking)])
+  (Equivalence [(Information Database) (Technology Software Data DatabaseSystems)])
+]

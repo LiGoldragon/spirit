@@ -1,4 +1,48 @@
-{}
+{
+  Domain spirit:domain:Domain
+  Health spirit:domain:Health
+  Food spirit:domain:Food
+  Home spirit:domain:Home
+  Finance spirit:domain:Finance
+  Work spirit:domain:Work
+  Craft spirit:domain:Craft
+  Knowledge spirit:domain:Knowledge
+  Education spirit:domain:Education
+  Language spirit:domain:Language
+  Art spirit:domain:Art
+  Kinship spirit:domain:Kinship
+  Selfhood spirit:domain:Selfhood
+  Spirituality spirit:domain:Spirituality
+  Governance spirit:domain:Governance
+  Law spirit:domain:Law
+  Community spirit:domain:Community
+  Nature spirit:domain:Nature
+  Travel spirit:domain:Travel
+  Commerce spirit:domain:Commerce
+  Leisure spirit:domain:Leisure
+  Appearance spirit:domain:Appearance
+  Safety spirit:domain:Safety
+  Information spirit:domain:Information
+  Technology spirit:domain:Technology
+  Hardware spirit:domain:Hardware
+  Software spirit:domain:Software
+  Languages spirit:domain:Languages
+  Theory spirit:domain:Theory
+  Systems spirit:domain:Systems
+  Distributed spirit:domain:Distributed
+  Data spirit:domain:Data
+  Intelligence spirit:domain:Intelligence
+  Security spirit:domain:Security
+  Quality spirit:domain:Quality
+  Operations spirit:domain:Operations
+  Observability spirit:domain:Observability
+  Surfaces spirit:domain:Surfaces
+  Engineering spirit:domain:Engineering
+  DomainPath spirit:domain:DomainPath
+  DomainScope spirit:domain:DomainScope
+  DomainScopes spirit:domain:DomainScopes
+  ScopeSet spirit:domain:ScopeSet
+}
 [State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version]
 [RecordAccepted Proposed Clarified Superseded Retired GuardianRejected ReferentGuardianRejected RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged ImportanceBumped RecordChanged ReferentRegistered RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted VersionReported (Event IntentEvent) Error Rejected]
 {
@@ -54,46 +98,6 @@
   Error ErrorReport
   Rejected SignalRejection
 
-  Domain [
-    (Health [Body Mind Nutrition Exercise Sleep Medicine Disease Medication Therapy Reproduction Sexuality Aging Disability Addiction Dentistry Senses Pain Prevention FirstAid Rehabilitation])
-    (Food [Cooking Diet Recipe Baking Preservation Fermentation Beverage Entertaining Foraging Fasting Dining])
-    (Home [Housing Maintenance Renovation Furnishing Cleaning Tidying Relocation Realty Property Utilities Locksmithing Appliances])
-    (Finance [Budgeting Saving Spending Debt Credit Investing Retirement Tax Insurance Income Banking Charity Planning Accounting])
-    (Work [Career JobSearch Workplace Vocation Leadership Entrepreneurship Employment Compensation Scheduling Unemployment Freelancing Teamwork Productivity Project])
-    (Craft [Electronics Construction Carpentry Metalworking Sewing Manufacturing Repair Engineering Handicraft Invention])
-    (Software [
-      (Languages [ProgrammingLanguages ProgrammingParadigms TypeSystems Compilation Interpretation Parsing LexicalAnalysis Grammars CodeGeneration Metaprogramming Macros DomainSpecificLanguages RuntimeEnvironments GarbageCollection MemoryManagement ForeignFunctionInterfaces])
-      (Theory [Algorithms DataStructures ComputationalComplexity AutomataTheory FormalLanguages GraphAlgorithms TypeTheory ProgramSemantics FormalMethods FormalVerification ModelChecking StaticAnalysis NumericalComputing Cryptanalysis])
-      (Systems [OperatingSystems SystemsProgramming Concurrency Parallelism Asynchrony Synchronization Scheduling FileSystems Virtualization Containerization EmbeddedSystems RealTimeSystems Firmware ResourceManagement KernelDevelopment DeviceDrivers])
-      (Distributed [DistributedSystems Networking NetworkProtocols ProtocolDesign Consensus Replication MessageQueuing EventDrivenArchitecture ServiceMesh LoadBalancing RemoteProcedureCall InterprocessCommunication Routing FaultTolerance Sharding])
-      (Data [DatabaseSystems QueryProcessing Indexing Transactions Caching Storage Persistence Serialization DataFormats Compression Encoding DataModeling DataPipelines StreamProcessing BatchProcessing SchemaEvolution DataMigration DataValidation])
-      (Intelligence [MachineLearning DeepLearning NeuralNetworks NaturalLanguageProcessing ComputerVision ReinforcementLearning ModelTraining ModelInference FeatureEngineering PromptEngineering RetrievalAugmentedGeneration AgentSystems InformationRetrieval Search Ranking RecommendationSystems KnowledgeRepresentation AutomatedReasoning])
-      (Security [Cryptography Authentication Authorization AccessControl AdmissionControl SecretsManagement ThreatModeling VulnerabilityManagement PenetrationTesting ApplicationSecurity NetworkSecurity Sandboxing Hardening Privacy IntrusionDetection ReverseEngineering InputSanitization])
-      (Quality [Testing UnitTesting IntegrationTesting EndToEndTesting PropertyBasedTesting Fuzzing TestAutomation Mocking CodeCoverage Debugging Profiling Benchmarking PerformanceOptimization LoadTesting CodeReview Refactoring Linting Formatting TechnicalDebt])
-      (Operations [ContinuousIntegration ContinuousDelivery BuildSystem ReleaseEngineering DependencyManagement PackageManagement ArtifactManagement Deployment Provisioning InfrastructureAsCode Orchestration ConfigurationManagement AutoScaling CapacityPlanning SiteReliability IncidentResponse DisasterRecovery RateLimiting])
-      (Observability [Logging Monitoring Alerting Tracing DistributedTracing Metrics Telemetry ErrorHandling AuditLogging])
-      (Surfaces [WebDevelopment FrontendDevelopment BackendDevelopment UserInterface InteractionDesign Rendering ComputerGraphics Animation Layout Styling StateManagement Accessibility Usability Internationalization Localization MobileDevelopment GameDevelopment Visualization SyntaxHighlighting CommandLineInterfaces])
-      (Engineering [SoftwareArchitecture SoftwareDesign DesignPatterns DomainDrivenDesign ApplicationProgrammingInterfaces Microservices Serverless CloudComputing EdgeComputing Scalability Reliability Maintainability Portability Interoperability Modularity Abstraction RequirementsEngineering Documentation VersionControl SoftwareDevelopmentProcess SoftwareMaintenance SoftwareEngineeringManagement])
-    ])
-    (Knowledge [Mathematics Logic Physics Chemistry Biology Astronomy Geology Computing Physiology Statistics Research History Linguistics Philosophy Economics Cognition Taxonomy])
-    (Education [Studying Teaching Schooling Skill Reading Memorization Pedagogy Mentoring Autodidacticism Credential])
-    (Language [Writing Rhetoric Translation Grammar Conversation Correspondence Listening Oratory Editing Terminology Notation])
-    (Art [Fiction Poetry Music Painting Photography Film Theater Dance Design Sculpture Creativity Storytelling Publishing])
-    (Kinship [Friendship Romance Marriage Family Parenting Relatives Reconciliation Boundaries Intimacy Rapport Caregiving Grief Belonging])
-    (Selfhood [Growth Introspection Discipline Emotion Virtue Motivation Confidence Identity Purpose Decision Temperament Wellbeing Composure])
-    (Spirituality [Worship Prayer Meditation Ritual Faith Theology Contemplation Pilgrimage Scripture Ethics Mortality Transcendence Asceticism Wisdom])
-    (Governance [Politics Government Administration Citizenship Elections Activism Policy Diplomacy Movements Organizing Services Naturalization War])
-    (Law [Rights Contract Title Crime Litigation Compliance Custody Liability Procedure Justice Policing Arbitration])
-    (Community [Neighborliness Volunteering Solidarity Membership Gatherings Reputation Service Hospitality Institutions])
-    (Nature [Agriculture Gardening Horticulture Husbandry Pets Forestry Fishing Hunting Conservation Weather Wilderness Sustainability Resources Stewardship])
-    (Travel [Itinerary Destination Transportation Driving Navigation Commuting Logistics Migration Tourism Transit Cycling])
-    (Commerce [Selling Buying Marketing Retail Sourcing Trade Support Pricing Negotiation Assets Market])
-    (Leisure [Recreation Sport Games Hobby Entertainment Collecting Outdoors Play Relaxation Celebration Fandom])
-    (Appearance [Clothing Grooming Style Cosmetics Etiquette Comportment])
-    (Safety [Protection Preparedness Risk Cybersecurity Privacy Disaster Military Deterrence])
-    (Information [Curation RecordKeeping Documentation News Broadcasting Archives Database Retrieval Classification])
-    (Technology [Energy Power Automation Robotics Intelligence Networking Materials Machinery Instrumentation Aerospace])
-  ]
   Domains (Vec Domain)
   Referent String
   Referents (Vec Referent)
@@ -148,8 +152,8 @@
   Processed ProcessedMail
 
   DomainMatch [Any (Partial) (Full)]
-  Partial Domains
-  Full Domains
+  Partial DomainScopes
+  Full DomainScopes
   ReferentSelection [Any (AnyReferent) (AllReferents)]
   AnyReferent Referents
   AllReferents Referents

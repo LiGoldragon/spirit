@@ -39,7 +39,7 @@ use crate::schema::{
 };
 
 #[cfg(feature = "agent-guardian")]
-use crate::schema::signal::{RegisteredReferent, RegisteredReferents};
+use crate::schema::signal::{DomainScope, RegisteredReferent, RegisteredReferents};
 
 #[cfg(feature = "testing-trace")]
 use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
@@ -632,7 +632,6 @@ impl Store {
         Ok(RecordSet::new(
             records
                 .into_iter()
-                .take(GUARDIAN_RECORD_LIMIT)
                 .map(GuardianRecordCandidate::into_observed_record)
                 .collect(),
         ))
@@ -1370,10 +1369,12 @@ impl Entry {
 
     #[cfg(feature = "agent-guardian")]
     fn shares_domain(&self, proposed: &Entry) -> bool {
-        self.domains
+        proposed
+            .domains
             .payload()
             .iter()
-            .any(|domain| proposed.domains.payload().contains(domain))
+            .map(|domain| DomainScope::from_path(domain.path_segments()).expand())
+            .any(|scope_set| scope_set.matches_any_domain(&self.domains))
     }
 
     #[cfg(feature = "agent-guardian")]

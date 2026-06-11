@@ -771,7 +771,7 @@ mod store_version_seven {
                 Self::Appearance(value) => Self::same_path("Appearance", value),
                 Self::Safety(value) => Self::same_path("Safety", value),
                 Self::Information(value) => Self::same_path("Information", value),
-                Self::Technology(value) => Self::same_path("Technology", value),
+                Self::Technology(value) => value.current_nota(),
             }
         }
 
@@ -783,15 +783,21 @@ mod store_version_seven {
     impl Craft {
         fn current_nota(self) -> String {
             match self {
-                Self::Programming => String::from("(Software (Languages ProgrammingLanguages))"),
-                Self::Architecture => String::from("(Software (Engineering SoftwareArchitecture))"),
-                Self::Schema => String::from("(Software (Data SchemaEvolution))"),
-                Self::Infrastructure => {
-                    String::from("(Software (Operations InfrastructureAsCode))")
+                Self::Programming => {
+                    String::from("(Technology (Software (Languages ProgrammingLanguages)))")
                 }
-                Self::Versioning => String::from("(Software (Engineering VersionControl))"),
-                Self::Testing => String::from("(Software (Quality Testing))"),
-                Self::Tooling => String::from("(Software (Operations BuildSystem))"),
+                Self::Architecture => {
+                    String::from("(Technology (Software (Engineering SoftwareArchitecture)))")
+                }
+                Self::Schema => String::from("(Technology (Software (Data SchemaEvolution)))"),
+                Self::Infrastructure => {
+                    String::from("(Technology (Software (Operations InfrastructureAsCode)))")
+                }
+                Self::Versioning => {
+                    String::from("(Technology (Software (Engineering VersionControl)))")
+                }
+                Self::Testing => String::from("(Technology (Software (Quality Testing)))"),
+                Self::Tooling => String::from("(Technology (Software (Operations BuildSystem)))"),
                 Self::Electronics
                 | Self::Construction
                 | Self::Carpentry
@@ -802,6 +808,25 @@ mod store_version_seven {
                 | Self::Engineering
                 | Self::Handicraft
                 | Self::Invention => format!("(Craft {self:?})"),
+            }
+        }
+    }
+
+    impl Technology {
+        fn current_nota(self) -> String {
+            match self {
+                Self::Intelligence => {
+                    String::from("(Technology (Software (Intelligence AgentSystems)))")
+                }
+                Self::Energy
+                | Self::Power
+                | Self::Automation
+                | Self::Robotics
+                | Self::Networking
+                | Self::Materials
+                | Self::Machinery
+                | Self::Instrumentation
+                | Self::Aerospace => format!("(Technology (Hardware {self:?}))"),
             }
         }
     }
@@ -1466,7 +1491,9 @@ mod tests {
     };
     use crate::{
         Store,
-        schema::signal::{Data, Domain, Domains, Information, Magnitude, Operations, Software},
+        schema::signal::{
+            Data, Domain, Domains, Information, Magnitude, Operations, Software, Technology,
+        },
     };
 
     #[test]
@@ -1534,7 +1561,9 @@ mod tests {
         assert_eq!(migrated_entry.referents.payload(), &Vec::new());
         assert_eq!(
             migrated_entry.domains.payload(),
-            &vec![Domain::Software(Software::Data(Data::SchemaEvolution))]
+            &vec![Domain::Technology(Technology::Software(Software::Data(
+                Data::SchemaEvolution
+            )))]
         );
     }
 
@@ -1598,8 +1627,10 @@ mod tests {
         assert_eq!(
             migrated_entry.domains,
             Domains::new(vec![
-                Domain::Software(Software::Data(Data::SchemaEvolution)),
-                Domain::Software(Software::Operations(Operations::InfrastructureAsCode)),
+                Domain::Technology(Technology::Software(Software::Data(Data::SchemaEvolution))),
+                Domain::Technology(Technology::Software(Software::Operations(
+                    Operations::InfrastructureAsCode
+                ))),
                 Domain::Information(Information::Documentation),
             ])
         );

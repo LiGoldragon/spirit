@@ -48,6 +48,8 @@ pub mod transport;
 
 pub mod schema {
     #[rustfmt::skip]
+    pub mod domain;
+    #[rustfmt::skip]
     pub mod signal;
     #[rustfmt::skip]
     pub mod nexus;
