@@ -6,17 +6,14 @@ use std::{
 };
 
 use nota_next::NotaSource;
-use signal_agent::{
-    ChatMessage, ChatTranscript, CompletionText, Input as AgentInput, MaximumOutputTokens,
-    ModelName, Output as AgentOutput, OutputMode, Prompt, PromptOptions, ProviderName, SystemText,
-    TemperatureMilli,
-};
+use signal_agent::{CompletionText, Input as AgentInput, Output as AgentOutput, Prompt};
 use signal_spirit::SpiritGuardianAgentConfiguration;
 use thiserror::Error;
 use triad_runtime::{FrameBody, LengthPrefixedCodec};
 
 use crate::{
     guardian_journal::{GuardianDecision, GuardianOperation},
+    guardian_prompt::{GuardianPromptBuilder, GuardianRetry},
     schema::{
         nexus::{GuardianVerdict, ReferentGuardianVerdict, Reject, RejectReferent},
         signal::{
@@ -150,7 +147,8 @@ impl AgentGuardian {
         operation: &GuardianOperation,
         records: &RecordSet,
     ) -> Result<GuardianVerdict, AgentGuardianError> {
-        let output = self.call_agent(self.prompt(operation, records, None)?)?;
+        let prompts = self.prompt_builder();
+        let output = self.call_agent(prompts.guardian_prompt(operation, records, None))?;
         let AgentOutput::Completed(completion) = output else {
             return Err(AgentGuardianError::AgentRejected(format!("{output:?}")));
         };
@@ -159,7 +157,7 @@ impl AgentGuardian {
             Err(first_error) => {
                 let retry = GuardianRetry::new(completion.text, first_error.to_string());
                 let retry_output =
-                    self.call_agent(self.prompt(operation, records, Some(&retry))?)?;
+                    self.call_agent(prompts.guardian_prompt(operation, records, Some(&retry)))?;
                 let AgentOutput::Completed(retry_completion) = retry_output else {
                     return Err(AgentGuardianError::AgentRejected(format!(
                         "{retry_output:?}"
@@ -175,8 +173,9 @@ impl AgentGuardian {
         registration: &ReferentRegistration,
         registered_referents: &RegisteredReferents,
     ) -> Result<ReferentGuardianVerdict, AgentGuardianError> {
+        let prompts = self.prompt_builder();
         let output =
-            self.call_agent(self.referent_prompt(registration, registered_referents, None)?)?;
+            self.call_agent(prompts.referent_prompt(registration, registered_referents, None))?;
         let AgentOutput::Completed(completion) = output else {
             return Err(AgentGuardianError::AgentRejected(format!("{output:?}")));
         };
@@ -184,11 +183,11 @@ impl AgentGuardian {
             Ok(verdict) => Ok(verdict),
             Err(first_error) => {
                 let retry = GuardianRetry::new(completion.text, first_error.to_string());
-                let retry_output = self.call_agent(self.referent_prompt(
+                let retry_output = self.call_agent(prompts.referent_prompt(
                     registration,
                     registered_referents,
                     Some(&retry),
-                )?)?;
+                ))?;
                 let AgentOutput::Completed(retry_completion) = retry_output else {
                     return Err(AgentGuardianError::AgentRejected(format!(
                         "{retry_output:?}"
@@ -229,91 +228,12 @@ impl AgentGuardian {
             .map_err(|error| AgentGuardianError::Frame(error.to_string()))
     }
 
-    fn prompt(
-        &self,
-        operation: &GuardianOperation,
-        records: &RecordSet,
-        retry: Option<&GuardianRetry>,
-    ) -> Result<Prompt, AgentGuardianError> {
-        let accept = GuardianVerdict::Accept.to_nota();
-        let reject = GuardianVerdict::reject(Reject {
-            guardian_rejection_reason: GuardianRejectionReason::Contradiction,
-            explanation: Explanation::new("explain the conflict"),
-        })
-        .to_nota();
-        let retry_text = retry.map(GuardianRetry::user_text).unwrap_or_default();
-        Ok(Prompt {
-            system: Some(SystemText::new(format!(
-                "You are Spirit's guardian. Judge whether one write operation may change the live intent store. The model checks every semantic admission issue: duplicates, contradictions, compound arrows, non-intent, unclear privacy, unclear domain, clarification damage, supersession damage, and retrieval insufficiency. Code only validates structure and applies the typed verdict. Reply with exactly one NOTA value of the GuardianVerdict type and no surrounding prose. Accept form: {accept}. Reject form: {reject}. Closed rejection reasons: Duplicate, Contradiction, Compound, NonIntent, UnclearPrivacy, UnclearDomain, ClarifyTramples, ClarifyLosesMeaning, SupersedeTargetMissing, RetrievalInsufficient, HarnessUnavailable, HarnessMalformed, HarnessTimedOut. Duplicate means the candidate already says the same forward arrow as a live record. Contradiction means it conflicts with a live arrow. Compound means it bundles multiple separable arrows. NonIntent means it is task chatter, status, or transient reaction rather than durable intent. UnclearPrivacy means the privacy level is unsafe or underspecified. UnclearDomain means the domain classification is missing or wrong enough to block admission. ClarifyTramples means a clarification overwrites the prior arrow instead of making it clearer. ClarifyLosesMeaning means a clarification drops material meaning. SupersedeTargetMissing means the replacement cannot be judged against the claimed target. RetrievalInsufficient means the supplied bundle is too thin to judge."
-            ))),
-            transcript: ChatTranscript::new(vec![ChatMessage::user(format!(
-                "Operation: {}\n\nCandidate:\n{}\n\nRelevant existing records:\n{}{}",
-                operation.name(),
-                GuardianOperationPrompt::new(operation).to_text(),
-                records.to_nota(),
-                retry_text
-            ))]),
-            options: PromptOptions {
-                model: self
-                    .configuration
-                    .model_name
-                    .as_ref()
-                    .map(|model| ModelName::new(model.clone())),
-                provider: self
-                    .configuration
-                    .provider_name
-                    .as_ref()
-                    .map(|provider| ProviderName::new(provider.clone())),
-                temperature_milli: Some(TemperatureMilli::new(0)),
-                maximum_output_tokens: Some(MaximumOutputTokens::new(
-                    self.configuration.maximum_output_tokens,
-                )),
-                output_mode: OutputMode::Nota,
-            },
-        })
-    }
-
-    fn referent_prompt(
-        &self,
-        registration: &ReferentRegistration,
-        registered_referents: &RegisteredReferents,
-        retry: Option<&GuardianRetry>,
-    ) -> Result<Prompt, AgentGuardianError> {
-        let accept = ReferentGuardianVerdict::Accept.to_nota();
-        let reject = ReferentGuardianVerdict::reject_referent(RejectReferent {
-            referent_guardian_rejection_reason: ReferentGuardianRejectionReason::Duplicate,
-            explanation: Explanation::new("explain the referent problem"),
-        })
-        .to_nota();
-        let retry_text = retry.map(GuardianRetry::user_text).unwrap_or_default();
-        Ok(Prompt {
-            system: Some(SystemText::new(format!(
-                "You are Spirit's referent guardian. Judge whether one referent registration may change the referent registry. The model checks every semantic admission issue: duplicates, ambiguity, vague names, alias collisions, non-referents, and unclear justification. Code only validates structure and applies the typed verdict. Reply with exactly one NOTA value of the ReferentGuardianVerdict type and no surrounding prose. Accept form: {accept}. Reject form: {reject}. Closed rejection reasons: Duplicate, Ambiguous, TooVague, AliasCollision, NonReferent, UnclearJustification, HarnessUnavailable, HarnessMalformed, HarnessTimedOut. Duplicate means the requested referent or alias already names an existing referent. Ambiguous means the name could naturally point to multiple particulars. TooVague means the name is not specific enough to identify one concrete thing. AliasCollision means an alias collides with another registered referent. NonReferent means the candidate is not a concrete named thing. UnclearJustification means the psyche statement does not justify registering this referent."
-            ))),
-            transcript: ChatTranscript::new(vec![ChatMessage::user(format!(
-                "Operation: RegisterReferent\n\nCandidate registration:\n{}\n\nRegistered referents:\n{}{}",
-                registration.to_nota(),
-                registered_referents.to_nota(),
-                retry_text
-            ))]),
-            options: PromptOptions {
-                model: self
-                    .configuration
-                    .model_name
-                    .as_ref()
-                    .map(|model| ModelName::new(model.clone())),
-                provider: self
-                    .configuration
-                    .provider_name
-                    .as_ref()
-                    .map(|provider| ProviderName::new(provider.clone())),
-                temperature_milli: Some(TemperatureMilli::new(0)),
-                maximum_output_tokens: Some(MaximumOutputTokens::new(
-                    self.configuration.maximum_output_tokens,
-                )),
-                output_mode: OutputMode::Nota,
-            },
-        })
+    fn prompt_builder(&self) -> GuardianPromptBuilder<'_> {
+        GuardianPromptBuilder::new(
+            self.configuration.provider_name.as_deref(),
+            self.configuration.model_name.as_deref(),
+            self.configuration.maximum_output_tokens,
+        )
     }
 
     fn parse_verdict(
@@ -491,67 +411,6 @@ impl AgentGuardianRejection {
             record_set: self.records,
             explanation: self.explanation,
             database_marker: self.database_marker,
-        }
-    }
-}
-
-struct GuardianRetry {
-    completion: CompletionText,
-    error: String,
-}
-
-struct GuardianOperationPrompt<'operation> {
-    operation: &'operation GuardianOperation,
-}
-
-impl GuardianRetry {
-    fn new(completion: CompletionText, error: String) -> Self {
-        Self { completion, error }
-    }
-
-    fn user_text(&self) -> String {
-        format!(
-            "\n\nPrevious response was not a GuardianVerdict:\n{}\n\nParse error:\n{}\n\nReturn only the corrected GuardianVerdict NOTA value.",
-            self.completion.payload(),
-            self.error
-        )
-    }
-}
-
-impl<'operation> GuardianOperationPrompt<'operation> {
-    fn new(operation: &'operation GuardianOperation) -> Self {
-        Self { operation }
-    }
-
-    fn to_text(&self) -> String {
-        match self.operation {
-            GuardianOperation::Record(request) => {
-                format!("Record request:\n{}", request.to_nota())
-            }
-            GuardianOperation::Propose(proposal) => {
-                format!("Propose request:\n{}", proposal.to_nota())
-            }
-            GuardianOperation::Clarify(clarification) => {
-                format!("Clarify request:\n{}", clarification.to_nota())
-            }
-            GuardianOperation::Supersede(supersession) => {
-                format!("Supersede request:\n{}", supersession.to_nota())
-            }
-            GuardianOperation::Retire(retirement) => {
-                format!("Retire request:\n{}", retirement.to_nota())
-            }
-            GuardianOperation::Remove(removal) => {
-                format!("Remove request:\n{}", removal.to_nota())
-            }
-            GuardianOperation::ChangeRecord(change) => {
-                format!("ChangeRecord request:\n{}", change.to_nota())
-            }
-            GuardianOperation::CollectRemovalCandidates(collection) => {
-                format!(
-                    "CollectRemovalCandidates request:\n{}",
-                    collection.to_nota()
-                )
-            }
         }
     }
 }

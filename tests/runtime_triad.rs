@@ -1238,6 +1238,39 @@ fn agent_guardian_reject_verdict_blocks_referent_registration() {
     assert!(matches!(rejected_record.root(), Output::Error(_)));
 }
 
+#[cfg(feature = "agent-guardian")]
+#[test]
+fn agent_guardian_repairs_malformed_verdict_shape() {
+    let sema = SemaFile::new();
+    let fake_agent = FakeGuardianAgent::spawn_texts(vec![
+        "(Reject NonIntent [flat rejection is not the generated verdict shape])".to_owned(),
+        GuardianVerdict::reject(Reject {
+            guardian_rejection_reason: GuardianRejectionReason::NonIntent,
+            explanation: spirit::schema::signal::Explanation::new("not settled intent"),
+        })
+        .to_nota(),
+    ]);
+    let mut engine = sema.engine_with_guardian(fake_agent.guardian());
+
+    let output = engine.handle(input_propose(entry("model repairs malformed verdict")));
+
+    match output.root() {
+        Output::GuardianRejected(rejection) => {
+            assert_eq!(
+                rejection.payload().guardian_rejection_reason,
+                GuardianRejectionReason::NonIntent
+            );
+            assert_eq!(
+                rejection.payload().explanation.payload(),
+                "not settled intent"
+            );
+        }
+        other => panic!("expected repaired GuardianRejected, got {other:?}"),
+    }
+    assert_eq!(engine.record_count(), 0);
+    fake_agent.join();
+}
+
 #[test]
 fn signal_admission_pushes_accepted_message_through_sent_hook_before_nexus_holds_mail() {
     let signal_admission = SignalAdmission::default();
@@ -2275,6 +2308,33 @@ fn full_runtime_triad_rejects_record_with_unregistered_referent() {
 }
 
 #[test]
+fn full_runtime_triad_rejects_proposal_with_unregistered_referent() {
+    let sema = SemaFile::new();
+    let mut engine = sema.engine();
+
+    let output = engine.handle(input_propose(entry_with_referents(
+        "unregistered proposal referent should fail",
+        &["schemaNext"],
+    )));
+
+    match output.root() {
+        Output::Error(report) => {
+            assert!(
+                report
+                    .payload()
+                    .error_message
+                    .payload()
+                    .contains("unregistered referent"),
+                "unexpected error: {:?}",
+                report.payload().error_message
+            );
+            assert_eq!(report.payload().database_marker.commit_sequence, 0);
+        }
+        other => panic!("expected Error for unregistered proposal referent, got {other:?}"),
+    }
+}
+
+#[test]
 fn full_runtime_triad_canonicalizes_referent_aliases_on_write_and_query() {
     let sema = SemaFile::new();
     let mut engine = sema.engine();
@@ -2311,5 +2371,33 @@ fn full_runtime_triad_canonicalizes_referent_aliases_on_write_and_query() {
             assert_eq!(stash.database_marker.commit_sequence, 2);
         }
         other => panic!("expected alias query to match the canonical record, got {other:?}"),
+    }
+}
+
+#[test]
+fn full_runtime_triad_canonicalizes_referent_aliases_on_propose() {
+    let sema = SemaFile::new();
+    let mut engine = sema.engine();
+    engine.handle(input_register_referent("schemaNext", &["schema-next"]));
+
+    let proposed = engine.handle(input_propose(entry_with_referents(
+        "alias referent canonicalizes on proposal",
+        &["schema-next"],
+    )));
+    let identifier = match proposed.into_root() {
+        Output::Proposed(receipt) => receipt.payload().clone(),
+        other => panic!("expected Proposed, got {other:?}"),
+    };
+
+    let found = engine.handle(input_lookup(identifier.clone()));
+    match found.root() {
+        Output::RecordFound(record) => {
+            assert_eq!(record.record_identifier, identifier);
+            assert_eq!(
+                record.entry.referents.payload(),
+                &vec![Referent::new("schemaNext")]
+            );
+        }
+        other => panic!("expected RecordFound, got {other:?}"),
     }
 }
