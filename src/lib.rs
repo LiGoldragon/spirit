@@ -69,8 +69,7 @@ pub use nexus::{Nexus, StashTable};
 #[cfg(feature = "production-migration")]
 pub use production_migration::{
     ProductionMigration, ProductionMigrationCompleted, ProductionMigrationError,
-    ProductionMigrationOutput, ProductionMigrationRequest, SpiritStoreUpgrade,
-    SpiritStoreUpgradeCompleted, SpiritStoreUpgradeOutput, SpiritStoreUpgradeRequest,
+    ProductionMigrationOutput, ProductionMigrationRequest,
 };
 pub use schema::daemon::{ComponentDaemon, DaemonCommand, DaemonEntry, DaemonError, ListenerTier};
 pub use store::{Store, StoreError};

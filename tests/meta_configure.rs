@@ -16,8 +16,8 @@ use std::time::{Duration, Instant};
 
 use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest, Output as MetaOutput};
 use spirit::schema::signal::{
-    Categories, CategoryMatch, Description, Entry, ImportanceSelection, Input, Kind, Magnitude,
-    Output, Privacy, Query,
+    Description, DomainMatch, Domains, Entry, ImportanceSelection, Input, Kind, Magnitude, Output,
+    Privacy, Query,
 };
 use spirit::{
     Configuration, Daemon, DaemonError, MetaSignalTransport, SignalTransport, SpiritDaemon,
@@ -62,22 +62,24 @@ fn wait_for_socket(path: &Path) {
 
 fn decision_entry(description: &str) -> Entry {
     Entry {
-        categories: Categories::from_strings(vec![String::from("meta-configure")]),
+        domains: Domains::from_strings(vec![String::from("meta-configure")]),
         kind: Kind::Decision,
         description: Description::new(description),
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
+        referents: spirit::schema::signal::Referents::new(Vec::new()),
     }
 }
 
 fn observe_query() -> Query {
     Query {
-        category_match: CategoryMatch::full(Categories::from_strings(vec![String::from(
+        domain_match: DomainMatch::full(Domains::from_strings(vec![String::from(
             "meta-configure",
         )])),
         keyword_match: spirit::schema::signal::KeywordMatch::Any,
         text_match: spirit::schema::signal::TextMatch::Any,
+        referent_selection: spirit::schema::signal::ReferentSelection::Any,
         kind: Some(Kind::Decision),
         privacy_selection: spirit::schema::signal::PrivacySelection::default_observation_privacy(),
         certainty_selection:

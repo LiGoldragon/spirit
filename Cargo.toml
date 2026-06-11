@@ -31,11 +31,6 @@ name = "spirit-migrate-production"
 path = "src/bin/spirit-migrate-production.rs"
 required-features = ["production-migration"]
 
-[[bin]]
-name = "spirit-upgrade-store"
-path = "src/bin/spirit-upgrade-store.rs"
-required-features = ["production-migration"]
-
 [[test]]
 name = "nix_integration"
 path = "tests/nix_integration.rs"
@@ -57,11 +52,6 @@ testing-trace = []
 name = "instrumentation_logging"
 path = "tests/instrumentation_logging.rs"
 required-features = ["testing-trace"]
-
-[[test]]
-name = "production_database_sandbox"
-path = "tests/production_database_sandbox.rs"
-required-features = ["production-migration"]
 
 [dependencies]
 nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }

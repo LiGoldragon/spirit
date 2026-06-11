@@ -7,12 +7,12 @@ use crate::{
         nexus::{self as nexus_schema, NexusAction, NexusEffectCommand, NexusEngine, NexusWork},
         sema::ErrorReport,
         signal::{
-            self as signal_schema, Categories, Category, CategoryMatch, CertaintySelection,
-            DatabaseMarker, Description, EngineStartFailure, EngineStopFailure, Entry,
-            ErrorMessage, ImportanceSelection, Input, Integer, IntentEvent, KeywordMatch,
-            MailIdentifier, MailLedgerEvent, MessageIdentifier, MessageProcessed,
-            MessageProcessedHook, MessageSent, MessageSentHook, OriginRoute, Output, Privacy,
-            PrivacySelection, ProcessedMail, Query, RecordSelection, SemaReceipt, SentMail,
+            self as signal_schema, CertaintySelection, DatabaseMarker, Description, Domain,
+            DomainMatch, Domains, EngineStartFailure, EngineStopFailure, Entry, ErrorMessage,
+            ImportanceSelection, Input, Integer, IntentEvent, KeywordMatch, MailIdentifier,
+            MailLedgerEvent, MessageIdentifier, MessageProcessed, MessageProcessedHook,
+            MessageSent, MessageSentHook, OriginRoute, Output, Privacy, PrivacySelection,
+            ProcessedMail, Query, RecordSelection, ReferentSelection, SemaReceipt, SentMail,
             ShortHeader, SignalEngine, SignalRejection, StatementText, SupersessionReceipt,
             TextMatch, ValidationError,
         },
@@ -476,6 +476,7 @@ impl Input {
             | Self::Untap(_)
             | Self::Version => Ok(()),
             Self::ChangeRecord(change) => change.payload().validate(),
+            Self::RegisterReferent(register) => register.payload().validate(),
             Self::CollectRemovalCandidates(collection) => collection.payload().validate(),
             Self::SubscribeIntent(query) => query.payload().validate(),
             Self::Count(count) => count.payload().validate(),
@@ -494,13 +495,42 @@ impl crate::schema::signal::Statement {
 
 impl Entry {
     pub fn validate(&self) -> Result<(), ValidationError> {
-        if self.categories.is_empty() {
-            return Err(ValidationError::EmptyCategory);
+        if self.domains.is_empty() {
+            return Err(ValidationError::EmptyDomain);
         }
         if self.description.trim().is_empty() {
             return Err(ValidationError::EmptyDescription);
         }
         Ok(())
+    }
+}
+
+impl crate::schema::signal::Referent {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        if self.payload().trim().is_empty() {
+            return Err(ValidationError::EmptyQueryReferent);
+        }
+        Ok(())
+    }
+}
+
+impl crate::schema::signal::Referents {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        if self
+            .payload()
+            .iter()
+            .any(|referent| referent.payload().trim().is_empty())
+        {
+            return Err(ValidationError::EmptyQueryReferent);
+        }
+        Ok(())
+    }
+}
+
+impl crate::schema::signal::ReferentRegistration {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        self.referent.validate()?;
+        self.aliases.validate()
     }
 }
 
@@ -530,9 +560,10 @@ impl crate::schema::signal::Supersession {
 
 impl Query {
     pub fn validate(&self) -> Result<(), ValidationError> {
-        self.category_match.validate()?;
+        self.domain_match.validate()?;
         self.keyword_match.validate()?;
-        self.text_match.validate()
+        self.text_match.validate()?;
+        self.referent_selection.validate()
     }
 }
 
@@ -550,14 +581,15 @@ impl crate::schema::signal::RecordQuery {
 
 impl RecordSelection {
     pub fn validate(&self) -> Result<(), ValidationError> {
-        self.category_match.validate()
+        self.domain_match.validate()
     }
 
     pub fn into_public_query(self) -> Query {
         Query {
-            category_match: self.category_match,
+            domain_match: self.domain_match,
             keyword_match: KeywordMatch::Any,
             text_match: TextMatch::Any,
+            referent_selection: ReferentSelection::Any,
             kind: self.kind,
             privacy_selection: PrivacySelection::default_observation_privacy(),
             certainty_selection: CertaintySelection::default_observation_certainty(),
@@ -567,9 +599,10 @@ impl RecordSelection {
 
     pub fn into_private_query(self) -> Query {
         Query {
-            category_match: self.category_match,
+            domain_match: self.domain_match,
             keyword_match: KeywordMatch::Any,
             text_match: TextMatch::Any,
+            referent_selection: ReferentSelection::Any,
             kind: self.kind,
             privacy_selection: PrivacySelection::at_least(Privacy::new(
                 PrivacySelection::private_floor(),
@@ -580,37 +613,37 @@ impl RecordSelection {
     }
 }
 
-impl CategoryMatch {
+impl DomainMatch {
     pub fn validate(&self) -> Result<(), ValidationError> {
         match self {
             Self::Any => Ok(()),
-            Self::Partial(categories) => {
-                if categories.payload().is_empty() {
-                    return Err(ValidationError::EmptyQueryCategory);
+            Self::Partial(domains) => {
+                if domains.payload().is_empty() {
+                    return Err(ValidationError::EmptyQueryDomain);
                 }
                 Ok(())
             }
-            Self::Full(categories) => {
-                if categories.payload().is_empty() {
-                    return Err(ValidationError::EmptyQueryCategory);
+            Self::Full(domains) => {
+                if domains.payload().is_empty() {
+                    return Err(ValidationError::EmptyQueryDomain);
                 }
                 Ok(())
             }
         }
     }
 
-    pub fn matches(&self, entry_categories: &Categories) -> bool {
+    pub fn matches(&self, entry_domains: &Domains) -> bool {
         match self {
             Self::Any => true,
-            Self::Partial(partial) => partial.payload().iter().any(|category| {
-                entry_categories
+            Self::Partial(partial) => partial.payload().iter().any(|domain| {
+                entry_domains
                     .iter()
-                    .any(|entry_category| entry_category == category)
+                    .any(|entry_domain| entry_domain == domain)
             }),
-            Self::Full(full) => full.payload().iter().all(|category| {
-                entry_categories
+            Self::Full(full) => full.payload().iter().all(|domain| {
+                entry_domains
                     .iter()
-                    .any(|entry_category| entry_category == category)
+                    .any(|entry_domain| entry_domain == domain)
             }),
         }
     }
@@ -633,6 +666,26 @@ impl TextMatch {
             Self::ContainsText(search_text) => {
                 if search_text.payload().payload().trim().is_empty() {
                     return Err(ValidationError::EmptySearchText);
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+impl ReferentSelection {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        match self {
+            Self::Any => Ok(()),
+            Self::AnyReferent(referents) => {
+                if referents.payload().payload().is_empty() {
+                    return Err(ValidationError::EmptyQueryReferent);
+                }
+                Ok(())
+            }
+            Self::AllReferents(referents) => {
+                if referents.payload().payload().is_empty() {
+                    return Err(ValidationError::EmptyQueryReferent);
                 }
                 Ok(())
             }
@@ -712,6 +765,7 @@ impl Output {
             Self::CertaintyChanged(receipt) => receipt.payload().database_marker.clone(),
             Self::ImportanceBumped(receipt) => receipt.payload().database_marker.clone(),
             Self::RecordChanged(receipt) => receipt.payload().database_marker.clone(),
+            Self::ReferentRegistered(receipt) => receipt.payload().database_marker.clone(),
             Self::RemovalCandidatesCollected(collection) => {
                 collection.payload().database_marker.clone()
             }
@@ -773,65 +827,63 @@ impl nexus_schema::nexus::Nexus<NexusAction> {
     }
 }
 
-impl Categories {
+impl Domains {
     pub fn from_strings(labels: Vec<String>) -> Self {
-        let mut categories = Vec::new();
+        let mut domains = Vec::new();
         for label in labels {
-            Category::push_from_label(&label, &mut categories);
+            Domain::push_from_label(&label, &mut domains);
         }
-        Self::new(categories)
+        Self::new(domains)
     }
 
     pub fn is_empty(&self) -> bool {
         self.payload().is_empty()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &Category> {
+    pub fn iter(&self) -> impl Iterator<Item = &Domain> {
         self.payload().iter()
     }
 }
 
-impl Category {
-    fn push_from_label(label: &str, categories: &mut Vec<Self>) {
+impl Domain {
+    fn push_from_label(label: &str, domains: &mut Vec<Self>) {
         let label = label.trim().to_ascii_lowercase();
         if label.is_empty() {
             return;
         }
         if Self::contains_any(
             &label,
-            &[
-                "schema",
-                "nota",
-                "syntax",
-                "language",
-                "naming",
-                "vocabulary",
-                "macro",
-                "string",
-                "parser",
-            ],
+            &["schema", "record-shape", "type-definition", "data-model"],
         ) {
-            Self::push_unique(categories, Self::Meaning);
+            Self::push_unique(domains, Self::schema());
+        }
+        if Self::contains_any(&label, &["nota", "syntax", "delimiter", "parser"]) {
+            Self::push_unique(domains, Self::notation());
+        }
+        if Self::contains_any(&label, &["language", "naming", "vocabulary"]) {
+            Self::push_unique(domains, Self::terminology());
+        }
+        if Self::contains_any(&label, &["rust", "code", "program", "programming"]) {
+            Self::push_unique(domains, Self::programming());
+        }
+        if Self::contains_any(&label, &["test", "fixture", "trace", "verification"]) {
+            Self::push_unique(domains, Self::testing());
         }
         if Self::contains_any(
             &label,
             &[
-                "rust",
-                "code",
-                "test",
-                "fixture",
-                "trace",
                 "signal",
                 "nexus",
                 "sema",
                 "component",
                 "daemon",
                 "runtime",
+                "architecture",
                 "build",
                 "forge",
             ],
         ) {
-            Self::push_unique(categories, Self::Making);
+            Self::push_unique(domains, Self::architecture());
         }
         if Self::contains_any(
             &label,
@@ -848,7 +900,7 @@ impl Category {
                 "capture",
             ],
         ) {
-            Self::push_unique(categories, Self::Governing);
+            Self::push_unique(domains, Self::documentation());
         }
         if Self::contains_any(
             &label,
@@ -856,7 +908,7 @@ impl Category {
                 "agent", "persona", "llm", "harness", "subagent", "model", "mail",
             ],
         ) {
-            Self::push_unique(categories, Self::Relating);
+            Self::push_unique(domains, Self::intelligence());
         }
         if Self::contains_any(
             &label,
@@ -871,23 +923,77 @@ impl Category {
                 "upgrade",
             ],
         ) {
-            Self::push_unique(categories, Self::Sustaining);
+            Self::push_unique(domains, Self::infrastructure());
         }
         if Self::contains_any(&label, &["assistant", "counselor", "personal", "health"]) {
-            Self::push_unique(categories, Self::Caring);
+            Self::push_unique(domains, Self::wellbeing());
         }
-        if categories.is_empty() {
-            Self::push_unique(categories, Self::Meaning);
+        if Self::contains_any(&label, &["governing", "governance", "policy"]) {
+            Self::push_unique(domains, Self::policy());
         }
+        if Self::contains_any(&label, &["relating", "relationship", "friendship"]) {
+            Self::push_unique(domains, Self::rapport());
+        }
+        if domains.is_empty() {
+            Self::push_unique(domains, Self::documentation());
+        }
+    }
+
+    fn schema() -> Self {
+        Self::Craft(signal_schema::Craft::Schema)
+    }
+
+    fn notation() -> Self {
+        Self::Language(signal_schema::Language::Notation)
+    }
+
+    fn terminology() -> Self {
+        Self::Language(signal_schema::Language::Terminology)
+    }
+
+    fn programming() -> Self {
+        Self::Craft(signal_schema::Craft::Programming)
+    }
+
+    fn testing() -> Self {
+        Self::Craft(signal_schema::Craft::Testing)
+    }
+
+    fn architecture() -> Self {
+        Self::Craft(signal_schema::Craft::Architecture)
+    }
+
+    fn documentation() -> Self {
+        Self::Information(signal_schema::Information::Documentation)
+    }
+
+    fn intelligence() -> Self {
+        Self::Technology(signal_schema::Technology::Intelligence)
+    }
+
+    fn infrastructure() -> Self {
+        Self::Craft(signal_schema::Craft::Infrastructure)
+    }
+
+    fn wellbeing() -> Self {
+        Self::Selfhood(signal_schema::Selfhood::Wellbeing)
+    }
+
+    fn policy() -> Self {
+        Self::Governance(signal_schema::Governance::Policy)
+    }
+
+    fn rapport() -> Self {
+        Self::Kinship(signal_schema::Kinship::Rapport)
     }
 
     fn contains_any(label: &str, needles: &[&str]) -> bool {
         needles.iter().any(|needle| label.contains(needle))
     }
 
-    fn push_unique(categories: &mut Vec<Self>, category: Self) {
-        if !categories.contains(&category) {
-            categories.push(category);
+    fn push_unique(domains: &mut Vec<Self>, domain: Self) {
+        if !domains.contains(&domain) {
+            domains.push(domain);
         }
     }
 }

@@ -14,12 +14,12 @@ use crate::{
             SemaEngine, WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
         },
         signal::{
-            Categories, Category, Certainty, ClarificationReceipt, DatabaseMarker, Description,
-            Entry, ErrorMessage, ErrorReport, Importance, Input, IntentClarified, IntentEvent,
+            Certainty, ClarificationReceipt, DatabaseMarker, Description, Domain, Domains, Entry,
+            ErrorMessage, ErrorReport, Importance, Input, IntentClarified, IntentEvent,
             IntentRecorded, IntentRetired, IntentSubscription, IntentSuperseded, Kind, Magnitude,
             ObservedOperation, ObservedOperations, ObserverFilter, ObserverRetraction,
             ObserverSubscription, OperationKind, Output, Privacy, RecordCount, RecordIdentifier,
-            Records, RemovalArchiveRecords, RemovalCandidateCollection,
+            Records, Referents, RemovalArchiveRecords, RemovalCandidateCollection,
             RemovalCandidatesCollection, RemovedIdentifiers, RetirementReceipt, SemaReceipt,
             SignalRejection, SkippedRemovalCandidates, StashHandle, StashedObservation, Statement,
             SubscriptionToken, SupersessionReceipt, ValidationError, VersionReport, VersionText,
@@ -48,7 +48,7 @@ pub struct StashTable {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClassificationPolicy {
-    fallback_category: Category,
+    fallback_domain: Domain,
     fallback_kind: Kind,
     fallback_magnitude: Magnitude,
     fallback_privacy: Magnitude,
@@ -145,6 +145,7 @@ impl OperationKind {
             Input::ChangeCertainty(_) => Self::ChangeCertainty,
             Input::BumpImportance(_) => Self::BumpImportance,
             Input::ChangeRecord(_) => Self::ChangeRecord,
+            Input::RegisterReferent(_) => Self::RegisterReferent,
             Input::LookupStash(_) => Self::LookupStash,
             Input::CollectRemovalCandidates(_) => Self::CollectRemovalCandidates,
             Input::Tap(_) => Self::Tap,
@@ -229,7 +230,7 @@ pub struct Nexus {
 impl Default for ClassificationPolicy {
     fn default() -> Self {
         Self {
-            fallback_category: Category::Meaning,
+            fallback_domain: Domain::Information(crate::schema::signal::Information::Documentation),
             fallback_kind: Kind::Clarification,
             fallback_magnitude: Magnitude::Minimum,
             fallback_privacy: Magnitude::Zero,
@@ -240,12 +241,13 @@ impl Default for ClassificationPolicy {
 impl ClassificationPolicy {
     pub fn classify(&self, statement: Statement) -> Entry {
         Entry {
-            categories: Categories::new(vec![self.fallback_category.clone()]),
+            domains: Domains::new(vec![self.fallback_domain.clone()]),
             kind: self.fallback_kind,
             description: Description::new(statement.into_payload().into_payload()),
             certainty: Certainty::new(self.fallback_magnitude),
             importance: Importance::new(Magnitude::Minimum),
             privacy: Privacy::new(self.fallback_privacy),
+            referents: Referents::new(Vec::new()),
         }
     }
 }
@@ -260,6 +262,9 @@ impl CommandSemaWrite {
             }
             Self::BumpImportance(change) => SemaWriteInput::bump_importance(change.into_payload()),
             Self::ChangeRecord(change) => SemaWriteInput::change_record(change.into_payload()),
+            Self::RegisterReferent(register) => {
+                SemaWriteInput::register_referent(register.into_payload())
+            }
         }
     }
 }
@@ -754,6 +759,9 @@ impl Nexus {
             Input::ChangeRecord(change) => NexusAction::command_sema_write(
                 CommandSemaWrite::change_record(change.into_payload()),
             ),
+            Input::RegisterReferent(register) => NexusAction::command_sema_write(
+                CommandSemaWrite::register_referent(register.into_payload()),
+            ),
             Input::LookupStash(handle) => match self.stash_table.lookup(handle.payload()) {
                 Some((records, database_marker)) => NexusAction::reply_to_signal(
                     Output::records_observed(crate::schema::signal::ObservedRecords {
@@ -803,6 +811,9 @@ impl Nexus {
             }
             SemaWriteOutput::RecordChanged(receipt) => {
                 NexusAction::reply_to_signal(Output::record_changed(receipt.into_payload()))
+            }
+            SemaWriteOutput::ReferentRegistered(receipt) => {
+                NexusAction::reply_to_signal(Output::referent_registered(receipt.into_payload()))
             }
             SemaWriteOutput::Missed(report) => {
                 NexusAction::reply_to_signal(Output::error(report.into_payload()))

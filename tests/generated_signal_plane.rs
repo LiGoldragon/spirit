@@ -3,8 +3,8 @@ use signal_frame::{
     SubscriptionTokenInner,
 };
 use spirit::schema::signal::{
-    Categories, CategoryMatch, Certainty, CertaintyChange, CertaintyChangeReceipt, DatabaseMarker,
-    Description, Entry, Input, InputRoute, IntentEvent, IntentRecorded, Kind, Magnitude,
+    Certainty, CertaintyChange, CertaintyChangeReceipt, DatabaseMarker, Description, DomainMatch,
+    Domains, Entry, Input, InputRoute, IntentEvent, IntentRecorded, Kind, Magnitude,
     MessageIdentifier, MessageRoot, OriginRoute, Output, OutputRoute, Privacy, Record,
     RecordChange, RecordChangeReceipt, RecordIdentifier, RecordSelection, Rejected, SemaReceipt,
     SignalFrameError, SignalRejection, Statement, StatementText, ValidationError, VersionReport,
@@ -21,12 +21,13 @@ fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
 #[test]
 fn generated_input_surface_owns_route_header_and_rkyv_frame() {
     let input = Input::record(Entry {
-        categories: Categories::from_strings(vec![String::from("schema")]),
+        domains: Domains::from_strings(vec![String::from("schema")]),
         kind: Kind::Constraint,
         description: Description::new("schema creates the signal plane"),
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
+        referents: spirit::schema::signal::Referents::new(Vec::new()),
     });
 
     assert_eq!(input.route(), InputRoute::Record);
@@ -91,13 +92,11 @@ fn generated_state_input_surface_owns_route_header_and_rkyv_frame() {
 #[test]
 fn generated_public_private_record_shortcut_roots_own_route_header_and_rkyv_frame() {
     let public_input = Input::public_records(RecordSelection {
-        category_match: CategoryMatch::full(Categories::from_strings(vec![String::from("schema")])),
+        domain_match: DomainMatch::full(Domains::from_strings(vec![String::from("schema")])),
         kind: Some(Kind::Decision),
     });
     let private_input = Input::private_records(RecordSelection {
-        category_match: CategoryMatch::partial(Categories::from_strings(vec![String::from(
-            "schema",
-        )])),
+        domain_match: DomainMatch::partial(Domains::from_strings(vec![String::from("schema")])),
         kind: None,
     });
 
@@ -153,15 +152,13 @@ fn generated_certainty_changed_output_owns_route_header_and_rkyv_frame() {
 #[test]
 fn generated_record_change_surface_owns_route_header_and_rkyv_frame() {
     let replacement = Entry {
-        categories: Categories::from_strings(vec![
-            String::from("schema"),
-            String::from("mutation"),
-        ]),
+        domains: Domains::from_strings(vec![String::from("schema"), String::from("mutation")]),
         kind: Kind::Correction,
         description: Description::new("record mutation is a schema-visible operation"),
         certainty: Magnitude::High.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
+        referents: spirit::schema::signal::Referents::new(Vec::new()),
     };
     let input = Input::change_record(RecordChange {
         record_identifier: RecordIdentifier::new("003g"),
@@ -197,12 +194,13 @@ fn generated_record_changed_output_owns_route_header_and_rkyv_frame() {
 fn generated_streaming_surface_owns_subscription_event_frames() {
     let event = IntentEvent::intent_recorded(IntentRecorded {
         entry: Entry {
-            categories: Categories::from_strings(vec![String::from("stream")]),
+            domains: Domains::from_strings(vec![String::from("stream")]),
             kind: Kind::Decision,
             description: Description::new("schema emits streaming frames"),
             certainty: Magnitude::High.into(),
             importance: Magnitude::Minimum.into(),
             privacy: Privacy::new(Magnitude::Zero),
+            referents: spirit::schema::signal::Referents::new(Vec::new()),
         },
         sema_receipt: SemaReceipt {
             record_identifier: RecordIdentifier::new("003g"),
@@ -294,65 +292,63 @@ fn generated_change_certainty_round_trips_the_canonical_shape() {
 #[cfg(feature = "nota-text")]
 #[test]
 fn generated_change_record_round_trips_the_canonical_shape() {
-    let input = "(ChangeRecord (003g ([Meaning] Correction replacement High Minimum Zero)))"
-        .parse::<Input>()
-        .expect("parse change record input");
+    let input =
+        "(ChangeRecord (003g ([(Craft Schema)] Correction replacement High Minimum Zero [])))"
+            .parse::<Input>()
+            .expect("parse change record input");
 
     assert_eq!(
         input,
         Input::change_record(RecordChange {
             record_identifier: RecordIdentifier::new("003g"),
             entry: Entry {
-                categories: Categories::from_strings(vec![String::from("schema mutation")]),
+                domains: Domains::from_strings(vec![String::from("schema mutation")]),
                 kind: Kind::Correction,
                 description: Description::new("replacement"),
                 certainty: Magnitude::High.into(),
                 importance: Magnitude::Minimum.into(),
                 privacy: Privacy::new(Magnitude::Zero),
+                referents: spirit::schema::signal::Referents::new(Vec::new()),
             },
         })
     );
     assert_eq!(
         input.to_string(),
-        "(ChangeRecord (003g ([Meaning] Correction replacement High Minimum Zero)))"
+        "(ChangeRecord (003g ([(Craft Schema)] Correction replacement High Minimum Zero [])))"
     );
 }
 
 #[cfg(feature = "nota-text")]
 #[test]
 fn generated_public_private_record_shortcuts_round_trip_nota() {
-    let public_input = "(PublicRecords ((Full [Meaning]) (Some Decision)))"
+    let public_input = "(PublicRecords ((Full [(Craft Schema)]) (Some Decision)))"
         .parse::<Input>()
         .expect("parse public records input");
-    let private_input = "(PrivateRecords ((Partial [Meaning]) None))"
+    let private_input = "(PrivateRecords ((Partial [(Craft Schema)]) None))"
         .parse::<Input>()
         .expect("parse private records input");
 
     assert_eq!(
         public_input,
         Input::public_records(RecordSelection {
-            category_match: CategoryMatch::full(Categories::from_strings(vec![String::from(
-                "schema"
-            )])),
+            domain_match: DomainMatch::full(Domains::from_strings(vec![String::from("schema")])),
             kind: Some(Kind::Decision),
         })
     );
     assert_eq!(
         private_input,
         Input::private_records(RecordSelection {
-            category_match: CategoryMatch::partial(Categories::from_strings(vec![String::from(
-                "schema"
-            )])),
+            domain_match: DomainMatch::partial(Domains::from_strings(vec![String::from("schema")])),
             kind: None,
         })
     );
     assert_eq!(
         public_input.to_string(),
-        "(PublicRecords ((Full [Meaning]) (Some Decision)))"
+        "(PublicRecords ((Full [(Craft Schema)]) (Some Decision)))"
     );
     assert_eq!(
         private_input.to_string(),
-        "(PrivateRecords ((Partial [Meaning]) None))"
+        "(PrivateRecords ((Partial [(Craft Schema)]) None))"
     );
 }
 
@@ -361,18 +357,19 @@ fn generated_public_private_record_shortcuts_round_trip_nota() {
 fn generated_record_input_renders_bracket_bearing_strings_losslessly() {
     let description = String::from("text contains [brackets] and the pipe close marker |]");
     let input = Input::record(Entry {
-        categories: Categories::from_strings(vec![String::from("schema replay")]),
+        domains: Domains::from_strings(vec![String::from("schema replay")]),
         kind: Kind::Correction,
         description: Description::new(description.clone()),
         certainty: Magnitude::High.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
+        referents: spirit::schema::signal::Referents::new(Vec::new()),
     });
     let rendered = input.to_string();
 
     assert_eq!(
         rendered,
-        "(Record ([Meaning] Correction [|text contains [brackets] and the pipe close marker \\|]|] High Minimum Zero))"
+        "(Record ([(Craft Schema)] Correction [|text contains [brackets] and the pipe close marker \\|]|] High Minimum Zero []))"
     );
     let reparsed = rendered
         .parse::<Input>()
@@ -383,13 +380,13 @@ fn generated_record_input_renders_bracket_bearing_strings_losslessly() {
 #[test]
 fn generated_rejection_output_is_a_signal_schema_variant() {
     let output = Output::rejected(SignalRejection {
-        validation_error: ValidationError::EmptyCategory,
+        validation_error: ValidationError::EmptyDomain,
         database_marker: marker(0, 0),
     });
 
     assert_eq!(output.route(), OutputRoute::Rejected);
     #[cfg(feature = "nota-text")]
-    assert_eq!(output.to_string(), "(Rejected (EmptyCategory (0 0)))");
+    assert_eq!(output.to_string(), "(Rejected (EmptyDomain (0 0)))");
 
     let frame = output.encode_signal_frame().expect("encode frame");
     let (route, decoded) = Output::decode_signal_frame(&frame).expect("decode frame");
@@ -401,12 +398,13 @@ fn generated_rejection_output_is_a_signal_schema_variant() {
 #[test]
 fn bare_schema_bindings_are_explicit_payload_wrappers() {
     let record: Record = Entry {
-        categories: Categories::from_strings(vec![String::from("schema")]),
+        domains: Domains::from_strings(vec![String::from("schema")]),
         kind: Kind::Constraint,
         description: Description::new("alias bindings carry direct payloads"),
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
+        referents: spirit::schema::signal::Referents::new(Vec::new()),
     }
     .into();
     let input = Input::Record(record);
@@ -421,7 +419,7 @@ fn bare_schema_bindings_are_explicit_payload_wrappers() {
     }
 
     let rejected: Rejected = SignalRejection {
-        validation_error: ValidationError::EmptyCategory,
+        validation_error: ValidationError::EmptyDomain,
         database_marker: marker(0, 0),
     }
     .into();
@@ -430,7 +428,7 @@ fn bare_schema_bindings_are_explicit_payload_wrappers() {
         Output::Rejected(rejection) => {
             assert_eq!(
                 rejection.payload().validation_error,
-                ValidationError::EmptyCategory
+                ValidationError::EmptyDomain
             );
             assert_eq!(rejection.payload().database_marker, marker(0, 0));
         }
@@ -458,12 +456,13 @@ fn generated_validation_error_round_trips_through_nota() {
 #[test]
 fn generated_signal_surface_rejects_unknown_header_before_body_decode() {
     let mut frame = Input::record(Entry {
-        categories: Categories::from_strings(vec![String::from("schema")]),
+        domains: Domains::from_strings(vec![String::from("schema")]),
         kind: Kind::Constraint,
         description: Description::new("schema rejects unknown routes"),
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
+        referents: spirit::schema::signal::Referents::new(Vec::new()),
     })
     .encode_signal_frame()
     .expect("encode frame");
@@ -483,12 +482,13 @@ fn generated_signal_surface_rejects_unknown_header_before_body_decode() {
 #[test]
 fn generated_signal_surface_emits_mail_sent_event() {
     let input = Input::record(Entry {
-        categories: Categories::from_strings(vec![String::from("schema")]),
+        domains: Domains::from_strings(vec![String::from("schema")]),
         kind: Kind::Constraint,
         description: Description::new("schema emits mail events"),
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
+        referents: spirit::schema::signal::Referents::new(Vec::new()),
     });
 
     let message = input.with_origin_route(OriginRoute::new(91));

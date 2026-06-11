@@ -19,25 +19,27 @@ use crate::schema::{
         WriteOutput as SemaWriteOutput,
     },
     signal::{
-        CategoryMatch, Certainty, CertaintyChange, CertaintyChangeReceipt, CertaintySelection,
-        Clarification, ClarificationReceipt, CountedRecords, DatabaseMarker, Description, Entry,
+        Certainty, CertaintyChange, CertaintyChangeReceipt, CertaintySelection, Clarification,
+        ClarificationReceipt, CountedRecords, DatabaseMarker, Description, DomainMatch, Entry,
         ErrorMessage, ErrorReport, Explanation, FoundRecord, GuardianRejection,
         GuardianRejectionReason, Importance, ImportanceBump, ImportanceBumpReceipt,
         ImportanceSelection, Keyword, KeywordMatch, Keywords, Magnitude, ObservedRecord,
         ObservedRecords, Privacy, PrivacySelection, Query, RecordChange, RecordChangeReceipt,
-        RecordCount, RecordIdentifier, RecordSet, RemovalArchiveRecord, RemovalArchiveRecords,
-        RemovalCandidateCollection, RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifier,
-        RemovedIdentifiers, Retirement, RetirementReceipt, SearchText, SemaReceipt,
-        SkippedRemovalCandidate, SkippedRemovalCandidates, Supersession, SupersessionReceipt,
-        TextMatch,
+        RecordCount, RecordIdentifier, RecordSet, Referent, ReferentRegistration,
+        ReferentRegistrationReceipt, ReferentSelection, Referents, RemovalArchiveRecord,
+        RemovalArchiveRecords, RemovalCandidateCollection, RemovalCandidatesCollection,
+        RemoveReceipt, RemovedIdentifier, RemovedIdentifiers, Retirement, RetirementReceipt,
+        SearchText, SemaReceipt, SkippedRemovalCandidate, SkippedRemovalCandidates, Supersession,
+        SupersessionReceipt, TextMatch,
     },
 };
 
 #[cfg(feature = "testing-trace")]
 use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
 
-const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(6);
+const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(7);
 const ENTRIES_TABLE: TableName = TableName::new("records");
+const REFERENTS_TABLE: TableName = TableName::new("referents");
 const RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH: usize = 4;
 const RECORD_IDENTIFIER_MAXIMUM_CODE_LENGTH: usize = 7;
 const RECORD_IDENTIFIER_CODE_RADIX: u64 = 36;
@@ -55,6 +57,7 @@ const RANDOM_IDENTIFIER_ATTEMPTS_PER_LENGTH: usize = 128;
 pub struct Store {
     database: SemaDatabase,
     entries: TableReference<StoredRecord>,
+    referents: TableReference<StoredReferent>,
     path: PathBuf,
     archive_target: ArchiveDatabaseTarget,
     #[cfg(feature = "testing-trace")]
@@ -65,6 +68,12 @@ pub struct Store {
 struct StoredRecord {
     record_identifier: String,
     entry: Entry,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+struct StoredReferent {
+    referent: Referent,
+    aliases: Referents,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -177,6 +186,15 @@ impl SemaEngine for Store {
                     database_marker: self.database_marker(),
                 }),
             },
+            SemaWriteInput::RegisterReferent(register) => {
+                match self.register_referent(register.into_payload()) {
+                    Ok(receipt) => SemaWriteOutput::referent_registered(receipt),
+                    Err(error) => SemaWriteOutput::missed(ErrorReport {
+                        error_message: ErrorMessage::new(error.to_string()),
+                        database_marker: self.database_marker(),
+                    }),
+                }
+            }
         };
         output.with_origin_route(origin_route)
     }
@@ -245,9 +263,11 @@ impl Store {
         let mut database =
             SemaDatabase::open(EngineOpen::new(path.clone(), SPIRIT_SCHEMA_VERSION))?;
         let entries = database.register_table(TableDescriptor::new(ENTRIES_TABLE))?;
+        let referents = database.register_table(TableDescriptor::new(REFERENTS_TABLE))?;
         Ok(Self {
             database,
             entries,
+            referents,
             path,
             archive_target: ArchiveDatabaseTarget::Default,
             #[cfg(feature = "testing-trace")]
@@ -329,9 +349,10 @@ impl Store {
     /// (opened on demand at the configured target — never the live database),
     /// then retracts the original from the live log. A record that fails to
     /// archive is left in the live log and reported as a
-    /// [`SkippedRemovalCandidate`] with [`RemovalCandidateSkipReason::ArchiveFailed`];
-    /// a record that vanishes between the match and the retraction is reported
-    /// with [`RemovalCandidateSkipReason::RecordAlreadyRemoved`]. The reply
+    /// [`SkippedRemovalCandidate`] with
+    /// `RemovalCandidateSkipReason::ArchiveFailed`; a record that vanishes
+    /// between the match and the retraction is reported with
+    /// `RemovalCandidateSkipReason::RecordAlreadyRemoved`. The reply
     /// carries the archived records, the removed identifiers, the skipped
     /// candidates, and the live database's post-removal marker.
     pub fn collect_removal_candidates(
@@ -398,11 +419,32 @@ impl Store {
         record_identifier: String,
         entry: Entry,
     ) -> Result<String, StoreError> {
+        let entry = self.canonicalized_entry(entry)?;
         self.database.assert(Assertion::new(
             self.entries,
             StoredRecord::new(record_identifier.clone(), entry),
         ))?;
         Ok(record_identifier)
+    }
+
+    fn register_referent(
+        &self,
+        registration: ReferentRegistration,
+    ) -> Result<ReferentRegistrationReceipt, StoreError> {
+        let mut record = StoredReferent::new(registration.referent, registration.aliases);
+        self.reject_conflicting_referent_names(&record)?;
+        if let Some(existing) = self.referent_by_key(record.referent.payload())? {
+            record = existing.with_aliases_merged(record.aliases);
+            self.database
+                .mutate(Mutation::new(self.referents, record.clone()))?;
+        } else {
+            self.database
+                .assert(Assertion::new(self.referents, record.clone()))?;
+        }
+        Ok(ReferentRegistrationReceipt {
+            referent: record.referent,
+            database_marker: self.database_marker(),
+        })
     }
 
     fn record(&self, entry: Entry) -> Result<String, StoreError> {
@@ -449,10 +491,11 @@ impl Store {
     }
 
     fn observe(&self, query: &Query) -> Result<Vec<ObservedRecord>, StoreError> {
+        let query = self.canonicalized_query(query.clone())?;
         let mut records = self
             .records()?
             .into_iter()
-            .filter(|record| record.entry.matches(query))
+            .filter(|record| record.entry.matches(&query))
             .collect::<Vec<_>>();
         records.sort_by_key(|record| {
             std::cmp::Reverse((
@@ -468,9 +511,10 @@ impl Store {
 
     pub fn guardian_records_for(&self, proposed: &Entry) -> Result<RecordSet, StoreError> {
         self.observe(&Query {
-            category_match: CategoryMatch::partial(proposed.categories.clone()),
+            domain_match: DomainMatch::partial(proposed.domains.clone()),
             keyword_match: KeywordMatch::Any,
             text_match: TextMatch::Any,
+            referent_selection: ReferentSelection::Any,
             kind: None,
             privacy_selection: PrivacySelection::Any,
             certainty_selection: CertaintySelection::default_observation_certainty(),
@@ -482,7 +526,7 @@ impl Store {
     fn duplicate_record(&self, proposed: &Entry) -> Result<Option<StoredRecord>, StoreError> {
         Ok(self.records()?.into_iter().find(|record| {
             record.entry.kind == proposed.kind
-                && record.entry.categories == proposed.categories
+                && record.entry.domains == proposed.domains
                 && record
                     .entry
                     .description
@@ -591,9 +635,10 @@ impl Store {
         {
             return Ok(None);
         }
+        let entry = self.canonicalized_entry(change.entry)?;
         self.database.mutate(Mutation::new(
             self.entries,
-            StoredRecord::new(identifier_text, change.entry),
+            StoredRecord::new(identifier_text, entry),
         ))?;
         Ok(Some(RecordChangeReceipt {
             record_identifier,
@@ -680,13 +725,15 @@ impl Store {
     }
 
     /// A content-addressed digest of committed state: blake3 over each
-    /// record's `(identifier, archived bytes)`, folded with the commit
+    /// record's `(identifier, archived bytes)` and registered referent,
+    /// folded with the commit
     /// sequence, reduced to the schema's `Integer` digest width. An empty
     /// store (no committed records) digests to zero, so a marker taken
     /// before any write reads `(0, 0)`.
     fn state_digest(&self) -> Result<u64, StoreError> {
         let records = self.records()?;
-        if records.is_empty() {
+        let referents = self.referents()?;
+        if records.is_empty() && referents.is_empty() {
             return Ok(0);
         }
         let commit_sequence = self.commit_sequence()?;
@@ -696,6 +743,12 @@ impl Store {
             let archive = rkyv::to_bytes::<rkyv::rancor::Error>(&record)
                 .map_err(|_| StoreError::ArchiveEncode)?;
             hasher.update(record.record_identifier.as_bytes());
+            hasher.update(&archive);
+        }
+        for referent in referents {
+            let archive = rkyv::to_bytes::<rkyv::rancor::Error>(&referent)
+                .map_err(|_| StoreError::ArchiveEncode)?;
+            hasher.update(referent.referent.payload().as_bytes());
             hasher.update(&archive);
         }
         let digest = hasher.finalize();
@@ -710,6 +763,86 @@ impl Store {
             .match_records(QueryPlan::all(self.entries))?
             .records()
             .to_vec())
+    }
+
+    fn referents(&self) -> Result<Vec<StoredReferent>, StoreError> {
+        Ok(self
+            .database
+            .match_records(QueryPlan::all(self.referents))?
+            .records()
+            .to_vec())
+    }
+
+    fn referent_by_key(&self, referent: &str) -> Result<Option<StoredReferent>, StoreError> {
+        Ok(self
+            .database
+            .match_records(QueryPlan::key(self.referents, RecordKey::new(referent)))?
+            .records()
+            .iter()
+            .next()
+            .cloned())
+    }
+
+    fn reject_conflicting_referent_names(
+        &self,
+        candidate: &StoredReferent,
+    ) -> Result<(), StoreError> {
+        for existing in self.referents()? {
+            if existing.referent == candidate.referent {
+                continue;
+            }
+            if existing.has_any_name(candidate) {
+                return Err(StoreError::ReferentNameConflict(
+                    candidate.referent.payload().clone(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn canonicalized_entry(&self, mut entry: Entry) -> Result<Entry, StoreError> {
+        entry.referents = self.canonicalized_referents(entry.referents)?;
+        Ok(entry)
+    }
+
+    fn canonicalized_query(&self, mut query: Query) -> Result<Query, StoreError> {
+        query.referent_selection =
+            self.canonicalized_referent_selection(query.referent_selection)?;
+        Ok(query)
+    }
+
+    fn canonicalized_referent_selection(
+        &self,
+        selection: ReferentSelection,
+    ) -> Result<ReferentSelection, StoreError> {
+        match selection {
+            ReferentSelection::Any => Ok(ReferentSelection::Any),
+            ReferentSelection::AnyReferent(referents) => Ok(ReferentSelection::any_referent(
+                self.canonicalized_referents(referents.into_payload())?,
+            )),
+            ReferentSelection::AllReferents(referents) => Ok(ReferentSelection::all_referents(
+                self.canonicalized_referents(referents.into_payload())?,
+            )),
+        }
+    }
+
+    fn canonicalized_referents(&self, referents: Referents) -> Result<Referents, StoreError> {
+        let mut canonical = Vec::new();
+        for referent in referents.into_payload() {
+            canonical.push(
+                self.canonical_referent(&referent)?
+                    .ok_or_else(|| StoreError::UnregisteredReferent(referent.payload().clone()))?,
+            );
+        }
+        Ok(Referents::new(canonical))
+    }
+
+    fn canonical_referent(&self, referent: &Referent) -> Result<Option<Referent>, StoreError> {
+        Ok(self
+            .referents()?
+            .into_iter()
+            .find(|registered| registered.matches(referent))
+            .map(|registered| registered.referent))
     }
 
     fn next_record_identifier(&self) -> Result<String, StoreError> {
@@ -740,6 +873,42 @@ impl StoredRecord {
 impl EngineRecord for StoredRecord {
     fn record_key(&self) -> RecordKey {
         RecordKey::new(self.record_identifier.clone())
+    }
+}
+
+impl StoredReferent {
+    fn new(referent: Referent, aliases: Referents) -> Self {
+        Self { referent, aliases }
+    }
+
+    fn with_aliases_merged(mut self, aliases: Referents) -> Self {
+        let mut merged = self.aliases.into_payload();
+        for alias in aliases.into_payload() {
+            if alias != self.referent && !merged.contains(&alias) {
+                merged.push(alias);
+            }
+        }
+        self.aliases = Referents::new(merged);
+        self
+    }
+
+    fn matches(&self, referent: &Referent) -> bool {
+        &self.referent == referent || self.aliases.payload().contains(referent)
+    }
+
+    fn has_any_name(&self, other: &StoredReferent) -> bool {
+        self.matches(&other.referent)
+            || other
+                .aliases
+                .payload()
+                .iter()
+                .any(|alias| self.matches(alias))
+    }
+}
+
+impl EngineRecord for StoredReferent {
+    fn record_key(&self) -> RecordKey {
+        RecordKey::new(self.referent.payload().clone())
     }
 }
 
@@ -880,6 +1049,12 @@ pub enum StoreError {
     #[error("failed to mint record identifier: {0}")]
     IdentifierMint(String),
 
+    #[error("unregistered referent: {0}")]
+    UnregisteredReferent(String),
+
+    #[error("referent name already registered under another canonical referent: {0}")]
+    ReferentNameConflict(String),
+
     #[error("duplicate record vanished during guardian proposal handling: {0}")]
     DuplicateRecordVanished(String),
 }
@@ -962,13 +1137,32 @@ impl Keywords {
 
 impl Query {
     pub fn matches(&self, entry: &Entry) -> bool {
-        self.category_match.matches(&entry.categories)
+        self.domain_match.matches(&entry.domains)
             && self.keyword_match.matches(&entry.description)
             && self.text_match.matches(&entry.description)
+            && self.referent_selection.matches(&entry.referents)
             && self.kind.as_ref().is_none_or(|kind| &entry.kind == kind)
             && self.privacy_selection.matches(&entry.privacy)
             && self.certainty_selection.matches(&entry.certainty)
             && self.importance_selection.matches(&entry.importance)
+    }
+}
+
+impl ReferentSelection {
+    pub fn matches(&self, entry_referents: &Referents) -> bool {
+        match self {
+            Self::Any => true,
+            Self::AnyReferent(expected) => expected
+                .payload()
+                .payload()
+                .iter()
+                .any(|referent| entry_referents.payload().contains(referent)),
+            Self::AllReferents(expected) => expected
+                .payload()
+                .payload()
+                .iter()
+                .all(|referent| entry_referents.payload().contains(referent)),
+        }
     }
 }
 

@@ -6,7 +6,7 @@ use triad_runtime::{FrameBody, LengthPrefixedCodec};
 #[test]
 fn transport_rejects_length_prefixed_raw_nota_text() {
     let nota =
-        b"(Record ([[socket-negative]] Decision [text must not be daemon wire] Maximum Minimum Zero))";
+        b"(Record ([(Technology Intelligence)] Decision [text must not be daemon wire] Maximum Minimum Zero []))";
     let bytes = LengthPrefixedCodec::default()
         .encode_body(&FrameBody::new(nota.to_vec()))
         .expect("length-prefixed frame");
@@ -34,7 +34,7 @@ fn transport_rejects_length_prefixed_garbage_bytes() {
 #[test]
 fn generated_input_decoder_rejects_raw_nota_text_directly() {
     let nota =
-        b"(Record ([[socket-negative]] Decision [text must not be signal frame] Maximum Minimum Zero))";
+        b"(Record ([(Technology Intelligence)] Decision [text must not be signal frame] Maximum Minimum Zero []))";
 
     assert!(
         Input::decode_signal_frame(nota).is_err(),

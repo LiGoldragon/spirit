@@ -4,7 +4,7 @@ use spirit::{
         nexus::NexusObjectName,
         sema::SemaObjectName,
         signal::{
-            Categories, CategoryMatch, CertaintySelection, DatabaseMarker, Description, Entry,
+            CertaintySelection, DatabaseMarker, Description, DomainMatch, Domains, Entry,
             ImportanceSelection, Input, Kind, Magnitude, Output, Privacy, PrivacySelection, Query,
             SignalObjectName, SignalRejection, ValidationError,
         },
@@ -32,12 +32,13 @@ impl SemaFile {
 
 fn entry(description: &str) -> Entry {
     Entry {
-        categories: Categories::from_strings(vec![String::from("trace")]),
+        domains: Domains::from_strings(vec![String::from("trace")]),
         kind: Kind::Decision,
         description: Description::new(description),
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
+        referents: spirit::schema::signal::Referents::new(Vec::new()),
     }
 }
 
@@ -48,15 +49,16 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
     let mut engine = sema.engine_with_trace(trace_log.clone());
 
     let recorded = engine.handle(Input::record(entry("trace witness")));
-    let record_marker = match recorded.root() {
-        Output::RecordAccepted(receipt) => receipt.database_marker.clone(),
+    match recorded.root() {
+        Output::RecordAccepted(receipt) => assert!(!receipt.payload().payload().is_empty()),
         other => panic!("expected RecordAccepted, got {other:?}"),
     };
 
     let observed = engine.handle(Input::observe(Query {
-        category_match: CategoryMatch::full(Categories::from_strings(vec![String::from("trace")])),
+        domain_match: DomainMatch::full(Domains::from_strings(vec![String::from("trace")])),
         keyword_match: spirit::schema::signal::KeywordMatch::Any,
         text_match: spirit::schema::signal::TextMatch::Any,
+        referent_selection: spirit::schema::signal::ReferentSelection::Any,
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
@@ -67,7 +69,10 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
     // full record set. The trace below witnesses the recursive Nexus loop:
     // each NexusEntered/NexusDecided pair is one decision step. Observe needs
     // three steps: command SEMA read, command stash effect, reply to Signal.
-    assert!(matches!(observed.root(), Output::RecordsStashed(_)));
+    let record_marker = match observed.root() {
+        Output::RecordsStashed(stash) => stash.payload().database_marker.clone(),
+        other => panic!("expected RecordsStashed, got {other:?}"),
+    };
 
     assert_activation_names(
         &trace_log.events(),
@@ -200,7 +205,7 @@ fn testing_trace_records_signal_rejection_without_nexus_or_sema_activations() {
     let mut engine = sema.engine_with_trace(trace_log.clone());
 
     let mut invalid_entry = entry("invalid trace witness");
-    invalid_entry.categories = Categories::from_strings(vec![]);
+    invalid_entry.domains = Domains::from_strings(vec![]);
 
     let output = engine.handle(Input::record(invalid_entry));
 
@@ -208,7 +213,7 @@ fn testing_trace_records_signal_rejection_without_nexus_or_sema_activations() {
     assert_eq!(
         output.root(),
         &Output::rejected(SignalRejection {
-            validation_error: ValidationError::EmptyCategory,
+            validation_error: ValidationError::EmptyDomain,
             database_marker: DatabaseMarker {
                 commit_sequence: 0.into(),
                 state_digest: 0.into(),

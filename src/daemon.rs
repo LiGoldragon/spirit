@@ -191,6 +191,7 @@ impl ComponentDaemon for SpiritDaemon {
             | Input::ChangeCertainty(_)
             | Input::BumpImportance(_)
             | Input::ChangeRecord(_)
+            | Input::RegisterReferent(_)
             | Input::LookupStash(_)
             | Input::CollectRemovalCandidates(_)
             | Input::Tap(_)

@@ -79,7 +79,7 @@ fn signal_schema_input_uses_exported_object_variant_names() {
 
     // The active production Input enum body — compact exported objects.
     witness.must_contain(
-        "[State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version]",
+        "[State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version]",
         "4",
     );
     witness.must_contain("State Statement", "4");
@@ -97,6 +97,7 @@ fn signal_schema_input_uses_exported_object_variant_names() {
     witness.must_contain("ChangeCertainty CertaintyChange", "4");
     witness.must_contain("BumpImportance ImportanceBump", "4");
     witness.must_contain("ChangeRecord RecordChange", "4");
+    witness.must_contain("RegisterReferent ReferentRegistration", "4");
     witness.must_contain("LookupStash StashHandle", "4");
     witness.must_contain("SubscribeIntent Query", "4");
     witness.must_contain("Version", "4");
@@ -119,7 +120,7 @@ fn signal_schema_output_uses_exported_object_variant_names() {
 
     // The active production Output enum body.
     witness.must_contain(
-        "[RecordAccepted Proposed Clarified Superseded Retired GuardianRejected RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged ImportanceBumped RecordChanged RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted VersionReported (Event IntentEvent) Error Rejected]",
+        "[RecordAccepted Proposed Clarified Superseded Retired GuardianRejected RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged ImportanceBumped RecordChanged ReferentRegistered RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted VersionReported (Event IntentEvent) Error Rejected]",
         "4",
     );
     witness.must_contain("RecordAccepted RecordIdentifier", "4");
@@ -135,6 +136,7 @@ fn signal_schema_output_uses_exported_object_variant_names() {
     witness.must_contain("CertaintyChanged CertaintyChangeReceipt", "4");
     witness.must_contain("ImportanceBumped ImportanceBumpReceipt", "4");
     witness.must_contain("RecordChanged RecordChangeReceipt", "4");
+    witness.must_contain("ReferentRegistered ReferentRegistrationReceipt", "4");
     witness.must_contain("SubscriptionStarted IntentSubscription", "4");
     witness.must_contain("VersionReported VersionReport", "4");
     witness.must_contain("VersionReport { VersionText * DatabaseMarker * }", "4");
@@ -156,7 +158,7 @@ fn signal_schema_unit_variant_enum_uses_bare_pascal_case_atoms() {
     // ValidationError carries bare unit variants per designer 480; keyword
     // and text-query validation add typed read-predicate failures.
     witness.must_contain(
-        "ValidationError [EmptyCategory EmptyDescription EmptyQueryCategory EmptyKeyword EmptySearchText StashHandleNotFound]",
+        "ValidationError [EmptyDomain EmptyDescription EmptyQueryDomain EmptyKeyword EmptySearchText EmptyQueryReferent StashHandleNotFound]",
         "4",
     );
 
@@ -201,7 +203,7 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     sema_witness.must_round_trip_as_schema_source();
 
     signal_witness.must_contain(
-        "[State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version]",
+        "[State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version]",
         "4",
     );
     signal_witness.must_contain("State Statement", "4");
@@ -213,20 +215,21 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     signal_witness.must_contain("ChangeCertainty CertaintyChange", "4");
     signal_witness.must_contain("BumpImportance ImportanceBump", "4");
     signal_witness.must_contain("ChangeRecord RecordChange", "4");
+    signal_witness.must_contain("RegisterReferent ReferentRegistration", "4");
     signal_witness.must_contain("SubscribeIntent Query", "4");
     signal_witness.must_contain("Version", "4");
     sema_witness.must_contain("[WriteInput ReadInput]", "4");
     sema_witness.must_contain(
-        "WriteInput [(Record) (Remove) (ChangeCertainty) (BumpImportance) (ChangeRecord)]",
+        "WriteInput [(Record) (Remove) (ChangeCertainty) (BumpImportance) (ChangeRecord) (RegisterReferent)]",
         "4",
     );
     sema_witness.must_contain("Recorded SemaReceipt", "4");
     sema_witness.must_contain(
-        "WriteOutput [(Recorded) (Removed) (CertaintyChanged) (ImportanceBumped) (RecordChanged) (Missed)]",
+        "WriteOutput [(Recorded) (Removed) (CertaintyChanged) (ImportanceBumped) (RecordChanged) (ReferentRegistered) (Missed)]",
         "4",
     );
     nexus_witness.must_contain(
-        "CommandSemaWrite [(Record) (Remove) (ChangeCertainty) (BumpImportance) (ChangeRecord)]",
+        "CommandSemaWrite [(Record) (Remove) (ChangeCertainty) (BumpImportance) (ChangeRecord) (RegisterReferent)]",
         "4",
     );
     nexus_witness.must_contain("NexusAction [(CommandSemaWrite)", "4");
@@ -285,6 +288,7 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     signal_witness.must_contain("Remove(Remove)", "4");
     signal_witness.must_contain("ChangeCertainty(ChangeCertainty)", "4");
     signal_witness.must_contain("BumpImportance(BumpImportance)", "4");
+    signal_witness.must_contain("RegisterReferent(RegisterReferent)", "4");
     signal_witness.must_contain("Version", "4");
 
     // The schema-emitted Output enum carries exported wrapper nouns.
@@ -300,6 +304,7 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     signal_witness.must_contain("RecordRemoved(RecordRemoved)", "4");
     signal_witness.must_contain("CertaintyChanged(CertaintyChanged)", "4");
     signal_witness.must_contain("ImportanceBumped(ImportanceBumped)", "4");
+    signal_witness.must_contain("ReferentRegistered(ReferentRegistered)", "4");
     signal_witness.must_contain("VersionReported(VersionReported)", "4");
     signal_witness.must_contain("Error(Error)", "4");
     signal_witness.must_contain("Rejected(Rejected)", "4");
@@ -308,6 +313,7 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     nexus_witness.must_contain("pub enum CommandSemaWrite {", "4");
     nexus_witness.must_contain("ChangeCertainty(ChangeCertainty)", "4");
     nexus_witness.must_contain("BumpImportance(BumpImportance)", "4");
+    nexus_witness.must_contain("RegisterReferent(RegisterReferent)", "4");
     nexus_witness.must_contain("pub enum NexusEffectCommand {", "4");
     nexus_witness.must_contain("pub struct ClassifyState(Statement);", "4");
     nexus_witness.must_contain("ClassifyState(ClassifyState)", "4");
@@ -320,6 +326,7 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     sema_witness.must_contain("Remove(Remove)", "4");
     sema_witness.must_contain("ChangeCertainty(ChangeCertainty)", "4");
     sema_witness.must_contain("BumpImportance(BumpImportance)", "4");
+    sema_witness.must_contain("RegisterReferent(RegisterReferent)", "4");
     sema_witness.must_contain("pub enum ReadInput {", "4");
     sema_witness.must_contain("Observe(Observe)", "4");
     sema_witness.must_contain("Lookup(Lookup)", "4");
@@ -327,12 +334,17 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     sema_witness.must_contain("pub struct Recorded(SemaReceipt);", "4");
     sema_witness.must_contain("pub struct CertaintyChanged(CertaintyChangeReceipt);", "4");
     sema_witness.must_contain("pub struct ImportanceBumped(ImportanceBumpReceipt);", "4");
+    sema_witness.must_contain(
+        "pub struct ReferentRegistered(ReferentRegistrationReceipt);",
+        "4",
+    );
 
     // The schema-emitted unit enums carry bare variants.
     signal_witness.must_contain("pub enum ValidationError", "4");
-    signal_witness.must_contain("EmptyCategory", "4");
+    signal_witness.must_contain("EmptyDomain", "4");
     signal_witness.must_contain("EmptyDescription", "4");
-    signal_witness.must_contain("EmptyQueryCategory", "4");
+    signal_witness.must_contain("EmptyQueryDomain", "4");
     signal_witness.must_contain("EmptyKeyword", "4");
     signal_witness.must_contain("EmptySearchText", "4");
+    signal_witness.must_contain("EmptyQueryReferent", "4");
 }

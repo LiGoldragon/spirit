@@ -28,6 +28,7 @@
   CertaintyChange spirit:signal:CertaintyChange
   ImportanceBump spirit:signal:ImportanceBump
   RecordChange spirit:signal:RecordChange
+  ReferentRegistration spirit:signal:ReferentRegistration
   RemovalCandidateCollection spirit:signal:RemovalCandidateCollection
   RemovalCandidatesCollection spirit:signal:RemovalCandidatesCollection
   ObserverFilter spirit:signal:ObserverFilter
@@ -42,12 +43,13 @@
   SemaReadCompleted SemaReadOutput
   EffectCompleted NexusEffectResult
 
-  CommandSemaWrite [(Record) (Remove) (ChangeCertainty) (BumpImportance) (ChangeRecord)]
+  CommandSemaWrite [(Record) (Remove) (ChangeCertainty) (BumpImportance) (ChangeRecord) (RegisterReferent)]
   Record Entry
   Remove RecordIdentifier
   ChangeCertainty CertaintyChange
   BumpImportance ImportanceBump
   ChangeRecord RecordChange
+  RegisterReferent ReferentRegistration
   CommandSemaRead SemaReadInput
   ReplyToSignal SignalOutput
   CommandEffect NexusEffectCommand

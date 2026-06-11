@@ -130,6 +130,11 @@ pub struct ChangeRecord(RecordChange);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct RegisterReferent(ReferentRegistration);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct LookupStash(StashHandle);
 
 #[rustfmt::skip]
@@ -225,6 +230,11 @@ pub struct RecordChanged(RecordChangeReceipt);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ReferentRegistered(ReferentRegistrationReceipt);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct RemovalCandidatesCollected(RemovalCandidatesCollection);
 
 #[rustfmt::skip]
@@ -264,25 +274,691 @@ pub struct Rejected(SignalRejection);
     PartialEq,
     Eq,
 )]
-pub enum Category {
-    Being,
-    Knowing,
-    Meaning,
-    Making,
-    Relating,
-    Governing,
-    Caring,
-    Sustaining,
-    Dwelling,
-    Moving,
-    Valuing,
-    Expressing,
+pub enum Health {
+    Body,
+    Mind,
+    Nutrition,
+    Exercise,
+    Sleep,
+    Medicine,
+    Disease,
+    Medication,
+    Therapy,
+    Reproduction,
+    Sexuality,
+    Aging,
+    Disability,
+    Addiction,
+    Dentistry,
+    Senses,
+    Pain,
+    Prevention,
+    FirstAid,
+    Rehabilitation,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Food {
+    Cooking,
+    Diet,
+    Recipe,
+    Baking,
+    Preservation,
+    Fermentation,
+    Beverage,
+    Entertaining,
+    Foraging,
+    Fasting,
+    Dining,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Home {
+    Housing,
+    Maintenance,
+    Renovation,
+    Furnishing,
+    Cleaning,
+    Tidying,
+    Relocation,
+    Realty,
+    Property,
+    Utilities,
+    Locksmithing,
+    Appliances,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Finance {
+    Budgeting,
+    Saving,
+    Spending,
+    Debt,
+    Credit,
+    Investing,
+    Retirement,
+    Tax,
+    Insurance,
+    Income,
+    Banking,
+    Charity,
+    Planning,
+    Accounting,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Work {
+    Career,
+    JobSearch,
+    Workplace,
+    Vocation,
+    Leadership,
+    Entrepreneurship,
+    Employment,
+    Compensation,
+    Scheduling,
+    Unemployment,
+    Freelancing,
+    Teamwork,
+    Productivity,
+    Project,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Craft {
+    Programming,
+    Architecture,
+    Schema,
+    Infrastructure,
+    Versioning,
+    Testing,
+    Electronics,
+    Construction,
+    Carpentry,
+    Metalworking,
+    Sewing,
+    Manufacturing,
+    Repair,
+    Engineering,
+    Tooling,
+    Handicraft,
+    Invention,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Knowledge {
+    Mathematics,
+    Logic,
+    Physics,
+    Chemistry,
+    Biology,
+    Astronomy,
+    Geology,
+    Computing,
+    Physiology,
+    Statistics,
+    Research,
+    History,
+    Linguistics,
+    Philosophy,
+    Economics,
+    Cognition,
+    Taxonomy,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Education {
+    Studying,
+    Teaching,
+    Schooling,
+    Skill,
+    Reading,
+    Memorization,
+    Pedagogy,
+    Mentoring,
+    Autodidacticism,
+    Credential,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Language {
+    Writing,
+    Rhetoric,
+    Translation,
+    Grammar,
+    Conversation,
+    Correspondence,
+    Listening,
+    Oratory,
+    Editing,
+    Terminology,
+    Notation,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Art {
+    Fiction,
+    Poetry,
+    Music,
+    Painting,
+    Photography,
+    Film,
+    Theater,
+    Dance,
+    Design,
+    Sculpture,
+    Creativity,
+    Storytelling,
+    Publishing,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Kinship {
+    Friendship,
+    Romance,
+    Marriage,
+    Family,
+    Parenting,
+    Relatives,
+    Reconciliation,
+    Boundaries,
+    Intimacy,
+    Rapport,
+    Caregiving,
+    Grief,
+    Belonging,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Selfhood {
+    Growth,
+    Introspection,
+    Discipline,
+    Emotion,
+    Virtue,
+    Motivation,
+    Confidence,
+    Identity,
+    Purpose,
+    Decision,
+    Temperament,
+    Wellbeing,
+    Composure,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Spirituality {
+    Worship,
+    Prayer,
+    Meditation,
+    Ritual,
+    Faith,
+    Theology,
+    Contemplation,
+    Pilgrimage,
+    Scripture,
+    Ethics,
+    Mortality,
+    Transcendence,
+    Asceticism,
+    Wisdom,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Governance {
+    Politics,
+    Government,
+    Administration,
+    Citizenship,
+    Elections,
+    Activism,
+    Policy,
+    Diplomacy,
+    Movements,
+    Organizing,
+    Services,
+    Naturalization,
+    War,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Law {
+    Rights,
+    Contract,
+    Title,
+    Crime,
+    Litigation,
+    Compliance,
+    Custody,
+    Liability,
+    Procedure,
+    Justice,
+    Policing,
+    Arbitration,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Community {
+    Neighborliness,
+    Volunteering,
+    Solidarity,
+    Membership,
+    Gatherings,
+    Reputation,
+    Service,
+    Hospitality,
+    Institutions,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Nature {
+    Agriculture,
+    Gardening,
+    Horticulture,
+    Husbandry,
+    Pets,
+    Forestry,
+    Fishing,
+    Hunting,
+    Conservation,
+    Weather,
+    Wilderness,
+    Sustainability,
+    Resources,
+    Stewardship,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Travel {
+    Itinerary,
+    Destination,
+    Transportation,
+    Driving,
+    Navigation,
+    Commuting,
+    Logistics,
+    Migration,
+    Tourism,
+    Transit,
+    Cycling,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Commerce {
+    Selling,
+    Buying,
+    Marketing,
+    Retail,
+    Sourcing,
+    Trade,
+    Support,
+    Pricing,
+    Negotiation,
+    Assets,
+    Market,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Leisure {
+    Recreation,
+    Sport,
+    Games,
+    Hobby,
+    Entertainment,
+    Collecting,
+    Outdoors,
+    Play,
+    Relaxation,
+    Celebration,
+    Fandom,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Appearance {
+    Clothing,
+    Grooming,
+    Style,
+    Cosmetics,
+    Etiquette,
+    Comportment,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Safety {
+    Protection,
+    Preparedness,
+    Risk,
+    Cybersecurity,
+    Privacy,
+    Disaster,
+    Military,
+    Deterrence,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Information {
+    Curation,
+    RecordKeeping,
+    Documentation,
+    News,
+    Broadcasting,
+    Archives,
+    Database,
+    Retrieval,
+    Classification,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum Technology {
+    Energy,
+    Power,
+    Automation,
+    Robotics,
+    Intelligence,
+    Networking,
+    Materials,
+    Machinery,
+    Instrumentation,
+    Aerospace,
 }
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Categories(Vec<Category>);
+pub enum Domain {
+    Health(Health),
+    Food(Food),
+    Home(Home),
+    Finance(Finance),
+    Work(Work),
+    Craft(Craft),
+    Knowledge(Knowledge),
+    Education(Education),
+    Language(Language),
+    Art(Art),
+    Kinship(Kinship),
+    Selfhood(Selfhood),
+    Spirituality(Spirituality),
+    Governance(Governance),
+    Law(Law),
+    Community(Community),
+    Nature(Nature),
+    Travel(Travel),
+    Commerce(Commerce),
+    Leisure(Leisure),
+    Appearance(Appearance),
+    Safety(Safety),
+    Information(Information),
+    Technology(Technology),
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Domains(Vec<Domain>);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Referent(String);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Referents(Vec<Referent>);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -457,6 +1133,22 @@ pub struct IntentSubscription {
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ReferentRegistration {
+    pub referent: Referent,
+    pub aliases: Referents,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ReferentRegistrationReceipt {
+    pub referent: Referent,
+    pub database_marker: DatabaseMarker,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct VersionReported(VersionReport);
 
 #[rustfmt::skip]
@@ -524,11 +1216,12 @@ pub enum IntentEvent {
     Eq,
 )]
 pub enum ValidationError {
-    EmptyCategory,
+    EmptyDomain,
     EmptyDescription,
-    EmptyQueryCategory,
+    EmptyQueryDomain,
     EmptyKeyword,
     EmptySearchText,
+    EmptyQueryReferent,
     StashHandleNotFound,
 }
 
@@ -571,7 +1264,7 @@ pub struct Processed(ProcessedMail);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub enum CategoryMatch {
+pub enum DomainMatch {
     Any,
     Partial(Partial),
     Full(Full),
@@ -580,12 +1273,31 @@ pub enum CategoryMatch {
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Partial(Categories);
+pub struct Partial(Domains);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Full(Categories);
+pub struct Full(Domains);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum ReferentSelection {
+    Any,
+    AnyReferent(AnyReferent),
+    AllReferents(AllReferents),
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct AnyReferent(Referents);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct AllReferents(Referents);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -849,6 +1561,7 @@ pub enum OperationKind {
     ChangeCertainty,
     BumpImportance,
     ChangeRecord,
+    RegisterReferent,
     LookupStash,
     CollectRemovalCandidates,
     Tap,
@@ -871,12 +1584,13 @@ pub struct ObservedOperations(Vec<ObservedOperation>);
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Entry {
-    pub categories: Categories,
+    pub domains: Domains,
     pub kind: Kind,
     pub description: Description,
     pub certainty: Certainty,
     pub importance: Importance,
     pub privacy: Privacy,
+    pub referents: Referents,
 }
 
 #[rustfmt::skip]
@@ -1004,7 +1718,7 @@ pub enum GuardianRejectionReason {
     Compound,
     NonIntent,
     UnclearPrivacy,
-    UnclearCategory,
+    UnclearDomain,
     ClarifyTramples,
     ClarifyLosesMeaning,
     SupersedeTargetMissing,
@@ -1028,7 +1742,7 @@ pub struct GuardianRejection {
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct RecordSelection {
-    pub category_match: CategoryMatch,
+    pub domain_match: DomainMatch,
     pub kind: Option<Kind>,
 }
 
@@ -1036,9 +1750,10 @@ pub struct RecordSelection {
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Query {
-    pub category_match: CategoryMatch,
+    pub domain_match: DomainMatch,
     pub keyword_match: KeywordMatch,
     pub text_match: TextMatch,
+    pub referent_selection: ReferentSelection,
     pub kind: Option<Kind>,
     pub privacy_selection: PrivacySelection,
     pub certainty_selection: CertaintySelection,
@@ -1117,6 +1832,7 @@ pub enum Input {
     ChangeCertainty(ChangeCertainty),
     BumpImportance(BumpImportance),
     ChangeRecord(ChangeRecord),
+    RegisterReferent(RegisterReferent),
     LookupStash(LookupStash),
     CollectRemovalCandidates(CollectRemovalCandidates),
     Tap(Tap),
@@ -1143,6 +1859,7 @@ pub enum Output {
     CertaintyChanged(CertaintyChanged),
     ImportanceBumped(ImportanceBumped),
     RecordChanged(RecordChanged),
+    ReferentRegistered(ReferentRegistered),
     RemovalCandidatesCollected(RemovalCandidatesCollected),
     ObservationTapped(ObservationTapped),
     ObservationUntapped(ObservationUntapped),
@@ -1491,6 +2208,25 @@ impl ChangeRecord {
 #[rustfmt::skip]
 impl From<RecordChange> for ChangeRecord {
     fn from(payload: RecordChange) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl RegisterReferent {
+    pub fn new(payload: ReferentRegistration) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ReferentRegistration {
+        &self.0
+    }
+    pub fn into_payload(self) -> ReferentRegistration {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ReferentRegistration> for RegisterReferent {
+    fn from(payload: ReferentRegistration) -> Self {
         Self::new(payload)
     }
 }
@@ -1857,6 +2593,25 @@ impl From<RecordChangeReceipt> for RecordChanged {
 }
 
 #[rustfmt::skip]
+impl ReferentRegistered {
+    pub fn new(payload: ReferentRegistrationReceipt) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ReferentRegistrationReceipt {
+        &self.0
+    }
+    pub fn into_payload(self) -> ReferentRegistrationReceipt {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ReferentRegistrationReceipt> for ReferentRegistered {
+    fn from(payload: ReferentRegistrationReceipt) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl RemovalCandidatesCollected {
     pub fn new(payload: RemovalCandidatesCollection) -> Self {
         Self(payload)
@@ -1971,20 +2726,58 @@ impl From<SignalRejection> for Rejected {
 }
 
 #[rustfmt::skip]
-impl Categories {
-    pub fn new(payload: Vec<Category>) -> Self {
+impl Domains {
+    pub fn new(payload: Vec<Domain>) -> Self {
         Self(payload)
     }
-    pub fn payload(&self) -> &Vec<Category> {
+    pub fn payload(&self) -> &Vec<Domain> {
         &self.0
     }
-    pub fn into_payload(self) -> Vec<Category> {
+    pub fn into_payload(self) -> Vec<Domain> {
         self.0
     }
 }
 #[rustfmt::skip]
-impl From<Vec<Category>> for Categories {
-    fn from(payload: Vec<Category>) -> Self {
+impl From<Vec<Domain>> for Domains {
+    fn from(payload: Vec<Domain>) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Referent {
+    pub fn new(payload: impl Into<String>) -> Self {
+        Self(payload.into())
+    }
+    pub fn payload(&self) -> &String {
+        &self.0
+    }
+    pub fn into_payload(self) -> String {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<String> for Referent {
+    fn from(payload: String) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Referents {
+    pub fn new(payload: Vec<Referent>) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Vec<Referent> {
+        &self.0
+    }
+    pub fn into_payload(self) -> Vec<Referent> {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Vec<Referent>> for Referents {
+    fn from(payload: Vec<Referent>) -> Self {
         Self::new(payload)
     }
 }
@@ -2352,38 +3145,76 @@ impl From<ProcessedMail> for Processed {
 
 #[rustfmt::skip]
 impl Partial {
-    pub fn new(payload: Categories) -> Self {
+    pub fn new(payload: Domains) -> Self {
         Self(payload)
     }
-    pub fn payload(&self) -> &Categories {
+    pub fn payload(&self) -> &Domains {
         &self.0
     }
-    pub fn into_payload(self) -> Categories {
+    pub fn into_payload(self) -> Domains {
         self.0
     }
 }
 #[rustfmt::skip]
-impl From<Categories> for Partial {
-    fn from(payload: Categories) -> Self {
+impl From<Domains> for Partial {
+    fn from(payload: Domains) -> Self {
         Self::new(payload)
     }
 }
 
 #[rustfmt::skip]
 impl Full {
-    pub fn new(payload: Categories) -> Self {
+    pub fn new(payload: Domains) -> Self {
         Self(payload)
     }
-    pub fn payload(&self) -> &Categories {
+    pub fn payload(&self) -> &Domains {
         &self.0
     }
-    pub fn into_payload(self) -> Categories {
+    pub fn into_payload(self) -> Domains {
         self.0
     }
 }
 #[rustfmt::skip]
-impl From<Categories> for Full {
-    fn from(payload: Categories) -> Self {
+impl From<Domains> for Full {
+    fn from(payload: Domains) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl AnyReferent {
+    pub fn new(payload: Referents) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Referents {
+        &self.0
+    }
+    pub fn into_payload(self) -> Referents {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Referents> for AnyReferent {
+    fn from(payload: Referents) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl AllReferents {
+    pub fn new(payload: Referents) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Referents {
+        &self.0
+    }
+    pub fn into_payload(self) -> Referents {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Referents> for AllReferents {
+    fn from(payload: Referents) -> Self {
         Self::new(payload)
     }
 }
@@ -2959,6 +3790,82 @@ impl From<Vec<ObservedRecord>> for RecordSet {
 }
 
 #[rustfmt::skip]
+impl Domain {
+    pub fn health(payload: Health) -> Self {
+        Self::Health(payload)
+    }
+    pub fn food(payload: Food) -> Self {
+        Self::Food(payload)
+    }
+    pub fn home(payload: Home) -> Self {
+        Self::Home(payload)
+    }
+    pub fn finance(payload: Finance) -> Self {
+        Self::Finance(payload)
+    }
+    pub fn work(payload: Work) -> Self {
+        Self::Work(payload)
+    }
+    pub fn craft(payload: Craft) -> Self {
+        Self::Craft(payload)
+    }
+    pub fn knowledge(payload: Knowledge) -> Self {
+        Self::Knowledge(payload)
+    }
+    pub fn education(payload: Education) -> Self {
+        Self::Education(payload)
+    }
+    pub fn language(payload: Language) -> Self {
+        Self::Language(payload)
+    }
+    pub fn art(payload: Art) -> Self {
+        Self::Art(payload)
+    }
+    pub fn kinship(payload: Kinship) -> Self {
+        Self::Kinship(payload)
+    }
+    pub fn selfhood(payload: Selfhood) -> Self {
+        Self::Selfhood(payload)
+    }
+    pub fn spirituality(payload: Spirituality) -> Self {
+        Self::Spirituality(payload)
+    }
+    pub fn governance(payload: Governance) -> Self {
+        Self::Governance(payload)
+    }
+    pub fn law(payload: Law) -> Self {
+        Self::Law(payload)
+    }
+    pub fn community(payload: Community) -> Self {
+        Self::Community(payload)
+    }
+    pub fn nature(payload: Nature) -> Self {
+        Self::Nature(payload)
+    }
+    pub fn travel(payload: Travel) -> Self {
+        Self::Travel(payload)
+    }
+    pub fn commerce(payload: Commerce) -> Self {
+        Self::Commerce(payload)
+    }
+    pub fn leisure(payload: Leisure) -> Self {
+        Self::Leisure(payload)
+    }
+    pub fn appearance(payload: Appearance) -> Self {
+        Self::Appearance(payload)
+    }
+    pub fn safety(payload: Safety) -> Self {
+        Self::Safety(payload)
+    }
+    pub fn information(payload: Information) -> Self {
+        Self::Information(payload)
+    }
+    pub fn technology(payload: Technology) -> Self {
+        Self::Technology(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl IntentEvent {
     pub fn intent_recorded(payload: IntentRecorded) -> Self {
         Self::IntentRecorded(payload)
@@ -2985,12 +3892,22 @@ impl MailLedgerEvent {
 }
 
 #[rustfmt::skip]
-impl CategoryMatch {
-    pub fn partial(payload: Categories) -> Self {
+impl DomainMatch {
+    pub fn partial(payload: Domains) -> Self {
         Self::Partial(Partial::new(payload))
     }
-    pub fn full(payload: Categories) -> Self {
+    pub fn full(payload: Domains) -> Self {
         Self::Full(Full::new(payload))
+    }
+}
+
+#[rustfmt::skip]
+impl ReferentSelection {
+    pub fn any_referent(payload: Referents) -> Self {
+        Self::AnyReferent(AnyReferent::new(payload))
+    }
+    pub fn all_referents(payload: Referents) -> Self {
+        Self::AllReferents(AllReferents::new(payload))
     }
 }
 
@@ -3097,6 +4014,9 @@ impl Input {
     pub fn change_record(payload: RecordChange) -> Self {
         Self::ChangeRecord(ChangeRecord::new(payload))
     }
+    pub fn register_referent(payload: ReferentRegistration) -> Self {
+        Self::RegisterReferent(RegisterReferent::new(payload))
+    }
     pub fn lookup_stash(payload: StashHandle) -> Self {
         Self::LookupStash(LookupStash::new(payload))
     }
@@ -3158,6 +4078,9 @@ impl Output {
     pub fn record_changed(payload: RecordChangeReceipt) -> Self {
         Self::RecordChanged(RecordChanged::new(payload))
     }
+    pub fn referent_registered(payload: ReferentRegistrationReceipt) -> Self {
+        Self::ReferentRegistered(ReferentRegistered::new(payload))
+    }
     pub fn removal_candidates_collected(payload: RemovalCandidatesCollection) -> Self {
         Self::RemovalCandidatesCollected(RemovalCandidatesCollected::new(payload))
     }
@@ -3181,6 +4104,174 @@ impl Output {
     }
     pub fn rejected(payload: SignalRejection) -> Self {
         Self::Rejected(Rejected::new(payload))
+    }
+}
+
+#[rustfmt::skip]
+impl From<Health> for Domain {
+    fn from(payload: Health) -> Self {
+        Self::Health(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Food> for Domain {
+    fn from(payload: Food) -> Self {
+        Self::Food(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Home> for Domain {
+    fn from(payload: Home) -> Self {
+        Self::Home(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Finance> for Domain {
+    fn from(payload: Finance) -> Self {
+        Self::Finance(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Work> for Domain {
+    fn from(payload: Work) -> Self {
+        Self::Work(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Craft> for Domain {
+    fn from(payload: Craft) -> Self {
+        Self::Craft(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Knowledge> for Domain {
+    fn from(payload: Knowledge) -> Self {
+        Self::Knowledge(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Education> for Domain {
+    fn from(payload: Education) -> Self {
+        Self::Education(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Language> for Domain {
+    fn from(payload: Language) -> Self {
+        Self::Language(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Art> for Domain {
+    fn from(payload: Art) -> Self {
+        Self::Art(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Kinship> for Domain {
+    fn from(payload: Kinship) -> Self {
+        Self::Kinship(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Selfhood> for Domain {
+    fn from(payload: Selfhood) -> Self {
+        Self::Selfhood(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Spirituality> for Domain {
+    fn from(payload: Spirituality) -> Self {
+        Self::Spirituality(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Governance> for Domain {
+    fn from(payload: Governance) -> Self {
+        Self::Governance(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Law> for Domain {
+    fn from(payload: Law) -> Self {
+        Self::Law(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Community> for Domain {
+    fn from(payload: Community) -> Self {
+        Self::Community(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Nature> for Domain {
+    fn from(payload: Nature) -> Self {
+        Self::Nature(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Travel> for Domain {
+    fn from(payload: Travel) -> Self {
+        Self::Travel(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Commerce> for Domain {
+    fn from(payload: Commerce) -> Self {
+        Self::Commerce(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Leisure> for Domain {
+    fn from(payload: Leisure) -> Self {
+        Self::Leisure(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Appearance> for Domain {
+    fn from(payload: Appearance) -> Self {
+        Self::Appearance(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Safety> for Domain {
+    fn from(payload: Safety) -> Self {
+        Self::Safety(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Information> for Domain {
+    fn from(payload: Information) -> Self {
+        Self::Information(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Technology> for Domain {
+    fn from(payload: Technology) -> Self {
+        Self::Technology(payload)
     }
 }
 
@@ -3227,16 +4318,30 @@ impl From<Processed> for MailLedgerEvent {
 }
 
 #[rustfmt::skip]
-impl From<Partial> for CategoryMatch {
+impl From<Partial> for DomainMatch {
     fn from(payload: Partial) -> Self {
         Self::Partial(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<Full> for CategoryMatch {
+impl From<Full> for DomainMatch {
     fn from(payload: Full) -> Self {
         Self::Full(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<AnyReferent> for ReferentSelection {
+    fn from(payload: AnyReferent) -> Self {
+        Self::AnyReferent(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<AllReferents> for ReferentSelection {
+    fn from(payload: AllReferents) -> Self {
+        Self::AllReferents(payload)
     }
 }
 
@@ -3430,6 +4535,13 @@ impl From<ChangeRecord> for Input {
 }
 
 #[rustfmt::skip]
+impl From<RegisterReferent> for Input {
+    fn from(payload: RegisterReferent) -> Self {
+        Self::RegisterReferent(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl From<LookupStash> for Input {
     fn from(payload: LookupStash) -> Self {
         Self::LookupStash(payload)
@@ -3559,6 +4671,13 @@ impl From<ImportanceBumped> for Output {
 impl From<RecordChanged> for Output {
     fn from(payload: RecordChanged) -> Self {
         Self::RecordChanged(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<ReferentRegistered> for Output {
+    fn from(payload: ReferentRegistered) -> Self {
+        Self::ReferentRegistered(payload)
     }
 }
 
@@ -3851,6 +4970,17 @@ impl ChangeRecord {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
+impl RegisterReferent {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
 impl LookupStash {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -4060,6 +5190,17 @@ impl RecordChanged {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
+impl ReferentRegistered {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
 impl RemovalCandidatesCollected {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -4126,7 +5267,7 @@ impl Rejected {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
-impl Category {
+impl Health {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -4137,7 +5278,293 @@ impl Category {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
-impl Categories {
+impl Food {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Home {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Finance {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Work {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Craft {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Knowledge {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Education {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Language {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Art {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Kinship {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Selfhood {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Spirituality {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Governance {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Law {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Community {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Nature {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Travel {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Commerce {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Leisure {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Appearance {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Safety {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Information {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Technology {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Domain {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Domains {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Referent {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Referents {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -4445,6 +5872,28 @@ impl IntentSubscription {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
+impl ReferentRegistration {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl ReferentRegistrationReceipt {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
 impl VersionReported {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -4588,7 +6037,7 @@ impl Processed {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
-impl CategoryMatch {
+impl DomainMatch {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -4611,6 +6060,39 @@ impl Partial {
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
 impl Full {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl ReferentSelection {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl AnyReferent {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl AllReferents {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -5350,12 +6832,13 @@ pub mod short_header {
     pub const INPUT_CHANGE_CERTAINTY: u64 = 0x000C000000000000;
     pub const INPUT_BUMP_IMPORTANCE: u64 = 0x000D000000000000;
     pub const INPUT_CHANGE_RECORD: u64 = 0x000E000000000000;
-    pub const INPUT_LOOKUP_STASH: u64 = 0x000F000000000000;
-    pub const INPUT_COLLECT_REMOVAL_CANDIDATES: u64 = 0x0010000000000000;
-    pub const INPUT_TAP: u64 = 0x0011000000000000;
-    pub const INPUT_UNTAP: u64 = 0x0012000000000000;
-    pub const INPUT_SUBSCRIBE_INTENT: u64 = 0x0013000000000000;
-    pub const INPUT_VERSION: u64 = 0x0014000000000000;
+    pub const INPUT_REGISTER_REFERENT: u64 = 0x000F000000000000;
+    pub const INPUT_LOOKUP_STASH: u64 = 0x0010000000000000;
+    pub const INPUT_COLLECT_REMOVAL_CANDIDATES: u64 = 0x0011000000000000;
+    pub const INPUT_TAP: u64 = 0x0012000000000000;
+    pub const INPUT_UNTAP: u64 = 0x0013000000000000;
+    pub const INPUT_SUBSCRIBE_INTENT: u64 = 0x0014000000000000;
+    pub const INPUT_VERSION: u64 = 0x0015000000000000;
     pub const OUTPUT_RECORD_ACCEPTED: u64 = 0x0100000000000000;
     pub const OUTPUT_PROPOSED: u64 = 0x0101000000000000;
     pub const OUTPUT_CLARIFIED: u64 = 0x0102000000000000;
@@ -5370,14 +6853,15 @@ pub mod short_header {
     pub const OUTPUT_CERTAINTY_CHANGED: u64 = 0x010B000000000000;
     pub const OUTPUT_IMPORTANCE_BUMPED: u64 = 0x010C000000000000;
     pub const OUTPUT_RECORD_CHANGED: u64 = 0x010D000000000000;
-    pub const OUTPUT_REMOVAL_CANDIDATES_COLLECTED: u64 = 0x010E000000000000;
-    pub const OUTPUT_OBSERVATION_TAPPED: u64 = 0x010F000000000000;
-    pub const OUTPUT_OBSERVATION_UNTAPPED: u64 = 0x0110000000000000;
-    pub const OUTPUT_SUBSCRIPTION_STARTED: u64 = 0x0111000000000000;
-    pub const OUTPUT_VERSION_REPORTED: u64 = 0x0112000000000000;
-    pub const OUTPUT_EVENT: u64 = 0x0113000000000000;
-    pub const OUTPUT_ERROR: u64 = 0x0114000000000000;
-    pub const OUTPUT_REJECTED: u64 = 0x0115000000000000;
+    pub const OUTPUT_REFERENT_REGISTERED: u64 = 0x010E000000000000;
+    pub const OUTPUT_REMOVAL_CANDIDATES_COLLECTED: u64 = 0x010F000000000000;
+    pub const OUTPUT_OBSERVATION_TAPPED: u64 = 0x0110000000000000;
+    pub const OUTPUT_OBSERVATION_UNTAPPED: u64 = 0x0111000000000000;
+    pub const OUTPUT_SUBSCRIPTION_STARTED: u64 = 0x0112000000000000;
+    pub const OUTPUT_VERSION_REPORTED: u64 = 0x0113000000000000;
+    pub const OUTPUT_EVENT: u64 = 0x0114000000000000;
+    pub const OUTPUT_ERROR: u64 = 0x0115000000000000;
+    pub const OUTPUT_REJECTED: u64 = 0x0116000000000000;
 }
 
 #[rustfmt::skip]
@@ -5443,6 +6927,7 @@ pub enum InputRoute {
     ChangeCertainty,
     BumpImportance,
     ChangeRecord,
+    RegisterReferent,
     LookupStash,
     CollectRemovalCandidates,
     Tap,
@@ -5478,6 +6963,7 @@ pub enum OutputRoute {
     CertaintyChanged,
     ImportanceBumped,
     RecordChanged,
+    ReferentRegistered,
     RemovalCandidatesCollected,
     ObservationTapped,
     ObservationUntapped,
@@ -5507,6 +6993,7 @@ impl Input {
             Self::ChangeCertainty(_) => InputRoute::ChangeCertainty,
             Self::BumpImportance(_) => InputRoute::BumpImportance,
             Self::ChangeRecord(_) => InputRoute::ChangeRecord,
+            Self::RegisterReferent(_) => InputRoute::RegisterReferent,
             Self::LookupStash(_) => InputRoute::LookupStash,
             Self::CollectRemovalCandidates(_) => InputRoute::CollectRemovalCandidates,
             Self::Tap(_) => InputRoute::Tap,
@@ -5532,6 +7019,7 @@ impl Input {
             Self::ChangeCertainty(_) => short_header::INPUT_CHANGE_CERTAINTY,
             Self::BumpImportance(_) => short_header::INPUT_BUMP_IMPORTANCE,
             Self::ChangeRecord(_) => short_header::INPUT_CHANGE_RECORD,
+            Self::RegisterReferent(_) => short_header::INPUT_REGISTER_REFERENT,
             Self::LookupStash(_) => short_header::INPUT_LOOKUP_STASH,
             Self::CollectRemovalCandidates(_) => {
                 short_header::INPUT_COLLECT_REMOVAL_CANDIDATES
@@ -5559,6 +7047,7 @@ impl Input {
             short_header::INPUT_CHANGE_CERTAINTY => Ok(InputRoute::ChangeCertainty),
             short_header::INPUT_BUMP_IMPORTANCE => Ok(InputRoute::BumpImportance),
             short_header::INPUT_CHANGE_RECORD => Ok(InputRoute::ChangeRecord),
+            short_header::INPUT_REGISTER_REFERENT => Ok(InputRoute::RegisterReferent),
             short_header::INPUT_LOOKUP_STASH => Ok(InputRoute::LookupStash),
             short_header::INPUT_COLLECT_REMOVAL_CANDIDATES => {
                 Ok(InputRoute::CollectRemovalCandidates)
@@ -5631,6 +7120,7 @@ impl Output {
             Self::CertaintyChanged(_) => OutputRoute::CertaintyChanged,
             Self::ImportanceBumped(_) => OutputRoute::ImportanceBumped,
             Self::RecordChanged(_) => OutputRoute::RecordChanged,
+            Self::ReferentRegistered(_) => OutputRoute::ReferentRegistered,
             Self::RemovalCandidatesCollected(_) => {
                 OutputRoute::RemovalCandidatesCollected
             }
@@ -5659,6 +7149,7 @@ impl Output {
             Self::CertaintyChanged(_) => short_header::OUTPUT_CERTAINTY_CHANGED,
             Self::ImportanceBumped(_) => short_header::OUTPUT_IMPORTANCE_BUMPED,
             Self::RecordChanged(_) => short_header::OUTPUT_RECORD_CHANGED,
+            Self::ReferentRegistered(_) => short_header::OUTPUT_REFERENT_REGISTERED,
             Self::RemovalCandidatesCollected(_) => {
                 short_header::OUTPUT_REMOVAL_CANDIDATES_COLLECTED
             }
@@ -5689,6 +7180,9 @@ impl Output {
             short_header::OUTPUT_CERTAINTY_CHANGED => Ok(OutputRoute::CertaintyChanged),
             short_header::OUTPUT_IMPORTANCE_BUMPED => Ok(OutputRoute::ImportanceBumped),
             short_header::OUTPUT_RECORD_CHANGED => Ok(OutputRoute::RecordChanged),
+            short_header::OUTPUT_REFERENT_REGISTERED => {
+                Ok(OutputRoute::ReferentRegistered)
+            }
             short_header::OUTPUT_REMOVAL_CANDIDATES_COLLECTED => {
                 Ok(OutputRoute::RemovalCandidatesCollected)
             }
@@ -5769,6 +7263,7 @@ impl signal_frame::SignalOperationHeads for Input {
         "ChangeCertainty",
         "BumpImportance",
         "ChangeRecord",
+        "RegisterReferent",
         "LookupStash",
         "CollectRemovalCandidates",
         "Tap",
@@ -5885,6 +7380,7 @@ impl SignalObjectName {
                     InputRoute::ChangeCertainty => "SignalInputChangeCertainty",
                     InputRoute::BumpImportance => "SignalInputBumpImportance",
                     InputRoute::ChangeRecord => "SignalInputChangeRecord",
+                    InputRoute::RegisterReferent => "SignalInputRegisterReferent",
                     InputRoute::LookupStash => "SignalInputLookupStash",
                     InputRoute::CollectRemovalCandidates => {
                         "SignalInputCollectRemovalCandidates"
@@ -5911,6 +7407,7 @@ impl SignalObjectName {
                     OutputRoute::CertaintyChanged => "SignalOutputCertaintyChanged",
                     OutputRoute::ImportanceBumped => "SignalOutputImportanceBumped",
                     OutputRoute::RecordChanged => "SignalOutputRecordChanged",
+                    OutputRoute::ReferentRegistered => "SignalOutputReferentRegistered",
                     OutputRoute::RemovalCandidatesCollected => {
                         "SignalOutputRemovalCandidatesCollected"
                     }

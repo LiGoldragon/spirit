@@ -44,16 +44,16 @@ Call it from the CLI:
 
 ```sh
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Record ([Meaning] Constraint [schema creates the interface] Maximum Minimum 1 Zero))"
+  spirit "(Record ([(Craft Schema)] Constraint [schema creates the interface] Maximum Minimum Zero []))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Observe ((Full [Meaning]) (Some Constraint) (Exact Zero)))"
+  spirit "(Observe ((Full [(Craft Schema)]) Any Any Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Observe ((Full [Meaning]) (Some Constraint) (Exact Zero) (ExactCertainty Zero)))"
+  spirit "(Observe ((Full [(Craft Schema)]) Any Any Any (Some Constraint) (Exact Zero) (ExactCertainty Zero) Any))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Observe ((Full [Meaning]) (AllKeywords [schema]) (ContainsText interface) (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any Any))"
+  spirit "(Observe ((Full [(Craft Schema)]) (AllKeywords [schema]) (ContainsText interface) Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
   spirit "(Remove 1)"
@@ -65,21 +65,21 @@ SPIRIT_SOCKET=/tmp/spirit.sock \
 The CLI accepts NOTA. The daemon socket carries length-prefixed rkyv bytes
 with an 8-byte short header.
 
-Entries carry a vector of categories. Queries use generated `CategoryMatch` values:
-`(Partial [Meaning Making])` matches any requested category, while
-`(Full [Meaning Making])` requires every requested category. The query kind is
-optional: `(Some Decision)` filters by kind and `None` searches only by category.
-The full generated query carries category, keyword, text, kind, privacy,
-certainty, and importance predicates. `KeywordMatch` reads
+Entries carry a vector of domains. Queries use generated `DomainMatch` values:
+`(Partial [(Craft Schema) (Information Documentation)])` matches any requested
+domain, while `(Full [(Craft Schema) (Information Documentation)])` requires
+every requested domain. The query kind is optional: `(Some Decision)` filters
+by kind and `None` searches without a kind predicate. The full generated query
+carries domain, keyword, text, referent, kind, privacy, certainty, and
+importance predicates. `KeywordMatch` reads
 asterisk-marked description spans such as `*schema language*`; `TextMatch` is a
-case-insensitive full-text substring fallback. The CLI accepts the common
-three-field query shorthand and fills keyword/text with `Any`, certainty with
-`AtLeastCertainty Minimum`, and importance with `Any`, so ordinary `Observe`
-and `Count` hide zero-certainty removal candidates. Use the explicit four-field
-shorthand with `ExactCertainty Zero` when reviewing candidates, or the
-five-field shorthand to add an `ImportanceSelection`. Certainty and importance
-are separate stored axes: certainty names confidence/currentness, while
-importance names intrinsic significance and reaffirmation strength.
+case-insensitive full-text substring fallback. `ReferentSelection` filters by
+registered runtime referents; aliases are canonicalized through
+`RegisterReferent`. Ordinary `Observe` and `Count` should use
+`(AtLeastCertainty Minimum)` to hide zero-certainty removal candidates; use
+`(ExactCertainty Zero)` when reviewing candidates. Certainty and importance are
+separate stored axes: certainty names confidence/currentness, while importance
+names intrinsic significance and reaffirmation strength.
 
 ## Runtime triad
 

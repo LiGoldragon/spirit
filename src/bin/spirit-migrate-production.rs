@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf};
+use std::{fs, io::ErrorKind, path::PathBuf};
 
 use nota_next::{NotaDecodeError, NotaEncode, NotaSource};
 use spirit::{
@@ -73,20 +73,28 @@ impl ProductionMigrationInputSource {
 
 #[derive(Debug, Error)]
 enum ProductionMigrationCliError {
-    #[error(transparent)]
+    #[error("component argument error: {0}")]
     Argument(#[from] ArgumentError),
-    #[error("read NOTA file {}: {source}", path.display())]
+
+    #[error("failed to read NOTA file {}: {source}", path.display())]
     ReadNotaFile {
         path: PathBuf,
+        #[source]
         source: std::io::Error,
     },
-    #[error(
-        "signal-encoded migration requests are not implemented yet for {}",
-        path.display()
-    )]
+
+    #[error("signal file input is unsupported for production migration: {}", path.display())]
     UnsupportedSignalFile { path: PathBuf },
-    #[error(transparent)]
-    Decode(#[from] NotaDecodeError),
-    #[error(transparent)]
+
+    #[error("invalid production migration request NOTA: {0}")]
+    NotaDecode(#[from] NotaDecodeError),
+
+    #[error("migration failed: {0}")]
     Migration(#[from] ProductionMigrationError),
+}
+
+impl From<ProductionMigrationCliError> for std::io::Error {
+    fn from(error: ProductionMigrationCliError) -> Self {
+        std::io::Error::new(ErrorKind::Other, error)
+    }
 }

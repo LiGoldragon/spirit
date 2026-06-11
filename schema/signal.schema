@@ -1,6 +1,6 @@
 {}
-[State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version]
-[RecordAccepted Proposed Clarified Superseded Retired GuardianRejected RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged ImportanceBumped RecordChanged RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted VersionReported (Event IntentEvent) Error Rejected]
+[State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version]
+[RecordAccepted Proposed Clarified Superseded Retired GuardianRejected RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged ImportanceBumped RecordChanged ReferentRegistered RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted VersionReported (Event IntentEvent) Error Rejected]
 {
   SourcePath String
   LocalPath String
@@ -24,6 +24,7 @@
   ChangeCertainty CertaintyChange
   BumpImportance ImportanceBump
   ChangeRecord RecordChange
+  RegisterReferent ReferentRegistration
   LookupStash StashHandle
   CollectRemovalCandidates RemovalCandidateCollection
   Tap ObserverFilter
@@ -44,6 +45,7 @@
   CertaintyChanged CertaintyChangeReceipt
   ImportanceBumped ImportanceBumpReceipt
   RecordChanged RecordChangeReceipt
+  ReferentRegistered ReferentRegistrationReceipt
   RemovalCandidatesCollected RemovalCandidatesCollection
   ObservationTapped ObserverSubscription
   ObservationUntapped ObserverRetraction
@@ -51,8 +53,35 @@
   Error ErrorReport
   Rejected SignalRejection
 
-  Category [Being Knowing Meaning Making Relating Governing Caring Sustaining Dwelling Moving Valuing Expressing]
-  Categories (Vec Category)
+  Domain [
+    (Health [Body Mind Nutrition Exercise Sleep Medicine Disease Medication Therapy Reproduction Sexuality Aging Disability Addiction Dentistry Senses Pain Prevention FirstAid Rehabilitation])
+    (Food [Cooking Diet Recipe Baking Preservation Fermentation Beverage Entertaining Foraging Fasting Dining])
+    (Home [Housing Maintenance Renovation Furnishing Cleaning Tidying Relocation Realty Property Utilities Locksmithing Appliances])
+    (Finance [Budgeting Saving Spending Debt Credit Investing Retirement Tax Insurance Income Banking Charity Planning Accounting])
+    (Work [Career JobSearch Workplace Vocation Leadership Entrepreneurship Employment Compensation Scheduling Unemployment Freelancing Teamwork Productivity Project])
+    (Craft [Programming Architecture Schema Infrastructure Versioning Testing Electronics Construction Carpentry Metalworking Sewing Manufacturing Repair Engineering Tooling Handicraft Invention])
+    (Knowledge [Mathematics Logic Physics Chemistry Biology Astronomy Geology Computing Physiology Statistics Research History Linguistics Philosophy Economics Cognition Taxonomy])
+    (Education [Studying Teaching Schooling Skill Reading Memorization Pedagogy Mentoring Autodidacticism Credential])
+    (Language [Writing Rhetoric Translation Grammar Conversation Correspondence Listening Oratory Editing Terminology Notation])
+    (Art [Fiction Poetry Music Painting Photography Film Theater Dance Design Sculpture Creativity Storytelling Publishing])
+    (Kinship [Friendship Romance Marriage Family Parenting Relatives Reconciliation Boundaries Intimacy Rapport Caregiving Grief Belonging])
+    (Selfhood [Growth Introspection Discipline Emotion Virtue Motivation Confidence Identity Purpose Decision Temperament Wellbeing Composure])
+    (Spirituality [Worship Prayer Meditation Ritual Faith Theology Contemplation Pilgrimage Scripture Ethics Mortality Transcendence Asceticism Wisdom])
+    (Governance [Politics Government Administration Citizenship Elections Activism Policy Diplomacy Movements Organizing Services Naturalization War])
+    (Law [Rights Contract Title Crime Litigation Compliance Custody Liability Procedure Justice Policing Arbitration])
+    (Community [Neighborliness Volunteering Solidarity Membership Gatherings Reputation Service Hospitality Institutions])
+    (Nature [Agriculture Gardening Horticulture Husbandry Pets Forestry Fishing Hunting Conservation Weather Wilderness Sustainability Resources Stewardship])
+    (Travel [Itinerary Destination Transportation Driving Navigation Commuting Logistics Migration Tourism Transit Cycling])
+    (Commerce [Selling Buying Marketing Retail Sourcing Trade Support Pricing Negotiation Assets Market])
+    (Leisure [Recreation Sport Games Hobby Entertainment Collecting Outdoors Play Relaxation Celebration Fandom])
+    (Appearance [Clothing Grooming Style Cosmetics Etiquette Comportment])
+    (Safety [Protection Preparedness Risk Cybersecurity Privacy Disaster Military Deterrence])
+    (Information [Curation RecordKeeping Documentation News Broadcasting Archives Database Retrieval Classification])
+    (Technology [Energy Power Automation Robotics Intelligence Networking Materials Machinery Instrumentation Aerospace])
+  ]
+  Domains (Vec Domain)
+  Referent String
+  Referents (Vec Referent)
   Description String
   Keyword String
   Keywords (Vec Keyword)
@@ -81,6 +110,8 @@
   SignalRejection { ValidationError * DatabaseMarker * }
   StashedObservation { StashHandle * RecordCount * DatabaseMarker * }
   IntentSubscription { SubscriptionToken * DatabaseMarker * }
+  ReferentRegistration { Referent * aliases Referents }
+  ReferentRegistrationReceipt { Referent * DatabaseMarker * }
   VersionReported VersionReport
   VersionReport { VersionText * DatabaseMarker * }
   IntentRecorded { Entry * SemaReceipt * }
@@ -89,16 +120,19 @@
   IntentRetired { RecordIdentifier * DatabaseMarker * }
   IntentEvent [(IntentRecorded IntentRecorded belongs IntentEventStream) (IntentClarified IntentClarified belongs IntentEventStream) (IntentSuperseded IntentSuperseded belongs IntentEventStream) (IntentRetired IntentRetired belongs IntentEventStream)]
   IntentEventStream (Stream { token SubscriptionToken opened SubscriptionStarted event IntentEvent close SubscriptionToken })
-  ValidationError [EmptyCategory EmptyDescription EmptyQueryCategory EmptyKeyword EmptySearchText StashHandleNotFound]
+  ValidationError [EmptyDomain EmptyDescription EmptyQueryDomain EmptyKeyword EmptySearchText EmptyQueryReferent StashHandleNotFound]
   SentMail { MailIdentifier * OriginRoute * ShortHeader * }
   ProcessedMail { MailIdentifier * OriginRoute * DatabaseMarker * }
   MailLedgerEvent [(Sent) (Processed)]
   Sent SentMail
   Processed ProcessedMail
 
-  CategoryMatch [Any (Partial) (Full)]
-  Partial Categories
-  Full Categories
+  DomainMatch [Any (Partial) (Full)]
+  Partial Domains
+  Full Domains
+  ReferentSelection [Any (AnyReferent) (AllReferents)]
+  AnyReferent Referents
+  AllReferents Referents
   KeywordMatch [Any (AnyKeyword) (AllKeywords)]
   AnyKeyword Keywords
   AllKeywords Keywords
@@ -134,11 +168,11 @@
   ObserverFilter [All OperationsOnly EffectsOnly]
   ObserverSubscription { SubscriptionToken * ObserverFilter * ObservedOperations * DatabaseMarker * }
   ObserverRetraction { SubscriptionToken * ObservedOperations * DatabaseMarker * }
-  OperationKind [State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord LookupStash CollectRemovalCandidates Tap Untap SubscribeIntent Version]
+  OperationKind [State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap SubscribeIntent Version]
   ObservedOperation { OperationKind * }
   ObservedOperations (Vec ObservedOperation)
 
-  Entry { Categories * Kind * Description * Certainty * Importance * Privacy * }
+  Entry { Domains * Kind * Description * Certainty * Importance * Privacy * Referents * }
   Statement { StatementText * }
   CertaintyChange { RecordIdentifier * Certainty * }
   CertaintyChangeReceipt { RecordIdentifier * Certainty * DatabaseMarker * }
@@ -154,10 +188,10 @@
   RetirementReceipt { RecordIdentifier * DatabaseMarker * }
   RetiredIdentifier RecordIdentifier
   RetiredIdentifiers (Vec RetiredIdentifier)
-  GuardianRejectionReason [Duplicate Contradiction Compound NonIntent UnclearPrivacy UnclearCategory ClarifyTramples ClarifyLosesMeaning SupersedeTargetMissing RetrievalInsufficient HarnessUnavailable HarnessMalformed HarnessTimedOut]
+  GuardianRejectionReason [Duplicate Contradiction Compound NonIntent UnclearPrivacy UnclearDomain ClarifyTramples ClarifyLosesMeaning SupersedeTargetMissing RetrievalInsufficient HarnessUnavailable HarnessMalformed HarnessTimedOut]
   GuardianRejection { GuardianRejectionReason * RecordSet * Explanation * DatabaseMarker * }
-  RecordSelection { CategoryMatch * kind (Optional Kind) }
-  Query { CategoryMatch * keyword_match KeywordMatch text_match TextMatch kind (Optional Kind) privacy_selection PrivacySelection certainty_selection CertaintySelection importance_selection ImportanceSelection }
+  RecordSelection { DomainMatch * kind (Optional Kind) }
+  Query { DomainMatch * keyword_match KeywordMatch text_match TextMatch referent_selection ReferentSelection kind (Optional Kind) privacy_selection PrivacySelection certainty_selection CertaintySelection importance_selection ImportanceSelection }
   Records (Vec ObservedRecord)
   RecordSet (Vec ObservedRecord)
   Kind [Decision Principle Correction Clarification Constraint]

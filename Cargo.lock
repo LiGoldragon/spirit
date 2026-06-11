@@ -586,7 +586,7 @@ checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 [[package]]
 name = "schema-next"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#9a9b769bacd6f24517dce98d341ee63cbb332cf0"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#ccdf5487f62ceb33e9986a59da227f43d7deb42e"
 dependencies = [
  "nota-next",
  "rkyv",
@@ -595,7 +595,7 @@ dependencies = [
 [[package]]
 name = "schema-rust-next"
 version = "0.5.3"
-source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#b1c36e1ab61756d4f6afc9fafe7b9c9a3ab68611"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#b252e81e8f77394981e4b13c05c116c0e7bd2b19"
 dependencies = [
  "prettyplease",
  "proc-macro2",

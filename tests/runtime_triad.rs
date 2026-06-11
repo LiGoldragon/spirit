@@ -9,14 +9,15 @@ use spirit::{
             WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
         },
         signal::{
-            Categories, CategoryMatch, Certainty, CertaintyChange, CertaintySelection,
-            Clarification, DatabaseMarker, Description, Entry, ErrorMessage, ErrorReport,
+            Certainty, CertaintyChange, CertaintySelection, Clarification, DatabaseMarker,
+            Description, DomainMatch, Domains, Entry, ErrorMessage, ErrorReport,
             GuardianRejectionReason, ImportanceBump, ImportanceSelection, Input, Keyword,
             KeywordMatch, Keywords, Kind, Magnitude, MailLedgerEvent, MessageIdentifier,
             MessageSent, MessageSentHook, OriginRoute, Output, Privacy, PrivacySelection, Query,
-            RecordChange, RecordIdentifier, RecordSelection, RetiredIdentifier, RetiredIdentifiers,
-            Retirement, SearchText, SemaReceipt, SentMail, SignalEngine, SignalRejection,
-            StashHandle, Statement, StatementText, Supersession, TextMatch, ValidationError,
+            RecordChange, RecordIdentifier, RecordSelection, Referent, ReferentRegistration,
+            ReferentSelection, Referents, RetiredIdentifier, RetiredIdentifiers, Retirement,
+            SearchText, SemaReceipt, SentMail, SignalEngine, SignalRejection, StashHandle,
+            Statement, StatementText, Supersession, TextMatch, ValidationError,
         },
     },
 };
@@ -162,17 +163,18 @@ impl MessageSentHook for SentHookProbe {
 }
 
 fn entry(description: &str) -> Entry {
-    entry_with_categories(&["runtime-triad"], description)
+    entry_with_domains(&["runtime-triad"], description)
 }
 
-fn entry_with_categories(categories: &[&str], description: &str) -> Entry {
+fn entry_with_domains(domains: &[&str], description: &str) -> Entry {
     Entry {
-        categories: categories_from_slice(categories),
+        domains: domains_from_slice(domains),
         kind: Kind::Decision,
         description: Description::new(description),
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
+        referents: spirit::schema::signal::Referents::new(Vec::new()),
     }
 }
 
@@ -190,17 +192,19 @@ fn entry_with_importance(description: &str, importance: Magnitude) -> Entry {
     }
 }
 
+fn entry_with_referents(description: &str, referents: &[&str]) -> Entry {
+    Entry {
+        referents: referents_from_slice(referents),
+        ..entry(description)
+    }
+}
+
 fn record_identifier(code: &str) -> RecordIdentifier {
     RecordIdentifier::new(code)
 }
 
-fn categories_from_slice(categories: &[&str]) -> Categories {
-    Categories::from_strings(
-        categories
-            .iter()
-            .map(|category| String::from(*category))
-            .collect(),
-    )
+fn domains_from_slice(domains: &[&str]) -> Domains {
+    Domains::from_strings(domains.iter().map(|domain| String::from(*domain)).collect())
 }
 
 fn keywords_from_slice(keywords: &[&str]) -> Keywords {
@@ -208,6 +212,15 @@ fn keywords_from_slice(keywords: &[&str]) -> Keywords {
         keywords
             .iter()
             .map(|keyword| Keyword::new(String::from(*keyword)))
+            .collect(),
+    )
+}
+
+fn referents_from_slice(referents: &[&str]) -> Referents {
+    Referents::new(
+        referents
+            .iter()
+            .map(|referent| Referent::new(*referent))
             .collect(),
     )
 }
@@ -232,11 +245,12 @@ fn query() -> Query {
     full_query(&["runtime-triad"], Some(Kind::Decision))
 }
 
-fn full_query(categories: &[&str], kind: Option<Kind>) -> Query {
+fn full_query(domains: &[&str], kind: Option<Kind>) -> Query {
     Query {
-        category_match: CategoryMatch::full(categories_from_slice(categories)),
+        domain_match: DomainMatch::full(domains_from_slice(domains)),
         keyword_match: KeywordMatch::Any,
         text_match: TextMatch::Any,
+        referent_selection: spirit::schema::signal::ReferentSelection::Any,
         kind,
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
@@ -244,11 +258,12 @@ fn full_query(categories: &[&str], kind: Option<Kind>) -> Query {
     }
 }
 
-fn partial_query(categories: &[&str], kind: Option<Kind>) -> Query {
+fn partial_query(domains: &[&str], kind: Option<Kind>) -> Query {
     Query {
-        category_match: CategoryMatch::partial(categories_from_slice(categories)),
+        domain_match: DomainMatch::partial(domains_from_slice(domains)),
         keyword_match: KeywordMatch::Any,
         text_match: TextMatch::Any,
+        referent_selection: spirit::schema::signal::ReferentSelection::Any,
         kind,
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
@@ -265,7 +280,7 @@ fn privacy_query(privacy_selection: PrivacySelection) -> Query {
 
 fn record_selection() -> RecordSelection {
     RecordSelection {
-        category_match: CategoryMatch::Any,
+        domain_match: DomainMatch::Any,
         kind: Some(Kind::Decision),
     }
 }
@@ -392,6 +407,13 @@ fn input_change_record(record_identifier: RecordIdentifier, entry: Entry) -> Inp
 
 fn input_bump_importance(record_identifier: RecordIdentifier) -> Input {
     Input::bump_importance(ImportanceBump::new(record_identifier))
+}
+
+fn input_register_referent(referent: &str, aliases: &[&str]) -> Input {
+    Input::register_referent(ReferentRegistration {
+        referent: Referent::new(referent),
+        aliases: referents_from_slice(aliases),
+    })
 }
 
 fn input_lookup_stash(stash_handle: StashHandle) -> Input {
@@ -577,8 +599,7 @@ fn nexus_change_record_is_visible_as_schema_declared_write_command() {
     let sema = SemaFile::new();
     let mut nexus = Nexus::new(sema.open_store());
     let identifier = record_identifier("003g");
-    let replacement =
-        entry_with_categories(&["runtime-triad", "replacement"], "replacement record");
+    let replacement = entry_with_domains(&["runtime-triad", "replacement"], "replacement record");
     let nexus_input =
         nexus_signal_arrived(input_change_record(identifier.clone(), replacement.clone()))
             .with_origin_route(nexus_route(6));
@@ -803,8 +824,7 @@ fn sema_engine_changes_record_without_changing_record_identifier() {
         other => panic!("expected initial Recorded receipt, got {other:?}"),
     };
 
-    let replacement =
-        entry_with_categories(&["runtime-triad", "replacement"], "replacement target");
+    let replacement = entry_with_domains(&["runtime-triad", "replacement"], "replacement target");
     let changed = SemaEngine::apply(
         &mut store,
         sema_write_message(
@@ -1200,20 +1220,20 @@ fn sema_store_persists_records_across_reopen_of_the_same_sema_file() {
 }
 
 #[test]
-fn sema_engine_queries_partial_and_full_category_sets() {
+fn sema_engine_queries_partial_and_full_domain_sets() {
     let sema = SemaFile::new();
     let mut store = sema.open_store();
     SemaEngine::apply(
         &mut store,
         sema_write_message(
-            sema_record(entry_with_categories(&["runtime-triad", "schema"], "both")),
+            sema_record(entry_with_domains(&["runtime-triad", "schema"], "both")),
             1,
         ),
     );
     SemaEngine::apply(
         &mut store,
         sema_write_message(
-            sema_record(entry_with_categories(&["runtime-triad"], "runtime only")),
+            sema_record(entry_with_domains(&["runtime-triad"], "runtime only")),
             2,
         ),
     );
@@ -1245,7 +1265,7 @@ fn sema_engine_queries_partial_and_full_category_sets() {
             assert_eq!(records.record_set.len(), 1);
             assert_eq!(records.record_set[0].entry.description, "both");
         }
-        other => panic!("expected full query to require every category, got {other:?}"),
+        other => panic!("expected full query to require every domain, got {other:?}"),
     }
 }
 
@@ -1256,7 +1276,7 @@ fn sema_engine_queries_description_keyword_spans() {
     SemaEngine::apply(
         &mut store,
         sema_write_message(
-            sema_record(entry_with_categories(
+            sema_record(entry_with_domains(
                 &["runtime-triad"],
                 "guardian retrieval uses *Schema Language* and *NOTA* terms",
             )),
@@ -1266,7 +1286,7 @@ fn sema_engine_queries_description_keyword_spans() {
     SemaEngine::apply(
         &mut store,
         sema_write_message(
-            sema_record(entry_with_categories(
+            sema_record(entry_with_domains(
                 &["runtime-triad"],
                 "unmarked schema language remains full text only",
             )),
@@ -1324,7 +1344,7 @@ fn sema_engine_queries_description_full_text() {
     SemaEngine::apply(
         &mut store,
         sema_write_message(
-            sema_record(entry_with_categories(
+            sema_record(entry_with_domains(
                 &["runtime-triad"],
                 "Guardian retrieval keeps full text as the recall floor",
             )),
@@ -1579,7 +1599,7 @@ fn sema_engine_lookup_and_count_are_read_plane_operations() {
     let first = SemaEngine::apply(
         &mut store,
         sema_write_message(
-            sema_record(entry_with_categories(&["runtime-triad", "schema"], "first")),
+            sema_record(entry_with_domains(&["runtime-triad", "schema"], "first")),
             1,
         ),
     );
@@ -1590,7 +1610,7 @@ fn sema_engine_lookup_and_count_are_read_plane_operations() {
     let second = SemaEngine::apply(
         &mut store,
         sema_write_message(
-            sema_record(entry_with_categories(&["runtime-triad"], "second")),
+            sema_record(entry_with_domains(&["runtime-triad"], "second")),
             2,
         ),
     );
@@ -1633,10 +1653,7 @@ fn sema_engine_observes_through_shared_reference_for_parallel_readers() {
     SemaEngine::apply(
         &mut store,
         sema_write_message(
-            sema_record(entry_with_categories(
-                &["runtime-triad", "schema"],
-                "parallel",
-            )),
+            sema_record(entry_with_domains(&["runtime-triad", "schema"], "parallel")),
             1,
         ),
     );
@@ -1721,15 +1738,15 @@ fn nexus_runs_sema_while_holding_mail_then_replies_through_schema_objects() {
 fn signal_admission_rejects_invalid_input_with_schema_emitted_rejection_before_mail_or_sema() {
     let sema = SemaFile::new();
     let mut engine = sema.engine();
-    let mut bad = entry("missing category");
-    bad.categories = Categories::from_strings(vec![String::new()]);
+    let mut bad = entry("missing domain");
+    bad.domains = Domains::from_strings(vec![String::new()]);
 
     let output = engine.handle(input_record(bad));
 
     assert_eq!(
         output.root(),
         &Output::rejected(SignalRejection {
-            validation_error: ValidationError::EmptyCategory,
+            validation_error: ValidationError::EmptyDomain,
             database_marker: DatabaseMarker {
                 commit_sequence: 0.into(),
                 state_digest: 0.into(),
@@ -1877,11 +1894,10 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
     assert_eq!(engine.processed_message_count(), 1);
 
     let observed = engine.handle(input_observe(Query {
-        category_match: CategoryMatch::full(Categories::from_strings(vec![String::from(
-            "runtime-triad",
-        )])),
+        domain_match: DomainMatch::full(Domains::from_strings(vec![String::from("runtime-triad")])),
         keyword_match: KeywordMatch::Any,
         text_match: TextMatch::Any,
+        referent_selection: spirit::schema::signal::ReferentSelection::Any,
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
@@ -1942,7 +1958,7 @@ fn full_runtime_triad_looks_up_and_counts_through_signal_nexus_and_sema() {
     let sema = SemaFile::new();
     let mut engine = sema.engine();
 
-    let first = engine.handle(input_record(entry_with_categories(
+    let first = engine.handle(input_record(entry_with_domains(
         &["runtime-triad", "schema"],
         "lookup one",
     )));
@@ -1950,7 +1966,7 @@ fn full_runtime_triad_looks_up_and_counts_through_signal_nexus_and_sema() {
         Output::RecordAccepted(receipt) => receipt.payload().clone(),
         other => panic!("expected first RecordAccepted, got {other:?}"),
     };
-    engine.handle(input_record(entry_with_categories(
+    engine.handle(input_record(entry_with_domains(
         &["runtime-triad"],
         "lookup two",
     )));
@@ -1972,5 +1988,88 @@ fn full_runtime_triad_looks_up_and_counts_through_signal_nexus_and_sema() {
             assert_eq!(records.database_marker.commit_sequence, 2);
         }
         other => panic!("expected full runtime count to return RecordsCounted, got {other:?}"),
+    }
+}
+
+#[test]
+fn full_runtime_triad_registers_referent_through_signal_nexus_and_sema() {
+    let sema = SemaFile::new();
+    let mut engine = sema.engine();
+
+    let registered = engine.handle(input_register_referent("schemaNext", &["schema-next"]));
+
+    match registered.root() {
+        Output::ReferentRegistered(receipt) => {
+            assert_eq!(receipt.payload().referent.payload(), "schemaNext");
+            assert_eq!(receipt.payload().database_marker.commit_sequence, 1);
+        }
+        other => panic!("expected ReferentRegistered, got {other:?}"),
+    }
+}
+
+#[test]
+fn full_runtime_triad_rejects_record_with_unregistered_referent() {
+    let sema = SemaFile::new();
+    let mut engine = sema.engine();
+
+    let output = engine.handle(input_record(entry_with_referents(
+        "unregistered referent should fail",
+        &["schemaNext"],
+    )));
+
+    match output.root() {
+        Output::Error(report) => {
+            assert!(
+                report
+                    .payload()
+                    .error_message
+                    .payload()
+                    .contains("unregistered referent"),
+                "unexpected error: {:?}",
+                report.payload().error_message
+            );
+            assert_eq!(report.payload().database_marker.commit_sequence, 0);
+        }
+        other => panic!("expected Error for unregistered referent, got {other:?}"),
+    }
+}
+
+#[test]
+fn full_runtime_triad_canonicalizes_referent_aliases_on_write_and_query() {
+    let sema = SemaFile::new();
+    let mut engine = sema.engine();
+    engine.handle(input_register_referent("schemaNext", &["schema-next"]));
+
+    let recorded = engine.handle(input_record(entry_with_referents(
+        "alias referent canonicalizes",
+        &["schema-next"],
+    )));
+    let identifier = match recorded.into_root() {
+        Output::RecordAccepted(receipt) => receipt.payload().clone(),
+        other => panic!("expected RecordAccepted, got {other:?}"),
+    };
+
+    let found = engine.handle(input_lookup(identifier.clone()));
+    match found.root() {
+        Output::RecordFound(record) => {
+            assert_eq!(record.record_identifier, identifier);
+            assert_eq!(
+                record.entry.referents.payload(),
+                &vec![Referent::new("schemaNext")]
+            );
+        }
+        other => panic!("expected RecordFound, got {other:?}"),
+    }
+
+    let observed = engine.handle(input_observe(Query {
+        referent_selection: ReferentSelection::any_referent(referents_from_slice(&["schema-next"])),
+        ..query()
+    }));
+    match observed.root() {
+        Output::RecordsStashed(stash) => {
+            assert_eq!(stash.record_count, 1);
+            assert_eq!(stash.database_marker.commit_sequence, 2);
+        }
+        other => panic!("expected alias query to match the canonical record, got {other:?}"),
     }
 }

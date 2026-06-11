@@ -12,30 +12,30 @@
 //! un-covered half — token-based cancellation — is what `Untap` restores.
 
 use spirit::schema::signal::{
-    Categories, CategoryMatch, CertaintySelection, Description, Entry, ImportanceSelection, Input,
-    Kind, Magnitude, ObserverFilter, OperationKind, Output, Privacy, PrivacySelection, Query,
+    CertaintySelection, Description, DomainMatch, Domains, Entry, ImportanceSelection, Input, Kind,
+    Magnitude, ObserverFilter, OperationKind, Output, Privacy, PrivacySelection, Query,
 };
 use spirit::{Engine, Store};
 use tempfile::TempDir;
 
 fn entry(description: &str) -> Entry {
     Entry {
-        categories: Categories::from_strings(vec![String::from("observer-tap")]),
+        domains: Domains::from_strings(vec![String::from("observer-tap")]),
         kind: Kind::Decision,
         description: Description::new(description),
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
+        referents: spirit::schema::signal::Referents::new(Vec::new()),
     }
 }
 
 fn observe_query() -> Query {
     Query {
-        category_match: CategoryMatch::full(Categories::from_strings(vec![String::from(
-            "observer-tap",
-        )])),
+        domain_match: DomainMatch::full(Domains::from_strings(vec![String::from("observer-tap")])),
         keyword_match: spirit::schema::signal::KeywordMatch::Any,
         text_match: spirit::schema::signal::TextMatch::Any,
+        referent_selection: spirit::schema::signal::ReferentSelection::Any,
         kind: Some(Kind::Decision),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),

@@ -68,6 +68,8 @@ pub use crate::schema::signal::ImportanceBump as ImportanceBump;
 #[rustfmt::skip]
 pub use crate::schema::signal::RecordChange as RecordChange;
 #[rustfmt::skip]
+pub use crate::schema::signal::ReferentRegistration as ReferentRegistration;
+#[rustfmt::skip]
 pub use crate::schema::signal::RemovalCandidateCollection as RemovalCandidateCollection;
 #[rustfmt::skip]
 pub use crate::schema::signal::RemovalCandidatesCollection as RemovalCandidatesCollection;
@@ -111,6 +113,7 @@ pub enum CommandSemaWrite {
     ChangeCertainty(ChangeCertainty),
     BumpImportance(BumpImportance),
     ChangeRecord(ChangeRecord),
+    RegisterReferent(RegisterReferent),
 }
 
 #[rustfmt::skip]
@@ -137,6 +140,11 @@ pub struct BumpImportance(ImportanceBump);
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ChangeRecord(RecordChange);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct RegisterReferent(ReferentRegistration);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -544,6 +552,25 @@ impl ChangeRecord {
 #[rustfmt::skip]
 impl From<RecordChange> for ChangeRecord {
     fn from(payload: RecordChange) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl RegisterReferent {
+    pub fn new(payload: ReferentRegistration) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ReferentRegistration {
+        &self.0
+    }
+    pub fn into_payload(self) -> ReferentRegistration {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ReferentRegistration> for RegisterReferent {
+    fn from(payload: ReferentRegistration) -> Self {
         Self::new(payload)
     }
 }
@@ -1059,6 +1086,9 @@ impl CommandSemaWrite {
     pub fn change_record(payload: RecordChange) -> Self {
         Self::ChangeRecord(ChangeRecord::new(payload))
     }
+    pub fn register_referent(payload: ReferentRegistration) -> Self {
+        Self::RegisterReferent(RegisterReferent::new(payload))
+    }
 }
 
 #[rustfmt::skip]
@@ -1244,6 +1274,13 @@ impl From<BumpImportance> for CommandSemaWrite {
 impl From<ChangeRecord> for CommandSemaWrite {
     fn from(payload: ChangeRecord) -> Self {
         Self::ChangeRecord(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<RegisterReferent> for CommandSemaWrite {
+    fn from(payload: RegisterReferent) -> Self {
+        Self::RegisterReferent(payload)
     }
 }
 
@@ -1636,6 +1673,17 @@ impl BumpImportance {
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
 impl ChangeRecord {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl RegisterReferent {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }

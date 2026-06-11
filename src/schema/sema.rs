@@ -22,6 +22,8 @@ pub use crate::schema::signal::ImportanceBump as ImportanceBump;
 #[rustfmt::skip]
 pub use crate::schema::signal::RecordChange as RecordChange;
 #[rustfmt::skip]
+pub use crate::schema::signal::ReferentRegistration as ReferentRegistration;
+#[rustfmt::skip]
 pub use crate::schema::signal::SemaReceipt as SemaReceipt;
 #[rustfmt::skip]
 pub use crate::schema::signal::RemoveReceipt as RemoveReceipt;
@@ -31,6 +33,8 @@ pub use crate::schema::signal::CertaintyChangeReceipt as CertaintyChangeReceipt;
 pub use crate::schema::signal::ImportanceBumpReceipt as ImportanceBumpReceipt;
 #[rustfmt::skip]
 pub use crate::schema::signal::RecordChangeReceipt as RecordChangeReceipt;
+#[rustfmt::skip]
+pub use crate::schema::signal::ReferentRegistrationReceipt as ReferentRegistrationReceipt;
 #[rustfmt::skip]
 pub use crate::schema::signal::ObservedRecords as ObservedRecords;
 #[rustfmt::skip]
@@ -53,6 +57,7 @@ pub enum WriteInput {
     ChangeCertainty(ChangeCertainty),
     BumpImportance(BumpImportance),
     ChangeRecord(ChangeRecord),
+    RegisterReferent(RegisterReferent),
 }
 
 #[rustfmt::skip]
@@ -79,6 +84,11 @@ pub struct BumpImportance(ImportanceBump);
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ChangeRecord(RecordChange);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct RegisterReferent(ReferentRegistration);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -113,6 +123,7 @@ pub enum WriteOutput {
     CertaintyChanged(CertaintyChanged),
     ImportanceBumped(ImportanceBumped),
     RecordChanged(RecordChanged),
+    ReferentRegistered(ReferentRegistered),
     Missed(Missed),
 }
 
@@ -140,6 +151,11 @@ pub struct ImportanceBumped(ImportanceBumpReceipt);
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct RecordChanged(RecordChangeReceipt);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ReferentRegistered(ReferentRegistrationReceipt);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -278,6 +294,25 @@ impl ChangeRecord {
 #[rustfmt::skip]
 impl From<RecordChange> for ChangeRecord {
     fn from(payload: RecordChange) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl RegisterReferent {
+    pub fn new(payload: ReferentRegistration) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ReferentRegistration {
+        &self.0
+    }
+    pub fn into_payload(self) -> ReferentRegistration {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ReferentRegistration> for RegisterReferent {
+    fn from(payload: ReferentRegistration) -> Self {
         Self::new(payload)
     }
 }
@@ -435,6 +470,25 @@ impl From<RecordChangeReceipt> for RecordChanged {
 }
 
 #[rustfmt::skip]
+impl ReferentRegistered {
+    pub fn new(payload: ReferentRegistrationReceipt) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ReferentRegistrationReceipt {
+        &self.0
+    }
+    pub fn into_payload(self) -> ReferentRegistrationReceipt {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ReferentRegistrationReceipt> for ReferentRegistered {
+    fn from(payload: ReferentRegistrationReceipt) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl Missed {
     pub fn new(payload: ErrorReport) -> Self {
         Self(payload)
@@ -527,6 +581,9 @@ impl WriteInput {
     pub fn change_record(payload: RecordChange) -> Self {
         Self::ChangeRecord(ChangeRecord::new(payload))
     }
+    pub fn register_referent(payload: ReferentRegistration) -> Self {
+        Self::RegisterReferent(RegisterReferent::new(payload))
+    }
 }
 
 #[rustfmt::skip]
@@ -558,6 +615,9 @@ impl WriteOutput {
     }
     pub fn record_changed(payload: RecordChangeReceipt) -> Self {
         Self::RecordChanged(RecordChanged::new(payload))
+    }
+    pub fn referent_registered(payload: ReferentRegistrationReceipt) -> Self {
+        Self::ReferentRegistered(ReferentRegistered::new(payload))
     }
     pub fn missed(payload: ErrorReport) -> Self {
         Self::Missed(Missed::new(payload))
@@ -636,6 +696,13 @@ impl From<ChangeRecord> for WriteInput {
 }
 
 #[rustfmt::skip]
+impl From<RegisterReferent> for WriteInput {
+    fn from(payload: RegisterReferent) -> Self {
+        Self::RegisterReferent(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl From<Observe> for ReadInput {
     fn from(payload: Observe) -> Self {
         Self::Observe(payload)
@@ -688,6 +755,13 @@ impl From<ImportanceBumped> for WriteOutput {
 impl From<RecordChanged> for WriteOutput {
     fn from(payload: RecordChanged) -> Self {
         Self::RecordChanged(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<ReferentRegistered> for WriteOutput {
+    fn from(payload: ReferentRegistered) -> Self {
+        Self::ReferentRegistered(payload)
     }
 }
 
@@ -822,6 +896,17 @@ impl ChangeRecord {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
+impl RegisterReferent {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
 impl ReadInput {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -922,6 +1007,17 @@ impl ImportanceBumped {
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
 impl RecordChanged {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl ReferentRegistered {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -1057,6 +1153,7 @@ pub enum WriteInputRoute {
     ChangeCertainty,
     BumpImportance,
     ChangeRecord,
+    RegisterReferent,
 }
 
 #[rustfmt::skip]
@@ -1068,6 +1165,7 @@ impl WriteInput {
             Self::ChangeCertainty(_) => WriteInputRoute::ChangeCertainty,
             Self::BumpImportance(_) => WriteInputRoute::BumpImportance,
             Self::ChangeRecord(_) => WriteInputRoute::ChangeRecord,
+            Self::RegisterReferent(_) => WriteInputRoute::RegisterReferent,
         }
     }
 }
@@ -1119,6 +1217,7 @@ pub enum WriteOutputRoute {
     CertaintyChanged,
     ImportanceBumped,
     RecordChanged,
+    ReferentRegistered,
     Missed,
 }
 
@@ -1131,6 +1230,7 @@ impl WriteOutput {
             Self::CertaintyChanged(_) => WriteOutputRoute::CertaintyChanged,
             Self::ImportanceBumped(_) => WriteOutputRoute::ImportanceBumped,
             Self::RecordChanged(_) => WriteOutputRoute::RecordChanged,
+            Self::ReferentRegistered(_) => WriteOutputRoute::ReferentRegistered,
             Self::Missed(_) => WriteOutputRoute::Missed,
         }
     }
@@ -1200,6 +1300,7 @@ impl SemaObjectName {
                     WriteInputRoute::ChangeCertainty => "SemaWriteInputChangeCertainty",
                     WriteInputRoute::BumpImportance => "SemaWriteInputBumpImportance",
                     WriteInputRoute::ChangeRecord => "SemaWriteInputChangeRecord",
+                    WriteInputRoute::RegisterReferent => "SemaWriteInputRegisterReferent",
                 }
             }
             Self::ReadInput(route) => {
@@ -1220,6 +1321,9 @@ impl SemaObjectName {
                         "SemaWriteOutputImportanceBumped"
                     }
                     WriteOutputRoute::RecordChanged => "SemaWriteOutputRecordChanged",
+                    WriteOutputRoute::ReferentRegistered => {
+                        "SemaWriteOutputReferentRegistered"
+                    }
                     WriteOutputRoute::Missed => "SemaWriteOutputMissed",
                 }
             }

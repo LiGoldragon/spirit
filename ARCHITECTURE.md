@@ -60,14 +60,14 @@ each displayed NOTA trace line back into `TraceEvent`, and asserts the
 Signal/Nexus/SEMA event sequence that returns over the trace socket.
 
 The current plane schemas intentionally keep braces strict as NOTA key-value
-maps. The Signal namespace contains pairs such as `Topic String`,
+maps. The Signal namespace contains pairs such as `Referent String`,
 `RecordSet (Vec ObservedRecord)`, and
-`Entry { Topics * Kind * Description * Certainty * Importance * Privacy * }`; it does not
+`Entry { Domains * Kind * Description * Certainty * Importance * Privacy * Referents * }`; it does not
 contain declarations that repeat their own name inside the value.
-Inside a struct map, `Topics *` derives the `topics` field from the existing
-`Topics` type, and explicit bindings such as `kind (Optional Kind)` stay only
+Inside a struct map, `Domains *` derives the `domains` field from the existing
+`Domains` type, and explicit bindings such as `kind (Optional Kind)` stay only
 where the field name differs from the referenced type. Bare reference
-declarations (`Topic String`, `RecordSet (Vec ObservedRecord)`, `Record Entry`) become
+declarations (`Referent String`, `RecordSet (Vec ObservedRecord)`, `Record Entry`) become
 exported aliases in the typed schema value and generated Rust, so enum variants
 carry direct payloads instead of wrapper structs. Explicit brace-body singleton
 declarations are the newtype form.
@@ -139,12 +139,8 @@ The CLI:
 5. decodes generated `Output`;
 6. prints NOTA.
 
-The CLI parse path is generated-first. The only compatibility shim currently
-accepted at this edge is deployed production `State` shorthand:
-`(State ([text]))`. `SpiritInputSource` recognizes that exact structural shape
-with `nota-next` blocks, creates generated `Input::State(Statement)`, and then
-the normal binary signal path continues. The generated canonical form remains
-`(State [text])`; the daemon never receives either text spelling.
+The CLI parse path is generated-first. `State` uses the generated canonical
+shape `(State [text])`; the daemon never receives NOTA text at all.
 
 The daemon:
 
@@ -413,25 +409,27 @@ uses `sema-engine` over a `*.sema` file:
 - `SemaEngine::observe(sema::Sema<sema::ReadInput>) ->
   sema::Sema<sema::ReadOutput>` is the read surface. `Observe(Query)` reads
   keyed records through sema-engine and applies Spirit's schema-specific
-  topic/kind/privacy/certainty predicate, `Lookup(RecordIdentifier)` uses a key query,
+  domain/keyword/text/referent/kind/privacy/certainty/importance predicate,
+  `Lookup(RecordIdentifier)` uses a key query,
   and `Count(Query)` returns the number of matching records without mutating
-  state. `TopicMatch::Any` is the all-record query used by the production
-  migration sandbox witness. The `&self` receiver lets parallel readers share
+  state. `DomainMatch::Any` is the all-record query. The `&self` receiver lets parallel readers share
   the store reference; `tests/runtime_triad.rs` has a scoped-thread witness for
   this shape.
-- Entries carry `Topics`, a generated vector alias, generated `Certainty`,
-  generated `Importance`, and generated `Privacy`. Privacy is a directional
-  `Magnitude`: `Zero` is open/public, and higher magnitudes narrow the intended
-  audience. Certainty is a directional `Magnitude`: `Zero` is the recoverable
-  removal-candidate state. Importance is a separate directional `Magnitude` for
-  importance/repetition; observation sorts higher importance first. Queries carry
-  `TopicMatch::{Partial,Full}`, an optional `Kind`, generated
-  `PrivacySelection`, generated `CertaintySelection`, and generated
-  `ImportanceSelection`:
-  `Partial` accepts any requested topic, `Full` requires every requested topic,
-  `None` in the kind position searches by topic and privacy, default privacy
-  selection is exact `Zero`, ordinary certainty selection is
-  `AtLeastCertainty Minimum`, and ordinary importance selection is `Any`. The same
+- Entries carry `Domains`, generated `Certainty`, generated `Importance`,
+  generated `Privacy`, and `Referents`. Referents are runtime registry data:
+  `RegisterReferent` stores a canonical atom plus aliases, writes canonicalize
+  aliases before persistence, and queries canonicalize alias filters before
+  matching. Privacy is a directional `Magnitude`: `Zero` is open/public, and
+  higher magnitudes narrow the intended audience. Certainty is a directional
+  `Magnitude`: `Zero` is the recoverable removal-candidate state. Importance is
+  a separate directional `Magnitude` for importance/repetition; observation
+  sorts higher importance first. Queries carry `DomainMatch::{Partial,Full}`,
+  `KeywordMatch`, `TextMatch`, `ReferentSelection`, an optional `Kind`,
+  generated `PrivacySelection`, generated `CertaintySelection`, and generated
+  `ImportanceSelection`: `Partial` accepts any requested domain, `Full` requires
+  every requested domain, default privacy selection is exact `Zero`, ordinary
+  certainty selection is `AtLeastCertainty Minimum`, and ordinary importance
+  selection is `Any`. The same
   query noun drives both `Observe` and `Count`, while `Lookup` uses the
   generated `RecordIdentifier` alias.
 - sema-engine's transaction model gives crash-consistency: a store reopened

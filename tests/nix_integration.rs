@@ -100,7 +100,7 @@ use std::{
 
 use spirit::Configuration;
 use spirit::schema::signal::{
-    Categories, DatabaseMarker, Description, Entry, Kind, Magnitude, Output, OutputRoute, Privacy,
+    DatabaseMarker, Description, Domains, Entry, Kind, Magnitude, Output, OutputRoute, Privacy,
     RecordIdentifier, SignalRejection, ValidationError,
 };
 use tempfile::TempDir;
@@ -377,12 +377,13 @@ fn run_cli_for_output(binaries: &NixBuiltBinaries, socket: &Path, nota_argument:
 
 fn entry(description: &str) -> Entry {
     Entry {
-        categories: Categories::from_strings(vec![String::from("nix-integration")]),
+        domains: Domains::from_strings(vec![String::from("nix-integration")]),
         kind: Kind::Decision,
         description: Description::new(description),
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
+        referents: spirit::schema::signal::Referents::new(Vec::new()),
     }
 }
 
@@ -436,7 +437,7 @@ fn nix_built_spirit_cli_records_through_real_socket_to_nix_built_daemon() {
     let binaries = NixBuiltBinaries::ensure();
     let daemon = DaemonProcess::spawn(&binaries);
 
-    let nota_input = "(Record ([Sustaining] Decision [end to end through nix built binaries] Maximum Minimum Zero))";
+    let nota_input = "(Record ([(Craft Infrastructure)] Decision [end to end through nix built binaries] Maximum Minimum Zero []))";
     let output = run_cli_for_output(&binaries, daemon.socket(), nota_input);
 
     // SCHEMA-TYPED ASSERTION: not on the string, on the parsed schema-emitted variant.
@@ -451,23 +452,23 @@ fn nix_built_spirit_cli_records_through_real_socket_to_nix_built_daemon() {
 #[test]
 #[ignore = "invokes nix build; run via cargo test --test nix_integration -- --ignored"]
 fn nix_built_daemon_rejects_invalid_input_through_schema_emitted_rejection() {
-    // PATTERN: invalid Input — empty category — fails `Entry::validate`
+    // PATTERN: invalid Input — empty domain — fails `Entry::validate`
     // inside SignalAdmission::admit on the Nix-built daemon. The reply is
     // the schema-emitted `SignalRejection` variant carrying the schema-
-    // emitted `ValidationError::EmptyCategory`. The CLI prints the
+    // emitted `ValidationError::EmptyDomain`. The CLI prints the
     // schema-emitted NOTA round-trip; we parse it back through
     // `Output::FromStr` and match the typed variant.
     let binaries = NixBuiltBinaries::ensure();
     let daemon = DaemonProcess::spawn(&binaries);
 
-    // Empty category — schema-emitted Entry validation should reject.
-    let nota_input = "(Record ([] Decision [body content] Maximum Minimum Zero))";
+    // Empty domain — schema-emitted Entry validation should reject.
+    let nota_input = "(Record ([] Decision [body content] Maximum Minimum Zero []))";
     let output = run_cli_for_output(&binaries, daemon.socket(), nota_input);
 
     assert_eq!(
         output,
         Output::rejected(SignalRejection {
-            validation_error: ValidationError::EmptyCategory,
+            validation_error: ValidationError::EmptyDomain,
             database_marker: marker(0, 0),
         }),
         "the Nix-built daemon's schema-emitted SignalRejection variant must arrive intact"
@@ -489,7 +490,7 @@ fn nix_built_daemon_persists_state_across_two_cli_invocations() {
     let first = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Record ([Sustaining] Decision [first commit] Maximum Minimum Zero))",
+        "(Record ([(Craft Infrastructure)] Decision [first commit] Maximum Minimum Zero []))",
     );
     match first {
         Output::RecordAccepted(receipt) => assert_short_record_identifier(receipt.payload()),
@@ -503,7 +504,7 @@ fn nix_built_daemon_persists_state_across_two_cli_invocations() {
     let second = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Record ([Sustaining] Decision [second commit] Maximum Minimum Zero))",
+        "(Record ([(Craft Infrastructure)] Decision [second commit] Maximum Minimum Zero []))",
     );
     match second {
         Output::RecordAccepted(receipt) => assert_short_record_identifier(receipt.payload()),
@@ -542,13 +543,13 @@ fn nix_built_daemon_observes_recorded_entries_back_through_query() {
     let _recorded = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Record ([Sustaining] Decision [observe round trip] Maximum Minimum Zero))",
+        "(Record ([(Craft Infrastructure)] Decision [observe round trip] Maximum Minimum Zero []))",
     );
 
     let observed = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [Sustaining]) (Some Decision) (Exact Zero)))",
+        "(Observe ((Full [(Craft Infrastructure)]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
 
     let stash_handle = match observed {
@@ -597,7 +598,7 @@ fn nix_built_daemon_returns_missed_when_no_matching_record_exists() {
     let output = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [no-such-category]) (Some Decision) (Exact Zero)))",
+        "(Observe ((Full [(Technology Intelligence)]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
 
     match output {
@@ -625,8 +626,9 @@ fn nix_built_daemon_handles_back_to_back_inputs_through_one_socket() {
     let mut markers = Vec::new();
 
     for description in descriptions {
-        let nota_input =
-            format!("(Record ([Sustaining] Decision [{description}] Maximum Minimum Zero))");
+        let nota_input = format!(
+            "(Record ([(Craft Infrastructure)] Decision [{description}] Maximum Minimum Zero []))"
+        );
         let output = run_cli_for_output(&binaries, daemon.socket(), &nota_input);
         match output {
             Output::RecordAccepted(receipt) => assert_short_record_identifier(receipt.payload()),
@@ -692,7 +694,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let recorded = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Record ([Sustaining] Decision [variant tour] Maximum Minimum Zero))",
+        "(Record ([(Craft Infrastructure)] Decision [variant tour] Maximum Minimum Zero []))",
     );
     let recorded_identifier = match &recorded {
         Output::RecordAccepted(receipt) => receipt.payload().clone(),
@@ -720,7 +722,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let rerecorded = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Record ([Sustaining] Decision [variant tour] Maximum Minimum Zero))",
+        "(Record ([(Craft Infrastructure)] Decision [variant tour] Maximum Minimum Zero []))",
     );
     let rerecorded_identifier = match &rerecorded {
         Output::RecordAccepted(receipt) => receipt.payload().clone(),
@@ -744,7 +746,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let rejected = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Record ([] Decision [empty category] Maximum Minimum Zero))",
+        "(Record ([] Decision [empty domain] Maximum Minimum Zero []))",
     );
     assert!(matches!(rejected, Output::Rejected(_)));
     assert_eq!(rejected.route(), OutputRoute::Rejected);
@@ -753,7 +755,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let errored = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [no-such-category]) (Some Decision) (Exact Zero)))",
+        "(Observe ((Full [(Technology Intelligence)]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
     assert!(matches!(errored, Output::Error(_)));
     assert_eq!(errored.route(), OutputRoute::Error);
@@ -762,7 +764,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let observed = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [Sustaining]) (Some Decision) (Exact Zero)))",
+        "(Observe ((Full [(Craft Infrastructure)]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
     assert!(matches!(observed, Output::RecordsStashed(_)));
     assert_eq!(observed.route(), OutputRoute::RecordsStashed);
@@ -788,7 +790,7 @@ fn nix_built_daemon_alias_state_across_separate_cli_processes() {
 
     // Independent processes — exec a fresh CLI binary each time.
     let mut child_a = Command::new(&binaries.spirit_cli)
-        .arg("(Record ([Sustaining] Decision [process a record] Maximum Minimum Zero))")
+        .arg("(Record ([(Craft Infrastructure)] Decision [process a record] Maximum Minimum Zero []))")
         .env("SPIRIT_SOCKET", daemon.socket())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -807,7 +809,7 @@ fn nix_built_daemon_alias_state_across_separate_cli_processes() {
     let observed = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [Sustaining]) (Some Decision) (Exact Zero)))",
+        "(Observe ((Full [(Craft Infrastructure)]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
     let stash_handle = match observed {
         Output::RecordsStashed(stashed) => {
