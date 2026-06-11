@@ -1290,6 +1290,98 @@ fn agent_guardian_prompt_bundle_includes_equivalent_domain_records() {
 
 #[cfg(feature = "agent-guardian")]
 #[test]
+fn agent_guardian_prompt_bundle_excludes_same_kind_only_records() {
+    let sema = SemaFile::new();
+    let mut setup_engine = sema.engine();
+    assert!(matches!(
+        setup_engine
+            .handle(input_record(entry_with_domain(
+                Domain::Health(spirit::schema::signal::Health::Medicine),
+                "same-kind-only-live",
+            )))
+            .root(),
+        Output::RecordAccepted(_)
+    ));
+    assert!(matches!(
+        setup_engine
+            .handle(input_record(entry_with_domain(
+                Domain::Technology(Technology::Software(Software::Security(
+                    spirit::schema::signal::Security::AdmissionControl,
+                ))),
+                "admission-control-live",
+            )))
+            .root(),
+        Output::RecordAccepted(_)
+    ));
+    drop(setup_engine);
+
+    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::Accept);
+    let mut engine = sema.engine_with_guardian(fake_agent.guardian());
+    let output = engine.handle(input_propose(entry_with_domain(
+        Domain::Technology(Technology::Software(Software::Security(
+            spirit::schema::signal::Security::AdmissionControl,
+        ))),
+        "admission-control-candidate",
+    )));
+
+    assert!(matches!(output.root(), Output::Proposed(_)));
+    let prompts = fake_agent.captured_prompts();
+    assert_eq!(prompts.len(), 1);
+    assert!(
+        prompts[0].contains("admission-control-live"),
+        "guardian prompt should include domain-relevant records: {}",
+        prompts[0]
+    );
+    assert!(
+        !prompts[0].contains("same-kind-only-live"),
+        "guardian prompt should not include records relevant only by Kind: {}",
+        prompts[0]
+    );
+    fake_agent.join();
+}
+
+#[cfg(feature = "agent-guardian")]
+#[test]
+fn agent_guardian_prompt_bundle_caps_entry_relevance() {
+    let sema = SemaFile::new();
+    let mut setup_engine = sema.engine();
+    for offset in 0..70 {
+        let description = format!("guardian-cap-relevant-{offset:02} *guardianCap*");
+        assert!(matches!(
+            setup_engine
+                .handle(input_record(entry_with_domain(
+                    Domain::Health(spirit::schema::signal::Health::Medicine),
+                    &description,
+                )))
+                .root(),
+            Output::RecordAccepted(_)
+        ));
+    }
+    drop(setup_engine);
+
+    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::Accept);
+    let mut engine = sema.engine_with_guardian(fake_agent.guardian());
+    let output = engine.handle(input_propose(entry_with_domain(
+        Domain::Technology(Technology::Software(Software::Security(
+            spirit::schema::signal::Security::AdmissionControl,
+        ))),
+        "candidate *guardianCap*",
+    )));
+
+    assert!(matches!(output.root(), Output::Proposed(_)));
+    let prompts = fake_agent.captured_prompts();
+    assert_eq!(prompts.len(), 1);
+    assert_eq!(
+        prompts[0].matches("guardian-cap-relevant-").count(),
+        64,
+        "guardian prompt should cap entry relevance bundle: {}",
+        prompts[0]
+    );
+    fake_agent.join();
+}
+
+#[cfg(feature = "agent-guardian")]
+#[test]
 fn agent_guardian_reject_verdict_blocks_clarify_supersede_and_retire() {
     let sema = SemaFile::new();
     let mut setup_engine = sema.engine();

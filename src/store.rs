@@ -629,6 +629,7 @@ impl Store {
             .filter_map(|record| GuardianRecordCandidate::new(record, &proposed))
             .collect::<Vec<_>>();
         records.sort_by_key(GuardianRecordCandidate::sort_key);
+        records.truncate(GUARDIAN_RECORD_LIMIT);
         Ok(RecordSet::new(
             records
                 .into_iter()
@@ -1349,9 +1350,6 @@ impl Entry {
         }
         if self.shares_text(proposed) {
             score += 10;
-        }
-        if self.kind == proposed.kind {
-            score += 1;
         }
         score
     }
