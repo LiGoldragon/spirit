@@ -35,6 +35,11 @@ use crate::{
     store::{Store, StoreError},
 };
 
+#[cfg(feature = "agent-guardian")]
+use crate::schema::signal::{
+    Explanation, GuardianRejectionReason, ReferentGuardianRejectionReason,
+};
+
 #[cfg(feature = "testing-trace")]
 use crate::{ObjectName, TraceEvent, TraceLog, schema::nexus::NexusObjectName};
 use signal_frame::SubscriptionTokenInner;
@@ -229,6 +234,8 @@ pub struct Nexus {
     classification_policy: ClassificationPolicy,
     #[cfg(feature = "agent-guardian")]
     guardian: Option<crate::guardian::AgentGuardian>,
+    #[cfg(feature = "agent-guardian")]
+    guardian_required: bool,
     subscription_token_issuer: SubscriptionTokenIssuer,
     #[cfg(feature = "testing-trace")]
     trace_log: TraceLog,
@@ -303,6 +310,8 @@ impl Nexus {
                 classification_policy: ClassificationPolicy::default(),
                 #[cfg(feature = "agent-guardian")]
                 guardian: None,
+                #[cfg(feature = "agent-guardian")]
+                guardian_required: false,
                 subscription_token_issuer: SubscriptionTokenIssuer::default(),
             }
         }
@@ -318,6 +327,8 @@ impl Nexus {
             classification_policy: ClassificationPolicy::default(),
             #[cfg(feature = "agent-guardian")]
             guardian: None,
+            #[cfg(feature = "agent-guardian")]
+            guardian_required: false,
             subscription_token_issuer: SubscriptionTokenIssuer::default(),
             trace_log,
         }
@@ -365,6 +376,12 @@ impl Nexus {
     #[cfg(feature = "agent-guardian")]
     pub fn set_guardian(&mut self, guardian: crate::guardian::AgentGuardian) {
         self.guardian = Some(guardian);
+        self.guardian_required = true;
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    pub fn require_guardian(&mut self) {
+        self.guardian_required = true;
     }
 
     pub fn intent_recorded_event(
@@ -687,7 +704,33 @@ impl Nexus {
         operation: GuardianOperation,
     ) -> Result<Option<GuardianRejection>, StoreError> {
         let Some(guardian) = &self.guardian else {
-            return Ok(None);
+            if !self.guardian_required {
+                return Ok(None);
+            }
+            let records = self.store.guardian_records_for_operation(&operation)?;
+            let database_marker = self.store.database_marker();
+            let verdict = nexus_schema::GuardianVerdict::reject(nexus_schema::Reject {
+                guardian_rejection_reason: GuardianRejectionReason::HarnessUnavailable,
+                explanation: Explanation::new(
+                    "guardian is required but no guardian agent is configured",
+                ),
+            });
+            self.store.record_guardian_decision(
+                crate::guardian_journal::GuardianDecision::record(
+                    operation,
+                    records.clone(),
+                    verdict,
+                    database_marker.clone(),
+                ),
+            )?;
+            return Ok(Some(GuardianRejection {
+                guardian_rejection_reason: GuardianRejectionReason::HarnessUnavailable,
+                record_set: records,
+                explanation: Explanation::new(
+                    "guardian is required but no guardian agent is configured",
+                ),
+                database_marker,
+            }));
         };
         let records = self.store.guardian_records_for_operation(&operation)?;
         let decision = guardian.guard(&operation, records, self.store.database_marker());
@@ -711,7 +754,37 @@ impl Nexus {
         registration: ReferentRegistration,
     ) -> Result<Result<ReferentRegistrationReceipt, ReferentGuardianRejection>, StoreError> {
         let Some(guardian) = &self.guardian else {
-            return Ok(Ok(self.store.register_referent(registration)?));
+            if !self.guardian_required {
+                return Ok(Ok(self.store.register_referent(registration)?));
+            }
+            let registered_referents = self.store.registered_referents()?;
+            let database_marker = self.store.database_marker();
+            let verdict = nexus_schema::ReferentGuardianVerdict::reject_referent(
+                nexus_schema::RejectReferent {
+                    referent_guardian_rejection_reason:
+                        ReferentGuardianRejectionReason::HarnessUnavailable,
+                    explanation: Explanation::new(
+                        "guardian is required but no guardian agent is configured",
+                    ),
+                },
+            );
+            self.store.record_guardian_decision(
+                crate::guardian_journal::GuardianDecision::referent(
+                    registration,
+                    registered_referents.clone(),
+                    verdict,
+                    database_marker.clone(),
+                ),
+            )?;
+            return Ok(Err(ReferentGuardianRejection {
+                referent_guardian_rejection_reason:
+                    ReferentGuardianRejectionReason::HarnessUnavailable,
+                registered_referents,
+                explanation: Explanation::new(
+                    "guardian is required but no guardian agent is configured",
+                ),
+                database_marker,
+            }));
         };
         let registered_referents = self.store.registered_referents()?;
         let decision = guardian.guard_referent(

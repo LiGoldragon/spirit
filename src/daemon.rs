@@ -131,6 +131,8 @@ impl ComponentDaemon for SpiritDaemon {
             .map(crate::guardian::AgentGuardian::new)
         {
             engine.set_guardian(guardian);
+        } else {
+            engine.require_guardian();
         }
         engine.start().map_err(Self::Error::from)?;
         Ok(engine)

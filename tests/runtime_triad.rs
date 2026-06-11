@@ -1154,6 +1154,57 @@ fn agent_guardian_reject_verdict_blocks_record() {
 
 #[cfg(feature = "agent-guardian")]
 #[test]
+fn required_guardian_rejects_writes_when_unconfigured() {
+    let sema = SemaFile::new();
+    let mut engine = sema.engine();
+    engine.require_guardian();
+
+    let output = engine.handle(input_record(entry("unguarded write should fail closed")));
+
+    match output.root() {
+        Output::GuardianRejected(rejection) => {
+            assert_eq!(
+                rejection.payload().guardian_rejection_reason,
+                GuardianRejectionReason::HarnessUnavailable
+            );
+            assert_eq!(
+                rejection.payload().explanation.payload(),
+                "guardian is required but no guardian agent is configured"
+            );
+        }
+        other => panic!("expected GuardianRejected for missing guardian, got {other:?}"),
+    }
+    assert_eq!(engine.record_count(), 0);
+    assert_eq!(engine.guardian_decision_count(), 1);
+}
+
+#[cfg(feature = "agent-guardian")]
+#[test]
+fn required_guardian_rejects_referent_registration_when_unconfigured() {
+    let sema = SemaFile::new();
+    let mut engine = sema.engine();
+    engine.require_guardian();
+
+    let output = engine.handle(input_register_referent("unguarded-referent", &[]));
+
+    match output.root() {
+        Output::ReferentGuardianRejected(rejection) => {
+            assert_eq!(
+                rejection.payload().referent_guardian_rejection_reason,
+                ReferentGuardianRejectionReason::HarnessUnavailable
+            );
+            assert_eq!(
+                rejection.payload().explanation.payload(),
+                "guardian is required but no guardian agent is configured"
+            );
+        }
+        other => panic!("expected ReferentGuardianRejected for missing guardian, got {other:?}"),
+    }
+    assert_eq!(engine.guardian_decision_count(), 1);
+}
+
+#[cfg(feature = "agent-guardian")]
+#[test]
 fn agent_guardian_duplicate_rejection_bumps_importance() {
     let sema = SemaFile::new();
     let mut setup_engine = sema.engine();

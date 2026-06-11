@@ -15,6 +15,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest, Output as MetaOutput};
+#[cfg(feature = "agent-guardian")]
+use spirit::schema::signal::GuardianRejectionReason;
 use spirit::schema::signal::{
     Description, DomainMatch, DomainScopes, Domains, Entry, ImportanceSelection, Input,
     Justification, Kind, Magnitude, Output, Privacy, Query, RecordRequest, StatementText,
@@ -148,10 +150,22 @@ fn configure_sets_archive_target_and_leaves_live_database_unchanged() {
     let (_output_route, record_output) = working_transport
         .exchange(&Input::record(record_request("intent after configure")))
         .expect("exchange record");
+
+    #[cfg(not(feature = "agent-guardian"))]
     assert!(
         matches!(record_output, Output::RecordAccepted(_)),
         "working record accepted after configure, got {record_output:?}"
     );
+    #[cfg(feature = "agent-guardian")]
+    match record_output {
+        Output::GuardianRejected(rejection) => {
+            assert_eq!(
+                rejection.payload().guardian_rejection_reason,
+                GuardianRejectionReason::HarnessUnavailable
+            );
+        }
+        other => panic!("working write should fail closed without guardian, got {other:?}"),
+    }
 
     assert!(
         live_database.exists(),
@@ -171,12 +185,20 @@ fn configure_sets_archive_target_and_leaves_live_database_unchanged() {
     let (_observe_route, observed) = observe_transport
         .exchange(&Input::observe(observe_query()))
         .expect("exchange observe");
-    let Output::RecordsStashed(stashed) = observed else {
-        panic!("the live database serves the recorded intent back, got {observed:?}")
-    };
-    assert_eq!(
-        stashed.record_count, 1,
-        "the live database holds exactly the one intent recorded after the Configure"
+    #[cfg(not(feature = "agent-guardian"))]
+    {
+        let Output::RecordsStashed(stashed) = observed else {
+            panic!("the live database serves the recorded intent back, got {observed:?}")
+        };
+        assert_eq!(
+            stashed.record_count, 1,
+            "the live database holds exactly the one intent recorded after the Configure"
+        );
+    }
+    #[cfg(feature = "agent-guardian")]
+    assert!(
+        matches!(observed, Output::Error(_)),
+        "the live database stays empty because missing guardian fails closed, got {observed:?}"
     );
 }
 

@@ -10,14 +10,45 @@ use std::{
 };
 
 use nota_next::NotaEncode;
+#[cfg(feature = "agent-guardian")]
+use signal_agent::{
+    Completion, CompletionText, Input as AgentInput, Output as AgentOutput, StopReasonText,
+    TokenUsage,
+};
+#[cfg(feature = "agent-guardian")]
+use signal_spirit::{
+    ConfigurationPath, SpiritGuardianAgentConfiguration, SpiritGuardianTimeoutMilliseconds,
+};
 use spirit::Configuration;
 #[cfg(feature = "testing-trace")]
 use spirit::TraceEvent;
+#[cfg(feature = "agent-guardian")]
+use spirit::schema::nexus::GuardianVerdict;
 use spirit::schema::signal::{Domains, IntentEvent, Kind, Magnitude, Output, RecordIdentifier};
+#[cfg(feature = "agent-guardian")]
+use std::{
+    io::Write,
+    os::unix::net::{UnixListener, UnixStream},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+};
 use tempfile::TempDir;
+#[cfg(feature = "agent-guardian")]
+use triad_runtime::{FrameBody, LengthPrefixedCodec};
 
 struct DaemonProcess {
     child: Child,
+    #[cfg(feature = "agent-guardian")]
+    _guardian_agent: FakeGuardianAgent,
+}
+
+#[cfg(feature = "agent-guardian")]
+struct FakeGuardianAgent {
+    socket_path: std::path::PathBuf,
+    stop: Arc<AtomicBool>,
+    thread: Option<thread::JoinHandle<()>>,
 }
 
 struct SubscriberProcess {
@@ -33,6 +64,16 @@ impl Drop for DaemonProcess {
     }
 }
 
+#[cfg(feature = "agent-guardian")]
+impl Drop for FakeGuardianAgent {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::Relaxed);
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
+}
+
 impl Drop for SubscriberProcess {
     fn drop(&mut self) {
         let _ = self.child.kill();
@@ -43,23 +84,122 @@ impl Drop for SubscriberProcess {
     }
 }
 
+#[cfg(feature = "agent-guardian")]
+impl FakeGuardianAgent {
+    fn spawn(socket_path: std::path::PathBuf) -> Self {
+        let listener = UnixListener::bind(&socket_path).expect("bind fake guardian socket");
+        listener
+            .set_nonblocking(true)
+            .expect("fake guardian listener nonblocking");
+        let stop = Arc::new(AtomicBool::new(false));
+        let thread_stop = Arc::clone(&stop);
+        let thread = thread::spawn(move || {
+            while !thread_stop.load(Ordering::Relaxed) {
+                match listener.accept() {
+                    Ok((stream, _)) => Self::answer(stream),
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        thread::sleep(Duration::from_millis(10));
+                    }
+                    Err(error) => panic!("accept fake guardian call: {error}"),
+                }
+            }
+        });
+        Self {
+            socket_path,
+            stop,
+            thread: Some(thread),
+        }
+    }
+
+    fn answer(mut stream: UnixStream) {
+        let codec = LengthPrefixedCodec::default();
+        let request = codec
+            .read_body(&mut stream)
+            .expect("read fake guardian request")
+            .into_bytes();
+        let (_route, input) =
+            AgentInput::decode_signal_frame(&request).expect("decode fake guardian input");
+        let AgentInput::Call(_) = input else {
+            panic!("expected guardian Call input, got {input:?}");
+        };
+        let output = AgentOutput::completed(Completion {
+            text: CompletionText::new(GuardianVerdict::Accept.to_nota()),
+            stop_reason: StopReasonText::new("stop"),
+            usage: TokenUsage {
+                prompt_tokens: None,
+                completion_tokens: None,
+            },
+        });
+        codec
+            .write_body(
+                &mut stream,
+                &FrameBody::new(
+                    output
+                        .encode_signal_frame()
+                        .expect("encode fake guardian output"),
+                ),
+            )
+            .expect("write fake guardian output");
+        stream.flush().expect("flush fake guardian output");
+    }
+
+    fn socket_path(&self) -> &Path {
+        &self.socket_path
+    }
+}
+
 impl DaemonProcess {
     fn meta_socket_path(socket_path: &Path) -> std::path::PathBuf {
         socket_path.with_extension("meta.sock")
     }
 
+    #[cfg(feature = "agent-guardian")]
+    fn guardian_agent(socket_path: &Path) -> FakeGuardianAgent {
+        FakeGuardianAgent::spawn(socket_path.with_extension("agent.sock"))
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn configuration_with_guardian(
+        configuration: Configuration,
+        guardian_agent: &FakeGuardianAgent,
+    ) -> Configuration {
+        Configuration::from_raw(
+            configuration
+                .raw()
+                .clone()
+                .with_guardian_agent_configuration(SpiritGuardianAgentConfiguration::new(
+                    ConfigurationPath::new(
+                        guardian_agent.socket_path().to_string_lossy().into_owned(),
+                    ),
+                    None,
+                    None,
+                    SpiritGuardianTimeoutMilliseconds::new(5_000),
+                    None,
+                )),
+        )
+    }
+
     fn spawn(socket_path: &Path, database_path: &Path) -> Self {
         let configuration_path = socket_path.with_extension("config.rkyv");
         let meta_socket_path = Self::meta_socket_path(socket_path);
-        Configuration::new(socket_path, database_path)
-            .with_meta_socket_path(&meta_socket_path)
+        #[cfg(feature = "agent-guardian")]
+        let guardian_agent = Self::guardian_agent(socket_path);
+        let configuration =
+            Configuration::new(socket_path, database_path).with_meta_socket_path(&meta_socket_path);
+        #[cfg(feature = "agent-guardian")]
+        let configuration = Self::configuration_with_guardian(configuration, &guardian_agent);
+        configuration
             .write_binary_file(&configuration_path)
             .expect("write binary daemon configuration");
         let child = Command::new(env!("CARGO_BIN_EXE_spirit-daemon"))
             .arg(configuration_path)
             .spawn()
             .expect("spawn daemon");
-        let process = Self { child };
+        let process = Self {
+            child,
+            #[cfg(feature = "agent-guardian")]
+            _guardian_agent: guardian_agent,
+        };
         wait_for_socket(socket_path);
         wait_for_socket(&meta_socket_path);
         process
@@ -68,11 +208,23 @@ impl DaemonProcess {
     fn spawn_from_configuration_writer(socket_path: &Path, database_path: &Path) -> Self {
         let configuration_path = socket_path.with_extension("config.rkyv");
         let meta_socket_path = Self::meta_socket_path(socket_path);
+        #[cfg(feature = "agent-guardian")]
+        let guardian_agent = Self::guardian_agent(socket_path);
+        #[cfg(not(feature = "agent-guardian"))]
         let request = format!(
             "(ConfigurationWriteRequest {} (Some {}) {} None None {})",
             nota_path(socket_path),
             nota_path(&meta_socket_path),
             nota_path(database_path),
+            nota_path(&configuration_path)
+        );
+        #[cfg(feature = "agent-guardian")]
+        let request = format!(
+            "(ConfigurationWriteRequest {} (Some {}) {} None (Some ({} None None 5000 None)) {})",
+            nota_path(socket_path),
+            nota_path(&meta_socket_path),
+            nota_path(database_path),
+            nota_path(guardian_agent.socket_path()),
             nota_path(&configuration_path)
         );
         let output = Command::new(env!("CARGO_BIN_EXE_spirit-write-configuration"))
@@ -94,7 +246,11 @@ impl DaemonProcess {
             .arg(configuration_path)
             .spawn()
             .expect("spawn daemon from writer-built configuration");
-        let process = Self { child };
+        let process = Self {
+            child,
+            #[cfg(feature = "agent-guardian")]
+            _guardian_agent: guardian_agent,
+        };
         wait_for_socket(socket_path);
         wait_for_socket(&meta_socket_path);
         process
@@ -108,15 +264,25 @@ impl DaemonProcess {
     ) -> Self {
         let configuration_path = socket_path.with_extension("config.rkyv");
         let meta_socket_path = Self::meta_socket_path(socket_path);
-        Configuration::new_with_trace(socket_path, database_path, trace_socket_path)
-            .with_meta_socket_path(&meta_socket_path)
+        #[cfg(feature = "agent-guardian")]
+        let guardian_agent = Self::guardian_agent(socket_path);
+        let configuration =
+            Configuration::new_with_trace(socket_path, database_path, trace_socket_path)
+                .with_meta_socket_path(&meta_socket_path);
+        #[cfg(feature = "agent-guardian")]
+        let configuration = Self::configuration_with_guardian(configuration, &guardian_agent);
+        configuration
             .write_binary_file(&configuration_path)
             .expect("write binary daemon configuration with trace socket");
         let child = Command::new(env!("CARGO_BIN_EXE_spirit-daemon"))
             .arg(configuration_path)
             .spawn()
             .expect("spawn daemon");
-        let process = Self { child };
+        let process = Self {
+            child,
+            #[cfg(feature = "agent-guardian")]
+            _guardian_agent: guardian_agent,
+        };
         wait_for_socket(socket_path);
         wait_for_socket(&meta_socket_path);
         process
