@@ -1,5 +1,5 @@
 #[cfg(feature = "nota-text")]
-use spirit::schema::signal::{Export, Import};
+use spirit::schema::signal::{Export, Import, NotaEncode};
 use spirit::{
     Engine, Nexus, SignalAdmission, Store,
     schema::{

@@ -212,7 +212,7 @@ impl DaemonProcess {
         let guardian_agent = Self::guardian_agent(socket_path);
         #[cfg(not(feature = "agent-guardian"))]
         let request = format!(
-            "(ConfigurationWriteRequest {} (Some {}) {} None None {})",
+            "(ConfigurationWriteRequest ({} (Some {}) {} None None {}))",
             nota_path(socket_path),
             nota_path(&meta_socket_path),
             nota_path(database_path),
@@ -220,7 +220,7 @@ impl DaemonProcess {
         );
         #[cfg(feature = "agent-guardian")]
         let request = format!(
-            "(ConfigurationWriteRequest {} (Some {}) {} None (Some ({} None None 5000 None)) {})",
+            "(ConfigurationWriteRequest ({} (Some {}) {} None (Some ({} None None 5000 None)) {}))",
             nota_path(socket_path),
             nota_path(&meta_socket_path),
             nota_path(database_path),
@@ -298,7 +298,7 @@ fn configuration_writer_accepts_guardian_without_output_budget() {
     let agent_socket_path = directory.path().join("agent.sock");
     let configuration_path = directory.path().join("spirit.config.rkyv");
     let request = format!(
-        "(ConfigurationWriteRequest {} (Some {}) {} None (Some ({} (Some {}) (Some {}) 120000 None)) {})",
+        "(ConfigurationWriteRequest ({} (Some {}) {} None (Some ({} (Some {}) (Some {}) 120000 None)) {}))",
         nota_path(&socket_path),
         nota_path(&meta_socket_path),
         nota_path(&database_path),

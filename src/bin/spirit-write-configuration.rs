@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use nota_next::{Delimiter, NotaBlock, NotaDecode, NotaDecodeError, NotaEncode, NotaSource};
+use nota_next::{NotaDecode, NotaDecodeError, NotaEncode, NotaSource};
 use signal_spirit::{
     ConfigurationPath, SpiritDaemonConfiguration, SpiritDaemonConfigurationArchiveError,
     SpiritGuardianAgentConfiguration, SpiritGuardianMaximumOutputTokens, SpiritGuardianModelName,
@@ -27,7 +27,7 @@ struct ConfigurationWriterInputSource {
     text: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, NotaDecode)]
 struct ConfigurationWriteRequest {
     socket_path: ConfigurationWriterPath,
     meta_socket_path: Option<ConfigurationWriterPath>,
@@ -35,6 +35,11 @@ struct ConfigurationWriteRequest {
     trace_socket_path: Option<ConfigurationWriterPath>,
     guardian_agent_configuration: Option<ConfigurationWriterGuardianAgent>,
     output_path: ConfigurationWriterPath,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, NotaDecode)]
+enum ConfigurationWriterInput {
+    ConfigurationWriteRequest(ConfigurationWriteRequest),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, NotaDecode, NotaEncode)]
@@ -61,9 +66,9 @@ struct ConfigurationWriterGuardianAgent {
     maximum_output_tokens: Option<ConfigurationWriterMaximumOutputTokens>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct ConfigurationWriteOutput {
-    output_path: ConfigurationWriterPath,
+#[derive(Debug, Clone, PartialEq, Eq, NotaEncode)]
+enum ConfigurationWriteOutput {
+    ConfigurationWritten(ConfigurationWriterPath),
 }
 
 impl ConfigurationWriterCli {
@@ -107,7 +112,17 @@ impl ConfigurationWriterInputSource {
     }
 
     fn parse_request(&self) -> Result<ConfigurationWriteRequest, NotaDecodeError> {
-        NotaSource::new(&self.text).parse()
+        NotaSource::new(&self.text)
+            .parse::<ConfigurationWriterInput>()
+            .map(ConfigurationWriterInput::into_request)
+    }
+}
+
+impl ConfigurationWriterInput {
+    fn into_request(self) -> ConfigurationWriteRequest {
+        match self {
+            Self::ConfigurationWriteRequest(request) => request,
+        }
     }
 }
 
@@ -121,7 +136,7 @@ impl ConfigurationWriteRequest {
                 source,
             }
         })?;
-        Ok(ConfigurationWriteOutput { output_path })
+        Ok(ConfigurationWriteOutput::ConfigurationWritten(output_path))
     }
 
     fn configuration(self) -> SpiritDaemonConfiguration {
@@ -143,53 +158,6 @@ impl ConfigurationWriteRequest {
             );
         }
         configuration
-    }
-}
-
-impl NotaDecode for ConfigurationWriteRequest {
-    fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        let body = NotaBlock::new(block)
-            .expect_body(Delimiter::Parenthesis, "ConfigurationWriteRequest")?;
-        let objects = body.root_objects();
-        if objects.len() != 7 {
-            return Err(NotaDecodeError::ExpectedRootCount {
-                type_name: "ConfigurationWriteRequest",
-                expected: 7,
-                found: objects.len(),
-            });
-        }
-        match objects[0].demote_to_string() {
-            Some("ConfigurationWriteRequest") => {}
-            Some(variant) => {
-                return Err(NotaDecodeError::UnknownVariant {
-                    enum_name: "ConfigurationWriteRequest",
-                    variant: variant.to_owned(),
-                });
-            }
-            None => {
-                return Err(NotaDecodeError::ExpectedAtom {
-                    type_name: "ConfigurationWriteRequest",
-                });
-            }
-        }
-        Ok(Self {
-            socket_path: ConfigurationWriterPath::from_nota_block(&objects[1])?,
-            meta_socket_path: Option::<ConfigurationWriterPath>::from_nota_block(&objects[2])?,
-            database_path: ConfigurationWriterPath::from_nota_block(&objects[3])?,
-            trace_socket_path: Option::<ConfigurationWriterPath>::from_nota_block(&objects[4])?,
-            guardian_agent_configuration:
-                Option::<ConfigurationWriterGuardianAgent>::from_nota_block(&objects[5])?,
-            output_path: ConfigurationWriterPath::from_nota_block(&objects[6])?,
-        })
-    }
-}
-
-impl NotaEncode for ConfigurationWriteOutput {
-    fn to_nota(&self) -> String {
-        Delimiter::Parenthesis.wrap([
-            String::from("ConfigurationWritten"),
-            self.output_path.to_nota(),
-        ])
     }
 }
 
