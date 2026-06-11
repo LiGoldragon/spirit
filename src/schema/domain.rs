@@ -1097,14 +1097,2997 @@ pub enum Domain {
 }
 
 #[rustfmt::skip]
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct DomainPath(Vec<String>);
-
+pub enum DomainScope {
+    Health(HealthScope),
+    Food(FoodScope),
+    Home(HomeScope),
+    Finance(FinanceScope),
+    Work(WorkScope),
+    Craft(CraftScope),
+    Knowledge(KnowledgeScope),
+    Education(EducationScope),
+    Language(LanguageScope),
+    Art(ArtScope),
+    Kinship(KinshipScope),
+    Selfhood(SelfhoodScope),
+    Spirituality(SpiritualityScope),
+    Governance(GovernanceScope),
+    Law(LawScope),
+    Community(CommunityScope),
+    Nature(NatureScope),
+    Travel(TravelScope),
+    Commerce(CommerceScope),
+    Leisure(LeisureScope),
+    Appearance(AppearanceScope),
+    Safety(SafetyScope),
+    Information(InformationScope),
+    Technology(TechnologyScope),
+}
 #[rustfmt::skip]
-#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct DomainScope(DomainPath);
+pub enum TechnologyScope {
+    #[doc(hidden)]
+    This,
+    Hardware(HardwareScope),
+    Software(SoftwareScope),
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum SoftwareScope {
+    #[doc(hidden)]
+    This,
+    Languages(LanguagesScope),
+    Theory(TheoryScope),
+    Systems(SystemsScope),
+    Distributed(DistributedScope),
+    Data(DataScope),
+    Intelligence(IntelligenceScope),
+    Security(SecurityScope),
+    Quality(QualityScope),
+    Operations(OperationsScope),
+    Observability(ObservabilityScope),
+    Surfaces(SurfacesScope),
+    Engineering(EngineeringScope),
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum EngineeringScope {
+    #[doc(hidden)]
+    This,
+    SoftwareArchitecture,
+    SoftwareDesign,
+    DesignPatterns,
+    DomainDrivenDesign,
+    ApplicationProgrammingInterfaces,
+    Microservices,
+    Serverless,
+    CloudComputing,
+    EdgeComputing,
+    Scalability,
+    Reliability,
+    Maintainability,
+    Portability,
+    Interoperability,
+    Modularity,
+    Abstraction,
+    RequirementsEngineering,
+    Documentation,
+    VersionControl,
+    SoftwareDevelopmentProcess,
+    SoftwareMaintenance,
+    SoftwareEngineeringManagement,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum SurfacesScope {
+    #[doc(hidden)]
+    This,
+    WebDevelopment,
+    FrontendDevelopment,
+    BackendDevelopment,
+    UserInterface,
+    InteractionDesign,
+    Rendering,
+    ComputerGraphics,
+    Animation,
+    Layout,
+    Styling,
+    StateManagement,
+    Accessibility,
+    Usability,
+    Internationalization,
+    Localization,
+    MobileDevelopment,
+    GameDevelopment,
+    Visualization,
+    SyntaxHighlighting,
+    CommandLineInterfaces,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum ObservabilityScope {
+    #[doc(hidden)]
+    This,
+    Logging,
+    Monitoring,
+    Alerting,
+    Tracing,
+    DistributedTracing,
+    Metrics,
+    Telemetry,
+    ErrorHandling,
+    AuditLogging,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum OperationsScope {
+    #[doc(hidden)]
+    This,
+    ContinuousIntegration,
+    ContinuousDelivery,
+    BuildSystem,
+    ReleaseEngineering,
+    DependencyManagement,
+    PackageManagement,
+    ArtifactManagement,
+    Deployment,
+    Provisioning,
+    InfrastructureAsCode,
+    Orchestration,
+    ConfigurationManagement,
+    AutoScaling,
+    CapacityPlanning,
+    SiteReliability,
+    IncidentResponse,
+    DisasterRecovery,
+    RateLimiting,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum QualityScope {
+    #[doc(hidden)]
+    This,
+    Testing,
+    UnitTesting,
+    IntegrationTesting,
+    EndToEndTesting,
+    PropertyBasedTesting,
+    Fuzzing,
+    TestAutomation,
+    Mocking,
+    CodeCoverage,
+    Debugging,
+    Profiling,
+    Benchmarking,
+    PerformanceOptimization,
+    LoadTesting,
+    CodeReview,
+    Refactoring,
+    Linting,
+    Formatting,
+    TechnicalDebt,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum SecurityScope {
+    #[doc(hidden)]
+    This,
+    Cryptography,
+    Authentication,
+    Authorization,
+    AccessControl,
+    AdmissionControl,
+    SecretsManagement,
+    ThreatModeling,
+    VulnerabilityManagement,
+    PenetrationTesting,
+    ApplicationSecurity,
+    NetworkSecurity,
+    Sandboxing,
+    Hardening,
+    Privacy,
+    IntrusionDetection,
+    ReverseEngineering,
+    InputSanitization,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum IntelligenceScope {
+    #[doc(hidden)]
+    This,
+    MachineLearning,
+    DeepLearning,
+    NeuralNetworks,
+    NaturalLanguageProcessing,
+    ComputerVision,
+    ReinforcementLearning,
+    ModelTraining,
+    ModelInference,
+    FeatureEngineering,
+    PromptEngineering,
+    RetrievalAugmentedGeneration,
+    AgentSystems,
+    InformationRetrieval,
+    Search,
+    Ranking,
+    RecommendationSystems,
+    KnowledgeRepresentation,
+    AutomatedReasoning,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum DataScope {
+    #[doc(hidden)]
+    This,
+    DatabaseSystems,
+    QueryProcessing,
+    Indexing,
+    Transactions,
+    Caching,
+    Storage,
+    Persistence,
+    Serialization,
+    DataFormats,
+    Compression,
+    Encoding,
+    DataModeling,
+    DataPipelines,
+    StreamProcessing,
+    BatchProcessing,
+    SchemaEvolution,
+    DataMigration,
+    DataValidation,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum DistributedScope {
+    #[doc(hidden)]
+    This,
+    DistributedSystems,
+    Networking,
+    NetworkProtocols,
+    ProtocolDesign,
+    Consensus,
+    Replication,
+    MessageQueuing,
+    EventDrivenArchitecture,
+    ServiceMesh,
+    LoadBalancing,
+    RemoteProcedureCall,
+    InterprocessCommunication,
+    Routing,
+    FaultTolerance,
+    Sharding,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum SystemsScope {
+    #[doc(hidden)]
+    This,
+    OperatingSystems,
+    SystemsProgramming,
+    Concurrency,
+    Parallelism,
+    Asynchrony,
+    Synchronization,
+    Scheduling,
+    FileSystems,
+    Virtualization,
+    Containerization,
+    EmbeddedSystems,
+    RealTimeSystems,
+    Firmware,
+    ResourceManagement,
+    KernelDevelopment,
+    DeviceDrivers,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum TheoryScope {
+    #[doc(hidden)]
+    This,
+    Algorithms,
+    DataStructures,
+    ComputationalComplexity,
+    AutomataTheory,
+    FormalLanguages,
+    GraphAlgorithms,
+    TypeTheory,
+    ProgramSemantics,
+    FormalMethods,
+    FormalVerification,
+    ModelChecking,
+    StaticAnalysis,
+    NumericalComputing,
+    Cryptanalysis,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum LanguagesScope {
+    #[doc(hidden)]
+    This,
+    ProgrammingLanguages,
+    ProgrammingParadigms,
+    TypeSystems,
+    Compilation,
+    Interpretation,
+    Parsing,
+    LexicalAnalysis,
+    Grammars,
+    CodeGeneration,
+    Metaprogramming,
+    Macros,
+    DomainSpecificLanguages,
+    RuntimeEnvironments,
+    GarbageCollection,
+    MemoryManagement,
+    ForeignFunctionInterfaces,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum HardwareScope {
+    #[doc(hidden)]
+    This,
+    Energy,
+    Power,
+    Automation,
+    Robotics,
+    Networking,
+    Materials,
+    Machinery,
+    Instrumentation,
+    Aerospace,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum InformationScope {
+    #[doc(hidden)]
+    This,
+    Curation,
+    RecordKeeping,
+    Documentation,
+    News,
+    Broadcasting,
+    Archives,
+    Database,
+    Retrieval,
+    Classification,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum SafetyScope {
+    #[doc(hidden)]
+    This,
+    Protection,
+    Preparedness,
+    Risk,
+    Cybersecurity,
+    Privacy,
+    Disaster,
+    Military,
+    Deterrence,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum AppearanceScope {
+    #[doc(hidden)]
+    This,
+    Clothing,
+    Grooming,
+    Style,
+    Cosmetics,
+    Etiquette,
+    Comportment,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum LeisureScope {
+    #[doc(hidden)]
+    This,
+    Recreation,
+    Sport,
+    Games,
+    Hobby,
+    Entertainment,
+    Collecting,
+    Outdoors,
+    Play,
+    Relaxation,
+    Celebration,
+    Fandom,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum CommerceScope {
+    #[doc(hidden)]
+    This,
+    Selling,
+    Buying,
+    Marketing,
+    Retail,
+    Sourcing,
+    Trade,
+    Support,
+    Pricing,
+    Negotiation,
+    Assets,
+    Market,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum TravelScope {
+    #[doc(hidden)]
+    This,
+    Itinerary,
+    Destination,
+    Transportation,
+    Driving,
+    Navigation,
+    Commuting,
+    Logistics,
+    Migration,
+    Tourism,
+    Transit,
+    Cycling,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum NatureScope {
+    #[doc(hidden)]
+    This,
+    Agriculture,
+    Gardening,
+    Horticulture,
+    Husbandry,
+    Pets,
+    Forestry,
+    Fishing,
+    Hunting,
+    Conservation,
+    Weather,
+    Wilderness,
+    Sustainability,
+    Resources,
+    Stewardship,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum CommunityScope {
+    #[doc(hidden)]
+    This,
+    Neighborliness,
+    Volunteering,
+    Solidarity,
+    Membership,
+    Gatherings,
+    Reputation,
+    Service,
+    Hospitality,
+    Institutions,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum LawScope {
+    #[doc(hidden)]
+    This,
+    Rights,
+    Contract,
+    Title,
+    Crime,
+    Litigation,
+    Compliance,
+    Custody,
+    Liability,
+    Procedure,
+    Justice,
+    Policing,
+    Arbitration,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum GovernanceScope {
+    #[doc(hidden)]
+    This,
+    Politics,
+    Government,
+    Administration,
+    Citizenship,
+    Elections,
+    Activism,
+    Policy,
+    Diplomacy,
+    Movements,
+    Organizing,
+    Services,
+    Naturalization,
+    War,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum SpiritualityScope {
+    #[doc(hidden)]
+    This,
+    Worship,
+    Prayer,
+    Meditation,
+    Ritual,
+    Faith,
+    Theology,
+    Contemplation,
+    Pilgrimage,
+    Scripture,
+    Ethics,
+    Mortality,
+    Transcendence,
+    Asceticism,
+    Wisdom,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum SelfhoodScope {
+    #[doc(hidden)]
+    This,
+    Growth,
+    Introspection,
+    Discipline,
+    Emotion,
+    Virtue,
+    Motivation,
+    Confidence,
+    Identity,
+    Purpose,
+    Decision,
+    Temperament,
+    Wellbeing,
+    Composure,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum KinshipScope {
+    #[doc(hidden)]
+    This,
+    Friendship,
+    Romance,
+    Marriage,
+    Family,
+    Parenting,
+    Relatives,
+    Reconciliation,
+    Boundaries,
+    Intimacy,
+    Rapport,
+    Caregiving,
+    Grief,
+    Belonging,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum ArtScope {
+    #[doc(hidden)]
+    This,
+    Fiction,
+    Poetry,
+    Music,
+    Painting,
+    Photography,
+    Film,
+    Theater,
+    Dance,
+    Design,
+    Sculpture,
+    Creativity,
+    Storytelling,
+    Publishing,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum LanguageScope {
+    #[doc(hidden)]
+    This,
+    Writing,
+    Rhetoric,
+    Translation,
+    Grammar,
+    Conversation,
+    Correspondence,
+    Listening,
+    Oratory,
+    Editing,
+    Terminology,
+    Notation,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum EducationScope {
+    #[doc(hidden)]
+    This,
+    Studying,
+    Teaching,
+    Schooling,
+    Skill,
+    Reading,
+    Memorization,
+    Pedagogy,
+    Mentoring,
+    Autodidacticism,
+    Credential,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum KnowledgeScope {
+    #[doc(hidden)]
+    This,
+    Mathematics,
+    Logic,
+    Physics,
+    Chemistry,
+    Biology,
+    Astronomy,
+    Geology,
+    Computing,
+    Physiology,
+    Statistics,
+    Research,
+    History,
+    Linguistics,
+    Philosophy,
+    Economics,
+    Cognition,
+    Taxonomy,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum CraftScope {
+    #[doc(hidden)]
+    This,
+    Electronics,
+    Construction,
+    Carpentry,
+    Metalworking,
+    Sewing,
+    Manufacturing,
+    Repair,
+    Engineering,
+    Handicraft,
+    Invention,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum WorkScope {
+    #[doc(hidden)]
+    This,
+    Career,
+    JobSearch,
+    Workplace,
+    Vocation,
+    Leadership,
+    Entrepreneurship,
+    Employment,
+    Compensation,
+    Scheduling,
+    Unemployment,
+    Freelancing,
+    Teamwork,
+    Productivity,
+    Project,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum FinanceScope {
+    #[doc(hidden)]
+    This,
+    Budgeting,
+    Saving,
+    Spending,
+    Debt,
+    Credit,
+    Investing,
+    Retirement,
+    Tax,
+    Insurance,
+    Income,
+    Banking,
+    Charity,
+    Planning,
+    Accounting,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum HomeScope {
+    #[doc(hidden)]
+    This,
+    Housing,
+    Maintenance,
+    Renovation,
+    Furnishing,
+    Cleaning,
+    Tidying,
+    Relocation,
+    Realty,
+    Property,
+    Utilities,
+    Locksmithing,
+    Appliances,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum FoodScope {
+    #[doc(hidden)]
+    This,
+    Cooking,
+    Diet,
+    Recipe,
+    Baking,
+    Preservation,
+    Fermentation,
+    Beverage,
+    Entertaining,
+    Foraging,
+    Fasting,
+    Dining,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum HealthScope {
+    #[doc(hidden)]
+    This,
+    Body,
+    Mind,
+    Nutrition,
+    Exercise,
+    Sleep,
+    Medicine,
+    Disease,
+    Medication,
+    Therapy,
+    Reproduction,
+    Sexuality,
+    Aging,
+    Disability,
+    Addiction,
+    Dentistry,
+    Senses,
+    Pain,
+    Prevention,
+    FirstAid,
+    Rehabilitation,
+}
+#[rustfmt::skip]
+impl HealthScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Body" if tail.is_empty() => Some(Self::Body),
+            "Mind" if tail.is_empty() => Some(Self::Mind),
+            "Nutrition" if tail.is_empty() => Some(Self::Nutrition),
+            "Exercise" if tail.is_empty() => Some(Self::Exercise),
+            "Sleep" if tail.is_empty() => Some(Self::Sleep),
+            "Medicine" if tail.is_empty() => Some(Self::Medicine),
+            "Disease" if tail.is_empty() => Some(Self::Disease),
+            "Medication" if tail.is_empty() => Some(Self::Medication),
+            "Therapy" if tail.is_empty() => Some(Self::Therapy),
+            "Reproduction" if tail.is_empty() => Some(Self::Reproduction),
+            "Sexuality" if tail.is_empty() => Some(Self::Sexuality),
+            "Aging" if tail.is_empty() => Some(Self::Aging),
+            "Disability" if tail.is_empty() => Some(Self::Disability),
+            "Addiction" if tail.is_empty() => Some(Self::Addiction),
+            "Dentistry" if tail.is_empty() => Some(Self::Dentistry),
+            "Senses" if tail.is_empty() => Some(Self::Senses),
+            "Pain" if tail.is_empty() => Some(Self::Pain),
+            "Prevention" if tail.is_empty() => Some(Self::Prevention),
+            "FirstAid" if tail.is_empty() => Some(Self::FirstAid),
+            "Rehabilitation" if tail.is_empty() => Some(Self::Rehabilitation),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Body => vec![String::from("Body")],
+            Self::Mind => vec![String::from("Mind")],
+            Self::Nutrition => vec![String::from("Nutrition")],
+            Self::Exercise => vec![String::from("Exercise")],
+            Self::Sleep => vec![String::from("Sleep")],
+            Self::Medicine => vec![String::from("Medicine")],
+            Self::Disease => vec![String::from("Disease")],
+            Self::Medication => vec![String::from("Medication")],
+            Self::Therapy => vec![String::from("Therapy")],
+            Self::Reproduction => vec![String::from("Reproduction")],
+            Self::Sexuality => vec![String::from("Sexuality")],
+            Self::Aging => vec![String::from("Aging")],
+            Self::Disability => vec![String::from("Disability")],
+            Self::Addiction => vec![String::from("Addiction")],
+            Self::Dentistry => vec![String::from("Dentistry")],
+            Self::Senses => vec![String::from("Senses")],
+            Self::Pain => vec![String::from("Pain")],
+            Self::Prevention => vec![String::from("Prevention")],
+            Self::FirstAid => vec![String::from("FirstAid")],
+            Self::Rehabilitation => vec![String::from("Rehabilitation")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl FoodScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Cooking" if tail.is_empty() => Some(Self::Cooking),
+            "Diet" if tail.is_empty() => Some(Self::Diet),
+            "Recipe" if tail.is_empty() => Some(Self::Recipe),
+            "Baking" if tail.is_empty() => Some(Self::Baking),
+            "Preservation" if tail.is_empty() => Some(Self::Preservation),
+            "Fermentation" if tail.is_empty() => Some(Self::Fermentation),
+            "Beverage" if tail.is_empty() => Some(Self::Beverage),
+            "Entertaining" if tail.is_empty() => Some(Self::Entertaining),
+            "Foraging" if tail.is_empty() => Some(Self::Foraging),
+            "Fasting" if tail.is_empty() => Some(Self::Fasting),
+            "Dining" if tail.is_empty() => Some(Self::Dining),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Cooking => vec![String::from("Cooking")],
+            Self::Diet => vec![String::from("Diet")],
+            Self::Recipe => vec![String::from("Recipe")],
+            Self::Baking => vec![String::from("Baking")],
+            Self::Preservation => vec![String::from("Preservation")],
+            Self::Fermentation => vec![String::from("Fermentation")],
+            Self::Beverage => vec![String::from("Beverage")],
+            Self::Entertaining => vec![String::from("Entertaining")],
+            Self::Foraging => vec![String::from("Foraging")],
+            Self::Fasting => vec![String::from("Fasting")],
+            Self::Dining => vec![String::from("Dining")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl HomeScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Housing" if tail.is_empty() => Some(Self::Housing),
+            "Maintenance" if tail.is_empty() => Some(Self::Maintenance),
+            "Renovation" if tail.is_empty() => Some(Self::Renovation),
+            "Furnishing" if tail.is_empty() => Some(Self::Furnishing),
+            "Cleaning" if tail.is_empty() => Some(Self::Cleaning),
+            "Tidying" if tail.is_empty() => Some(Self::Tidying),
+            "Relocation" if tail.is_empty() => Some(Self::Relocation),
+            "Realty" if tail.is_empty() => Some(Self::Realty),
+            "Property" if tail.is_empty() => Some(Self::Property),
+            "Utilities" if tail.is_empty() => Some(Self::Utilities),
+            "Locksmithing" if tail.is_empty() => Some(Self::Locksmithing),
+            "Appliances" if tail.is_empty() => Some(Self::Appliances),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Housing => vec![String::from("Housing")],
+            Self::Maintenance => vec![String::from("Maintenance")],
+            Self::Renovation => vec![String::from("Renovation")],
+            Self::Furnishing => vec![String::from("Furnishing")],
+            Self::Cleaning => vec![String::from("Cleaning")],
+            Self::Tidying => vec![String::from("Tidying")],
+            Self::Relocation => vec![String::from("Relocation")],
+            Self::Realty => vec![String::from("Realty")],
+            Self::Property => vec![String::from("Property")],
+            Self::Utilities => vec![String::from("Utilities")],
+            Self::Locksmithing => vec![String::from("Locksmithing")],
+            Self::Appliances => vec![String::from("Appliances")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl FinanceScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Budgeting" if tail.is_empty() => Some(Self::Budgeting),
+            "Saving" if tail.is_empty() => Some(Self::Saving),
+            "Spending" if tail.is_empty() => Some(Self::Spending),
+            "Debt" if tail.is_empty() => Some(Self::Debt),
+            "Credit" if tail.is_empty() => Some(Self::Credit),
+            "Investing" if tail.is_empty() => Some(Self::Investing),
+            "Retirement" if tail.is_empty() => Some(Self::Retirement),
+            "Tax" if tail.is_empty() => Some(Self::Tax),
+            "Insurance" if tail.is_empty() => Some(Self::Insurance),
+            "Income" if tail.is_empty() => Some(Self::Income),
+            "Banking" if tail.is_empty() => Some(Self::Banking),
+            "Charity" if tail.is_empty() => Some(Self::Charity),
+            "Planning" if tail.is_empty() => Some(Self::Planning),
+            "Accounting" if tail.is_empty() => Some(Self::Accounting),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Budgeting => vec![String::from("Budgeting")],
+            Self::Saving => vec![String::from("Saving")],
+            Self::Spending => vec![String::from("Spending")],
+            Self::Debt => vec![String::from("Debt")],
+            Self::Credit => vec![String::from("Credit")],
+            Self::Investing => vec![String::from("Investing")],
+            Self::Retirement => vec![String::from("Retirement")],
+            Self::Tax => vec![String::from("Tax")],
+            Self::Insurance => vec![String::from("Insurance")],
+            Self::Income => vec![String::from("Income")],
+            Self::Banking => vec![String::from("Banking")],
+            Self::Charity => vec![String::from("Charity")],
+            Self::Planning => vec![String::from("Planning")],
+            Self::Accounting => vec![String::from("Accounting")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl WorkScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Career" if tail.is_empty() => Some(Self::Career),
+            "JobSearch" if tail.is_empty() => Some(Self::JobSearch),
+            "Workplace" if tail.is_empty() => Some(Self::Workplace),
+            "Vocation" if tail.is_empty() => Some(Self::Vocation),
+            "Leadership" if tail.is_empty() => Some(Self::Leadership),
+            "Entrepreneurship" if tail.is_empty() => Some(Self::Entrepreneurship),
+            "Employment" if tail.is_empty() => Some(Self::Employment),
+            "Compensation" if tail.is_empty() => Some(Self::Compensation),
+            "Scheduling" if tail.is_empty() => Some(Self::Scheduling),
+            "Unemployment" if tail.is_empty() => Some(Self::Unemployment),
+            "Freelancing" if tail.is_empty() => Some(Self::Freelancing),
+            "Teamwork" if tail.is_empty() => Some(Self::Teamwork),
+            "Productivity" if tail.is_empty() => Some(Self::Productivity),
+            "Project" if tail.is_empty() => Some(Self::Project),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Career => vec![String::from("Career")],
+            Self::JobSearch => vec![String::from("JobSearch")],
+            Self::Workplace => vec![String::from("Workplace")],
+            Self::Vocation => vec![String::from("Vocation")],
+            Self::Leadership => vec![String::from("Leadership")],
+            Self::Entrepreneurship => vec![String::from("Entrepreneurship")],
+            Self::Employment => vec![String::from("Employment")],
+            Self::Compensation => vec![String::from("Compensation")],
+            Self::Scheduling => vec![String::from("Scheduling")],
+            Self::Unemployment => vec![String::from("Unemployment")],
+            Self::Freelancing => vec![String::from("Freelancing")],
+            Self::Teamwork => vec![String::from("Teamwork")],
+            Self::Productivity => vec![String::from("Productivity")],
+            Self::Project => vec![String::from("Project")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl CraftScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Electronics" if tail.is_empty() => Some(Self::Electronics),
+            "Construction" if tail.is_empty() => Some(Self::Construction),
+            "Carpentry" if tail.is_empty() => Some(Self::Carpentry),
+            "Metalworking" if tail.is_empty() => Some(Self::Metalworking),
+            "Sewing" if tail.is_empty() => Some(Self::Sewing),
+            "Manufacturing" if tail.is_empty() => Some(Self::Manufacturing),
+            "Repair" if tail.is_empty() => Some(Self::Repair),
+            "Engineering" if tail.is_empty() => Some(Self::Engineering),
+            "Handicraft" if tail.is_empty() => Some(Self::Handicraft),
+            "Invention" if tail.is_empty() => Some(Self::Invention),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Electronics => vec![String::from("Electronics")],
+            Self::Construction => vec![String::from("Construction")],
+            Self::Carpentry => vec![String::from("Carpentry")],
+            Self::Metalworking => vec![String::from("Metalworking")],
+            Self::Sewing => vec![String::from("Sewing")],
+            Self::Manufacturing => vec![String::from("Manufacturing")],
+            Self::Repair => vec![String::from("Repair")],
+            Self::Engineering => vec![String::from("Engineering")],
+            Self::Handicraft => vec![String::from("Handicraft")],
+            Self::Invention => vec![String::from("Invention")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl KnowledgeScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Mathematics" if tail.is_empty() => Some(Self::Mathematics),
+            "Logic" if tail.is_empty() => Some(Self::Logic),
+            "Physics" if tail.is_empty() => Some(Self::Physics),
+            "Chemistry" if tail.is_empty() => Some(Self::Chemistry),
+            "Biology" if tail.is_empty() => Some(Self::Biology),
+            "Astronomy" if tail.is_empty() => Some(Self::Astronomy),
+            "Geology" if tail.is_empty() => Some(Self::Geology),
+            "Computing" if tail.is_empty() => Some(Self::Computing),
+            "Physiology" if tail.is_empty() => Some(Self::Physiology),
+            "Statistics" if tail.is_empty() => Some(Self::Statistics),
+            "Research" if tail.is_empty() => Some(Self::Research),
+            "History" if tail.is_empty() => Some(Self::History),
+            "Linguistics" if tail.is_empty() => Some(Self::Linguistics),
+            "Philosophy" if tail.is_empty() => Some(Self::Philosophy),
+            "Economics" if tail.is_empty() => Some(Self::Economics),
+            "Cognition" if tail.is_empty() => Some(Self::Cognition),
+            "Taxonomy" if tail.is_empty() => Some(Self::Taxonomy),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Mathematics => vec![String::from("Mathematics")],
+            Self::Logic => vec![String::from("Logic")],
+            Self::Physics => vec![String::from("Physics")],
+            Self::Chemistry => vec![String::from("Chemistry")],
+            Self::Biology => vec![String::from("Biology")],
+            Self::Astronomy => vec![String::from("Astronomy")],
+            Self::Geology => vec![String::from("Geology")],
+            Self::Computing => vec![String::from("Computing")],
+            Self::Physiology => vec![String::from("Physiology")],
+            Self::Statistics => vec![String::from("Statistics")],
+            Self::Research => vec![String::from("Research")],
+            Self::History => vec![String::from("History")],
+            Self::Linguistics => vec![String::from("Linguistics")],
+            Self::Philosophy => vec![String::from("Philosophy")],
+            Self::Economics => vec![String::from("Economics")],
+            Self::Cognition => vec![String::from("Cognition")],
+            Self::Taxonomy => vec![String::from("Taxonomy")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl EducationScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Studying" if tail.is_empty() => Some(Self::Studying),
+            "Teaching" if tail.is_empty() => Some(Self::Teaching),
+            "Schooling" if tail.is_empty() => Some(Self::Schooling),
+            "Skill" if tail.is_empty() => Some(Self::Skill),
+            "Reading" if tail.is_empty() => Some(Self::Reading),
+            "Memorization" if tail.is_empty() => Some(Self::Memorization),
+            "Pedagogy" if tail.is_empty() => Some(Self::Pedagogy),
+            "Mentoring" if tail.is_empty() => Some(Self::Mentoring),
+            "Autodidacticism" if tail.is_empty() => Some(Self::Autodidacticism),
+            "Credential" if tail.is_empty() => Some(Self::Credential),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Studying => vec![String::from("Studying")],
+            Self::Teaching => vec![String::from("Teaching")],
+            Self::Schooling => vec![String::from("Schooling")],
+            Self::Skill => vec![String::from("Skill")],
+            Self::Reading => vec![String::from("Reading")],
+            Self::Memorization => vec![String::from("Memorization")],
+            Self::Pedagogy => vec![String::from("Pedagogy")],
+            Self::Mentoring => vec![String::from("Mentoring")],
+            Self::Autodidacticism => vec![String::from("Autodidacticism")],
+            Self::Credential => vec![String::from("Credential")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl LanguageScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Writing" if tail.is_empty() => Some(Self::Writing),
+            "Rhetoric" if tail.is_empty() => Some(Self::Rhetoric),
+            "Translation" if tail.is_empty() => Some(Self::Translation),
+            "Grammar" if tail.is_empty() => Some(Self::Grammar),
+            "Conversation" if tail.is_empty() => Some(Self::Conversation),
+            "Correspondence" if tail.is_empty() => Some(Self::Correspondence),
+            "Listening" if tail.is_empty() => Some(Self::Listening),
+            "Oratory" if tail.is_empty() => Some(Self::Oratory),
+            "Editing" if tail.is_empty() => Some(Self::Editing),
+            "Terminology" if tail.is_empty() => Some(Self::Terminology),
+            "Notation" if tail.is_empty() => Some(Self::Notation),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Writing => vec![String::from("Writing")],
+            Self::Rhetoric => vec![String::from("Rhetoric")],
+            Self::Translation => vec![String::from("Translation")],
+            Self::Grammar => vec![String::from("Grammar")],
+            Self::Conversation => vec![String::from("Conversation")],
+            Self::Correspondence => vec![String::from("Correspondence")],
+            Self::Listening => vec![String::from("Listening")],
+            Self::Oratory => vec![String::from("Oratory")],
+            Self::Editing => vec![String::from("Editing")],
+            Self::Terminology => vec![String::from("Terminology")],
+            Self::Notation => vec![String::from("Notation")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl ArtScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Fiction" if tail.is_empty() => Some(Self::Fiction),
+            "Poetry" if tail.is_empty() => Some(Self::Poetry),
+            "Music" if tail.is_empty() => Some(Self::Music),
+            "Painting" if tail.is_empty() => Some(Self::Painting),
+            "Photography" if tail.is_empty() => Some(Self::Photography),
+            "Film" if tail.is_empty() => Some(Self::Film),
+            "Theater" if tail.is_empty() => Some(Self::Theater),
+            "Dance" if tail.is_empty() => Some(Self::Dance),
+            "Design" if tail.is_empty() => Some(Self::Design),
+            "Sculpture" if tail.is_empty() => Some(Self::Sculpture),
+            "Creativity" if tail.is_empty() => Some(Self::Creativity),
+            "Storytelling" if tail.is_empty() => Some(Self::Storytelling),
+            "Publishing" if tail.is_empty() => Some(Self::Publishing),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Fiction => vec![String::from("Fiction")],
+            Self::Poetry => vec![String::from("Poetry")],
+            Self::Music => vec![String::from("Music")],
+            Self::Painting => vec![String::from("Painting")],
+            Self::Photography => vec![String::from("Photography")],
+            Self::Film => vec![String::from("Film")],
+            Self::Theater => vec![String::from("Theater")],
+            Self::Dance => vec![String::from("Dance")],
+            Self::Design => vec![String::from("Design")],
+            Self::Sculpture => vec![String::from("Sculpture")],
+            Self::Creativity => vec![String::from("Creativity")],
+            Self::Storytelling => vec![String::from("Storytelling")],
+            Self::Publishing => vec![String::from("Publishing")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl KinshipScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Friendship" if tail.is_empty() => Some(Self::Friendship),
+            "Romance" if tail.is_empty() => Some(Self::Romance),
+            "Marriage" if tail.is_empty() => Some(Self::Marriage),
+            "Family" if tail.is_empty() => Some(Self::Family),
+            "Parenting" if tail.is_empty() => Some(Self::Parenting),
+            "Relatives" if tail.is_empty() => Some(Self::Relatives),
+            "Reconciliation" if tail.is_empty() => Some(Self::Reconciliation),
+            "Boundaries" if tail.is_empty() => Some(Self::Boundaries),
+            "Intimacy" if tail.is_empty() => Some(Self::Intimacy),
+            "Rapport" if tail.is_empty() => Some(Self::Rapport),
+            "Caregiving" if tail.is_empty() => Some(Self::Caregiving),
+            "Grief" if tail.is_empty() => Some(Self::Grief),
+            "Belonging" if tail.is_empty() => Some(Self::Belonging),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Friendship => vec![String::from("Friendship")],
+            Self::Romance => vec![String::from("Romance")],
+            Self::Marriage => vec![String::from("Marriage")],
+            Self::Family => vec![String::from("Family")],
+            Self::Parenting => vec![String::from("Parenting")],
+            Self::Relatives => vec![String::from("Relatives")],
+            Self::Reconciliation => vec![String::from("Reconciliation")],
+            Self::Boundaries => vec![String::from("Boundaries")],
+            Self::Intimacy => vec![String::from("Intimacy")],
+            Self::Rapport => vec![String::from("Rapport")],
+            Self::Caregiving => vec![String::from("Caregiving")],
+            Self::Grief => vec![String::from("Grief")],
+            Self::Belonging => vec![String::from("Belonging")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl SelfhoodScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Growth" if tail.is_empty() => Some(Self::Growth),
+            "Introspection" if tail.is_empty() => Some(Self::Introspection),
+            "Discipline" if tail.is_empty() => Some(Self::Discipline),
+            "Emotion" if tail.is_empty() => Some(Self::Emotion),
+            "Virtue" if tail.is_empty() => Some(Self::Virtue),
+            "Motivation" if tail.is_empty() => Some(Self::Motivation),
+            "Confidence" if tail.is_empty() => Some(Self::Confidence),
+            "Identity" if tail.is_empty() => Some(Self::Identity),
+            "Purpose" if tail.is_empty() => Some(Self::Purpose),
+            "Decision" if tail.is_empty() => Some(Self::Decision),
+            "Temperament" if tail.is_empty() => Some(Self::Temperament),
+            "Wellbeing" if tail.is_empty() => Some(Self::Wellbeing),
+            "Composure" if tail.is_empty() => Some(Self::Composure),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Growth => vec![String::from("Growth")],
+            Self::Introspection => vec![String::from("Introspection")],
+            Self::Discipline => vec![String::from("Discipline")],
+            Self::Emotion => vec![String::from("Emotion")],
+            Self::Virtue => vec![String::from("Virtue")],
+            Self::Motivation => vec![String::from("Motivation")],
+            Self::Confidence => vec![String::from("Confidence")],
+            Self::Identity => vec![String::from("Identity")],
+            Self::Purpose => vec![String::from("Purpose")],
+            Self::Decision => vec![String::from("Decision")],
+            Self::Temperament => vec![String::from("Temperament")],
+            Self::Wellbeing => vec![String::from("Wellbeing")],
+            Self::Composure => vec![String::from("Composure")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl SpiritualityScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Worship" if tail.is_empty() => Some(Self::Worship),
+            "Prayer" if tail.is_empty() => Some(Self::Prayer),
+            "Meditation" if tail.is_empty() => Some(Self::Meditation),
+            "Ritual" if tail.is_empty() => Some(Self::Ritual),
+            "Faith" if tail.is_empty() => Some(Self::Faith),
+            "Theology" if tail.is_empty() => Some(Self::Theology),
+            "Contemplation" if tail.is_empty() => Some(Self::Contemplation),
+            "Pilgrimage" if tail.is_empty() => Some(Self::Pilgrimage),
+            "Scripture" if tail.is_empty() => Some(Self::Scripture),
+            "Ethics" if tail.is_empty() => Some(Self::Ethics),
+            "Mortality" if tail.is_empty() => Some(Self::Mortality),
+            "Transcendence" if tail.is_empty() => Some(Self::Transcendence),
+            "Asceticism" if tail.is_empty() => Some(Self::Asceticism),
+            "Wisdom" if tail.is_empty() => Some(Self::Wisdom),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Worship => vec![String::from("Worship")],
+            Self::Prayer => vec![String::from("Prayer")],
+            Self::Meditation => vec![String::from("Meditation")],
+            Self::Ritual => vec![String::from("Ritual")],
+            Self::Faith => vec![String::from("Faith")],
+            Self::Theology => vec![String::from("Theology")],
+            Self::Contemplation => vec![String::from("Contemplation")],
+            Self::Pilgrimage => vec![String::from("Pilgrimage")],
+            Self::Scripture => vec![String::from("Scripture")],
+            Self::Ethics => vec![String::from("Ethics")],
+            Self::Mortality => vec![String::from("Mortality")],
+            Self::Transcendence => vec![String::from("Transcendence")],
+            Self::Asceticism => vec![String::from("Asceticism")],
+            Self::Wisdom => vec![String::from("Wisdom")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl GovernanceScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Politics" if tail.is_empty() => Some(Self::Politics),
+            "Government" if tail.is_empty() => Some(Self::Government),
+            "Administration" if tail.is_empty() => Some(Self::Administration),
+            "Citizenship" if tail.is_empty() => Some(Self::Citizenship),
+            "Elections" if tail.is_empty() => Some(Self::Elections),
+            "Activism" if tail.is_empty() => Some(Self::Activism),
+            "Policy" if tail.is_empty() => Some(Self::Policy),
+            "Diplomacy" if tail.is_empty() => Some(Self::Diplomacy),
+            "Movements" if tail.is_empty() => Some(Self::Movements),
+            "Organizing" if tail.is_empty() => Some(Self::Organizing),
+            "Services" if tail.is_empty() => Some(Self::Services),
+            "Naturalization" if tail.is_empty() => Some(Self::Naturalization),
+            "War" if tail.is_empty() => Some(Self::War),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Politics => vec![String::from("Politics")],
+            Self::Government => vec![String::from("Government")],
+            Self::Administration => vec![String::from("Administration")],
+            Self::Citizenship => vec![String::from("Citizenship")],
+            Self::Elections => vec![String::from("Elections")],
+            Self::Activism => vec![String::from("Activism")],
+            Self::Policy => vec![String::from("Policy")],
+            Self::Diplomacy => vec![String::from("Diplomacy")],
+            Self::Movements => vec![String::from("Movements")],
+            Self::Organizing => vec![String::from("Organizing")],
+            Self::Services => vec![String::from("Services")],
+            Self::Naturalization => vec![String::from("Naturalization")],
+            Self::War => vec![String::from("War")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl LawScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Rights" if tail.is_empty() => Some(Self::Rights),
+            "Contract" if tail.is_empty() => Some(Self::Contract),
+            "Title" if tail.is_empty() => Some(Self::Title),
+            "Crime" if tail.is_empty() => Some(Self::Crime),
+            "Litigation" if tail.is_empty() => Some(Self::Litigation),
+            "Compliance" if tail.is_empty() => Some(Self::Compliance),
+            "Custody" if tail.is_empty() => Some(Self::Custody),
+            "Liability" if tail.is_empty() => Some(Self::Liability),
+            "Procedure" if tail.is_empty() => Some(Self::Procedure),
+            "Justice" if tail.is_empty() => Some(Self::Justice),
+            "Policing" if tail.is_empty() => Some(Self::Policing),
+            "Arbitration" if tail.is_empty() => Some(Self::Arbitration),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Rights => vec![String::from("Rights")],
+            Self::Contract => vec![String::from("Contract")],
+            Self::Title => vec![String::from("Title")],
+            Self::Crime => vec![String::from("Crime")],
+            Self::Litigation => vec![String::from("Litigation")],
+            Self::Compliance => vec![String::from("Compliance")],
+            Self::Custody => vec![String::from("Custody")],
+            Self::Liability => vec![String::from("Liability")],
+            Self::Procedure => vec![String::from("Procedure")],
+            Self::Justice => vec![String::from("Justice")],
+            Self::Policing => vec![String::from("Policing")],
+            Self::Arbitration => vec![String::from("Arbitration")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl CommunityScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Neighborliness" if tail.is_empty() => Some(Self::Neighborliness),
+            "Volunteering" if tail.is_empty() => Some(Self::Volunteering),
+            "Solidarity" if tail.is_empty() => Some(Self::Solidarity),
+            "Membership" if tail.is_empty() => Some(Self::Membership),
+            "Gatherings" if tail.is_empty() => Some(Self::Gatherings),
+            "Reputation" if tail.is_empty() => Some(Self::Reputation),
+            "Service" if tail.is_empty() => Some(Self::Service),
+            "Hospitality" if tail.is_empty() => Some(Self::Hospitality),
+            "Institutions" if tail.is_empty() => Some(Self::Institutions),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Neighborliness => vec![String::from("Neighborliness")],
+            Self::Volunteering => vec![String::from("Volunteering")],
+            Self::Solidarity => vec![String::from("Solidarity")],
+            Self::Membership => vec![String::from("Membership")],
+            Self::Gatherings => vec![String::from("Gatherings")],
+            Self::Reputation => vec![String::from("Reputation")],
+            Self::Service => vec![String::from("Service")],
+            Self::Hospitality => vec![String::from("Hospitality")],
+            Self::Institutions => vec![String::from("Institutions")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl NatureScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Agriculture" if tail.is_empty() => Some(Self::Agriculture),
+            "Gardening" if tail.is_empty() => Some(Self::Gardening),
+            "Horticulture" if tail.is_empty() => Some(Self::Horticulture),
+            "Husbandry" if tail.is_empty() => Some(Self::Husbandry),
+            "Pets" if tail.is_empty() => Some(Self::Pets),
+            "Forestry" if tail.is_empty() => Some(Self::Forestry),
+            "Fishing" if tail.is_empty() => Some(Self::Fishing),
+            "Hunting" if tail.is_empty() => Some(Self::Hunting),
+            "Conservation" if tail.is_empty() => Some(Self::Conservation),
+            "Weather" if tail.is_empty() => Some(Self::Weather),
+            "Wilderness" if tail.is_empty() => Some(Self::Wilderness),
+            "Sustainability" if tail.is_empty() => Some(Self::Sustainability),
+            "Resources" if tail.is_empty() => Some(Self::Resources),
+            "Stewardship" if tail.is_empty() => Some(Self::Stewardship),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Agriculture => vec![String::from("Agriculture")],
+            Self::Gardening => vec![String::from("Gardening")],
+            Self::Horticulture => vec![String::from("Horticulture")],
+            Self::Husbandry => vec![String::from("Husbandry")],
+            Self::Pets => vec![String::from("Pets")],
+            Self::Forestry => vec![String::from("Forestry")],
+            Self::Fishing => vec![String::from("Fishing")],
+            Self::Hunting => vec![String::from("Hunting")],
+            Self::Conservation => vec![String::from("Conservation")],
+            Self::Weather => vec![String::from("Weather")],
+            Self::Wilderness => vec![String::from("Wilderness")],
+            Self::Sustainability => vec![String::from("Sustainability")],
+            Self::Resources => vec![String::from("Resources")],
+            Self::Stewardship => vec![String::from("Stewardship")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl TravelScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Itinerary" if tail.is_empty() => Some(Self::Itinerary),
+            "Destination" if tail.is_empty() => Some(Self::Destination),
+            "Transportation" if tail.is_empty() => Some(Self::Transportation),
+            "Driving" if tail.is_empty() => Some(Self::Driving),
+            "Navigation" if tail.is_empty() => Some(Self::Navigation),
+            "Commuting" if tail.is_empty() => Some(Self::Commuting),
+            "Logistics" if tail.is_empty() => Some(Self::Logistics),
+            "Migration" if tail.is_empty() => Some(Self::Migration),
+            "Tourism" if tail.is_empty() => Some(Self::Tourism),
+            "Transit" if tail.is_empty() => Some(Self::Transit),
+            "Cycling" if tail.is_empty() => Some(Self::Cycling),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Itinerary => vec![String::from("Itinerary")],
+            Self::Destination => vec![String::from("Destination")],
+            Self::Transportation => vec![String::from("Transportation")],
+            Self::Driving => vec![String::from("Driving")],
+            Self::Navigation => vec![String::from("Navigation")],
+            Self::Commuting => vec![String::from("Commuting")],
+            Self::Logistics => vec![String::from("Logistics")],
+            Self::Migration => vec![String::from("Migration")],
+            Self::Tourism => vec![String::from("Tourism")],
+            Self::Transit => vec![String::from("Transit")],
+            Self::Cycling => vec![String::from("Cycling")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl CommerceScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Selling" if tail.is_empty() => Some(Self::Selling),
+            "Buying" if tail.is_empty() => Some(Self::Buying),
+            "Marketing" if tail.is_empty() => Some(Self::Marketing),
+            "Retail" if tail.is_empty() => Some(Self::Retail),
+            "Sourcing" if tail.is_empty() => Some(Self::Sourcing),
+            "Trade" if tail.is_empty() => Some(Self::Trade),
+            "Support" if tail.is_empty() => Some(Self::Support),
+            "Pricing" if tail.is_empty() => Some(Self::Pricing),
+            "Negotiation" if tail.is_empty() => Some(Self::Negotiation),
+            "Assets" if tail.is_empty() => Some(Self::Assets),
+            "Market" if tail.is_empty() => Some(Self::Market),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Selling => vec![String::from("Selling")],
+            Self::Buying => vec![String::from("Buying")],
+            Self::Marketing => vec![String::from("Marketing")],
+            Self::Retail => vec![String::from("Retail")],
+            Self::Sourcing => vec![String::from("Sourcing")],
+            Self::Trade => vec![String::from("Trade")],
+            Self::Support => vec![String::from("Support")],
+            Self::Pricing => vec![String::from("Pricing")],
+            Self::Negotiation => vec![String::from("Negotiation")],
+            Self::Assets => vec![String::from("Assets")],
+            Self::Market => vec![String::from("Market")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl LeisureScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Recreation" if tail.is_empty() => Some(Self::Recreation),
+            "Sport" if tail.is_empty() => Some(Self::Sport),
+            "Games" if tail.is_empty() => Some(Self::Games),
+            "Hobby" if tail.is_empty() => Some(Self::Hobby),
+            "Entertainment" if tail.is_empty() => Some(Self::Entertainment),
+            "Collecting" if tail.is_empty() => Some(Self::Collecting),
+            "Outdoors" if tail.is_empty() => Some(Self::Outdoors),
+            "Play" if tail.is_empty() => Some(Self::Play),
+            "Relaxation" if tail.is_empty() => Some(Self::Relaxation),
+            "Celebration" if tail.is_empty() => Some(Self::Celebration),
+            "Fandom" if tail.is_empty() => Some(Self::Fandom),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Recreation => vec![String::from("Recreation")],
+            Self::Sport => vec![String::from("Sport")],
+            Self::Games => vec![String::from("Games")],
+            Self::Hobby => vec![String::from("Hobby")],
+            Self::Entertainment => vec![String::from("Entertainment")],
+            Self::Collecting => vec![String::from("Collecting")],
+            Self::Outdoors => vec![String::from("Outdoors")],
+            Self::Play => vec![String::from("Play")],
+            Self::Relaxation => vec![String::from("Relaxation")],
+            Self::Celebration => vec![String::from("Celebration")],
+            Self::Fandom => vec![String::from("Fandom")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl AppearanceScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Clothing" if tail.is_empty() => Some(Self::Clothing),
+            "Grooming" if tail.is_empty() => Some(Self::Grooming),
+            "Style" if tail.is_empty() => Some(Self::Style),
+            "Cosmetics" if tail.is_empty() => Some(Self::Cosmetics),
+            "Etiquette" if tail.is_empty() => Some(Self::Etiquette),
+            "Comportment" if tail.is_empty() => Some(Self::Comportment),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Clothing => vec![String::from("Clothing")],
+            Self::Grooming => vec![String::from("Grooming")],
+            Self::Style => vec![String::from("Style")],
+            Self::Cosmetics => vec![String::from("Cosmetics")],
+            Self::Etiquette => vec![String::from("Etiquette")],
+            Self::Comportment => vec![String::from("Comportment")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl SafetyScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Protection" if tail.is_empty() => Some(Self::Protection),
+            "Preparedness" if tail.is_empty() => Some(Self::Preparedness),
+            "Risk" if tail.is_empty() => Some(Self::Risk),
+            "Cybersecurity" if tail.is_empty() => Some(Self::Cybersecurity),
+            "Privacy" if tail.is_empty() => Some(Self::Privacy),
+            "Disaster" if tail.is_empty() => Some(Self::Disaster),
+            "Military" if tail.is_empty() => Some(Self::Military),
+            "Deterrence" if tail.is_empty() => Some(Self::Deterrence),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Protection => vec![String::from("Protection")],
+            Self::Preparedness => vec![String::from("Preparedness")],
+            Self::Risk => vec![String::from("Risk")],
+            Self::Cybersecurity => vec![String::from("Cybersecurity")],
+            Self::Privacy => vec![String::from("Privacy")],
+            Self::Disaster => vec![String::from("Disaster")],
+            Self::Military => vec![String::from("Military")],
+            Self::Deterrence => vec![String::from("Deterrence")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl InformationScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Curation" if tail.is_empty() => Some(Self::Curation),
+            "RecordKeeping" if tail.is_empty() => Some(Self::RecordKeeping),
+            "Documentation" if tail.is_empty() => Some(Self::Documentation),
+            "News" if tail.is_empty() => Some(Self::News),
+            "Broadcasting" if tail.is_empty() => Some(Self::Broadcasting),
+            "Archives" if tail.is_empty() => Some(Self::Archives),
+            "Database" if tail.is_empty() => Some(Self::Database),
+            "Retrieval" if tail.is_empty() => Some(Self::Retrieval),
+            "Classification" if tail.is_empty() => Some(Self::Classification),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Curation => vec![String::from("Curation")],
+            Self::RecordKeeping => vec![String::from("RecordKeeping")],
+            Self::Documentation => vec![String::from("Documentation")],
+            Self::News => vec![String::from("News")],
+            Self::Broadcasting => vec![String::from("Broadcasting")],
+            Self::Archives => vec![String::from("Archives")],
+            Self::Database => vec![String::from("Database")],
+            Self::Retrieval => vec![String::from("Retrieval")],
+            Self::Classification => vec![String::from("Classification")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl HardwareScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Energy" if tail.is_empty() => Some(Self::Energy),
+            "Power" if tail.is_empty() => Some(Self::Power),
+            "Automation" if tail.is_empty() => Some(Self::Automation),
+            "Robotics" if tail.is_empty() => Some(Self::Robotics),
+            "Networking" if tail.is_empty() => Some(Self::Networking),
+            "Materials" if tail.is_empty() => Some(Self::Materials),
+            "Machinery" if tail.is_empty() => Some(Self::Machinery),
+            "Instrumentation" if tail.is_empty() => Some(Self::Instrumentation),
+            "Aerospace" if tail.is_empty() => Some(Self::Aerospace),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Energy => vec![String::from("Energy")],
+            Self::Power => vec![String::from("Power")],
+            Self::Automation => vec![String::from("Automation")],
+            Self::Robotics => vec![String::from("Robotics")],
+            Self::Networking => vec![String::from("Networking")],
+            Self::Materials => vec![String::from("Materials")],
+            Self::Machinery => vec![String::from("Machinery")],
+            Self::Instrumentation => vec![String::from("Instrumentation")],
+            Self::Aerospace => vec![String::from("Aerospace")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl LanguagesScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "ProgrammingLanguages" if tail.is_empty() => Some(Self::ProgrammingLanguages),
+            "ProgrammingParadigms" if tail.is_empty() => Some(Self::ProgrammingParadigms),
+            "TypeSystems" if tail.is_empty() => Some(Self::TypeSystems),
+            "Compilation" if tail.is_empty() => Some(Self::Compilation),
+            "Interpretation" if tail.is_empty() => Some(Self::Interpretation),
+            "Parsing" if tail.is_empty() => Some(Self::Parsing),
+            "LexicalAnalysis" if tail.is_empty() => Some(Self::LexicalAnalysis),
+            "Grammars" if tail.is_empty() => Some(Self::Grammars),
+            "CodeGeneration" if tail.is_empty() => Some(Self::CodeGeneration),
+            "Metaprogramming" if tail.is_empty() => Some(Self::Metaprogramming),
+            "Macros" if tail.is_empty() => Some(Self::Macros),
+            "DomainSpecificLanguages" if tail.is_empty() => {
+                Some(Self::DomainSpecificLanguages)
+            }
+            "RuntimeEnvironments" if tail.is_empty() => Some(Self::RuntimeEnvironments),
+            "GarbageCollection" if tail.is_empty() => Some(Self::GarbageCollection),
+            "MemoryManagement" if tail.is_empty() => Some(Self::MemoryManagement),
+            "ForeignFunctionInterfaces" if tail.is_empty() => {
+                Some(Self::ForeignFunctionInterfaces)
+            }
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::ProgrammingLanguages => vec![String::from("ProgrammingLanguages")],
+            Self::ProgrammingParadigms => vec![String::from("ProgrammingParadigms")],
+            Self::TypeSystems => vec![String::from("TypeSystems")],
+            Self::Compilation => vec![String::from("Compilation")],
+            Self::Interpretation => vec![String::from("Interpretation")],
+            Self::Parsing => vec![String::from("Parsing")],
+            Self::LexicalAnalysis => vec![String::from("LexicalAnalysis")],
+            Self::Grammars => vec![String::from("Grammars")],
+            Self::CodeGeneration => vec![String::from("CodeGeneration")],
+            Self::Metaprogramming => vec![String::from("Metaprogramming")],
+            Self::Macros => vec![String::from("Macros")],
+            Self::DomainSpecificLanguages => {
+                vec![String::from("DomainSpecificLanguages")]
+            }
+            Self::RuntimeEnvironments => vec![String::from("RuntimeEnvironments")],
+            Self::GarbageCollection => vec![String::from("GarbageCollection")],
+            Self::MemoryManagement => vec![String::from("MemoryManagement")],
+            Self::ForeignFunctionInterfaces => {
+                vec![String::from("ForeignFunctionInterfaces")]
+            }
+        }
+    }
+}
+#[rustfmt::skip]
+impl TheoryScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Algorithms" if tail.is_empty() => Some(Self::Algorithms),
+            "DataStructures" if tail.is_empty() => Some(Self::DataStructures),
+            "ComputationalComplexity" if tail.is_empty() => {
+                Some(Self::ComputationalComplexity)
+            }
+            "AutomataTheory" if tail.is_empty() => Some(Self::AutomataTheory),
+            "FormalLanguages" if tail.is_empty() => Some(Self::FormalLanguages),
+            "GraphAlgorithms" if tail.is_empty() => Some(Self::GraphAlgorithms),
+            "TypeTheory" if tail.is_empty() => Some(Self::TypeTheory),
+            "ProgramSemantics" if tail.is_empty() => Some(Self::ProgramSemantics),
+            "FormalMethods" if tail.is_empty() => Some(Self::FormalMethods),
+            "FormalVerification" if tail.is_empty() => Some(Self::FormalVerification),
+            "ModelChecking" if tail.is_empty() => Some(Self::ModelChecking),
+            "StaticAnalysis" if tail.is_empty() => Some(Self::StaticAnalysis),
+            "NumericalComputing" if tail.is_empty() => Some(Self::NumericalComputing),
+            "Cryptanalysis" if tail.is_empty() => Some(Self::Cryptanalysis),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Algorithms => vec![String::from("Algorithms")],
+            Self::DataStructures => vec![String::from("DataStructures")],
+            Self::ComputationalComplexity => {
+                vec![String::from("ComputationalComplexity")]
+            }
+            Self::AutomataTheory => vec![String::from("AutomataTheory")],
+            Self::FormalLanguages => vec![String::from("FormalLanguages")],
+            Self::GraphAlgorithms => vec![String::from("GraphAlgorithms")],
+            Self::TypeTheory => vec![String::from("TypeTheory")],
+            Self::ProgramSemantics => vec![String::from("ProgramSemantics")],
+            Self::FormalMethods => vec![String::from("FormalMethods")],
+            Self::FormalVerification => vec![String::from("FormalVerification")],
+            Self::ModelChecking => vec![String::from("ModelChecking")],
+            Self::StaticAnalysis => vec![String::from("StaticAnalysis")],
+            Self::NumericalComputing => vec![String::from("NumericalComputing")],
+            Self::Cryptanalysis => vec![String::from("Cryptanalysis")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl SystemsScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "OperatingSystems" if tail.is_empty() => Some(Self::OperatingSystems),
+            "SystemsProgramming" if tail.is_empty() => Some(Self::SystemsProgramming),
+            "Concurrency" if tail.is_empty() => Some(Self::Concurrency),
+            "Parallelism" if tail.is_empty() => Some(Self::Parallelism),
+            "Asynchrony" if tail.is_empty() => Some(Self::Asynchrony),
+            "Synchronization" if tail.is_empty() => Some(Self::Synchronization),
+            "Scheduling" if tail.is_empty() => Some(Self::Scheduling),
+            "FileSystems" if tail.is_empty() => Some(Self::FileSystems),
+            "Virtualization" if tail.is_empty() => Some(Self::Virtualization),
+            "Containerization" if tail.is_empty() => Some(Self::Containerization),
+            "EmbeddedSystems" if tail.is_empty() => Some(Self::EmbeddedSystems),
+            "RealTimeSystems" if tail.is_empty() => Some(Self::RealTimeSystems),
+            "Firmware" if tail.is_empty() => Some(Self::Firmware),
+            "ResourceManagement" if tail.is_empty() => Some(Self::ResourceManagement),
+            "KernelDevelopment" if tail.is_empty() => Some(Self::KernelDevelopment),
+            "DeviceDrivers" if tail.is_empty() => Some(Self::DeviceDrivers),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::OperatingSystems => vec![String::from("OperatingSystems")],
+            Self::SystemsProgramming => vec![String::from("SystemsProgramming")],
+            Self::Concurrency => vec![String::from("Concurrency")],
+            Self::Parallelism => vec![String::from("Parallelism")],
+            Self::Asynchrony => vec![String::from("Asynchrony")],
+            Self::Synchronization => vec![String::from("Synchronization")],
+            Self::Scheduling => vec![String::from("Scheduling")],
+            Self::FileSystems => vec![String::from("FileSystems")],
+            Self::Virtualization => vec![String::from("Virtualization")],
+            Self::Containerization => vec![String::from("Containerization")],
+            Self::EmbeddedSystems => vec![String::from("EmbeddedSystems")],
+            Self::RealTimeSystems => vec![String::from("RealTimeSystems")],
+            Self::Firmware => vec![String::from("Firmware")],
+            Self::ResourceManagement => vec![String::from("ResourceManagement")],
+            Self::KernelDevelopment => vec![String::from("KernelDevelopment")],
+            Self::DeviceDrivers => vec![String::from("DeviceDrivers")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl DistributedScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "DistributedSystems" if tail.is_empty() => Some(Self::DistributedSystems),
+            "Networking" if tail.is_empty() => Some(Self::Networking),
+            "NetworkProtocols" if tail.is_empty() => Some(Self::NetworkProtocols),
+            "ProtocolDesign" if tail.is_empty() => Some(Self::ProtocolDesign),
+            "Consensus" if tail.is_empty() => Some(Self::Consensus),
+            "Replication" if tail.is_empty() => Some(Self::Replication),
+            "MessageQueuing" if tail.is_empty() => Some(Self::MessageQueuing),
+            "EventDrivenArchitecture" if tail.is_empty() => {
+                Some(Self::EventDrivenArchitecture)
+            }
+            "ServiceMesh" if tail.is_empty() => Some(Self::ServiceMesh),
+            "LoadBalancing" if tail.is_empty() => Some(Self::LoadBalancing),
+            "RemoteProcedureCall" if tail.is_empty() => Some(Self::RemoteProcedureCall),
+            "InterprocessCommunication" if tail.is_empty() => {
+                Some(Self::InterprocessCommunication)
+            }
+            "Routing" if tail.is_empty() => Some(Self::Routing),
+            "FaultTolerance" if tail.is_empty() => Some(Self::FaultTolerance),
+            "Sharding" if tail.is_empty() => Some(Self::Sharding),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::DistributedSystems => vec![String::from("DistributedSystems")],
+            Self::Networking => vec![String::from("Networking")],
+            Self::NetworkProtocols => vec![String::from("NetworkProtocols")],
+            Self::ProtocolDesign => vec![String::from("ProtocolDesign")],
+            Self::Consensus => vec![String::from("Consensus")],
+            Self::Replication => vec![String::from("Replication")],
+            Self::MessageQueuing => vec![String::from("MessageQueuing")],
+            Self::EventDrivenArchitecture => {
+                vec![String::from("EventDrivenArchitecture")]
+            }
+            Self::ServiceMesh => vec![String::from("ServiceMesh")],
+            Self::LoadBalancing => vec![String::from("LoadBalancing")],
+            Self::RemoteProcedureCall => vec![String::from("RemoteProcedureCall")],
+            Self::InterprocessCommunication => {
+                vec![String::from("InterprocessCommunication")]
+            }
+            Self::Routing => vec![String::from("Routing")],
+            Self::FaultTolerance => vec![String::from("FaultTolerance")],
+            Self::Sharding => vec![String::from("Sharding")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl DataScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "DatabaseSystems" if tail.is_empty() => Some(Self::DatabaseSystems),
+            "QueryProcessing" if tail.is_empty() => Some(Self::QueryProcessing),
+            "Indexing" if tail.is_empty() => Some(Self::Indexing),
+            "Transactions" if tail.is_empty() => Some(Self::Transactions),
+            "Caching" if tail.is_empty() => Some(Self::Caching),
+            "Storage" if tail.is_empty() => Some(Self::Storage),
+            "Persistence" if tail.is_empty() => Some(Self::Persistence),
+            "Serialization" if tail.is_empty() => Some(Self::Serialization),
+            "DataFormats" if tail.is_empty() => Some(Self::DataFormats),
+            "Compression" if tail.is_empty() => Some(Self::Compression),
+            "Encoding" if tail.is_empty() => Some(Self::Encoding),
+            "DataModeling" if tail.is_empty() => Some(Self::DataModeling),
+            "DataPipelines" if tail.is_empty() => Some(Self::DataPipelines),
+            "StreamProcessing" if tail.is_empty() => Some(Self::StreamProcessing),
+            "BatchProcessing" if tail.is_empty() => Some(Self::BatchProcessing),
+            "SchemaEvolution" if tail.is_empty() => Some(Self::SchemaEvolution),
+            "DataMigration" if tail.is_empty() => Some(Self::DataMigration),
+            "DataValidation" if tail.is_empty() => Some(Self::DataValidation),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::DatabaseSystems => vec![String::from("DatabaseSystems")],
+            Self::QueryProcessing => vec![String::from("QueryProcessing")],
+            Self::Indexing => vec![String::from("Indexing")],
+            Self::Transactions => vec![String::from("Transactions")],
+            Self::Caching => vec![String::from("Caching")],
+            Self::Storage => vec![String::from("Storage")],
+            Self::Persistence => vec![String::from("Persistence")],
+            Self::Serialization => vec![String::from("Serialization")],
+            Self::DataFormats => vec![String::from("DataFormats")],
+            Self::Compression => vec![String::from("Compression")],
+            Self::Encoding => vec![String::from("Encoding")],
+            Self::DataModeling => vec![String::from("DataModeling")],
+            Self::DataPipelines => vec![String::from("DataPipelines")],
+            Self::StreamProcessing => vec![String::from("StreamProcessing")],
+            Self::BatchProcessing => vec![String::from("BatchProcessing")],
+            Self::SchemaEvolution => vec![String::from("SchemaEvolution")],
+            Self::DataMigration => vec![String::from("DataMigration")],
+            Self::DataValidation => vec![String::from("DataValidation")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl IntelligenceScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "MachineLearning" if tail.is_empty() => Some(Self::MachineLearning),
+            "DeepLearning" if tail.is_empty() => Some(Self::DeepLearning),
+            "NeuralNetworks" if tail.is_empty() => Some(Self::NeuralNetworks),
+            "NaturalLanguageProcessing" if tail.is_empty() => {
+                Some(Self::NaturalLanguageProcessing)
+            }
+            "ComputerVision" if tail.is_empty() => Some(Self::ComputerVision),
+            "ReinforcementLearning" if tail.is_empty() => {
+                Some(Self::ReinforcementLearning)
+            }
+            "ModelTraining" if tail.is_empty() => Some(Self::ModelTraining),
+            "ModelInference" if tail.is_empty() => Some(Self::ModelInference),
+            "FeatureEngineering" if tail.is_empty() => Some(Self::FeatureEngineering),
+            "PromptEngineering" if tail.is_empty() => Some(Self::PromptEngineering),
+            "RetrievalAugmentedGeneration" if tail.is_empty() => {
+                Some(Self::RetrievalAugmentedGeneration)
+            }
+            "AgentSystems" if tail.is_empty() => Some(Self::AgentSystems),
+            "InformationRetrieval" if tail.is_empty() => Some(Self::InformationRetrieval),
+            "Search" if tail.is_empty() => Some(Self::Search),
+            "Ranking" if tail.is_empty() => Some(Self::Ranking),
+            "RecommendationSystems" if tail.is_empty() => {
+                Some(Self::RecommendationSystems)
+            }
+            "KnowledgeRepresentation" if tail.is_empty() => {
+                Some(Self::KnowledgeRepresentation)
+            }
+            "AutomatedReasoning" if tail.is_empty() => Some(Self::AutomatedReasoning),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::MachineLearning => vec![String::from("MachineLearning")],
+            Self::DeepLearning => vec![String::from("DeepLearning")],
+            Self::NeuralNetworks => vec![String::from("NeuralNetworks")],
+            Self::NaturalLanguageProcessing => {
+                vec![String::from("NaturalLanguageProcessing")]
+            }
+            Self::ComputerVision => vec![String::from("ComputerVision")],
+            Self::ReinforcementLearning => vec![String::from("ReinforcementLearning")],
+            Self::ModelTraining => vec![String::from("ModelTraining")],
+            Self::ModelInference => vec![String::from("ModelInference")],
+            Self::FeatureEngineering => vec![String::from("FeatureEngineering")],
+            Self::PromptEngineering => vec![String::from("PromptEngineering")],
+            Self::RetrievalAugmentedGeneration => {
+                vec![String::from("RetrievalAugmentedGeneration")]
+            }
+            Self::AgentSystems => vec![String::from("AgentSystems")],
+            Self::InformationRetrieval => vec![String::from("InformationRetrieval")],
+            Self::Search => vec![String::from("Search")],
+            Self::Ranking => vec![String::from("Ranking")],
+            Self::RecommendationSystems => vec![String::from("RecommendationSystems")],
+            Self::KnowledgeRepresentation => {
+                vec![String::from("KnowledgeRepresentation")]
+            }
+            Self::AutomatedReasoning => vec![String::from("AutomatedReasoning")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl SecurityScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Cryptography" if tail.is_empty() => Some(Self::Cryptography),
+            "Authentication" if tail.is_empty() => Some(Self::Authentication),
+            "Authorization" if tail.is_empty() => Some(Self::Authorization),
+            "AccessControl" if tail.is_empty() => Some(Self::AccessControl),
+            "AdmissionControl" if tail.is_empty() => Some(Self::AdmissionControl),
+            "SecretsManagement" if tail.is_empty() => Some(Self::SecretsManagement),
+            "ThreatModeling" if tail.is_empty() => Some(Self::ThreatModeling),
+            "VulnerabilityManagement" if tail.is_empty() => {
+                Some(Self::VulnerabilityManagement)
+            }
+            "PenetrationTesting" if tail.is_empty() => Some(Self::PenetrationTesting),
+            "ApplicationSecurity" if tail.is_empty() => Some(Self::ApplicationSecurity),
+            "NetworkSecurity" if tail.is_empty() => Some(Self::NetworkSecurity),
+            "Sandboxing" if tail.is_empty() => Some(Self::Sandboxing),
+            "Hardening" if tail.is_empty() => Some(Self::Hardening),
+            "Privacy" if tail.is_empty() => Some(Self::Privacy),
+            "IntrusionDetection" if tail.is_empty() => Some(Self::IntrusionDetection),
+            "ReverseEngineering" if tail.is_empty() => Some(Self::ReverseEngineering),
+            "InputSanitization" if tail.is_empty() => Some(Self::InputSanitization),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Cryptography => vec![String::from("Cryptography")],
+            Self::Authentication => vec![String::from("Authentication")],
+            Self::Authorization => vec![String::from("Authorization")],
+            Self::AccessControl => vec![String::from("AccessControl")],
+            Self::AdmissionControl => vec![String::from("AdmissionControl")],
+            Self::SecretsManagement => vec![String::from("SecretsManagement")],
+            Self::ThreatModeling => vec![String::from("ThreatModeling")],
+            Self::VulnerabilityManagement => {
+                vec![String::from("VulnerabilityManagement")]
+            }
+            Self::PenetrationTesting => vec![String::from("PenetrationTesting")],
+            Self::ApplicationSecurity => vec![String::from("ApplicationSecurity")],
+            Self::NetworkSecurity => vec![String::from("NetworkSecurity")],
+            Self::Sandboxing => vec![String::from("Sandboxing")],
+            Self::Hardening => vec![String::from("Hardening")],
+            Self::Privacy => vec![String::from("Privacy")],
+            Self::IntrusionDetection => vec![String::from("IntrusionDetection")],
+            Self::ReverseEngineering => vec![String::from("ReverseEngineering")],
+            Self::InputSanitization => vec![String::from("InputSanitization")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl QualityScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Testing" if tail.is_empty() => Some(Self::Testing),
+            "UnitTesting" if tail.is_empty() => Some(Self::UnitTesting),
+            "IntegrationTesting" if tail.is_empty() => Some(Self::IntegrationTesting),
+            "EndToEndTesting" if tail.is_empty() => Some(Self::EndToEndTesting),
+            "PropertyBasedTesting" if tail.is_empty() => Some(Self::PropertyBasedTesting),
+            "Fuzzing" if tail.is_empty() => Some(Self::Fuzzing),
+            "TestAutomation" if tail.is_empty() => Some(Self::TestAutomation),
+            "Mocking" if tail.is_empty() => Some(Self::Mocking),
+            "CodeCoverage" if tail.is_empty() => Some(Self::CodeCoverage),
+            "Debugging" if tail.is_empty() => Some(Self::Debugging),
+            "Profiling" if tail.is_empty() => Some(Self::Profiling),
+            "Benchmarking" if tail.is_empty() => Some(Self::Benchmarking),
+            "PerformanceOptimization" if tail.is_empty() => {
+                Some(Self::PerformanceOptimization)
+            }
+            "LoadTesting" if tail.is_empty() => Some(Self::LoadTesting),
+            "CodeReview" if tail.is_empty() => Some(Self::CodeReview),
+            "Refactoring" if tail.is_empty() => Some(Self::Refactoring),
+            "Linting" if tail.is_empty() => Some(Self::Linting),
+            "Formatting" if tail.is_empty() => Some(Self::Formatting),
+            "TechnicalDebt" if tail.is_empty() => Some(Self::TechnicalDebt),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Testing => vec![String::from("Testing")],
+            Self::UnitTesting => vec![String::from("UnitTesting")],
+            Self::IntegrationTesting => vec![String::from("IntegrationTesting")],
+            Self::EndToEndTesting => vec![String::from("EndToEndTesting")],
+            Self::PropertyBasedTesting => vec![String::from("PropertyBasedTesting")],
+            Self::Fuzzing => vec![String::from("Fuzzing")],
+            Self::TestAutomation => vec![String::from("TestAutomation")],
+            Self::Mocking => vec![String::from("Mocking")],
+            Self::CodeCoverage => vec![String::from("CodeCoverage")],
+            Self::Debugging => vec![String::from("Debugging")],
+            Self::Profiling => vec![String::from("Profiling")],
+            Self::Benchmarking => vec![String::from("Benchmarking")],
+            Self::PerformanceOptimization => {
+                vec![String::from("PerformanceOptimization")]
+            }
+            Self::LoadTesting => vec![String::from("LoadTesting")],
+            Self::CodeReview => vec![String::from("CodeReview")],
+            Self::Refactoring => vec![String::from("Refactoring")],
+            Self::Linting => vec![String::from("Linting")],
+            Self::Formatting => vec![String::from("Formatting")],
+            Self::TechnicalDebt => vec![String::from("TechnicalDebt")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl OperationsScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "ContinuousIntegration" if tail.is_empty() => {
+                Some(Self::ContinuousIntegration)
+            }
+            "ContinuousDelivery" if tail.is_empty() => Some(Self::ContinuousDelivery),
+            "BuildSystem" if tail.is_empty() => Some(Self::BuildSystem),
+            "ReleaseEngineering" if tail.is_empty() => Some(Self::ReleaseEngineering),
+            "DependencyManagement" if tail.is_empty() => Some(Self::DependencyManagement),
+            "PackageManagement" if tail.is_empty() => Some(Self::PackageManagement),
+            "ArtifactManagement" if tail.is_empty() => Some(Self::ArtifactManagement),
+            "Deployment" if tail.is_empty() => Some(Self::Deployment),
+            "Provisioning" if tail.is_empty() => Some(Self::Provisioning),
+            "InfrastructureAsCode" if tail.is_empty() => Some(Self::InfrastructureAsCode),
+            "Orchestration" if tail.is_empty() => Some(Self::Orchestration),
+            "ConfigurationManagement" if tail.is_empty() => {
+                Some(Self::ConfigurationManagement)
+            }
+            "AutoScaling" if tail.is_empty() => Some(Self::AutoScaling),
+            "CapacityPlanning" if tail.is_empty() => Some(Self::CapacityPlanning),
+            "SiteReliability" if tail.is_empty() => Some(Self::SiteReliability),
+            "IncidentResponse" if tail.is_empty() => Some(Self::IncidentResponse),
+            "DisasterRecovery" if tail.is_empty() => Some(Self::DisasterRecovery),
+            "RateLimiting" if tail.is_empty() => Some(Self::RateLimiting),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::ContinuousIntegration => vec![String::from("ContinuousIntegration")],
+            Self::ContinuousDelivery => vec![String::from("ContinuousDelivery")],
+            Self::BuildSystem => vec![String::from("BuildSystem")],
+            Self::ReleaseEngineering => vec![String::from("ReleaseEngineering")],
+            Self::DependencyManagement => vec![String::from("DependencyManagement")],
+            Self::PackageManagement => vec![String::from("PackageManagement")],
+            Self::ArtifactManagement => vec![String::from("ArtifactManagement")],
+            Self::Deployment => vec![String::from("Deployment")],
+            Self::Provisioning => vec![String::from("Provisioning")],
+            Self::InfrastructureAsCode => vec![String::from("InfrastructureAsCode")],
+            Self::Orchestration => vec![String::from("Orchestration")],
+            Self::ConfigurationManagement => {
+                vec![String::from("ConfigurationManagement")]
+            }
+            Self::AutoScaling => vec![String::from("AutoScaling")],
+            Self::CapacityPlanning => vec![String::from("CapacityPlanning")],
+            Self::SiteReliability => vec![String::from("SiteReliability")],
+            Self::IncidentResponse => vec![String::from("IncidentResponse")],
+            Self::DisasterRecovery => vec![String::from("DisasterRecovery")],
+            Self::RateLimiting => vec![String::from("RateLimiting")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl ObservabilityScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Logging" if tail.is_empty() => Some(Self::Logging),
+            "Monitoring" if tail.is_empty() => Some(Self::Monitoring),
+            "Alerting" if tail.is_empty() => Some(Self::Alerting),
+            "Tracing" if tail.is_empty() => Some(Self::Tracing),
+            "DistributedTracing" if tail.is_empty() => Some(Self::DistributedTracing),
+            "Metrics" if tail.is_empty() => Some(Self::Metrics),
+            "Telemetry" if tail.is_empty() => Some(Self::Telemetry),
+            "ErrorHandling" if tail.is_empty() => Some(Self::ErrorHandling),
+            "AuditLogging" if tail.is_empty() => Some(Self::AuditLogging),
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Logging => vec![String::from("Logging")],
+            Self::Monitoring => vec![String::from("Monitoring")],
+            Self::Alerting => vec![String::from("Alerting")],
+            Self::Tracing => vec![String::from("Tracing")],
+            Self::DistributedTracing => vec![String::from("DistributedTracing")],
+            Self::Metrics => vec![String::from("Metrics")],
+            Self::Telemetry => vec![String::from("Telemetry")],
+            Self::ErrorHandling => vec![String::from("ErrorHandling")],
+            Self::AuditLogging => vec![String::from("AuditLogging")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl SurfacesScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "WebDevelopment" if tail.is_empty() => Some(Self::WebDevelopment),
+            "FrontendDevelopment" if tail.is_empty() => Some(Self::FrontendDevelopment),
+            "BackendDevelopment" if tail.is_empty() => Some(Self::BackendDevelopment),
+            "UserInterface" if tail.is_empty() => Some(Self::UserInterface),
+            "InteractionDesign" if tail.is_empty() => Some(Self::InteractionDesign),
+            "Rendering" if tail.is_empty() => Some(Self::Rendering),
+            "ComputerGraphics" if tail.is_empty() => Some(Self::ComputerGraphics),
+            "Animation" if tail.is_empty() => Some(Self::Animation),
+            "Layout" if tail.is_empty() => Some(Self::Layout),
+            "Styling" if tail.is_empty() => Some(Self::Styling),
+            "StateManagement" if tail.is_empty() => Some(Self::StateManagement),
+            "Accessibility" if tail.is_empty() => Some(Self::Accessibility),
+            "Usability" if tail.is_empty() => Some(Self::Usability),
+            "Internationalization" if tail.is_empty() => Some(Self::Internationalization),
+            "Localization" if tail.is_empty() => Some(Self::Localization),
+            "MobileDevelopment" if tail.is_empty() => Some(Self::MobileDevelopment),
+            "GameDevelopment" if tail.is_empty() => Some(Self::GameDevelopment),
+            "Visualization" if tail.is_empty() => Some(Self::Visualization),
+            "SyntaxHighlighting" if tail.is_empty() => Some(Self::SyntaxHighlighting),
+            "CommandLineInterfaces" if tail.is_empty() => {
+                Some(Self::CommandLineInterfaces)
+            }
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::WebDevelopment => vec![String::from("WebDevelopment")],
+            Self::FrontendDevelopment => vec![String::from("FrontendDevelopment")],
+            Self::BackendDevelopment => vec![String::from("BackendDevelopment")],
+            Self::UserInterface => vec![String::from("UserInterface")],
+            Self::InteractionDesign => vec![String::from("InteractionDesign")],
+            Self::Rendering => vec![String::from("Rendering")],
+            Self::ComputerGraphics => vec![String::from("ComputerGraphics")],
+            Self::Animation => vec![String::from("Animation")],
+            Self::Layout => vec![String::from("Layout")],
+            Self::Styling => vec![String::from("Styling")],
+            Self::StateManagement => vec![String::from("StateManagement")],
+            Self::Accessibility => vec![String::from("Accessibility")],
+            Self::Usability => vec![String::from("Usability")],
+            Self::Internationalization => vec![String::from("Internationalization")],
+            Self::Localization => vec![String::from("Localization")],
+            Self::MobileDevelopment => vec![String::from("MobileDevelopment")],
+            Self::GameDevelopment => vec![String::from("GameDevelopment")],
+            Self::Visualization => vec![String::from("Visualization")],
+            Self::SyntaxHighlighting => vec![String::from("SyntaxHighlighting")],
+            Self::CommandLineInterfaces => vec![String::from("CommandLineInterfaces")],
+        }
+    }
+}
+#[rustfmt::skip]
+impl EngineeringScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "SoftwareArchitecture" if tail.is_empty() => Some(Self::SoftwareArchitecture),
+            "SoftwareDesign" if tail.is_empty() => Some(Self::SoftwareDesign),
+            "DesignPatterns" if tail.is_empty() => Some(Self::DesignPatterns),
+            "DomainDrivenDesign" if tail.is_empty() => Some(Self::DomainDrivenDesign),
+            "ApplicationProgrammingInterfaces" if tail.is_empty() => {
+                Some(Self::ApplicationProgrammingInterfaces)
+            }
+            "Microservices" if tail.is_empty() => Some(Self::Microservices),
+            "Serverless" if tail.is_empty() => Some(Self::Serverless),
+            "CloudComputing" if tail.is_empty() => Some(Self::CloudComputing),
+            "EdgeComputing" if tail.is_empty() => Some(Self::EdgeComputing),
+            "Scalability" if tail.is_empty() => Some(Self::Scalability),
+            "Reliability" if tail.is_empty() => Some(Self::Reliability),
+            "Maintainability" if tail.is_empty() => Some(Self::Maintainability),
+            "Portability" if tail.is_empty() => Some(Self::Portability),
+            "Interoperability" if tail.is_empty() => Some(Self::Interoperability),
+            "Modularity" if tail.is_empty() => Some(Self::Modularity),
+            "Abstraction" if tail.is_empty() => Some(Self::Abstraction),
+            "RequirementsEngineering" if tail.is_empty() => {
+                Some(Self::RequirementsEngineering)
+            }
+            "Documentation" if tail.is_empty() => Some(Self::Documentation),
+            "VersionControl" if tail.is_empty() => Some(Self::VersionControl),
+            "SoftwareDevelopmentProcess" if tail.is_empty() => {
+                Some(Self::SoftwareDevelopmentProcess)
+            }
+            "SoftwareMaintenance" if tail.is_empty() => Some(Self::SoftwareMaintenance),
+            "SoftwareEngineeringManagement" if tail.is_empty() => {
+                Some(Self::SoftwareEngineeringManagement)
+            }
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::SoftwareArchitecture => vec![String::from("SoftwareArchitecture")],
+            Self::SoftwareDesign => vec![String::from("SoftwareDesign")],
+            Self::DesignPatterns => vec![String::from("DesignPatterns")],
+            Self::DomainDrivenDesign => vec![String::from("DomainDrivenDesign")],
+            Self::ApplicationProgrammingInterfaces => {
+                vec![String::from("ApplicationProgrammingInterfaces")]
+            }
+            Self::Microservices => vec![String::from("Microservices")],
+            Self::Serverless => vec![String::from("Serverless")],
+            Self::CloudComputing => vec![String::from("CloudComputing")],
+            Self::EdgeComputing => vec![String::from("EdgeComputing")],
+            Self::Scalability => vec![String::from("Scalability")],
+            Self::Reliability => vec![String::from("Reliability")],
+            Self::Maintainability => vec![String::from("Maintainability")],
+            Self::Portability => vec![String::from("Portability")],
+            Self::Interoperability => vec![String::from("Interoperability")],
+            Self::Modularity => vec![String::from("Modularity")],
+            Self::Abstraction => vec![String::from("Abstraction")],
+            Self::RequirementsEngineering => {
+                vec![String::from("RequirementsEngineering")]
+            }
+            Self::Documentation => vec![String::from("Documentation")],
+            Self::VersionControl => vec![String::from("VersionControl")],
+            Self::SoftwareDevelopmentProcess => {
+                vec![String::from("SoftwareDevelopmentProcess")]
+            }
+            Self::SoftwareMaintenance => vec![String::from("SoftwareMaintenance")],
+            Self::SoftwareEngineeringManagement => {
+                vec![String::from("SoftwareEngineeringManagement")]
+            }
+        }
+    }
+}
+#[rustfmt::skip]
+impl SoftwareScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Languages" => {
+                if tail.is_empty() {
+                    Some(Self::Languages(LanguagesScope::This))
+                } else {
+                    LanguagesScope::try_from_path(tail).map(Self::Languages)
+                }
+            }
+            "Theory" => {
+                if tail.is_empty() {
+                    Some(Self::Theory(TheoryScope::This))
+                } else {
+                    TheoryScope::try_from_path(tail).map(Self::Theory)
+                }
+            }
+            "Systems" => {
+                if tail.is_empty() {
+                    Some(Self::Systems(SystemsScope::This))
+                } else {
+                    SystemsScope::try_from_path(tail).map(Self::Systems)
+                }
+            }
+            "Distributed" => {
+                if tail.is_empty() {
+                    Some(Self::Distributed(DistributedScope::This))
+                } else {
+                    DistributedScope::try_from_path(tail).map(Self::Distributed)
+                }
+            }
+            "Data" => {
+                if tail.is_empty() {
+                    Some(Self::Data(DataScope::This))
+                } else {
+                    DataScope::try_from_path(tail).map(Self::Data)
+                }
+            }
+            "Intelligence" => {
+                if tail.is_empty() {
+                    Some(Self::Intelligence(IntelligenceScope::This))
+                } else {
+                    IntelligenceScope::try_from_path(tail).map(Self::Intelligence)
+                }
+            }
+            "Security" => {
+                if tail.is_empty() {
+                    Some(Self::Security(SecurityScope::This))
+                } else {
+                    SecurityScope::try_from_path(tail).map(Self::Security)
+                }
+            }
+            "Quality" => {
+                if tail.is_empty() {
+                    Some(Self::Quality(QualityScope::This))
+                } else {
+                    QualityScope::try_from_path(tail).map(Self::Quality)
+                }
+            }
+            "Operations" => {
+                if tail.is_empty() {
+                    Some(Self::Operations(OperationsScope::This))
+                } else {
+                    OperationsScope::try_from_path(tail).map(Self::Operations)
+                }
+            }
+            "Observability" => {
+                if tail.is_empty() {
+                    Some(Self::Observability(ObservabilityScope::This))
+                } else {
+                    ObservabilityScope::try_from_path(tail).map(Self::Observability)
+                }
+            }
+            "Surfaces" => {
+                if tail.is_empty() {
+                    Some(Self::Surfaces(SurfacesScope::This))
+                } else {
+                    SurfacesScope::try_from_path(tail).map(Self::Surfaces)
+                }
+            }
+            "Engineering" => {
+                if tail.is_empty() {
+                    Some(Self::Engineering(EngineeringScope::This))
+                } else {
+                    EngineeringScope::try_from_path(tail).map(Self::Engineering)
+                }
+            }
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Languages(payload) => {
+                let mut path = vec![String::from("Languages")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Theory(payload) => {
+                let mut path = vec![String::from("Theory")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Systems(payload) => {
+                let mut path = vec![String::from("Systems")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Distributed(payload) => {
+                let mut path = vec![String::from("Distributed")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Data(payload) => {
+                let mut path = vec![String::from("Data")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Intelligence(payload) => {
+                let mut path = vec![String::from("Intelligence")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Security(payload) => {
+                let mut path = vec![String::from("Security")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Quality(payload) => {
+                let mut path = vec![String::from("Quality")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Operations(payload) => {
+                let mut path = vec![String::from("Operations")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Observability(payload) => {
+                let mut path = vec![String::from("Observability")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Surfaces(payload) => {
+                let mut path = vec![String::from("Surfaces")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Engineering(payload) => {
+                let mut path = vec![String::from("Engineering")];
+                path.extend(payload.path_segments());
+                path
+            }
+        }
+    }
+}
+#[rustfmt::skip]
+impl TechnologyScope {
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return Some(Self::This);
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Hardware" => {
+                if tail.is_empty() {
+                    Some(Self::Hardware(HardwareScope::This))
+                } else {
+                    HardwareScope::try_from_path(tail).map(Self::Hardware)
+                }
+            }
+            "Software" => {
+                if tail.is_empty() {
+                    Some(Self::Software(SoftwareScope::This))
+                } else {
+                    SoftwareScope::try_from_path(tail).map(Self::Software)
+                }
+            }
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::This => Vec::new(),
+            Self::Hardware(payload) => {
+                let mut path = vec![String::from("Hardware")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Software(payload) => {
+                let mut path = vec![String::from("Software")];
+                path.extend(payload.path_segments());
+                path
+            }
+        }
+    }
+}
+#[rustfmt::skip]
+impl DomainScope {
+    pub fn from_path(path: Vec<String>) -> Self {
+        Self::try_from_path(&path)
+            .unwrap_or_else(|| { panic!("invalid {} path {:?}", "DomainScope", path) })
+    }
+    pub fn try_from_path(path: &[String]) -> Option<Self> {
+        if path.is_empty() {
+            return None;
+        }
+        let (head, tail) = path.split_first()?;
+        match head.as_str() {
+            "Health" => {
+                if tail.is_empty() {
+                    Some(Self::Health(HealthScope::This))
+                } else {
+                    HealthScope::try_from_path(tail).map(Self::Health)
+                }
+            }
+            "Food" => {
+                if tail.is_empty() {
+                    Some(Self::Food(FoodScope::This))
+                } else {
+                    FoodScope::try_from_path(tail).map(Self::Food)
+                }
+            }
+            "Home" => {
+                if tail.is_empty() {
+                    Some(Self::Home(HomeScope::This))
+                } else {
+                    HomeScope::try_from_path(tail).map(Self::Home)
+                }
+            }
+            "Finance" => {
+                if tail.is_empty() {
+                    Some(Self::Finance(FinanceScope::This))
+                } else {
+                    FinanceScope::try_from_path(tail).map(Self::Finance)
+                }
+            }
+            "Work" => {
+                if tail.is_empty() {
+                    Some(Self::Work(WorkScope::This))
+                } else {
+                    WorkScope::try_from_path(tail).map(Self::Work)
+                }
+            }
+            "Craft" => {
+                if tail.is_empty() {
+                    Some(Self::Craft(CraftScope::This))
+                } else {
+                    CraftScope::try_from_path(tail).map(Self::Craft)
+                }
+            }
+            "Knowledge" => {
+                if tail.is_empty() {
+                    Some(Self::Knowledge(KnowledgeScope::This))
+                } else {
+                    KnowledgeScope::try_from_path(tail).map(Self::Knowledge)
+                }
+            }
+            "Education" => {
+                if tail.is_empty() {
+                    Some(Self::Education(EducationScope::This))
+                } else {
+                    EducationScope::try_from_path(tail).map(Self::Education)
+                }
+            }
+            "Language" => {
+                if tail.is_empty() {
+                    Some(Self::Language(LanguageScope::This))
+                } else {
+                    LanguageScope::try_from_path(tail).map(Self::Language)
+                }
+            }
+            "Art" => {
+                if tail.is_empty() {
+                    Some(Self::Art(ArtScope::This))
+                } else {
+                    ArtScope::try_from_path(tail).map(Self::Art)
+                }
+            }
+            "Kinship" => {
+                if tail.is_empty() {
+                    Some(Self::Kinship(KinshipScope::This))
+                } else {
+                    KinshipScope::try_from_path(tail).map(Self::Kinship)
+                }
+            }
+            "Selfhood" => {
+                if tail.is_empty() {
+                    Some(Self::Selfhood(SelfhoodScope::This))
+                } else {
+                    SelfhoodScope::try_from_path(tail).map(Self::Selfhood)
+                }
+            }
+            "Spirituality" => {
+                if tail.is_empty() {
+                    Some(Self::Spirituality(SpiritualityScope::This))
+                } else {
+                    SpiritualityScope::try_from_path(tail).map(Self::Spirituality)
+                }
+            }
+            "Governance" => {
+                if tail.is_empty() {
+                    Some(Self::Governance(GovernanceScope::This))
+                } else {
+                    GovernanceScope::try_from_path(tail).map(Self::Governance)
+                }
+            }
+            "Law" => {
+                if tail.is_empty() {
+                    Some(Self::Law(LawScope::This))
+                } else {
+                    LawScope::try_from_path(tail).map(Self::Law)
+                }
+            }
+            "Community" => {
+                if tail.is_empty() {
+                    Some(Self::Community(CommunityScope::This))
+                } else {
+                    CommunityScope::try_from_path(tail).map(Self::Community)
+                }
+            }
+            "Nature" => {
+                if tail.is_empty() {
+                    Some(Self::Nature(NatureScope::This))
+                } else {
+                    NatureScope::try_from_path(tail).map(Self::Nature)
+                }
+            }
+            "Travel" => {
+                if tail.is_empty() {
+                    Some(Self::Travel(TravelScope::This))
+                } else {
+                    TravelScope::try_from_path(tail).map(Self::Travel)
+                }
+            }
+            "Commerce" => {
+                if tail.is_empty() {
+                    Some(Self::Commerce(CommerceScope::This))
+                } else {
+                    CommerceScope::try_from_path(tail).map(Self::Commerce)
+                }
+            }
+            "Leisure" => {
+                if tail.is_empty() {
+                    Some(Self::Leisure(LeisureScope::This))
+                } else {
+                    LeisureScope::try_from_path(tail).map(Self::Leisure)
+                }
+            }
+            "Appearance" => {
+                if tail.is_empty() {
+                    Some(Self::Appearance(AppearanceScope::This))
+                } else {
+                    AppearanceScope::try_from_path(tail).map(Self::Appearance)
+                }
+            }
+            "Safety" => {
+                if tail.is_empty() {
+                    Some(Self::Safety(SafetyScope::This))
+                } else {
+                    SafetyScope::try_from_path(tail).map(Self::Safety)
+                }
+            }
+            "Information" => {
+                if tail.is_empty() {
+                    Some(Self::Information(InformationScope::This))
+                } else {
+                    InformationScope::try_from_path(tail).map(Self::Information)
+                }
+            }
+            "Technology" => {
+                if tail.is_empty() {
+                    Some(Self::Technology(TechnologyScope::This))
+                } else {
+                    TechnologyScope::try_from_path(tail).map(Self::Technology)
+                }
+            }
+            _ => None,
+        }
+    }
+    pub fn path_segments(&self) -> Vec<String> {
+        match self {
+            Self::Health(payload) => {
+                let mut path = vec![String::from("Health")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Food(payload) => {
+                let mut path = vec![String::from("Food")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Home(payload) => {
+                let mut path = vec![String::from("Home")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Finance(payload) => {
+                let mut path = vec![String::from("Finance")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Work(payload) => {
+                let mut path = vec![String::from("Work")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Craft(payload) => {
+                let mut path = vec![String::from("Craft")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Knowledge(payload) => {
+                let mut path = vec![String::from("Knowledge")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Education(payload) => {
+                let mut path = vec![String::from("Education")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Language(payload) => {
+                let mut path = vec![String::from("Language")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Art(payload) => {
+                let mut path = vec![String::from("Art")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Kinship(payload) => {
+                let mut path = vec![String::from("Kinship")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Selfhood(payload) => {
+                let mut path = vec![String::from("Selfhood")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Spirituality(payload) => {
+                let mut path = vec![String::from("Spirituality")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Governance(payload) => {
+                let mut path = vec![String::from("Governance")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Law(payload) => {
+                let mut path = vec![String::from("Law")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Community(payload) => {
+                let mut path = vec![String::from("Community")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Nature(payload) => {
+                let mut path = vec![String::from("Nature")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Travel(payload) => {
+                let mut path = vec![String::from("Travel")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Commerce(payload) => {
+                let mut path = vec![String::from("Commerce")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Leisure(payload) => {
+                let mut path = vec![String::from("Leisure")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Appearance(payload) => {
+                let mut path = vec![String::from("Appearance")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Safety(payload) => {
+                let mut path = vec![String::from("Safety")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Information(payload) => {
+                let mut path = vec![String::from("Information")];
+                path.extend(payload.path_segments());
+                path
+            }
+            Self::Technology(payload) => {
+                let mut path = vec![String::from("Technology")];
+                path.extend(payload.path_segments());
+                path
+            }
+        }
+    }
+}
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl DomainScope {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+    fn nota_path_from_block(
+        block: &nota_next::Block,
+    ) -> Result<Vec<String>, NotaDecodeError> {
+        if let Some(segment) = block.demote_to_string() {
+            return Ok(vec![segment.to_owned()]);
+        }
+        let children = nota_next::NotaBlock::new(block)
+            .expect_children(nota_next::Delimiter::Parenthesis, "DomainScope", 2)?;
+        let head = children[0]
+            .demote_to_string()
+            .ok_or(NotaDecodeError::ExpectedAtom {
+                type_name: "scope segment",
+            })?;
+        let mut path = vec![head.to_owned()];
+        path.extend(Self::nota_path_from_block(&children[1])?);
+        Ok(path)
+    }
+    fn nota_path_to_string(path: &[String]) -> String {
+        match path {
+            [] => String::new(),
+            [segment] => segment.clone(),
+            [head, tail @ ..] => {
+                format!("({} {})", head, Self::nota_path_to_string(tail))
+            }
+        }
+    }
+}
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl NotaDecode for DomainScope {
+    fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        let path = Self::nota_path_from_block(block)?;
+        Self::try_from_path(&path)
+            .ok_or_else(|| NotaDecodeError::InvalidValue {
+                type_name: "DomainScope",
+                value: Self::nota_path_to_string(&path),
+                reason: String::from("path does not match the scoped enum tree"),
+            })
+    }
+}
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl NotaEncode for DomainScope {
+    fn to_nota(&self) -> String {
+        Self::nota_path_to_string(&self.path_segments())
+    }
+}
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl std::str::FromStr for DomainScope {
+    type Err = NotaDecodeError;
+    fn from_str(source: &str) -> Result<Self, Self::Err> {
+        NotaSource::new(source).parse::<Self>()
+    }
+}
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl std::fmt::Display for DomainScope {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&<Self as NotaEncode>::to_nota(self))
+    }
+}
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -1115,44 +4098,6 @@ pub struct DomainScopes(Vec<DomainScope>);
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ScopeSet(Vec<DomainScope>);
-
-#[rustfmt::skip]
-impl DomainPath {
-    pub fn new(payload: Vec<String>) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &Vec<String> {
-        &self.0
-    }
-    pub fn into_payload(self) -> Vec<String> {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<Vec<String>> for DomainPath {
-    fn from(payload: Vec<String>) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl DomainScope {
-    pub fn new(payload: DomainPath) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &DomainPath {
-        &self.0
-    }
-    pub fn into_payload(self) -> DomainPath {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<DomainPath> for DomainScope {
-    fn from(payload: DomainPath) -> Self {
-        Self::new(payload)
-    }
-}
 
 #[rustfmt::skip]
 impl DomainScopes {
@@ -2015,28 +4960,6 @@ impl Domain {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
-impl DomainPath {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[rustfmt::skip]
-#[cfg(feature = "nota-text")]
-impl DomainScope {
-    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
-        <Self as NotaDecode>::from_nota_block(block)
-    }
-    pub fn to_nota(&self) -> String {
-        <Self as NotaEncode>::to_nota(self)
-    }
-}
-
-#[rustfmt::skip]
-#[cfg(feature = "nota-text")]
 impl DomainScopes {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -2059,9 +4982,6 @@ impl ScopeSet {
 
 #[rustfmt::skip]
 impl DomainScope {
-    pub fn from_path(path: Vec<String>) -> Self {
-        Self::new(DomainPath::new(path))
-    }
     pub fn expand(&self) -> ScopeSet {
         let mut scopes = vec![self.clone()];
         for relation in Self::equivalence_relations() {

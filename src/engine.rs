@@ -936,10 +936,6 @@ impl DomainScopes {
 }
 
 impl DomainScope {
-    pub fn path_segments(&self) -> &[String] {
-        self.payload().payload()
-    }
-
     pub fn matches_domain(&self, domain: &Domain) -> bool {
         domain.matches_scope(self)
     }
@@ -994,7 +990,8 @@ impl Domain {
     }
 
     pub fn matches_scope(&self, scope: &DomainScope) -> bool {
-        self.path_segments().starts_with(scope.path_segments())
+        let scope_segments = scope.path_segments();
+        self.path_segments().starts_with(scope_segments.as_slice())
     }
 
     fn two_segment_path<T: std::fmt::Debug>(root: &str, leaf: T) -> Vec<String> {

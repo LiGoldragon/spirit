@@ -88,8 +88,6 @@ pub use crate::schema::domain::Surfaces as Surfaces;
 #[rustfmt::skip]
 pub use crate::schema::domain::Engineering as Engineering;
 #[rustfmt::skip]
-pub use crate::schema::domain::DomainPath as DomainPath;
-#[rustfmt::skip]
 pub use crate::schema::domain::DomainScope as DomainScope;
 #[rustfmt::skip]
 pub use crate::schema::domain::DomainScopes as DomainScopes;

@@ -343,11 +343,11 @@ fn generated_change_record_round_trips_the_canonical_shape() {
 #[test]
 fn generated_public_private_record_shortcuts_round_trip_nota() {
     let public_input =
-        "(PublicRecords ((Full [[Technology Software Data SchemaEvolution]]) (Some Decision)))"
+        "(PublicRecords ((Full [(Technology (Software (Data SchemaEvolution)))]) (Some Decision)))"
             .parse::<Input>()
             .expect("parse public records input");
     let private_input =
-        "(PrivateRecords ((Partial [[Technology Software Data SchemaEvolution]]) None))"
+        "(PrivateRecords ((Partial [(Technology (Software (Data SchemaEvolution)))]) None))"
             .parse::<Input>()
             .expect("parse private records input");
 
@@ -371,11 +371,43 @@ fn generated_public_private_record_shortcuts_round_trip_nota() {
     );
     assert_eq!(
         public_input.to_string(),
-        "(PublicRecords ((Full [[Technology Software Data SchemaEvolution]]) (Some Decision)))"
+        "(PublicRecords ((Full [(Technology (Software (Data SchemaEvolution)))]) (Some Decision)))"
     );
     assert_eq!(
         private_input.to_string(),
-        "(PrivateRecords ((Partial [[Technology Software Data SchemaEvolution]]) None))"
+        "(PrivateRecords ((Partial [(Technology (Software (Data SchemaEvolution)))]) None))"
+    );
+}
+
+#[cfg(feature = "nota-text")]
+#[test]
+fn generated_domain_scope_is_a_recursive_enum_text_surface() {
+    use spirit::schema::signal::DomainScope;
+
+    let technology = "Technology"
+        .parse::<DomainScope>()
+        .expect("parse root scope");
+    let software = "(Technology Software)"
+        .parse::<DomainScope>()
+        .expect("parse internal scope");
+    let schema_evolution = "(Technology (Software (Data SchemaEvolution)))"
+        .parse::<DomainScope>()
+        .expect("parse leaf scope");
+
+    assert_eq!(technology.to_string(), "Technology");
+    assert_eq!(software.to_string(), "(Technology Software)");
+    assert_eq!(
+        schema_evolution.path_segments(),
+        vec![
+            String::from("Technology"),
+            String::from("Software"),
+            String::from("Data"),
+            String::from("SchemaEvolution"),
+        ]
+    );
+    assert_eq!(
+        schema_evolution.to_string(),
+        "(Technology (Software (Data SchemaEvolution)))"
     );
 }
 

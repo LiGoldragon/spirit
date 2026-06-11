@@ -578,7 +578,7 @@ fn nix_built_daemon_observes_recorded_entries_back_through_query() {
     let observed = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [[Technology Software Operations InfrastructureAsCode]]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Technology (Software (Operations InfrastructureAsCode)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
 
     let stash_handle = match observed {
@@ -627,7 +627,7 @@ fn nix_built_daemon_returns_missed_when_no_matching_record_exists() {
     let output = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [[Technology Software Intelligence AgentSystems]]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Technology (Software (Intelligence AgentSystems)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
 
     match output {
@@ -791,7 +791,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let errored = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [[Technology Software Intelligence AgentSystems]]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Technology (Software (Intelligence AgentSystems)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
     assert!(matches!(errored, Output::Error(_)));
     assert_eq!(errored.route(), OutputRoute::Error);
@@ -800,7 +800,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let observed = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [[Technology Software Operations InfrastructureAsCode]]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Technology (Software (Operations InfrastructureAsCode)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
     assert!(matches!(observed, Output::RecordsStashed(_)));
     assert_eq!(observed.route(), OutputRoute::RecordsStashed);
@@ -849,7 +849,7 @@ fn nix_built_daemon_alias_state_across_separate_cli_processes() {
     let observed = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [[Technology Software Operations InfrastructureAsCode]]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Technology (Software (Operations InfrastructureAsCode)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
     let stash_handle = match observed {
         Output::RecordsStashed(stashed) => {

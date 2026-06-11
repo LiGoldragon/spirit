@@ -44,8 +44,7 @@
       ])
     ])
   ]
-  DomainPath (Vec String)
-  DomainScope DomainPath
+  DomainScope (ScopeOf Domain)
   DomainScopes (Vec DomainScope)
   ScopeSet (Vec DomainScope)
 }

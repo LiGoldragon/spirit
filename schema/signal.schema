@@ -38,7 +38,6 @@
   Observability spirit:domain:Observability
   Surfaces spirit:domain:Surfaces
   Engineering spirit:domain:Engineering
-  DomainPath spirit:domain:DomainPath
   DomainScope spirit:domain:DomainScope
   DomainScopes spirit:domain:DomainScopes
   ScopeSet spirit:domain:ScopeSet
