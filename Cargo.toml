@@ -48,7 +48,7 @@ required-features = ["nota-text"]
 
 [features]
 default = []
-nota-text = ["dep:nota-next", "signal-spirit/nota-text"]
+nota-text = ["dep:nota-next"]
 agent-guardian = ["nota-text", "dep:signal-agent"]
 production-migration = ["nota-text"]
 testing-trace = []

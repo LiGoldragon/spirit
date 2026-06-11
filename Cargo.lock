@@ -1262,7 +1262,6 @@ name = "signal-spirit"
 version = "0.5.3"
 source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=main#c2bfeb57c0c68febf1870a69702201b4e9077339"
 dependencies = [
- "nota-next",
  "rkyv",
  "signal-frame",
  "thiserror",
@@ -1602,7 +1601,6 @@ name = "version-projection"
 version = "0.1.0"
 source = "git+https://github.com/LiGoldragon/version-projection.git?branch=main#f00b239f75aca30098a60b30e877faafe8625d77"
 dependencies = [
- "nota-next",
  "rkyv",
  "thiserror",
 ]
