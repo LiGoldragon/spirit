@@ -1308,7 +1308,7 @@ fn agent_guardian_prompt_bundle_includes_equivalent_domain_records() {
 
 #[cfg(feature = "agent-guardian")]
 #[test]
-fn agent_guardian_prompt_bundle_excludes_same_kind_only_records() {
+fn agent_guardian_prompt_bundle_includes_unmatched_live_records_after_relevant_records() {
     let sema = SemaFile::new();
     let mut setup_engine = sema.engine();
     assert!(matches!(
@@ -1351,8 +1351,19 @@ fn agent_guardian_prompt_bundle_excludes_same_kind_only_records() {
         prompts[0]
     );
     assert!(
-        !prompts[0].contains("same-kind-only-live"),
-        "guardian prompt should not include records relevant only by Kind: {}",
+        prompts[0].contains("same-kind-only-live"),
+        "guardian prompt should include live records even when migrated domains do not overlap: {}",
+        prompts[0]
+    );
+    let relevant_index = prompts[0]
+        .find("admission-control-live")
+        .expect("relevant record in prompt");
+    let unmatched_index = prompts[0]
+        .find("same-kind-only-live")
+        .expect("unmatched record in prompt");
+    assert!(
+        relevant_index < unmatched_index,
+        "guardian prompt should order stronger matches before unmatched live records: {}",
         prompts[0]
     );
     fake_agent.join();
@@ -1360,11 +1371,11 @@ fn agent_guardian_prompt_bundle_excludes_same_kind_only_records() {
 
 #[cfg(feature = "agent-guardian")]
 #[test]
-fn agent_guardian_prompt_bundle_caps_entry_relevance() {
+fn agent_guardian_prompt_bundle_includes_all_relevant_entry_records() {
     let sema = SemaFile::new();
     let mut setup_engine = sema.engine();
     for offset in 0..70 {
-        let description = format!("guardian-cap-relevant-{offset:02} *guardianCap*");
+        let description = format!("guardian-complete-relevant-{offset:02} *guardianComplete*");
         assert!(matches!(
             setup_engine
                 .handle(input_record(entry_with_domain(
@@ -1383,16 +1394,16 @@ fn agent_guardian_prompt_bundle_caps_entry_relevance() {
         Domain::Technology(Technology::Software(Software::Security(
             spirit::schema::signal::Security::AdmissionControl,
         ))),
-        "candidate *guardianCap*",
+        "candidate *guardianComplete*",
     )));
 
     assert!(matches!(output.root(), Output::Proposed(_)));
     let prompts = fake_agent.captured_prompts();
     assert_eq!(prompts.len(), 1);
     assert_eq!(
-        prompts[0].matches("guardian-cap-relevant-").count(),
-        64,
-        "guardian prompt should cap entry relevance bundle: {}",
+        prompts[0].matches("guardian-complete-relevant-").count(),
+        70,
+        "guardian prompt should include every relevant record, not a capped subset: {}",
         prompts[0]
     );
     fake_agent.join();

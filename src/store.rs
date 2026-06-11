@@ -1,5 +1,3 @@
-#[cfg(feature = "agent-guardian")]
-use std::collections::BTreeMap;
 use std::{
     collections::BTreeSet,
     fmt,
@@ -47,8 +45,6 @@ use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
 const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(8);
 const ENTRIES_TABLE: TableName = TableName::new("records");
 const REFERENTS_TABLE: TableName = TableName::new("referents");
-#[cfg(feature = "agent-guardian")]
-const GUARDIAN_RECORD_LIMIT: usize = 64;
 const RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH: usize = 4;
 const RECORD_IDENTIFIER_MAXIMUM_CODE_LENGTH: usize = 7;
 const RECORD_IDENTIFIER_CODE_RADIX: u64 = 36;
@@ -611,8 +607,7 @@ impl Store {
                 }
             }
             GuardianOperation::CollectRemovalCandidates(collection) => {
-                let mut records = self.observe(collection.record_query.payload())?;
-                records.truncate(GUARDIAN_RECORD_LIMIT);
+                let records = self.observe(collection.record_query.payload())?;
                 bundle.extend(RecordSet::new(records));
             }
             GuardianOperation::Record(_) | GuardianOperation::Propose(_) => {}
@@ -629,7 +624,6 @@ impl Store {
             .filter_map(|record| GuardianRecordCandidate::new(record, &proposed))
             .collect::<Vec<_>>();
         records.sort_by_key(GuardianRecordCandidate::sort_key);
-        records.truncate(GUARDIAN_RECORD_LIMIT);
         Ok(RecordSet::new(
             records
                 .into_iter()
@@ -1099,7 +1093,8 @@ impl EngineRecord for StoredReferent {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg(feature = "agent-guardian")]
 struct GuardianRecordBundle {
-    records: BTreeMap<String, ObservedRecord>,
+    seen_identifiers: BTreeSet<String>,
+    records: Vec<ObservedRecord>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1114,13 +1109,18 @@ struct GuardianRecordCandidate {
 impl GuardianRecordBundle {
     fn new() -> Self {
         Self {
-            records: BTreeMap::new(),
+            seen_identifiers: BTreeSet::new(),
+            records: Vec::new(),
         }
     }
 
     fn insert(&mut self, record: ObservedRecord) {
-        self.records
-            .insert(record.record_identifier.payload().clone(), record);
+        if self
+            .seen_identifiers
+            .insert(record.record_identifier.payload().clone())
+        {
+            self.records.push(record);
+        }
     }
 
     fn extend(&mut self, record_set: RecordSet) {
@@ -1130,17 +1130,17 @@ impl GuardianRecordBundle {
     }
 
     fn into_record_set(self) -> RecordSet {
-        RecordSet::new(self.records.into_values().collect())
+        RecordSet::new(self.records)
     }
 }
 
 #[cfg(feature = "agent-guardian")]
 impl GuardianRecordCandidate {
     fn new(record: StoredRecord, proposed: &Entry) -> Option<Self> {
-        let score = record.entry.guardian_relevance_score(proposed);
-        if score == 0 {
+        if !record.entry.belongs_in_guardian_context() {
             return None;
         }
+        let score = record.entry.guardian_relevance_score(proposed);
         let record_identifier = record.record_identifier.clone();
         Some(Self {
             score,
@@ -1332,9 +1332,6 @@ impl Entry {
 
     #[cfg(feature = "agent-guardian")]
     fn guardian_relevance_score(&self, proposed: &Entry) -> u64 {
-        if !CertaintySelection::default_observation_certainty().matches(&self.certainty) {
-            return 0;
-        }
         let mut score = 0;
         if self.duplicates(proposed) {
             score += 100;
@@ -1352,6 +1349,11 @@ impl Entry {
             score += 10;
         }
         score
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn belongs_in_guardian_context(&self) -> bool {
+        CertaintySelection::default_observation_certainty().matches(&self.certainty)
     }
 
     #[cfg(feature = "agent-guardian")]
