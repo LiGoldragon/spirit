@@ -472,8 +472,6 @@ impl Input {
             Self::PublicRecords(selection) => selection.payload().validate(),
             Self::PrivateRecords(selection) => selection.payload().validate(),
             Self::Lookup(_)
-            | Self::Remove(_)
-            | Self::Retire(_)
             | Self::ChangeCertainty(_)
             | Self::BumpImportance(_)
             | Self::LookupStash(_)
@@ -481,7 +479,9 @@ impl Input {
             | Self::Untap(_)
             | Self::Version => Ok(()),
             Self::ChangeRecord(change) => change.payload().validate(),
+            Self::Remove(remove) => remove.payload().validate(),
             Self::RegisterReferent(register) => register.payload().validate(),
+            Self::Retire(retire) => retire.payload().validate(),
             Self::CollectRemovalCandidates(collection) => collection.payload().validate(),
             Self::SubscribeIntent(query) => query.payload().validate(),
             Self::Count(count) => count.payload().validate(),
@@ -510,6 +510,36 @@ impl Entry {
     }
 }
 
+impl crate::schema::signal::Justification {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        if self.statement_text.trim().is_empty() {
+            return Err(ValidationError::EmptyDescription);
+        }
+        if self
+            .context
+            .as_ref()
+            .is_some_and(|context| context.trim().is_empty())
+        {
+            return Err(ValidationError::EmptyDescription);
+        }
+        Ok(())
+    }
+}
+
+impl crate::schema::signal::RecordRequest {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        self.entry.validate()?;
+        self.justification.validate()
+    }
+}
+
+impl crate::schema::signal::Proposal {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        self.entry.validate()?;
+        self.justification.validate()
+    }
+}
+
 impl crate::schema::signal::Referent {
     pub fn validate(&self) -> Result<(), ValidationError> {
         if self.payload().trim().is_empty() {
@@ -535,13 +565,21 @@ impl crate::schema::signal::Referents {
 impl crate::schema::signal::ReferentRegistration {
     pub fn validate(&self) -> Result<(), ValidationError> {
         self.referent.validate()?;
-        self.aliases.validate()
+        self.aliases.validate()?;
+        self.justification.validate()
+    }
+}
+
+impl crate::schema::signal::Removal {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        self.justification.validate()
     }
 }
 
 impl crate::schema::signal::RecordChange {
     pub fn validate(&self) -> Result<(), ValidationError> {
-        self.entry.validate()
+        self.entry.validate()?;
+        self.justification.validate()
     }
 }
 
@@ -550,7 +588,7 @@ impl crate::schema::signal::Clarification {
         if self.description.trim().is_empty() {
             return Err(ValidationError::EmptyDescription);
         }
-        Ok(())
+        self.justification.validate()
     }
 }
 
@@ -559,7 +597,14 @@ impl crate::schema::signal::Supersession {
         if self.retired_identifiers.payload().is_empty() {
             return Err(ValidationError::EmptyDescription);
         }
-        self.replacement.validate()
+        self.replacement.validate()?;
+        self.justification.validate()
+    }
+}
+
+impl crate::schema::signal::Retirement {
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        self.justification.validate()
     }
 }
 
@@ -574,7 +619,8 @@ impl Query {
 
 impl crate::schema::signal::RemovalCandidateCollection {
     pub fn validate(&self) -> Result<(), ValidationError> {
-        self.payload().validate()
+        self.record_query.validate()?;
+        self.justification.validate()
     }
 }
 
@@ -762,6 +808,9 @@ impl Output {
             Self::Superseded(receipt) => receipt.payload().sema_receipt.database_marker.clone(),
             Self::Retired(receipt) => receipt.payload().database_marker.clone(),
             Self::GuardianRejected(rejection) => rejection.payload().database_marker.clone(),
+            Self::ReferentGuardianRejected(rejection) => {
+                rejection.payload().database_marker.clone()
+            }
             Self::RecordsObserved(records) => records.payload().database_marker.clone(),
             Self::RecordsStashed(stashed) => stashed.payload().database_marker.clone(),
             Self::RecordFound(record) => record.payload().database_marker.clone(),

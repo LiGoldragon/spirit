@@ -9,6 +9,8 @@
   StashHandle spirit:signal:StashHandle
   DatabaseMarker spirit:signal:DatabaseMarker
   Statement spirit:signal:Statement
+  RecordRequest spirit:signal:RecordRequest
+  Proposal spirit:signal:Proposal
   Entry spirit:signal:Entry
   Clarification spirit:signal:Clarification
   Supersession spirit:signal:Supersession
@@ -17,18 +19,24 @@
   ClarificationReceipt spirit:signal:ClarificationReceipt
   SupersessionReceipt spirit:signal:SupersessionReceipt
   RetirementReceipt spirit:signal:RetirementReceipt
+  RemoveReceipt spirit:signal:RemoveReceipt
+  RecordChangeReceipt spirit:signal:RecordChangeReceipt
   GuardianRejection spirit:signal:GuardianRejection
   GuardianRejectionReason spirit:signal:GuardianRejectionReason
+  ReferentGuardianRejection spirit:signal:ReferentGuardianRejection
+  ReferentGuardianRejectionReason spirit:signal:ReferentGuardianRejectionReason
   Explanation spirit:signal:Explanation
   ErrorReport spirit:signal:ErrorReport
   Query spirit:signal:Query
   SubscriptionToken spirit:signal:SubscriptionToken
   IntentSubscription spirit:signal:IntentSubscription
   RecordIdentifier spirit:signal:RecordIdentifier
+  Removal spirit:signal:Removal
   CertaintyChange spirit:signal:CertaintyChange
   ImportanceBump spirit:signal:ImportanceBump
   RecordChange spirit:signal:RecordChange
   ReferentRegistration spirit:signal:ReferentRegistration
+  ReferentRegistrationReceipt spirit:signal:ReferentRegistrationReceipt
   RemovalCandidateCollection spirit:signal:RemovalCandidateCollection
   RemovalCandidatesCollection spirit:signal:RemovalCandidatesCollection
   ObserverFilter spirit:signal:ObserverFilter
@@ -45,7 +53,7 @@
 
   CommandSemaWrite [(Record) (Remove) (ChangeCertainty) (BumpImportance) (ChangeRecord) (RegisterReferent)]
   Record Entry
-  Remove RecordIdentifier
+  Remove Removal
   ChangeCertainty CertaintyChange
   BumpImportance ImportanceBump
   ChangeRecord RecordChange
@@ -58,27 +66,34 @@
   NexusWork [(SignalArrived) (SemaWriteCompleted) (SemaReadCompleted) (EffectCompleted)]
   NexusAction [(CommandSemaWrite) (CommandSemaRead) (ReplyToSignal) (CommandEffect) (Continue)]
 
-  NexusEffectCommand [(Stash) (ClassifyState) (GuardRecord) (Propose) (Clarify) (Supersede) (Retire) (OpenIntentSubscription) (CollectRemovalCandidates) (OpenObserverTap) (CloseObserverTap)]
+  NexusEffectCommand [(Stash) (ClassifyState) (GuardRecord) (Propose) (Clarify) (Supersede) (Retire) (GuardRemove) (GuardChangeRecord) (GuardReferentRegistration) (OpenIntentSubscription) (CollectRemovalCandidates) (OpenObserverTap) (CloseObserverTap)]
   Stash StashRequest
   ClassifyState Statement
-  GuardRecord Entry
-  Propose Entry
+  GuardRecord RecordRequest
+  Propose Proposal
   Clarify Clarification
   Supersede Supersession
   Retire Retirement
+  GuardRemove Removal
+  GuardChangeRecord RecordChange
+  GuardReferentRegistration ReferentRegistration
   OpenIntentSubscription Query
   CollectRemovalCandidates RemovalCandidateCollection
   OpenObserverTap ObserverFilter
   CloseObserverTap SubscriptionToken
-  NexusEffectResult [(Stashed) (StateClassified) (Recorded) (Proposed) (Clarified) (Superseded) (Retired) (GuardianRejected) (OperationFailed) (IntentSubscriptionOpened) (RemovalCandidatesCollected) (ObserverTapOpened) (ObserverTapClosed)]
+  NexusEffectResult [(Stashed) (StateClassified) (Recorded) (Proposed) (Clarified) (Superseded) (Retired) (Removed) (RecordChanged) (GuardianRejected) (ReferentRegistered) (ReferentGuardianRejected) (OperationFailed) (IntentSubscriptionOpened) (RemovalCandidatesCollected) (ObserverTapOpened) (ObserverTapClosed)]
   Stashed StashResult
-  StateClassified Entry
+  StateClassified RecordRequest
   Recorded SemaReceipt
   Proposed SemaReceipt
   Clarified ClarificationReceipt
   Superseded SupersessionReceipt
   Retired RetirementReceipt
+  Removed RemoveReceipt
+  RecordChanged RecordChangeReceipt
   GuardianRejected GuardianRejection
+  ReferentRegistered ReferentRegistrationReceipt
+  ReferentGuardianRejected ReferentGuardianRejection
   OperationFailed ErrorReport
   IntentSubscriptionOpened IntentSubscription
   RemovalCandidatesCollected RemovalCandidatesCollection
@@ -88,4 +103,6 @@
   StashResult { StashHandle * RecordCount * DatabaseMarker * }
   GuardianVerdict [Accept (Reject)]
   Reject { GuardianRejectionReason * Explanation * }
+  ReferentGuardianVerdict [Accept (RejectReferent)]
+  RejectReferent { ReferentGuardianRejectionReason * Explanation * }
 }

@@ -1,6 +1,6 @@
 {}
 [State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version]
-[RecordAccepted Proposed Clarified Superseded Retired GuardianRejected RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged ImportanceBumped RecordChanged ReferentRegistered RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted VersionReported (Event IntentEvent) Error Rejected]
+[RecordAccepted Proposed Clarified Superseded Retired GuardianRejected ReferentGuardianRejected RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged ImportanceBumped RecordChanged ReferentRegistered RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted VersionReported (Event IntentEvent) Error Rejected]
 {
   SourcePath String
   LocalPath String
@@ -10,8 +10,8 @@
   SignalReuse { Import * Export * }
 
   State Statement
-  Record Entry
-  Propose Entry
+  Record RecordRequest
+  Propose Proposal
   Clarify Clarification
   Supersede Supersession
   Retire Retirement
@@ -20,7 +20,7 @@
   PrivateRecords RecordSelection
   Lookup RecordIdentifier
   Count Query
-  Remove RecordIdentifier
+  Remove Removal
   ChangeCertainty CertaintyChange
   BumpImportance ImportanceBump
   ChangeRecord RecordChange
@@ -37,6 +37,7 @@
   Superseded SupersessionReceipt
   Retired RetirementReceipt
   GuardianRejected GuardianRejection
+  ReferentGuardianRejected ReferentGuardianRejection
   RecordsObserved ObservedRecords
   RecordsStashed StashedObservation
   RecordFound FoundRecord
@@ -110,8 +111,13 @@
   SignalRejection { ValidationError * DatabaseMarker * }
   StashedObservation { StashHandle * RecordCount * DatabaseMarker * }
   IntentSubscription { SubscriptionToken * DatabaseMarker * }
-  ReferentRegistration { Referent * aliases Referents }
+  Justification { StatementText * context (Optional StatementText) }
+  RecordRequest { Entry * Justification * }
+  Proposal { Entry * Justification * }
+  ReferentRegistration { Referent * aliases Referents Justification * }
   ReferentRegistrationReceipt { Referent * DatabaseMarker * }
+  RegisteredReferent { Referent * aliases Referents }
+  RegisteredReferents (Vec RegisteredReferent)
   VersionReported VersionReport
   VersionReport { VersionText * DatabaseMarker * }
   IntentRecorded { Entry * SemaReceipt * }
@@ -154,7 +160,8 @@
   AtMostImportance Importance
   AtLeastImportance Importance
 
-  RemovalCandidateCollection { RecordQuery * }
+  Removal { RecordIdentifier * Justification * }
+  RemovalCandidateCollection { RecordQuery * Justification * }
   RecordQuery Query
   RemovalArchiveRecord { RecordIdentifier * Entry * }
   RemovalArchiveRecords (Vec RemovalArchiveRecord)
@@ -178,18 +185,20 @@
   CertaintyChangeReceipt { RecordIdentifier * Certainty * DatabaseMarker * }
   ImportanceBump { RecordIdentifier * }
   ImportanceBumpReceipt { RecordIdentifier * Importance * DatabaseMarker * }
-  RecordChange { RecordIdentifier * Entry * }
+  RecordChange { RecordIdentifier * Entry * Justification * }
   RecordChangeReceipt { RecordIdentifier * DatabaseMarker * }
-  Clarification { RecordIdentifier * Description * }
+  Clarification { RecordIdentifier * Description * Justification * }
   ClarificationReceipt { RecordIdentifier * DatabaseMarker * }
-  Supersession { RetiredIdentifiers * replacement Entry }
+  Supersession { RetiredIdentifiers * replacement Entry Justification * }
   SupersessionReceipt { RetiredIdentifiers * SemaReceipt * }
-  Retirement { RecordIdentifier * }
+  Retirement { RecordIdentifier * Justification * }
   RetirementReceipt { RecordIdentifier * DatabaseMarker * }
   RetiredIdentifier RecordIdentifier
   RetiredIdentifiers (Vec RetiredIdentifier)
   GuardianRejectionReason [Duplicate Contradiction Compound NonIntent UnclearPrivacy UnclearDomain ClarifyTramples ClarifyLosesMeaning SupersedeTargetMissing RetrievalInsufficient HarnessUnavailable HarnessMalformed HarnessTimedOut]
   GuardianRejection { GuardianRejectionReason * RecordSet * Explanation * DatabaseMarker * }
+  ReferentGuardianRejectionReason [Duplicate Ambiguous TooVague AliasCollision NonReferent UnclearJustification HarnessUnavailable HarnessMalformed HarnessTimedOut]
+  ReferentGuardianRejection { ReferentGuardianRejectionReason * RegisteredReferents * Explanation * DatabaseMarker * }
   RecordSelection { DomainMatch * kind (Optional Kind) }
   Query { DomainMatch * keyword_match KeywordMatch text_match TextMatch referent_selection ReferentSelection kind (Optional Kind) privacy_selection PrivacySelection certainty_selection CertaintySelection importance_selection ImportanceSelection }
   Records (Vec ObservedRecord)

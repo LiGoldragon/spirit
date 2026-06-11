@@ -18,9 +18,11 @@ use triad_runtime::{FrameBody, LengthPrefixedCodec};
 use crate::{
     guardian_journal::{GuardianDecision, GuardianOperation},
     schema::{
-        nexus::{GuardianVerdict, Reject},
+        nexus::{GuardianVerdict, ReferentGuardianVerdict, Reject, RejectReferent},
         signal::{
             DatabaseMarker, Explanation, GuardianRejection, GuardianRejectionReason, RecordSet,
+            ReferentGuardianRejection, ReferentGuardianRejectionReason, ReferentRegistration,
+            RegisteredReferents,
         },
     },
 };
@@ -51,6 +53,13 @@ pub struct AgentGuardianRejection {
 pub struct AgentGuardianDecision {
     verdict: GuardianVerdict,
     records: RecordSet,
+    database_marker: DatabaseMarker,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentReferentGuardianDecision {
+    verdict: ReferentGuardianVerdict,
+    registered_referents: RegisteredReferents,
     database_marker: DatabaseMarker,
 }
 
@@ -119,6 +128,23 @@ impl AgentGuardian {
         AgentGuardianDecision::new(verdict, records, database_marker)
     }
 
+    pub(crate) fn guard_referent(
+        &self,
+        registration: &ReferentRegistration,
+        registered_referents: RegisteredReferents,
+        database_marker: DatabaseMarker,
+    ) -> AgentReferentGuardianDecision {
+        let verdict = self
+            .call_referent_guardian(registration, &registered_referents)
+            .unwrap_or_else(|error| {
+                ReferentGuardianVerdict::from_harness_rejection(
+                    error.referent_guardian_rejection_reason(),
+                    Explanation::new(error.to_string()),
+                )
+            });
+        AgentReferentGuardianDecision::new(verdict, registered_referents, database_marker)
+    }
+
     fn call_guardian(
         &self,
         operation: &GuardianOperation,
@@ -140,6 +166,35 @@ impl AgentGuardian {
                     )));
                 };
                 self.parse_verdict(&retry_completion.text)
+            }
+        }
+    }
+
+    fn call_referent_guardian(
+        &self,
+        registration: &ReferentRegistration,
+        registered_referents: &RegisteredReferents,
+    ) -> Result<ReferentGuardianVerdict, AgentGuardianError> {
+        let output =
+            self.call_agent(self.referent_prompt(registration, registered_referents, None)?)?;
+        let AgentOutput::Completed(completion) = output else {
+            return Err(AgentGuardianError::AgentRejected(format!("{output:?}")));
+        };
+        match self.parse_referent_verdict(&completion.text) {
+            Ok(verdict) => Ok(verdict),
+            Err(first_error) => {
+                let retry = GuardianRetry::new(completion.text, first_error.to_string());
+                let retry_output = self.call_agent(self.referent_prompt(
+                    registration,
+                    registered_referents,
+                    Some(&retry),
+                )?)?;
+                let AgentOutput::Completed(retry_completion) = retry_output else {
+                    return Err(AgentGuardianError::AgentRejected(format!(
+                        "{retry_output:?}"
+                    )));
+                };
+                self.parse_referent_verdict(&retry_completion.text)
             }
         }
     }
@@ -186,9 +241,7 @@ impl AgentGuardian {
             explanation: Explanation::new("explain the conflict"),
         })
         .to_nota();
-        let retry_text = retry
-            .map(GuardianRetry::user_text)
-            .unwrap_or_else(String::new);
+        let retry_text = retry.map(GuardianRetry::user_text).unwrap_or_default();
         Ok(Prompt {
             system: Some(SystemText::new(format!(
                 "You are Spirit's guardian. Judge whether one write operation may change the live intent store. The model checks every semantic admission issue: duplicates, contradictions, compound arrows, non-intent, unclear privacy, unclear domain, clarification damage, supersession damage, and retrieval insufficiency. Code only validates structure and applies the typed verdict. Reply with exactly one NOTA value of the GuardianVerdict type and no surrounding prose. Accept form: {accept}. Reject form: {reject}. Closed rejection reasons: Duplicate, Contradiction, Compound, NonIntent, UnclearPrivacy, UnclearDomain, ClarifyTramples, ClarifyLosesMeaning, SupersedeTargetMissing, RetrievalInsufficient, HarnessUnavailable, HarnessMalformed, HarnessTimedOut. Duplicate means the candidate already says the same forward arrow as a live record. Contradiction means it conflicts with a live arrow. Compound means it bundles multiple separable arrows. NonIntent means it is task chatter, status, or transient reaction rather than durable intent. UnclearPrivacy means the privacy level is unsafe or underspecified. UnclearDomain means the domain classification is missing or wrong enough to block admission. ClarifyTramples means a clarification overwrites the prior arrow instead of making it clearer. ClarifyLosesMeaning means a clarification drops material meaning. SupersedeTargetMissing means the replacement cannot be judged against the claimed target. RetrievalInsufficient means the supplied bundle is too thin to judge."
@@ -220,12 +273,64 @@ impl AgentGuardian {
         })
     }
 
+    fn referent_prompt(
+        &self,
+        registration: &ReferentRegistration,
+        registered_referents: &RegisteredReferents,
+        retry: Option<&GuardianRetry>,
+    ) -> Result<Prompt, AgentGuardianError> {
+        let accept = ReferentGuardianVerdict::Accept.to_nota();
+        let reject = ReferentGuardianVerdict::reject_referent(RejectReferent {
+            referent_guardian_rejection_reason: ReferentGuardianRejectionReason::Duplicate,
+            explanation: Explanation::new("explain the referent problem"),
+        })
+        .to_nota();
+        let retry_text = retry.map(GuardianRetry::user_text).unwrap_or_default();
+        Ok(Prompt {
+            system: Some(SystemText::new(format!(
+                "You are Spirit's referent guardian. Judge whether one referent registration may change the referent registry. The model checks every semantic admission issue: duplicates, ambiguity, vague names, alias collisions, non-referents, and unclear justification. Code only validates structure and applies the typed verdict. Reply with exactly one NOTA value of the ReferentGuardianVerdict type and no surrounding prose. Accept form: {accept}. Reject form: {reject}. Closed rejection reasons: Duplicate, Ambiguous, TooVague, AliasCollision, NonReferent, UnclearJustification, HarnessUnavailable, HarnessMalformed, HarnessTimedOut. Duplicate means the requested referent or alias already names an existing referent. Ambiguous means the name could naturally point to multiple particulars. TooVague means the name is not specific enough to identify one concrete thing. AliasCollision means an alias collides with another registered referent. NonReferent means the candidate is not a concrete named thing. UnclearJustification means the psyche statement does not justify registering this referent."
+            ))),
+            transcript: ChatTranscript::new(vec![ChatMessage::user(format!(
+                "Operation: RegisterReferent\n\nCandidate registration:\n{}\n\nRegistered referents:\n{}{}",
+                registration.to_nota(),
+                registered_referents.to_nota(),
+                retry_text
+            ))]),
+            options: PromptOptions {
+                model: self
+                    .configuration
+                    .model_name
+                    .as_ref()
+                    .map(|model| ModelName::new(model.clone())),
+                provider: self
+                    .configuration
+                    .provider_name
+                    .as_ref()
+                    .map(|provider| ProviderName::new(provider.clone())),
+                temperature_milli: Some(TemperatureMilli::new(0)),
+                maximum_output_tokens: Some(MaximumOutputTokens::new(
+                    self.configuration.maximum_output_tokens,
+                )),
+                output_mode: OutputMode::Nota,
+            },
+        })
+    }
+
     fn parse_verdict(
         &self,
         completion: &CompletionText,
     ) -> Result<GuardianVerdict, AgentGuardianError> {
         NotaSource::new(completion.payload())
             .parse::<GuardianVerdict>()
+            .map_err(|error| AgentGuardianError::Malformed(error.to_string()))
+    }
+
+    fn parse_referent_verdict(
+        &self,
+        completion: &CompletionText,
+    ) -> Result<ReferentGuardianVerdict, AgentGuardianError> {
+        NotaSource::new(completion.payload())
+            .parse::<ReferentGuardianVerdict>()
             .map_err(|error| AgentGuardianError::Malformed(error.to_string()))
     }
 }
@@ -253,6 +358,23 @@ impl AgentGuardianError {
             }
         }
     }
+
+    fn referent_guardian_rejection_reason(&self) -> ReferentGuardianRejectionReason {
+        match self {
+            Self::Socket(error)
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                ) =>
+            {
+                ReferentGuardianRejectionReason::HarnessTimedOut
+            }
+            Self::Socket(_) | Self::Frame(_) => ReferentGuardianRejectionReason::HarnessUnavailable,
+            Self::AgentRejected(_) | Self::Malformed(_) => {
+                ReferentGuardianRejectionReason::HarnessMalformed
+            }
+        }
+    }
 }
 
 impl AgentGuardianDecision {
@@ -265,7 +387,7 @@ impl AgentGuardianDecision {
     }
 
     pub(crate) fn journal_decision(&self, operation: GuardianOperation) -> GuardianDecision {
-        GuardianDecision::new(
+        GuardianDecision::record(
             operation,
             self.records.clone(),
             self.verdict.clone(),
@@ -280,6 +402,75 @@ impl AgentGuardianDecision {
                 AgentGuardianRejection::from_reject(rejection, self.records, self.database_marker)
                     .into_guardian_rejection(),
             ),
+        }
+    }
+}
+
+impl AgentReferentGuardianDecision {
+    fn new(
+        verdict: ReferentGuardianVerdict,
+        registered_referents: RegisteredReferents,
+        database_marker: DatabaseMarker,
+    ) -> Self {
+        Self {
+            verdict,
+            registered_referents,
+            database_marker,
+        }
+    }
+
+    pub(crate) fn journal_decision(&self, registration: ReferentRegistration) -> GuardianDecision {
+        GuardianDecision::referent(
+            registration,
+            self.registered_referents.clone(),
+            self.verdict.clone(),
+            self.database_marker.clone(),
+        )
+    }
+
+    pub(crate) fn into_guardian_rejection(self) -> Option<ReferentGuardianRejection> {
+        match self.verdict {
+            ReferentGuardianVerdict::Accept => None,
+            ReferentGuardianVerdict::RejectReferent(rejection) => Some(
+                AgentReferentGuardianRejection::from_reject(
+                    rejection,
+                    self.registered_referents,
+                    self.database_marker,
+                )
+                .into_guardian_rejection(),
+            ),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct AgentReferentGuardianRejection {
+    reason: ReferentGuardianRejectionReason,
+    registered_referents: RegisteredReferents,
+    explanation: Explanation,
+    database_marker: DatabaseMarker,
+}
+
+impl AgentReferentGuardianRejection {
+    fn from_reject(
+        rejection: RejectReferent,
+        registered_referents: RegisteredReferents,
+        database_marker: DatabaseMarker,
+    ) -> Self {
+        Self {
+            reason: rejection.referent_guardian_rejection_reason,
+            registered_referents,
+            explanation: rejection.explanation,
+            database_marker,
+        }
+    }
+
+    fn into_guardian_rejection(self) -> ReferentGuardianRejection {
+        ReferentGuardianRejection {
+            referent_guardian_rejection_reason: self.reason,
+            registered_referents: self.registered_referents,
+            explanation: self.explanation,
+            database_marker: self.database_marker,
         }
     }
 }
@@ -334,11 +525,11 @@ impl<'operation> GuardianOperationPrompt<'operation> {
 
     fn to_text(&self) -> String {
         match self.operation {
-            GuardianOperation::Record(entry) => {
-                format!("Record entry:\n{}", entry.to_nota())
+            GuardianOperation::Record(request) => {
+                format!("Record request:\n{}", request.to_nota())
             }
-            GuardianOperation::Propose(entry) => {
-                format!("Propose entry:\n{}", entry.to_nota())
+            GuardianOperation::Propose(proposal) => {
+                format!("Propose request:\n{}", proposal.to_nota())
             }
             GuardianOperation::Clarify(clarification) => {
                 format!("Clarify request:\n{}", clarification.to_nota())
@@ -348,6 +539,18 @@ impl<'operation> GuardianOperationPrompt<'operation> {
             }
             GuardianOperation::Retire(retirement) => {
                 format!("Retire request:\n{}", retirement.to_nota())
+            }
+            GuardianOperation::Remove(removal) => {
+                format!("Remove request:\n{}", removal.to_nota())
+            }
+            GuardianOperation::ChangeRecord(change) => {
+                format!("ChangeRecord request:\n{}", change.to_nota())
+            }
+            GuardianOperation::CollectRemovalCandidates(collection) => {
+                format!(
+                    "CollectRemovalCandidates request:\n{}",
+                    collection.to_nota()
+                )
             }
         }
     }

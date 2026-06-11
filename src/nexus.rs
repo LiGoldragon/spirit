@@ -20,13 +20,16 @@ use crate::{
             Certainty, Clarification, ClarificationReceipt, DatabaseMarker, Description, Domain,
             Domains, Entry, ErrorMessage, ErrorReport, GuardianRejection, Importance, Input,
             IntentClarified, IntentEvent, IntentRecorded, IntentRetired, IntentSubscription,
-            IntentSuperseded, Kind, Magnitude, ObservedOperation, ObservedOperations,
-            ObserverFilter, ObserverRetraction, ObserverSubscription, OperationKind, Output,
-            Privacy, RecordCount, RecordIdentifier, Records, Referents, RemovalArchiveRecords,
-            RemovalCandidateCollection, RemovalCandidatesCollection, RemovedIdentifiers,
-            Retirement, RetirementReceipt, SemaReceipt, SignalRejection, SkippedRemovalCandidates,
-            StashHandle, StashedObservation, Statement, SubscriptionToken, Supersession,
-            SupersessionReceipt, ValidationError, VersionReport, VersionText,
+            IntentSuperseded, Justification, Kind, Magnitude, ObservedOperation,
+            ObservedOperations, ObserverFilter, ObserverRetraction, ObserverSubscription,
+            OperationKind, Output, Privacy, Proposal, RecordChange, RecordChangeReceipt,
+            RecordCount, RecordIdentifier, RecordRequest, Records, ReferentGuardianRejection,
+            ReferentRegistration, ReferentRegistrationReceipt, Referents, Removal,
+            RemovalArchiveRecords, RemovalCandidateCollection, RemovalCandidatesCollection,
+            RemoveReceipt, RemovedIdentifiers, Retirement, RetirementReceipt, SemaReceipt,
+            SignalRejection, SkippedRemovalCandidates, StashHandle, StashedObservation, Statement,
+            SubscriptionToken, Supersession, SupersessionReceipt, ValidationError, VersionReport,
+            VersionText,
         },
     },
     store::{Store, StoreError},
@@ -243,15 +246,25 @@ impl Default for ClassificationPolicy {
 }
 
 impl ClassificationPolicy {
-    pub fn classify(&self, statement: Statement) -> Entry {
-        Entry {
+    pub fn classify(&self, statement: Statement) -> RecordRequest {
+        let statement_text = statement.into_payload();
+        let description = statement_text.payload().clone();
+        let justification = Justification {
+            statement_text,
+            context: None,
+        };
+        let entry = Entry {
             domains: Domains::new(vec![self.fallback_domain.clone()]),
             kind: self.fallback_kind,
-            description: Description::new(statement.into_payload().into_payload()),
+            description: Description::new(description),
             certainty: Certainty::new(self.fallback_magnitude),
             importance: Importance::new(Magnitude::Minimum),
             privacy: Privacy::new(self.fallback_privacy),
             referents: Referents::new(Vec::new()),
+        };
+        RecordRequest {
+            entry,
+            justification,
         }
     }
 }
@@ -416,10 +429,10 @@ impl Nexus {
     fn apply_effect(&mut self, command: NexusEffectCommand) -> NexusEffectResult {
         match command {
             NexusEffectCommand::ClassifyState(statement) => {
-                let entry = self
+                let record_request = self
                     .classification_policy
                     .classify(statement.into_payload());
-                NexusEffectResult::state_classified(entry)
+                NexusEffectResult::state_classified(record_request)
             }
             NexusEffectCommand::GuardRecord(record) => {
                 match self.guard_record(record.into_payload()) {
@@ -457,6 +470,29 @@ impl Nexus {
                 Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
                 Err(error) => self.operation_failed(error.to_string()),
             },
+            NexusEffectCommand::GuardRemove(remove) => {
+                match self.guard_remove(remove.into_payload()) {
+                    Ok(Ok(Some(receipt))) => NexusEffectResult::removed(receipt),
+                    Ok(Ok(None)) => self.operation_failed("record not found"),
+                    Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
+                    Err(error) => self.operation_failed(error.to_string()),
+                }
+            }
+            NexusEffectCommand::GuardChangeRecord(change) => {
+                match self.guard_change_record(change.into_payload()) {
+                    Ok(Ok(Some(receipt))) => NexusEffectResult::record_changed(receipt),
+                    Ok(Ok(None)) => self.operation_failed("record not found"),
+                    Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
+                    Err(error) => self.operation_failed(error.to_string()),
+                }
+            }
+            NexusEffectCommand::GuardReferentRegistration(register) => {
+                match self.guard_referent_registration(register.into_payload()) {
+                    Ok(Ok(receipt)) => NexusEffectResult::referent_registered(receipt),
+                    Ok(Err(rejection)) => NexusEffectResult::referent_guardian_rejected(rejection),
+                    Err(error) => self.operation_failed(error.to_string()),
+                }
+            }
             NexusEffectCommand::Stash(stash) => {
                 let StashRequest {
                     records,
@@ -503,17 +539,18 @@ impl Nexus {
     #[cfg(not(feature = "agent-guardian"))]
     fn guard_record(
         &mut self,
-        entry: Entry,
+        request: RecordRequest,
     ) -> Result<Result<SemaReceipt, GuardianRejection>, StoreError> {
-        Ok(Ok(self.store.record_entry(entry)?))
+        Ok(Ok(self.store.record_entry(request.entry)?))
     }
 
     #[cfg(feature = "agent-guardian")]
     fn guard_record(
         &mut self,
-        entry: Entry,
+        request: RecordRequest,
     ) -> Result<Result<SemaReceipt, GuardianRejection>, StoreError> {
-        let operation = GuardianOperation::record(entry.clone());
+        let entry = request.entry.clone();
+        let operation = GuardianOperation::record(request);
         if let Some(rejection) = self.guard_model(operation)? {
             return Ok(Err(self.duplicate_rejection_if_needed(&entry, rejection)?));
         }
@@ -523,20 +560,21 @@ impl Nexus {
     #[cfg(not(feature = "agent-guardian"))]
     fn guard_propose(
         &mut self,
-        entry: Entry,
+        proposal: Proposal,
     ) -> Result<Result<SemaReceipt, GuardianRejection>, StoreError> {
-        self.store.guard_propose(entry)
+        self.store.guard_propose(proposal.entry)
     }
 
     #[cfg(feature = "agent-guardian")]
     fn guard_propose(
         &mut self,
-        entry: Entry,
+        proposal: Proposal,
     ) -> Result<Result<SemaReceipt, GuardianRejection>, StoreError> {
         if self.guardian.is_none() {
-            return self.store.guard_propose(entry);
+            return self.store.guard_propose(proposal.entry);
         }
-        let operation = GuardianOperation::propose(entry.clone());
+        let entry = proposal.entry.clone();
+        let operation = GuardianOperation::propose(proposal);
         if let Some(rejection) = self.guard_model(operation)? {
             return Ok(Err(self.duplicate_rejection_if_needed(&entry, rejection)?));
         }
@@ -591,6 +629,46 @@ impl Nexus {
         Ok(Ok(self.store.retire(retirement)?))
     }
 
+    #[cfg(not(feature = "agent-guardian"))]
+    fn guard_remove(
+        &mut self,
+        removal: Removal,
+    ) -> Result<Result<Option<RemoveReceipt>, GuardianRejection>, StoreError> {
+        Ok(Ok(self.store.remove_record(removal)?))
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn guard_remove(
+        &mut self,
+        removal: Removal,
+    ) -> Result<Result<Option<RemoveReceipt>, GuardianRejection>, StoreError> {
+        let operation = GuardianOperation::remove(removal.clone());
+        if let Some(rejection) = self.guard_model(operation)? {
+            return Ok(Err(rejection));
+        }
+        Ok(Ok(self.store.remove_record(removal)?))
+    }
+
+    #[cfg(not(feature = "agent-guardian"))]
+    fn guard_change_record(
+        &mut self,
+        change: RecordChange,
+    ) -> Result<Result<Option<RecordChangeReceipt>, GuardianRejection>, StoreError> {
+        Ok(Ok(self.store.change_record(change)?))
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn guard_change_record(
+        &mut self,
+        change: RecordChange,
+    ) -> Result<Result<Option<RecordChangeReceipt>, GuardianRejection>, StoreError> {
+        let operation = GuardianOperation::change_record(change.clone());
+        if let Some(rejection) = self.guard_model(operation)? {
+            return Ok(Err(rejection));
+        }
+        Ok(Ok(self.store.change_record(change)?))
+    }
+
     #[cfg(feature = "agent-guardian")]
     fn guard_retire(
         &mut self,
@@ -619,6 +697,37 @@ impl Nexus {
         Ok(rejection)
     }
 
+    #[cfg(not(feature = "agent-guardian"))]
+    fn guard_referent_registration(
+        &mut self,
+        registration: ReferentRegistration,
+    ) -> Result<Result<ReferentRegistrationReceipt, ReferentGuardianRejection>, StoreError> {
+        Ok(Ok(self.store.register_referent(registration)?))
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn guard_referent_registration(
+        &mut self,
+        registration: ReferentRegistration,
+    ) -> Result<Result<ReferentRegistrationReceipt, ReferentGuardianRejection>, StoreError> {
+        let Some(guardian) = &self.guardian else {
+            return Ok(Ok(self.store.register_referent(registration)?));
+        };
+        let registered_referents = self.store.registered_referents()?;
+        let decision = guardian.guard_referent(
+            &registration,
+            registered_referents,
+            self.store.database_marker(),
+        );
+        let rejection = decision.clone().into_guardian_rejection();
+        self.store
+            .record_guardian_decision(decision.journal_decision(registration.clone()))?;
+        match rejection {
+            Some(rejection) => Ok(Err(rejection)),
+            None => Ok(Ok(self.store.register_referent(registration)?)),
+        }
+    }
+
     #[cfg(feature = "agent-guardian")]
     fn duplicate_rejection_if_needed(
         &self,
@@ -644,6 +753,15 @@ impl Nexus {
         &mut self,
         collection: RemovalCandidateCollection,
     ) -> NexusEffectResult {
+        #[cfg(feature = "agent-guardian")]
+        {
+            let operation = GuardianOperation::collect_removal_candidates(collection.clone());
+            match self.guard_model(operation) {
+                Ok(Some(rejection)) => return NexusEffectResult::guardian_rejected(rejection),
+                Ok(None) => {}
+                Err(error) => return self.operation_failed(error.to_string()),
+            }
+        }
         let result = self
             .store
             .collect_removal_candidates(collection)
@@ -866,7 +984,9 @@ impl Nexus {
                 }
                 #[cfg(not(feature = "agent-guardian"))]
                 {
-                    NexusAction::command_sema_write(CommandSemaWrite::record(record.into_payload()))
+                    NexusAction::command_sema_write(CommandSemaWrite::record(
+                        record.into_payload().entry,
+                    ))
                 }
             }
             Input::Propose(propose) => {
@@ -897,7 +1017,16 @@ impl Nexus {
                 NexusAction::command_sema_read(SemaReadInput::count(count.into_payload()))
             }
             Input::Remove(remove) => {
-                NexusAction::command_sema_write(CommandSemaWrite::remove(remove.into_payload()))
+                #[cfg(feature = "agent-guardian")]
+                {
+                    NexusAction::command_effect(NexusEffectCommand::guard_remove(
+                        remove.into_payload(),
+                    ))
+                }
+                #[cfg(not(feature = "agent-guardian"))]
+                {
+                    NexusAction::command_sema_write(CommandSemaWrite::remove(remove.into_payload()))
+                }
             }
             Input::ChangeCertainty(change) => NexusAction::command_sema_write(
                 CommandSemaWrite::change_certainty(change.into_payload()),
@@ -905,11 +1034,22 @@ impl Nexus {
             Input::BumpImportance(change) => NexusAction::command_sema_write(
                 CommandSemaWrite::bump_importance(change.into_payload()),
             ),
-            Input::ChangeRecord(change) => NexusAction::command_sema_write(
-                CommandSemaWrite::change_record(change.into_payload()),
-            ),
-            Input::RegisterReferent(register) => NexusAction::command_sema_write(
-                CommandSemaWrite::register_referent(register.into_payload()),
+            Input::ChangeRecord(change) => {
+                #[cfg(feature = "agent-guardian")]
+                {
+                    NexusAction::command_effect(NexusEffectCommand::guard_change_record(
+                        change.into_payload(),
+                    ))
+                }
+                #[cfg(not(feature = "agent-guardian"))]
+                {
+                    NexusAction::command_sema_write(CommandSemaWrite::change_record(
+                        change.into_payload(),
+                    ))
+                }
+            }
+            Input::RegisterReferent(register) => NexusAction::command_effect(
+                NexusEffectCommand::guard_referent_registration(register.into_payload()),
             ),
             Input::LookupStash(handle) => match self.stash_table.lookup(handle.payload()) {
                 Some((records, database_marker)) => NexusAction::reply_to_signal(
@@ -1007,7 +1147,9 @@ impl Nexus {
                 }
                 #[cfg(not(feature = "agent-guardian"))]
                 {
-                    NexusAction::command_sema_write(CommandSemaWrite::record(entry.into_payload()))
+                    NexusAction::command_sema_write(CommandSemaWrite::record(
+                        entry.into_payload().entry,
+                    ))
                 }
             }
             NexusEffectResult::Recorded(receipt) => NexusAction::reply_to_signal(
@@ -1025,12 +1167,24 @@ impl Nexus {
             NexusEffectResult::Retired(receipt) => {
                 NexusAction::reply_to_signal(Output::retired(receipt.into_payload()))
             }
+            NexusEffectResult::Removed(receipt) => {
+                NexusAction::reply_to_signal(Output::record_removed(receipt.into_payload()))
+            }
+            NexusEffectResult::RecordChanged(receipt) => {
+                NexusAction::reply_to_signal(Output::record_changed(receipt.into_payload()))
+            }
             NexusEffectResult::OperationFailed(report) => {
                 NexusAction::reply_to_signal(Output::error(report.into_payload()))
             }
             NexusEffectResult::GuardianRejected(rejection) => {
                 NexusAction::reply_to_signal(Output::guardian_rejected(rejection.into_payload()))
             }
+            NexusEffectResult::ReferentRegistered(receipt) => {
+                NexusAction::reply_to_signal(Output::referent_registered(receipt.into_payload()))
+            }
+            NexusEffectResult::ReferentGuardianRejected(rejection) => NexusAction::reply_to_signal(
+                Output::referent_guardian_rejected(rejection.into_payload()),
+            ),
             NexusEffectResult::Stashed(stashed) => {
                 let StashResult {
                     stash_handle,

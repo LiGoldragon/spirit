@@ -60,12 +60,12 @@ pub struct State(Statement);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Record(Entry);
+pub struct Record(RecordRequest);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Propose(Entry);
+pub struct Propose(Proposal);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -110,7 +110,7 @@ pub struct Count(Query);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Remove(RecordIdentifier);
+pub struct Remove(Removal);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -186,6 +186,11 @@ pub struct Retired(RetirementReceipt);
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct GuardianRejected(GuardianRejection);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ReferentGuardianRejected(ReferentGuardianRejection);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -1133,9 +1138,34 @@ pub struct IntentSubscription {
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Justification {
+    pub statement_text: StatementText,
+    pub context: Option<StatementText>,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct RecordRequest {
+    pub entry: Entry,
+    pub justification: Justification,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Proposal {
+    pub entry: Entry,
+    pub justification: Justification,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ReferentRegistration {
     pub referent: Referent,
     pub aliases: Referents,
+    pub justification: Justification,
 }
 
 #[rustfmt::skip]
@@ -1145,6 +1175,19 @@ pub struct ReferentRegistrationReceipt {
     pub referent: Referent,
     pub database_marker: DatabaseMarker,
 }
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct RegisteredReferent {
+    pub referent: Referent,
+    pub aliases: Referents,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct RegisteredReferents(Vec<RegisteredReferent>);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -1424,7 +1467,18 @@ pub struct AtLeastImportance(Importance);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct RemovalCandidateCollection(RecordQuery);
+pub struct Removal {
+    pub record_identifier: RecordIdentifier,
+    pub justification: Justification,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct RemovalCandidateCollection {
+    pub record_query: RecordQuery,
+    pub justification: Justification,
+}
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -1635,6 +1689,7 @@ pub struct ImportanceBumpReceipt {
 pub struct RecordChange {
     pub record_identifier: RecordIdentifier,
     pub entry: Entry,
+    pub justification: Justification,
 }
 
 #[rustfmt::skip]
@@ -1651,6 +1706,7 @@ pub struct RecordChangeReceipt {
 pub struct Clarification {
     pub record_identifier: RecordIdentifier,
     pub description: Description,
+    pub justification: Justification,
 }
 
 #[rustfmt::skip]
@@ -1667,6 +1723,7 @@ pub struct ClarificationReceipt {
 pub struct Supersession {
     pub retired_identifiers: RetiredIdentifiers,
     pub replacement: Entry,
+    pub justification: Justification,
 }
 
 #[rustfmt::skip]
@@ -1680,7 +1737,10 @@ pub struct SupersessionReceipt {
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Retirement(RecordIdentifier);
+pub struct Retirement {
+    pub record_identifier: RecordIdentifier,
+    pub justification: Justification,
+}
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -1734,6 +1794,40 @@ pub enum GuardianRejectionReason {
 pub struct GuardianRejection {
     pub guardian_rejection_reason: GuardianRejectionReason,
     pub record_set: RecordSet,
+    pub explanation: Explanation,
+    pub database_marker: DatabaseMarker,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub enum ReferentGuardianRejectionReason {
+    Duplicate,
+    Ambiguous,
+    TooVague,
+    AliasCollision,
+    NonReferent,
+    UnclearJustification,
+    HarnessUnavailable,
+    HarnessMalformed,
+    HarnessTimedOut,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ReferentGuardianRejection {
+    pub referent_guardian_rejection_reason: ReferentGuardianRejectionReason,
+    pub registered_referents: RegisteredReferents,
     pub explanation: Explanation,
     pub database_marker: DatabaseMarker,
 }
@@ -1851,6 +1945,7 @@ pub enum Output {
     Superseded(Superseded),
     Retired(Retired),
     GuardianRejected(GuardianRejected),
+    ReferentGuardianRejected(ReferentGuardianRejected),
     RecordsObserved(RecordsObserved),
     RecordsStashed(RecordsStashed),
     RecordFound(RecordFound),
@@ -1948,38 +2043,38 @@ impl From<Statement> for State {
 
 #[rustfmt::skip]
 impl Record {
-    pub fn new(payload: Entry) -> Self {
+    pub fn new(payload: RecordRequest) -> Self {
         Self(payload)
     }
-    pub fn payload(&self) -> &Entry {
+    pub fn payload(&self) -> &RecordRequest {
         &self.0
     }
-    pub fn into_payload(self) -> Entry {
+    pub fn into_payload(self) -> RecordRequest {
         self.0
     }
 }
 #[rustfmt::skip]
-impl From<Entry> for Record {
-    fn from(payload: Entry) -> Self {
+impl From<RecordRequest> for Record {
+    fn from(payload: RecordRequest) -> Self {
         Self::new(payload)
     }
 }
 
 #[rustfmt::skip]
 impl Propose {
-    pub fn new(payload: Entry) -> Self {
+    pub fn new(payload: Proposal) -> Self {
         Self(payload)
     }
-    pub fn payload(&self) -> &Entry {
+    pub fn payload(&self) -> &Proposal {
         &self.0
     }
-    pub fn into_payload(self) -> Entry {
+    pub fn into_payload(self) -> Proposal {
         self.0
     }
 }
 #[rustfmt::skip]
-impl From<Entry> for Propose {
-    fn from(payload: Entry) -> Self {
+impl From<Proposal> for Propose {
+    fn from(payload: Proposal) -> Self {
         Self::new(payload)
     }
 }
@@ -2138,19 +2233,19 @@ impl From<Query> for Count {
 
 #[rustfmt::skip]
 impl Remove {
-    pub fn new(payload: RecordIdentifier) -> Self {
+    pub fn new(payload: Removal) -> Self {
         Self(payload)
     }
-    pub fn payload(&self) -> &RecordIdentifier {
+    pub fn payload(&self) -> &Removal {
         &self.0
     }
-    pub fn into_payload(self) -> RecordIdentifier {
+    pub fn into_payload(self) -> Removal {
         self.0
     }
 }
 #[rustfmt::skip]
-impl From<RecordIdentifier> for Remove {
-    fn from(payload: RecordIdentifier) -> Self {
+impl From<Removal> for Remove {
+    fn from(payload: Removal) -> Self {
         Self::new(payload)
     }
 }
@@ -2436,6 +2531,25 @@ impl GuardianRejected {
 #[rustfmt::skip]
 impl From<GuardianRejection> for GuardianRejected {
     fn from(payload: GuardianRejection) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl ReferentGuardianRejected {
+    pub fn new(payload: ReferentGuardianRejection) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ReferentGuardianRejection {
+        &self.0
+    }
+    pub fn into_payload(self) -> ReferentGuardianRejection {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ReferentGuardianRejection> for ReferentGuardianRejected {
+    fn from(payload: ReferentGuardianRejection) -> Self {
         Self::new(payload)
     }
 }
@@ -3087,6 +3201,25 @@ impl From<String> for Explanation {
 }
 
 #[rustfmt::skip]
+impl RegisteredReferents {
+    pub fn new(payload: Vec<RegisteredReferent>) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Vec<RegisteredReferent> {
+        &self.0
+    }
+    pub fn into_payload(self) -> Vec<RegisteredReferent> {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Vec<RegisteredReferent>> for RegisteredReferents {
+    fn from(payload: Vec<RegisteredReferent>) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl VersionReported {
     pub fn new(payload: VersionReport) -> Self {
         Self(payload)
@@ -3505,25 +3638,6 @@ impl From<Importance> for AtLeastImportance {
 }
 
 #[rustfmt::skip]
-impl RemovalCandidateCollection {
-    pub fn new(payload: RecordQuery) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &RecordQuery {
-        &self.0
-    }
-    pub fn into_payload(self) -> RecordQuery {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<RecordQuery> for RemovalCandidateCollection {
-    fn from(payload: RecordQuery) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
 impl RecordQuery {
     pub fn new(payload: Query) -> Self {
         Self(payload)
@@ -3689,25 +3803,6 @@ impl ImportanceBump {
 }
 #[rustfmt::skip]
 impl From<RecordIdentifier> for ImportanceBump {
-    fn from(payload: RecordIdentifier) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl Retirement {
-    pub fn new(payload: RecordIdentifier) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &RecordIdentifier {
-        &self.0
-    }
-    pub fn into_payload(self) -> RecordIdentifier {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<RecordIdentifier> for Retirement {
     fn from(payload: RecordIdentifier) -> Self {
         Self::new(payload)
     }
@@ -3972,10 +4067,10 @@ impl Input {
     pub fn state(payload: Statement) -> Self {
         Self::State(State::new(payload))
     }
-    pub fn record(payload: Entry) -> Self {
+    pub fn record(payload: RecordRequest) -> Self {
         Self::Record(Record::new(payload))
     }
-    pub fn propose(payload: Entry) -> Self {
+    pub fn propose(payload: Proposal) -> Self {
         Self::Propose(Propose::new(payload))
     }
     pub fn clarify(payload: Clarification) -> Self {
@@ -4002,7 +4097,7 @@ impl Input {
     pub fn count(payload: Query) -> Self {
         Self::Count(Count::new(payload))
     }
-    pub fn remove(payload: RecordIdentifier) -> Self {
+    pub fn remove(payload: Removal) -> Self {
         Self::Remove(Remove::new(payload))
     }
     pub fn change_certainty(payload: CertaintyChange) -> Self {
@@ -4053,6 +4148,9 @@ impl Output {
     }
     pub fn guardian_rejected(payload: GuardianRejection) -> Self {
         Self::GuardianRejected(GuardianRejected::new(payload))
+    }
+    pub fn referent_guardian_rejected(payload: ReferentGuardianRejection) -> Self {
+        Self::ReferentGuardianRejected(ReferentGuardianRejected::new(payload))
     }
     pub fn records_observed(payload: ObservedRecords) -> Self {
         Self::RecordsObserved(RecordsObserved::new(payload))
@@ -4619,6 +4717,13 @@ impl From<GuardianRejected> for Output {
 }
 
 #[rustfmt::skip]
+impl From<ReferentGuardianRejected> for Output {
+    fn from(payload: ReferentGuardianRejected) -> Self {
+        Self::ReferentGuardianRejected(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl From<RecordsObserved> for Output {
     fn from(payload: RecordsObserved) -> Self {
         Self::RecordsObserved(payload)
@@ -5092,6 +5197,17 @@ impl Retired {
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
 impl GuardianRejected {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl ReferentGuardianRejected {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -5872,6 +5988,39 @@ impl IntentSubscription {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
+impl Justification {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl RecordRequest {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl Proposal {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
 impl ReferentRegistration {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -5884,6 +6033,28 @@ impl ReferentRegistration {
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
 impl ReferentRegistrationReceipt {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl RegisteredReferent {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl RegisteredReferents {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
     }
@@ -6323,6 +6494,17 @@ impl AtLeastImportance {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
+impl Removal {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
 impl RemovalCandidateCollection {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -6697,6 +6879,28 @@ impl GuardianRejection {
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
+impl ReferentGuardianRejectionReason {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(self) -> String {
+        <Self as NotaEncode>::to_nota(&self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
+impl ReferentGuardianRejection {
+    pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
+        <Self as NotaDecode>::from_nota_block(block)
+    }
+    pub fn to_nota(&self) -> String {
+        <Self as NotaEncode>::to_nota(self)
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(feature = "nota-text")]
 impl RecordSelection {
     pub fn from_nota_block(block: &nota_next::Block) -> Result<Self, NotaDecodeError> {
         <Self as NotaDecode>::from_nota_block(block)
@@ -6845,23 +7049,24 @@ pub mod short_header {
     pub const OUTPUT_SUPERSEDED: u64 = 0x0103000000000000;
     pub const OUTPUT_RETIRED: u64 = 0x0104000000000000;
     pub const OUTPUT_GUARDIAN_REJECTED: u64 = 0x0105000000000000;
-    pub const OUTPUT_RECORDS_OBSERVED: u64 = 0x0106000000000000;
-    pub const OUTPUT_RECORDS_STASHED: u64 = 0x0107000000000000;
-    pub const OUTPUT_RECORD_FOUND: u64 = 0x0108000000000000;
-    pub const OUTPUT_RECORDS_COUNTED: u64 = 0x0109000000000000;
-    pub const OUTPUT_RECORD_REMOVED: u64 = 0x010A000000000000;
-    pub const OUTPUT_CERTAINTY_CHANGED: u64 = 0x010B000000000000;
-    pub const OUTPUT_IMPORTANCE_BUMPED: u64 = 0x010C000000000000;
-    pub const OUTPUT_RECORD_CHANGED: u64 = 0x010D000000000000;
-    pub const OUTPUT_REFERENT_REGISTERED: u64 = 0x010E000000000000;
-    pub const OUTPUT_REMOVAL_CANDIDATES_COLLECTED: u64 = 0x010F000000000000;
-    pub const OUTPUT_OBSERVATION_TAPPED: u64 = 0x0110000000000000;
-    pub const OUTPUT_OBSERVATION_UNTAPPED: u64 = 0x0111000000000000;
-    pub const OUTPUT_SUBSCRIPTION_STARTED: u64 = 0x0112000000000000;
-    pub const OUTPUT_VERSION_REPORTED: u64 = 0x0113000000000000;
-    pub const OUTPUT_EVENT: u64 = 0x0114000000000000;
-    pub const OUTPUT_ERROR: u64 = 0x0115000000000000;
-    pub const OUTPUT_REJECTED: u64 = 0x0116000000000000;
+    pub const OUTPUT_REFERENT_GUARDIAN_REJECTED: u64 = 0x0106000000000000;
+    pub const OUTPUT_RECORDS_OBSERVED: u64 = 0x0107000000000000;
+    pub const OUTPUT_RECORDS_STASHED: u64 = 0x0108000000000000;
+    pub const OUTPUT_RECORD_FOUND: u64 = 0x0109000000000000;
+    pub const OUTPUT_RECORDS_COUNTED: u64 = 0x010A000000000000;
+    pub const OUTPUT_RECORD_REMOVED: u64 = 0x010B000000000000;
+    pub const OUTPUT_CERTAINTY_CHANGED: u64 = 0x010C000000000000;
+    pub const OUTPUT_IMPORTANCE_BUMPED: u64 = 0x010D000000000000;
+    pub const OUTPUT_RECORD_CHANGED: u64 = 0x010E000000000000;
+    pub const OUTPUT_REFERENT_REGISTERED: u64 = 0x010F000000000000;
+    pub const OUTPUT_REMOVAL_CANDIDATES_COLLECTED: u64 = 0x0110000000000000;
+    pub const OUTPUT_OBSERVATION_TAPPED: u64 = 0x0111000000000000;
+    pub const OUTPUT_OBSERVATION_UNTAPPED: u64 = 0x0112000000000000;
+    pub const OUTPUT_SUBSCRIPTION_STARTED: u64 = 0x0113000000000000;
+    pub const OUTPUT_VERSION_REPORTED: u64 = 0x0114000000000000;
+    pub const OUTPUT_EVENT: u64 = 0x0115000000000000;
+    pub const OUTPUT_ERROR: u64 = 0x0116000000000000;
+    pub const OUTPUT_REJECTED: u64 = 0x0117000000000000;
 }
 
 #[rustfmt::skip]
@@ -6955,6 +7160,7 @@ pub enum OutputRoute {
     Superseded,
     Retired,
     GuardianRejected,
+    ReferentGuardianRejected,
     RecordsObserved,
     RecordsStashed,
     RecordFound,
@@ -7112,6 +7318,7 @@ impl Output {
             Self::Superseded(_) => OutputRoute::Superseded,
             Self::Retired(_) => OutputRoute::Retired,
             Self::GuardianRejected(_) => OutputRoute::GuardianRejected,
+            Self::ReferentGuardianRejected(_) => OutputRoute::ReferentGuardianRejected,
             Self::RecordsObserved(_) => OutputRoute::RecordsObserved,
             Self::RecordsStashed(_) => OutputRoute::RecordsStashed,
             Self::RecordFound(_) => OutputRoute::RecordFound,
@@ -7141,6 +7348,9 @@ impl Output {
             Self::Superseded(_) => short_header::OUTPUT_SUPERSEDED,
             Self::Retired(_) => short_header::OUTPUT_RETIRED,
             Self::GuardianRejected(_) => short_header::OUTPUT_GUARDIAN_REJECTED,
+            Self::ReferentGuardianRejected(_) => {
+                short_header::OUTPUT_REFERENT_GUARDIAN_REJECTED
+            }
             Self::RecordsObserved(_) => short_header::OUTPUT_RECORDS_OBSERVED,
             Self::RecordsStashed(_) => short_header::OUTPUT_RECORDS_STASHED,
             Self::RecordFound(_) => short_header::OUTPUT_RECORD_FOUND,
@@ -7172,6 +7382,9 @@ impl Output {
             short_header::OUTPUT_SUPERSEDED => Ok(OutputRoute::Superseded),
             short_header::OUTPUT_RETIRED => Ok(OutputRoute::Retired),
             short_header::OUTPUT_GUARDIAN_REJECTED => Ok(OutputRoute::GuardianRejected),
+            short_header::OUTPUT_REFERENT_GUARDIAN_REJECTED => {
+                Ok(OutputRoute::ReferentGuardianRejected)
+            }
             short_header::OUTPUT_RECORDS_OBSERVED => Ok(OutputRoute::RecordsObserved),
             short_header::OUTPUT_RECORDS_STASHED => Ok(OutputRoute::RecordsStashed),
             short_header::OUTPUT_RECORD_FOUND => Ok(OutputRoute::RecordFound),
@@ -7399,6 +7612,9 @@ impl SignalObjectName {
                     OutputRoute::Superseded => "SignalOutputSuperseded",
                     OutputRoute::Retired => "SignalOutputRetired",
                     OutputRoute::GuardianRejected => "SignalOutputGuardianRejected",
+                    OutputRoute::ReferentGuardianRejected => {
+                        "SignalOutputReferentGuardianRejected"
+                    }
                     OutputRoute::RecordsObserved => "SignalOutputRecordsObserved",
                     OutputRoute::RecordsStashed => "SignalOutputRecordsStashed",
                     OutputRoute::RecordFound => "SignalOutputRecordFound",

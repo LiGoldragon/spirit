@@ -203,6 +203,23 @@ fn run_cli(socket_path: &Path, nota_argument: &str) -> Output {
     })
 }
 
+fn record_nota(domains: &str, kind: &str, description: &str) -> String {
+    format!(
+        "(Record (({domains} {kind} [{description}] Maximum Minimum Zero []) ([{description}] None)))"
+    )
+}
+
+fn remove_nota(identifier: &RecordIdentifier) -> String {
+    format!(
+        "(Remove ({} ([remove record] None)))",
+        record_identifier_argument(identifier)
+    )
+}
+
+fn collect_removal_candidates_nota(query: &str) -> String {
+    format!("(CollectRemovalCandidates ({query} ([collect removal candidates] None)))")
+}
+
 fn assert_short_record_identifier(identifier: &RecordIdentifier) {
     assert!(
         (4..=7).contains(&identifier.len()),
@@ -310,7 +327,11 @@ fn configuration_writer_prebuilds_binary_archive_for_daemon_startup() {
 
     let recorded = run_cli(
         &socket_path,
-        "(Record ([(Craft Infrastructure)] Constraint [daemon starts from prebuilt archive] Maximum Minimum Zero []))",
+        &record_nota(
+            "[(Craft Infrastructure)]",
+            "Constraint",
+            "daemon starts from prebuilt archive",
+        ),
     );
     match recorded {
         Output::RecordAccepted(receipt) => {
@@ -333,7 +354,11 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
     // real content hash).
     let recorded = run_cli(
         &socket_path,
-        "(Record ([(Information Documentation)] Constraint [schema creates the interface] Maximum Minimum Zero []))",
+        &record_nota(
+            "[(Information Documentation)]",
+            "Constraint",
+            "schema creates the interface",
+        ),
     );
     let record_identifier = match recorded {
         Output::RecordAccepted(receipt) => {
@@ -354,13 +379,7 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
         "the daemon stashes the observed records and returns a slim handle, got {observed:?}"
     );
 
-    let removed = run_cli(
-        &socket_path,
-        &format!(
-            "(Remove {})",
-            record_identifier_argument(&record_identifier)
-        ),
-    );
+    let removed = run_cli(&socket_path, &remove_nota(&record_identifier));
     assert!(
         matches!(removed, Output::RecordRemoved(_)),
         "the daemon removes the recorded entry, got {removed:?}"
@@ -377,7 +396,7 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
 
     let rejected = run_cli(
         &socket_path,
-        "(Record ([] Constraint [schema rejects before SEMA] Maximum Minimum Zero []))",
+        &record_nota("[]", "Constraint", "schema rejects before SEMA"),
     );
     assert!(
         matches!(rejected, Output::Rejected(_)),
@@ -429,7 +448,11 @@ fn cli_subscription_receives_matching_intent_events_without_blocking_daemon() {
 
     let nonmatching = run_cli(
         &socket_path,
-        "(Record ([(Information Documentation)] Decision [this should not be pushed] Maximum Minimum Zero []))",
+        &record_nota(
+            "[(Information Documentation)]",
+            "Decision",
+            "this should not be pushed",
+        ),
     );
     assert!(
         matches!(nonmatching, Output::RecordAccepted(_)),
@@ -439,7 +462,11 @@ fn cli_subscription_receives_matching_intent_events_without_blocking_daemon() {
 
     let matching = run_cli(
         &socket_path,
-        "(Record ([(Kinship Rapport)] Decision [subscriber receives this] Maximum Minimum Zero []))",
+        &record_nota(
+            "[(Kinship Rapport)]",
+            "Decision",
+            "subscriber receives this",
+        ),
     );
     let Output::RecordAccepted(receipt) = matching else {
         panic!("expected matching RecordAccepted, got {matching:?}");
@@ -514,7 +541,11 @@ fn cli_and_daemon_change_certainty_without_changing_record_identifier() {
 
     let accepted = run_cli(
         &socket_path,
-        "(Record ([(Information Documentation)] Correction [certainty target] Maximum Minimum Zero []))",
+        &record_nota(
+            "[(Information Documentation)]",
+            "Correction",
+            "certainty target",
+        ),
     );
     let record_identifier = match accepted {
         Output::RecordAccepted(receipt) => {
@@ -588,7 +619,11 @@ fn cli_collect_removal_candidates_accepts_direct_query_shorthand() {
 
     let accepted = run_cli(
         &socket_path,
-        "(Record ([(Information Documentation)] Correction [direct collection target] Maximum Minimum Zero []))",
+        &record_nota(
+            "[(Information Documentation)]",
+            "Correction",
+            "direct collection target",
+        ),
     );
     let record_identifier = match accepted {
         Output::RecordAccepted(receipt) => receipt.payload().clone(),
@@ -609,7 +644,9 @@ fn cli_collect_removal_candidates_accepts_direct_query_shorthand() {
 
     let collected = run_cli(
         &socket_path,
-        "(CollectRemovalCandidates ((Full [(Information Documentation)]) Any Any Any (Some Correction) (Exact Zero) (ExactCertainty Zero) Any))",
+        &collect_removal_candidates_nota(
+            "((Full [(Information Documentation)]) Any Any Any (Some Correction) (Exact Zero) (ExactCertainty Zero) Any)",
+        ),
     );
     match collected {
         Output::RemovalCandidatesCollected(report) => {
@@ -634,7 +671,11 @@ fn cli_and_daemon_change_record_replaces_entry_under_same_identifier() {
 
     let accepted = run_cli(
         &socket_path,
-        "(Record ([(Information Documentation)] Decision [original record] Maximum Minimum Zero []))",
+        &record_nota(
+            "[(Information Documentation)]",
+            "Decision",
+            "original record",
+        ),
     );
     let record_identifier = match accepted {
         Output::RecordAccepted(receipt) => {
@@ -647,7 +688,7 @@ fn cli_and_daemon_change_record_replaces_entry_under_same_identifier() {
     let changed = run_cli(
         &socket_path,
         &format!(
-            "(ChangeRecord ({} ([(Information Documentation)] Correction [replacement record] High Minimum Zero [])))",
+            "(ChangeRecord ({} ([(Information Documentation)] Correction [replacement record] High Minimum Zero []) ([replacement record] None)))",
             record_identifier_argument(&record_identifier)
         ),
     );
@@ -701,7 +742,7 @@ fn cli_renders_alias_payload_outputs_without_wrapper_repetition() {
 
     let rejected = Command::new(env!("CARGO_BIN_EXE_spirit"))
         .env("SPIRIT_SOCKET", &socket_path)
-        .arg("(Record ([] Constraint [alias payload rejection] Maximum Minimum Zero []))")
+        .arg(record_nota("[]", "Constraint", "alias payload rejection"))
         .output()
         .expect("run cli");
     assert!(
@@ -725,7 +766,11 @@ fn cli_renders_alias_payload_outputs_without_wrapper_repetition() {
 
     let recorded = Command::new(env!("CARGO_BIN_EXE_spirit"))
         .env("SPIRIT_SOCKET", &socket_path)
-        .arg("(Record ([(Information Documentation)] Constraint [direct accepted payload] Maximum Minimum Zero []))")
+        .arg(record_nota(
+            "[(Information Documentation)]",
+            "Constraint",
+            "direct accepted payload",
+        ))
         .output()
         .expect("run cli");
     assert!(
@@ -760,7 +805,7 @@ fn daemon_persists_sema_file_across_a_restart() {
         let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
         let recorded = run_cli(
             &socket_path,
-            "(Record ([(Craft Infrastructure)] Decision [survives restart] Maximum Minimum Zero []))",
+            &record_nota("[(Craft Infrastructure)]", "Decision", "survives restart"),
         );
         match recorded {
             Output::RecordAccepted(receipt) => {
@@ -812,7 +857,11 @@ fn daemon_persists_sema_file_across_a_restart() {
     // the durable counter persisted across the restart, not just records.
     let next = run_cli(
         &socket_path,
-        "(Record ([(Craft Infrastructure)] Decision [second after restart] Maximum Minimum Zero []))",
+        &record_nota(
+            "[(Craft Infrastructure)]",
+            "Decision",
+            "second after restart",
+        ),
     );
     match next {
         Output::RecordAccepted(receipt) => {
@@ -833,7 +882,11 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
         let _daemon = DaemonProcess::spawn(&socket_path, &production_database_path);
         let recorded = run_cli(
             &socket_path,
-            "(Record ([(Craft Infrastructure)] Constraint [production entry before copy] Maximum Minimum Zero []))",
+            &record_nota(
+                "[(Craft Infrastructure)]",
+                "Constraint",
+                "production entry before copy",
+            ),
         );
         match recorded {
             Output::RecordAccepted(receipt) => {
@@ -861,7 +914,11 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
 
         let candidate_recorded = run_cli(
             &socket_path,
-            "(Record ([(Craft Infrastructure)] Constraint [candidate-only entry after copy] Maximum Minimum Zero []))",
+            &record_nota(
+                "[(Craft Infrastructure)]",
+                "Constraint",
+                "candidate-only entry after copy",
+            ),
         );
         match candidate_recorded {
             Output::RecordAccepted(receipt) => {
@@ -899,7 +956,11 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
 
         let production_next = run_cli(
             &socket_path,
-            "(Record ([(Craft Infrastructure)] Constraint [production entry after handover] Maximum Minimum Zero []))",
+            &record_nota(
+                "[(Craft Infrastructure)]",
+                "Constraint",
+                "production entry after handover",
+            ),
         );
         match production_next {
             Output::RecordAccepted(receipt) => {
@@ -923,7 +984,11 @@ fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
     let recorded = run_cli_with_trace(
         &socket_path,
         &trace_socket_path,
-        "(Record ([(Craft Architecture)] Constraint [trace crosses daemon boundary] Maximum Minimum Zero []))",
+        &record_nota(
+            "[(Craft Architecture)]",
+            "Constraint",
+            "trace crosses daemon boundary",
+        ),
     );
     assert!(
         matches!(recorded.output, Output::RecordAccepted(_)),

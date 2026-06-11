@@ -5,8 +5,9 @@ use spirit::{
         sema::SemaObjectName,
         signal::{
             CertaintySelection, DatabaseMarker, Description, DomainMatch, Domains, Entry,
-            ImportanceSelection, Input, Kind, Magnitude, Output, Privacy, PrivacySelection, Query,
-            SignalObjectName, SignalRejection, ValidationError,
+            ImportanceSelection, Input, Justification, Kind, Magnitude, Output, Privacy,
+            PrivacySelection, Query, RecordRequest, SignalObjectName, SignalRejection,
+            StatementText, ValidationError,
         },
     },
 };
@@ -42,13 +43,24 @@ fn entry(description: &str) -> Entry {
     }
 }
 
+fn record_request(entry: Entry) -> RecordRequest {
+    let statement = entry.description.payload().clone();
+    RecordRequest {
+        entry,
+        justification: Justification {
+            statement_text: StatementText::new(statement),
+            context: None,
+        },
+    }
+}
+
 #[test]
 fn testing_trace_records_real_signal_nexus_and_sema_activations() {
     let sema = SemaFile::new();
     let trace_log = TraceLog::recording();
     let mut engine = sema.engine_with_trace(trace_log.clone());
 
-    let recorded = engine.handle(Input::record(entry("trace witness")));
+    let recorded = engine.handle(Input::record(record_request(entry("trace witness"))));
     match recorded.root() {
         Output::RecordAccepted(receipt) => assert!(!receipt.payload().payload().is_empty()),
         other => panic!("expected RecordAccepted, got {other:?}"),
@@ -180,7 +192,9 @@ fn testing_trace_builds_record_activations_by_default() {
     let sema = SemaFile::new();
     let mut engine = Engine::new(Store::open(&sema.path).expect("open sema store"));
 
-    let output = engine.handle(Input::record(entry("default trace witness")));
+    let output = engine.handle(Input::record(record_request(entry(
+        "default trace witness",
+    ))));
     assert!(matches!(output.root(), Output::RecordAccepted(_)));
 
     assert_activation_names(
@@ -207,7 +221,7 @@ fn testing_trace_records_signal_rejection_without_nexus_or_sema_activations() {
     let mut invalid_entry = entry("invalid trace witness");
     invalid_entry.domains = Domains::from_strings(vec![]);
 
-    let output = engine.handle(Input::record(invalid_entry));
+    let output = engine.handle(Input::record(record_request(invalid_entry)));
 
     assert_eq!(engine.record_count(), 0);
     assert_eq!(

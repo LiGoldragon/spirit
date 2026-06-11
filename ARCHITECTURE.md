@@ -67,14 +67,14 @@ contain declarations that repeat their own name inside the value.
 Inside a struct map, `Domains *` derives the `domains` field from the existing
 `Domains` type, and explicit bindings such as `kind (Optional Kind)` stay only
 where the field name differs from the referenced type. Bare reference
-declarations (`Referent String`, `RecordSet (Vec ObservedRecord)`, `Record Entry`) become
+declarations (`Referent String`, `RecordSet (Vec ObservedRecord)`, `Record RecordRequest`) become
 exported aliases in the typed schema value and generated Rust, so enum variants
 carry direct payloads instead of wrapper structs. Explicit brace-body singleton
 declarations are the newtype form.
 
 Enum bodies keep vector homogeneity by listing exported object names at root
 positions and by using one signature object per namespace enum variant.
-Namespace bindings such as `Record Entry`, `RecordAccepted SemaReceipt`, and
+Namespace bindings such as `Record RecordRequest`, `RecordAccepted RecordIdentifier`, and
 `SignalArrived Input` define the payload shape for data-carrying root objects;
 names without payload bindings are unit variants. Inside namespace enums,
 same-named payload variants use the compact `(Record)` form, while explicit
@@ -474,8 +474,8 @@ list, and an atom or parenthesized reference declares an alias. Data-carrying
 enum payloads in namespace enum bodies use self-tagged entries such as
 `(Record)`, `(RecordAccepted)`, and `(CommandSemaWrite)` when the payload type
 has the same name; explicit `(Variant Payload)` remains available when the
-names differ. Namespace bindings such as `Record Entry`,
-`RecordAccepted SemaReceipt`, and `CommandSemaWrite [(Record) ...]` define the
+names differ. Namespace bindings such as `Record RecordRequest`,
+`RecordAccepted RecordIdentifier`, and `CommandSemaWrite [(Record) ...]` define the
 payload aliases and feature-specific commands those signatures reference.
 Parentheses remain the composite/reference and structural payload shape at
 reference positions. That authored syntax decodes to typed

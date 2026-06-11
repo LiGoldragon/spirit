@@ -44,7 +44,7 @@ Call it from the CLI:
 
 ```sh
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Record ([(Craft Schema)] Constraint [schema creates the interface] Maximum Minimum Zero []))"
+  spirit "(Record (([(Craft Schema)] Constraint [schema creates the interface] Maximum Minimum Zero []) ([schema creates the interface] None)))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
   spirit "(Observe ((Full [(Craft Schema)]) Any Any Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))"
@@ -56,7 +56,7 @@ SPIRIT_SOCKET=/tmp/spirit.sock \
   spirit "(Observe ((Full [(Craft Schema)]) (AllKeywords [schema]) (ContainsText interface) Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Remove 1)"
+  spirit "(Remove (1 ([remove obsolete record] None)))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
   spirit Version

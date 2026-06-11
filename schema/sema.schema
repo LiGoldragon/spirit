@@ -2,6 +2,7 @@
   Entry spirit:signal:Entry
   Query spirit:signal:Query
   RecordIdentifier spirit:signal:RecordIdentifier
+  Removal spirit:signal:Removal
   CertaintyChange spirit:signal:CertaintyChange
   ImportanceBump spirit:signal:ImportanceBump
   RecordChange spirit:signal:RecordChange
@@ -22,7 +23,7 @@
 {
   WriteInput [(Record) (Remove) (ChangeCertainty) (BumpImportance) (ChangeRecord) (RegisterReferent)]
   Record Entry
-  Remove RecordIdentifier
+  Remove Removal
   ChangeCertainty CertaintyChange
   BumpImportance ImportanceBump
   ChangeRecord RecordChange

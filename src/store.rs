@@ -30,12 +30,16 @@ use crate::schema::{
         KeywordMatch, Keywords, Magnitude, ObservedRecord, ObservedRecords, Privacy,
         PrivacySelection, Query, RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier,
         RecordSet, Referent, ReferentRegistration, ReferentRegistrationReceipt, ReferentSelection,
-        Referents, RemovalArchiveRecord, RemovalArchiveRecords, RemovalCandidateCollection,
-        RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifier, RemovedIdentifiers,
-        Retirement, RetirementReceipt, SearchText, SemaReceipt, SkippedRemovalCandidate,
-        SkippedRemovalCandidates, Supersession, SupersessionReceipt, TextMatch,
+        Referents, Removal, RemovalArchiveRecord, RemovalArchiveRecords,
+        RemovalCandidateCollection, RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifier,
+        RemovedIdentifiers, Retirement, RetirementReceipt, SearchText, SemaReceipt,
+        SkippedRemovalCandidate, SkippedRemovalCandidates, Supersession, SupersessionReceipt,
+        TextMatch,
     },
 };
+
+#[cfg(feature = "agent-guardian")]
+use crate::schema::signal::{RegisteredReferent, RegisteredReferents};
 
 #[cfg(feature = "testing-trace")]
 use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
@@ -137,7 +141,7 @@ impl SemaEngine for Store {
                 }),
             },
             SemaWriteInput::Remove(remove) => {
-                let record_identifier = remove.into_payload();
+                let record_identifier = remove.into_payload().record_identifier;
                 match self.remove(record_identifier.payload()) {
                     Ok(true) => SemaWriteOutput::removed(RemoveReceipt {
                         record_identifier,
@@ -373,6 +377,16 @@ impl Store {
         self.open_guardian_journal()?.len()
     }
 
+    #[cfg(feature = "agent-guardian")]
+    pub(crate) fn registered_referents(&self) -> Result<RegisteredReferents, StoreError> {
+        Ok(RegisteredReferents::new(
+            self.referents()?
+                .into_iter()
+                .map(StoredReferent::into_registered_referent)
+                .collect(),
+        ))
+    }
+
     /// Collect removal-candidate records, archive them into the SEPARATE
     /// archive database at the owner-configured target, and remove them from
     /// the live log.
@@ -392,7 +406,7 @@ impl Store {
         &self,
         collection: RemovalCandidateCollection,
     ) -> Result<RemovalCandidatesCollection, StoreError> {
-        let query = collection.into_payload().into_payload();
+        let query = collection.record_query.into_payload();
         let mut archive = self.open_archive_database()?;
         let mut archived_records = Vec::new();
         let mut removed_identifiers = Vec::new();
@@ -460,7 +474,7 @@ impl Store {
         Ok(record_identifier)
     }
 
-    fn register_referent(
+    pub fn register_referent(
         &self,
         registration: ReferentRegistration,
     ) -> Result<ReferentRegistrationReceipt, StoreError> {
@@ -577,10 +591,29 @@ impl Store {
             }
             GuardianOperation::Retire(retirement) => {
                 if let Some(current) =
-                    self.observed_record_by_identifier(retirement.payload().payload())?
+                    self.observed_record_by_identifier(retirement.record_identifier.payload())?
                 {
                     bundle.insert(current);
                 }
+            }
+            GuardianOperation::Remove(removal) => {
+                if let Some(current) =
+                    self.observed_record_by_identifier(removal.record_identifier.payload())?
+                {
+                    bundle.insert(current);
+                }
+            }
+            GuardianOperation::ChangeRecord(change) => {
+                if let Some(current) =
+                    self.observed_record_by_identifier(change.record_identifier.payload())?
+                {
+                    bundle.insert(current);
+                }
+            }
+            GuardianOperation::CollectRemovalCandidates(collection) => {
+                let mut records = self.observe(collection.record_query.payload())?;
+                records.truncate(GUARDIAN_RECORD_LIMIT);
+                bundle.extend(RecordSet::new(records));
             }
             GuardianOperation::Record(_) | GuardianOperation::Propose(_) => {}
         }
@@ -690,8 +723,22 @@ impl Store {
         }
     }
 
+    pub(crate) fn remove_record(
+        &self,
+        removal: Removal,
+    ) -> Result<Option<RemoveReceipt>, StoreError> {
+        let record_identifier = removal.record_identifier;
+        if !self.remove(record_identifier.payload())? {
+            return Ok(None);
+        }
+        Ok(Some(RemoveReceipt {
+            record_identifier,
+            database_marker: self.database_marker(),
+        }))
+    }
+
     pub fn retire(&self, retirement: Retirement) -> Result<Option<RetirementReceipt>, StoreError> {
-        let record_identifier = retirement.into_payload();
+        let record_identifier = retirement.record_identifier;
         let Some(entry) = self.entry_by_identifier(record_identifier.payload())? else {
             return Ok(None);
         };
@@ -752,7 +799,7 @@ impl Store {
         }))
     }
 
-    fn change_record(
+    pub(crate) fn change_record(
         &self,
         change: RecordChange,
     ) -> Result<Option<RecordChangeReceipt>, StoreError> {
@@ -1032,6 +1079,14 @@ impl StoredReferent {
                 .payload()
                 .iter()
                 .any(|alias| self.matches(alias))
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn into_registered_referent(self) -> RegisteredReferent {
+        RegisteredReferent {
+            referent: self.referent,
+            aliases: self.aliases,
+        }
     }
 }
 

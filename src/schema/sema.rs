@@ -16,6 +16,8 @@ pub use crate::schema::signal::Query as Query;
 #[rustfmt::skip]
 pub use crate::schema::signal::RecordIdentifier as RecordIdentifier;
 #[rustfmt::skip]
+pub use crate::schema::signal::Removal as Removal;
+#[rustfmt::skip]
 pub use crate::schema::signal::CertaintyChange as CertaintyChange;
 #[rustfmt::skip]
 pub use crate::schema::signal::ImportanceBump as ImportanceBump;
@@ -68,7 +70,7 @@ pub struct Record(Entry);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Remove(RecordIdentifier);
+pub struct Remove(Removal);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -224,19 +226,19 @@ impl From<Entry> for Record {
 
 #[rustfmt::skip]
 impl Remove {
-    pub fn new(payload: RecordIdentifier) -> Self {
+    pub fn new(payload: Removal) -> Self {
         Self(payload)
     }
-    pub fn payload(&self) -> &RecordIdentifier {
+    pub fn payload(&self) -> &Removal {
         &self.0
     }
-    pub fn into_payload(self) -> RecordIdentifier {
+    pub fn into_payload(self) -> Removal {
         self.0
     }
 }
 #[rustfmt::skip]
-impl From<RecordIdentifier> for Remove {
-    fn from(payload: RecordIdentifier) -> Self {
+impl From<Removal> for Remove {
+    fn from(payload: Removal) -> Self {
         Self::new(payload)
     }
 }
@@ -569,7 +571,7 @@ impl WriteInput {
     pub fn record(payload: Entry) -> Self {
         Self::Record(Record::new(payload))
     }
-    pub fn remove(payload: RecordIdentifier) -> Self {
+    pub fn remove(payload: Removal) -> Self {
         Self::Remove(Remove::new(payload))
     }
     pub fn change_certainty(payload: CertaintyChange) -> Self {

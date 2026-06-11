@@ -12,8 +12,9 @@
 //! un-covered half — token-based cancellation — is what `Untap` restores.
 
 use spirit::schema::signal::{
-    CertaintySelection, Description, DomainMatch, Domains, Entry, ImportanceSelection, Input, Kind,
-    Magnitude, ObserverFilter, OperationKind, Output, Privacy, PrivacySelection, Query,
+    CertaintySelection, Description, DomainMatch, Domains, Entry, ImportanceSelection, Input,
+    Justification, Kind, Magnitude, ObserverFilter, OperationKind, Output, Privacy,
+    PrivacySelection, Query, RecordRequest, StatementText,
 };
 use spirit::{Engine, Store};
 use tempfile::TempDir;
@@ -27,6 +28,16 @@ fn entry(description: &str) -> Entry {
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
         referents: spirit::schema::signal::Referents::new(Vec::new()),
+    }
+}
+
+fn record_request(description: &str) -> RecordRequest {
+    RecordRequest {
+        entry: entry(description),
+        justification: Justification {
+            statement_text: StatementText::new(description),
+            context: None,
+        },
     }
 }
 
@@ -57,10 +68,10 @@ fn tap_returns_the_operations_observed_so_far() {
 
     // Drive a few working operations; each is recorded in the observer log.
     let _ = engine
-        .handle(Input::record(entry("first intent")))
+        .handle(Input::record(record_request("first intent")))
         .into_root();
     let _ = engine
-        .handle(Input::record(entry("second intent")))
+        .handle(Input::record(record_request("second intent")))
         .into_root();
     let _ = engine.handle(Input::observe(observe_query())).into_root();
 
@@ -100,7 +111,9 @@ fn tap_returns_the_operations_observed_so_far() {
 fn untap_retires_the_subscription_and_returns_its_observations() {
     let (_temp, mut engine) = engine();
 
-    let _ = engine.handle(Input::record(entry("intent"))).into_root();
+    let _ = engine
+        .handle(Input::record(record_request("intent")))
+        .into_root();
     let tapped = engine
         .handle(Input::tap(ObserverFilter::OperationsOnly))
         .into_root();
@@ -134,7 +147,9 @@ fn untap_retires_the_subscription_and_returns_its_observations() {
 fn effects_only_filter_observes_no_operations() {
     let (_temp, mut engine) = engine();
 
-    let _ = engine.handle(Input::record(entry("intent"))).into_root();
+    let _ = engine
+        .handle(Input::record(record_request("intent")))
+        .into_root();
 
     // `EffectsOnly` observes effect events, not operations, so an operation-only
     // log yields an empty observation set under this filter.

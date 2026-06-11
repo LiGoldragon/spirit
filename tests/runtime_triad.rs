@@ -11,13 +11,14 @@ use spirit::{
         signal::{
             Certainty, CertaintyChange, CertaintySelection, Clarification, DatabaseMarker,
             Description, DomainMatch, Domains, Entry, ErrorMessage, ErrorReport,
-            GuardianRejectionReason, ImportanceBump, ImportanceSelection, Input, Keyword,
-            KeywordMatch, Keywords, Kind, Magnitude, MailLedgerEvent, MessageIdentifier,
-            MessageSent, MessageSentHook, OriginRoute, Output, Privacy, PrivacySelection, Query,
-            RecordChange, RecordIdentifier, RecordSelection, Referent, ReferentRegistration,
-            ReferentSelection, Referents, RetiredIdentifier, RetiredIdentifiers, Retirement,
-            SearchText, SemaReceipt, SentMail, SignalEngine, SignalRejection, StashHandle,
-            Statement, StatementText, Supersession, TextMatch, ValidationError,
+            GuardianRejectionReason, ImportanceBump, ImportanceSelection, Input, Justification,
+            Keyword, KeywordMatch, Keywords, Kind, Magnitude, MailLedgerEvent, MessageIdentifier,
+            MessageSent, MessageSentHook, OriginRoute, Output, Privacy, PrivacySelection, Proposal,
+            Query, RecordChange, RecordIdentifier, RecordRequest, RecordSelection, Referent,
+            ReferentRegistration, ReferentSelection, Referents, Removal, RetiredIdentifier,
+            RetiredIdentifiers, Retirement, SearchText, SemaReceipt, SentMail, SignalEngine,
+            SignalRejection, StashHandle, Statement, StatementText, Supersession, TextMatch,
+            ValidationError,
         },
     },
 };
@@ -31,7 +32,8 @@ use {
     },
     spirit::{
         AgentGuardian, AgentGuardianConfiguration,
-        schema::nexus::{GuardianVerdict, Reject},
+        schema::nexus::{GuardianVerdict, ReferentGuardianVerdict, Reject, RejectReferent},
+        schema::signal::ReferentGuardianRejectionReason,
     },
     std::{
         io::Write,
@@ -90,17 +92,30 @@ struct FakeGuardianAgent {
 #[cfg(feature = "agent-guardian")]
 impl FakeGuardianAgent {
     fn spawn(verdict: GuardianVerdict) -> Self {
-        Self::spawn_many(vec![verdict])
+        Self::spawn_texts(vec![verdict.to_nota()])
     }
 
     fn spawn_many(verdicts: Vec<GuardianVerdict>) -> Self {
+        Self::spawn_texts(
+            verdicts
+                .into_iter()
+                .map(|verdict| verdict.to_nota())
+                .collect(),
+        )
+    }
+
+    fn spawn_referent(verdict: ReferentGuardianVerdict) -> Self {
+        Self::spawn_texts(vec![verdict.to_nota()])
+    }
+
+    fn spawn_texts(replies: Vec<String>) -> Self {
         let directory = TempDir::new().expect("agent tempdir");
         let socket_path = directory.path().join("agent.sock");
         let listener = UnixListener::bind(&socket_path).expect("bind fake agent socket");
         let thread = thread::spawn(move || {
-            for verdict in verdicts {
+            for reply in replies {
                 let (stream, _) = listener.accept().expect("accept agent call");
-                Self::answer(stream, verdict);
+                Self::answer(stream, reply);
             }
         });
         Self {
@@ -110,7 +125,7 @@ impl FakeGuardianAgent {
         }
     }
 
-    fn answer(mut stream: UnixStream, verdict: GuardianVerdict) {
+    fn answer(mut stream: UnixStream, reply: String) {
         let codec = LengthPrefixedCodec::default();
         let request = codec
             .read_body(&mut stream)
@@ -128,7 +143,7 @@ impl FakeGuardianAgent {
                 .contains("Operation:")
         );
         let output = AgentOutput::completed(Completion {
-            text: CompletionText::new(verdict.to_nota()),
+            text: CompletionText::new(reply),
             stop_reason: StopReasonText::new("stop"),
             usage: TokenUsage {
                 prompt_tokens: None,
@@ -202,6 +217,21 @@ fn entry_with_referents(description: &str, referents: &[&str]) -> Entry {
     Entry {
         referents: referents_from_slice(referents),
         ..entry(description)
+    }
+}
+
+fn justification(statement: &str) -> Justification {
+    Justification {
+        statement_text: StatementText::new(statement),
+        context: None,
+    }
+}
+
+fn record_request(entry: Entry) -> RecordRequest {
+    let statement = entry.description.payload().clone();
+    RecordRequest {
+        entry,
+        justification: justification(&statement),
     }
 }
 
@@ -346,11 +376,14 @@ fn sema_read_message(input: SemaReadInput, offset: u64) -> sema::Sema<sema::Read
 }
 
 fn input_record(entry: Entry) -> Input {
-    Input::record(entry)
+    Input::record(record_request(entry))
 }
 
 fn input_propose(entry: Entry) -> Input {
-    Input::propose(entry)
+    Input::propose(Proposal {
+        entry,
+        justification: justification("proposed forward arrow"),
+    })
 }
 
 fn input_state(statement: &str) -> Input {
@@ -377,6 +410,7 @@ fn input_clarify(record_identifier: RecordIdentifier, description: &str) -> Inpu
     Input::clarify(Clarification {
         record_identifier,
         description: Description::new(description),
+        justification: justification(description),
     })
 }
 
@@ -386,11 +420,15 @@ fn input_supersede(record_identifier: RecordIdentifier, replacement: Entry) -> I
             record_identifier,
         )]),
         replacement,
+        justification: justification("replacement forward arrow"),
     })
 }
 
 fn input_retire(record_identifier: RecordIdentifier) -> Input {
-    Input::retire(Retirement::new(record_identifier))
+    Input::retire(Retirement {
+        record_identifier,
+        justification: justification("retire this record"),
+    })
 }
 
 fn input_count(query: Query) -> Input {
@@ -408,6 +446,7 @@ fn input_change_record(record_identifier: RecordIdentifier, entry: Entry) -> Inp
     Input::change_record(RecordChange {
         record_identifier,
         entry,
+        justification: justification("change record"),
     })
 }
 
@@ -419,6 +458,7 @@ fn input_register_referent(referent: &str, aliases: &[&str]) -> Input {
     Input::register_referent(ReferentRegistration {
         referent: Referent::new(referent),
         aliases: referents_from_slice(aliases),
+        justification: justification(referent),
     })
 }
 
@@ -435,7 +475,10 @@ fn sema_record(entry: Entry) -> SemaWriteInput {
 }
 
 fn sema_remove(record_identifier: RecordIdentifier) -> SemaWriteInput {
-    SemaWriteInput::remove(record_identifier)
+    SemaWriteInput::remove(Removal {
+        record_identifier,
+        justification: justification("remove record"),
+    })
 }
 
 fn sema_change_certainty(
@@ -452,6 +495,7 @@ fn sema_change_record(record_identifier: RecordIdentifier, entry: Entry) -> Sema
     SemaWriteInput::change_record(RecordChange {
         record_identifier,
         entry,
+        justification: justification("change record"),
     })
 }
 
@@ -613,6 +657,22 @@ fn nexus_change_record_is_visible_as_schema_declared_write_command() {
     let first_action = NexusEngine::decide(&mut nexus, nexus_input);
 
     assert_eq!(first_action.origin_route(), nexus_route(6));
+    #[cfg(feature = "agent-guardian")]
+    match first_action.root() {
+        NexusAction::CommandEffect(effect) => {
+            let NexusEffectCommand::GuardChangeRecord(change) = effect.payload() else {
+                panic!("expected GuardChangeRecord effect, got {effect:?}");
+            };
+            assert_eq!(change.payload().record_identifier, identifier);
+            assert_eq!(change.payload().entry, replacement);
+        }
+        other => {
+            panic!(
+                "expected ChangeRecord to become CommandEffect(GuardChangeRecord), got {other:?}"
+            )
+        }
+    }
+    #[cfg(not(feature = "agent-guardian"))]
     match first_action.root() {
         NexusAction::CommandSemaWrite(CommandSemaWrite::ChangeRecord(change)) => {
             assert_eq!(change.record_identifier, identifier);
@@ -1121,6 +1181,63 @@ fn agent_guardian_reject_verdict_blocks_clarify_supersede_and_retire() {
     fake_agent.join();
 }
 
+#[cfg(feature = "agent-guardian")]
+#[test]
+fn agent_guardian_accept_verdict_admits_referent_registration() {
+    let sema = SemaFile::new();
+    let fake_agent = FakeGuardianAgent::spawn_referent(ReferentGuardianVerdict::Accept);
+    let mut engine = sema.engine_with_guardian(fake_agent.guardian());
+
+    let output = engine.handle(input_register_referent("schemaNext", &["schema-next"]));
+
+    match output.root() {
+        Output::ReferentRegistered(receipt) => {
+            assert_eq!(receipt.payload().referent.payload(), "schemaNext");
+        }
+        other => panic!("expected ReferentRegistered, got {other:?}"),
+    }
+    assert_eq!(engine.guardian_decision_count(), 1);
+    fake_agent.join();
+}
+
+#[cfg(feature = "agent-guardian")]
+#[test]
+fn agent_guardian_reject_verdict_blocks_referent_registration() {
+    let sema = SemaFile::new();
+    let fake_agent = FakeGuardianAgent::spawn_referent(ReferentGuardianVerdict::reject_referent(
+        RejectReferent {
+            referent_guardian_rejection_reason: ReferentGuardianRejectionReason::TooVague,
+            explanation: spirit::schema::signal::Explanation::new("not a concrete referent"),
+        },
+    ));
+    let mut engine = sema.engine_with_guardian(fake_agent.guardian());
+
+    let output = engine.handle(input_register_referent("thing", &[]));
+
+    match output.root() {
+        Output::ReferentGuardianRejected(rejection) => {
+            assert_eq!(
+                rejection.payload().referent_guardian_rejection_reason,
+                ReferentGuardianRejectionReason::TooVague
+            );
+            assert_eq!(
+                rejection.payload().explanation.payload(),
+                "not a concrete referent"
+            );
+        }
+        other => panic!("expected ReferentGuardianRejected, got {other:?}"),
+    }
+    assert_eq!(engine.guardian_decision_count(), 1);
+    drop(engine);
+    fake_agent.join();
+    let mut engine = sema.engine();
+    let rejected_record = engine.handle(input_record(entry_with_referents(
+        "rejected referent stays unregistered",
+        &["thing"],
+    )));
+    assert!(matches!(rejected_record.root(), Output::Error(_)));
+}
+
 #[test]
 fn signal_admission_pushes_accepted_message_through_sent_hook_before_nexus_holds_mail() {
     let signal_admission = SignalAdmission::default();
@@ -1181,7 +1298,7 @@ fn nexus_step_decide_routes_signal_arrival_to_sema_command_without_committing() 
     assert_eq!(nexus_input.origin_route(), nexus_route(1));
     match nexus_signal_input(&nexus_input) {
         Input::Record(recorded) => {
-            assert_eq!(recorded.payload().description, "held in flight")
+            assert_eq!(recorded.payload().entry.description, "held in flight")
         }
         other => panic!("expected SignalArrived(Record), got {other:?}"),
     }

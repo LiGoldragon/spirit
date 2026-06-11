@@ -16,8 +16,8 @@ use std::time::{Duration, Instant};
 
 use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest, Output as MetaOutput};
 use spirit::schema::signal::{
-    Description, DomainMatch, Domains, Entry, ImportanceSelection, Input, Kind, Magnitude, Output,
-    Privacy, Query,
+    Description, DomainMatch, Domains, Entry, ImportanceSelection, Input, Justification, Kind,
+    Magnitude, Output, Privacy, Query, RecordRequest, StatementText,
 };
 use spirit::{
     Configuration, Daemon, DaemonError, MetaSignalTransport, SignalTransport, SpiritDaemon,
@@ -69,6 +69,16 @@ fn decision_entry(description: &str) -> Entry {
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
         referents: spirit::schema::signal::Referents::new(Vec::new()),
+    }
+}
+
+fn record_request(description: &str) -> RecordRequest {
+    RecordRequest {
+        entry: decision_entry(description),
+        justification: Justification {
+            statement_text: StatementText::new(description),
+            context: None,
+        },
     }
 }
 
@@ -136,7 +146,7 @@ fn configure_sets_archive_target_and_leaves_live_database_unchanged() {
     let mut working_transport =
         SignalTransport::connect(&working_socket).expect("connect working socket");
     let (_output_route, record_output) = working_transport
-        .exchange(&Input::record(decision_entry("intent after configure")))
+        .exchange(&Input::record(record_request("intent after configure")))
         .expect("exchange record");
     assert!(
         matches!(record_output, Output::RecordAccepted(_)),

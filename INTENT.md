@@ -15,7 +15,7 @@ Load-bearing constraints:
 
 *Rust data types are generated from crate-local `schema/{signal,nexus,sema}.schema` plane schemas.* Authored schema source is a typed artifact before Rust emission. The shared generation driver reads each plane schema into `SchemaSource`, round-trips canonical source text and rkyv archive bytes through `SchemaSourceArtifact`, lowers from that typed source value to semantic `Schema`, and compares only the generated Rust artifacts with checked-in files. The source language has an in/out codec instead of being a one-way parser, and `.asschema` is no longer a checked component artifact.
 
-*Schema namespaces are strict NOTA key-value maps.* Braces are key-value pairs. A namespace entry is a pair like `Topic String`, `Entry { Topics * Kind * ... }`, or `Kind [...]`. Struct fields are key-value pairs; `Topics *` reuses the same type, while `kind (Optional Kind)` binds a field to a different reference. Root enum bodies are square-bracket lists of exported object names. Namespace enum bodies use bare names for unit variants, self-tagged `(Variant)` entries when the payload type has the same name, and explicit `(Variant Payload)` entries only when the payload name differs. Namespace bindings such as `Record Entry`, `RecordAccepted SemaReceipt`, and `SignalArrived Input` define the payload aliases those signatures reference. Bare bindings lower to aliases and direct enum payloads, not wrapper structs.
+*Schema namespaces are strict NOTA key-value maps.* Braces are key-value pairs. A namespace entry is a pair like `Topic String`, `Entry { Topics * Kind * ... }`, or `Kind [...]`. Struct fields are key-value pairs; `Topics *` reuses the same type, while `kind (Optional Kind)` binds a field to a different reference. Root enum bodies are square-bracket lists of exported object names. Namespace enum bodies use bare names for unit variants, self-tagged `(Variant)` entries when the payload type has the same name, and explicit `(Variant Payload)` entries only when the payload name differs. Namespace bindings such as `Record RecordRequest`, `RecordAccepted RecordIdentifier`, and `SignalArrived Input` define the payload aliases those signatures reference. Bare bindings lower to aliases and direct enum payloads, not wrapper structs.
 
 *The three runtime centers are concrete objects.* `SignalActor` handles admission, `Nexus` is the mail keeper and translator owning the store and ledger, and `Store` is the durable SEMA plane over `sema-engine`. `Engine` composes them and owns no SEMA state. Generated plane namespaces expose `signal::Input`/`signal::Output`, `nexus::Work`/`nexus::Action`, and `sema::WriteInput`/`sema::WriteOutput`/`sema::ReadInput`/`sema::ReadOutput`.
 
@@ -44,7 +44,8 @@ component filter and delivery policy.
 validates the non-empty statement. Nexus exposes classification as the
 schema-declared `ClassifyState` effect command and `StateClassified` effect
 result; the hand-written policy only implements that declared Nexus interface.
-The classified `Entry` uses the production fallback policy (`unclassified`,
+The classified `RecordRequest` carries the generated `Entry` plus a
+`Justification` made from the original psyche statement, uses the production fallback policy (`unclassified`,
 `Clarification`, `Minimum`, `Zero`) and SEMA persists it through the existing
 `Record` write root. The generated canonical NOTA shape is `(State [text])`.
 The CLI text edge also accepts deployed production shorthand `(State ([text]))`

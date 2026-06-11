@@ -11,8 +11,9 @@
 
 use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest};
 use spirit::schema::signal::{
-    CertaintySelection, Description, DomainMatch, Domains, Entry, ImportanceSelection, Input, Kind,
-    Magnitude, Output, Privacy, PrivacySelection, Query, RemovalCandidateCollection,
+    CertaintySelection, Description, DomainMatch, Domains, Entry, ImportanceSelection, Input,
+    Justification, Kind, Magnitude, Output, Privacy, PrivacySelection, Query, RecordRequest,
+    RemovalCandidateCollection, StatementText,
 };
 use spirit::{Engine, Store};
 use tempfile::TempDir;
@@ -34,6 +35,17 @@ fn entry_with_certainty(domain: &str, description: &str, magnitude: Magnitude) -
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
         referents: spirit::schema::signal::Referents::new(Vec::new()),
+    }
+}
+
+fn record_request(entry: Entry) -> RecordRequest {
+    let statement = entry.description.payload().clone();
+    RecordRequest {
+        entry,
+        justification: Justification {
+            statement_text: StatementText::new(statement),
+            context: None,
+        },
     }
 }
 
@@ -63,8 +75,20 @@ fn removal_candidate_query(domain: &str) -> Query {
     }
 }
 
+fn removal_candidate_collection(domain: &str) -> RemovalCandidateCollection {
+    RemovalCandidateCollection {
+        record_query: removal_candidate_query(domain).into(),
+        justification: Justification {
+            statement_text: StatementText::new(format!("collect {domain} removal candidates")),
+            context: None,
+        },
+    }
+}
+
 fn record(engine: &mut Engine, entry: Entry) {
-    let output = engine.handle(Input::record(entry)).into_root();
+    let output = engine
+        .handle(Input::record(record_request(entry)))
+        .into_root();
     assert!(
         matches!(output, Output::RecordAccepted(_)),
         "record accepted, got {output:?}"
@@ -104,7 +128,7 @@ fn collect_removal_candidates_archives_to_separate_db_and_removes_from_live() {
     );
 
     // PEER collects the removal candidates matching the `Governing` query.
-    let collection = RemovalCandidateCollection::new(removal_candidate_query("governing").into());
+    let collection = removal_candidate_collection("governing");
     let reply = engine
         .handle(Input::collect_removal_candidates(collection))
         .into_root();
@@ -197,7 +221,7 @@ fn collect_removal_candidates_with_no_matches_archives_nothing() {
         entry("meaning", "intent that must remain live"),
     );
 
-    let collection = RemovalCandidateCollection::new(removal_candidate_query("governing").into());
+    let collection = removal_candidate_collection("governing");
     let reply = engine
         .handle(Input::collect_removal_candidates(collection))
         .into_root();
@@ -246,7 +270,7 @@ fn collect_removal_candidates_requires_zero_certainty() {
         entry("governing", "same domain but still live"),
     );
 
-    let collection = RemovalCandidateCollection::new(removal_candidate_query("governing").into());
+    let collection = removal_candidate_collection("governing");
     let reply = engine
         .handle(Input::collect_removal_candidates(collection))
         .into_root();

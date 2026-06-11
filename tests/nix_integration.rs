@@ -125,6 +125,19 @@ fn record_identifier_argument(identifier: &RecordIdentifier) -> String {
     identifier.payload().to_owned()
 }
 
+fn record_nota(domains: &str, kind: &str, description: &str) -> String {
+    format!(
+        "(Record (({domains} {kind} [{description}] Maximum Minimum Zero []) ([{description}] None)))"
+    )
+}
+
+fn remove_nota(identifier: &RecordIdentifier) -> String {
+    format!(
+        "(Remove ({} ([remove record] None)))",
+        record_identifier_argument(identifier)
+    )
+}
+
 // ---------------------------------------------------------------------------
 // Nix-build harness: locate the schema-driven binaries.
 // ---------------------------------------------------------------------------
@@ -437,8 +450,12 @@ fn nix_built_spirit_cli_records_through_real_socket_to_nix_built_daemon() {
     let binaries = NixBuiltBinaries::ensure();
     let daemon = DaemonProcess::spawn(&binaries);
 
-    let nota_input = "(Record ([(Craft Infrastructure)] Decision [end to end through nix built binaries] Maximum Minimum Zero []))";
-    let output = run_cli_for_output(&binaries, daemon.socket(), nota_input);
+    let nota_input = record_nota(
+        "[(Craft Infrastructure)]",
+        "Decision",
+        "end to end through nix built binaries",
+    );
+    let output = run_cli_for_output(&binaries, daemon.socket(), &nota_input);
 
     // SCHEMA-TYPED ASSERTION: not on the string, on the parsed schema-emitted variant.
     match output {
@@ -462,8 +479,8 @@ fn nix_built_daemon_rejects_invalid_input_through_schema_emitted_rejection() {
     let daemon = DaemonProcess::spawn(&binaries);
 
     // Empty domain — schema-emitted Entry validation should reject.
-    let nota_input = "(Record ([] Decision [body content] Maximum Minimum Zero []))";
-    let output = run_cli_for_output(&binaries, daemon.socket(), nota_input);
+    let nota_input = record_nota("[]", "Decision", "body content");
+    let output = run_cli_for_output(&binaries, daemon.socket(), &nota_input);
 
     assert_eq!(
         output,
@@ -490,7 +507,7 @@ fn nix_built_daemon_persists_state_across_two_cli_invocations() {
     let first = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Record ([(Craft Infrastructure)] Decision [first commit] Maximum Minimum Zero []))",
+        &record_nota("[(Craft Infrastructure)]", "Decision", "first commit"),
     );
     match first {
         Output::RecordAccepted(receipt) => assert_short_record_identifier(receipt.payload()),
@@ -504,7 +521,7 @@ fn nix_built_daemon_persists_state_across_two_cli_invocations() {
     let second = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Record ([(Craft Infrastructure)] Decision [second commit] Maximum Minimum Zero []))",
+        &record_nota("[(Craft Infrastructure)]", "Decision", "second commit"),
     );
     match second {
         Output::RecordAccepted(receipt) => assert_short_record_identifier(receipt.payload()),
@@ -543,7 +560,7 @@ fn nix_built_daemon_observes_recorded_entries_back_through_query() {
     let _recorded = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Record ([(Craft Infrastructure)] Decision [observe round trip] Maximum Minimum Zero []))",
+        &record_nota("[(Craft Infrastructure)]", "Decision", "observe round trip"),
     );
 
     let observed = run_cli_for_output(
@@ -626,9 +643,7 @@ fn nix_built_daemon_handles_back_to_back_inputs_through_one_socket() {
     let mut markers = Vec::new();
 
     for description in descriptions {
-        let nota_input = format!(
-            "(Record ([(Craft Infrastructure)] Decision [{description}] Maximum Minimum Zero []))"
-        );
+        let nota_input = record_nota("[(Craft Infrastructure)]", "Decision", description);
         let output = run_cli_for_output(&binaries, daemon.socket(), &nota_input);
         match output {
             Output::RecordAccepted(receipt) => assert_short_record_identifier(receipt.payload()),
@@ -694,7 +709,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let recorded = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Record ([(Craft Infrastructure)] Decision [variant tour] Maximum Minimum Zero []))",
+        &record_nota("[(Craft Infrastructure)]", "Decision", "variant tour"),
     );
     let recorded_identifier = match &recorded {
         Output::RecordAccepted(receipt) => receipt.payload().clone(),
@@ -711,10 +726,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let removed = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        &format!(
-            "(Remove {})",
-            record_identifier_argument(&recorded_identifier)
-        ),
+        &remove_nota(&recorded_identifier),
     );
     assert!(matches!(removed, Output::RecordRemoved(_)));
     assert_eq!(removed.route(), OutputRoute::RecordRemoved);
@@ -722,7 +734,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let rerecorded = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Record ([(Craft Infrastructure)] Decision [variant tour] Maximum Minimum Zero []))",
+        &record_nota("[(Craft Infrastructure)]", "Decision", "variant tour"),
     );
     let rerecorded_identifier = match &rerecorded {
         Output::RecordAccepted(receipt) => receipt.payload().clone(),
@@ -746,7 +758,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let rejected = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Record ([] Decision [empty domain] Maximum Minimum Zero []))",
+        &record_nota("[]", "Decision", "empty domain"),
     );
     assert!(matches!(rejected, Output::Rejected(_)));
     assert_eq!(rejected.route(), OutputRoute::Rejected);
@@ -790,7 +802,11 @@ fn nix_built_daemon_alias_state_across_separate_cli_processes() {
 
     // Independent processes — exec a fresh CLI binary each time.
     let mut child_a = Command::new(&binaries.spirit_cli)
-        .arg("(Record ([(Craft Infrastructure)] Decision [process a record] Maximum Minimum Zero []))")
+        .arg(record_nota(
+            "[(Craft Infrastructure)]",
+            "Decision",
+            "process a record",
+        ))
         .env("SPIRIT_SOCKET", daemon.socket())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

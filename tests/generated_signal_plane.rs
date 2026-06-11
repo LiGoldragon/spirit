@@ -4,11 +4,11 @@ use signal_frame::{
 };
 use spirit::schema::signal::{
     Certainty, CertaintyChange, CertaintyChangeReceipt, DatabaseMarker, Description, DomainMatch,
-    Domains, Entry, Input, InputRoute, IntentEvent, IntentRecorded, Kind, Magnitude,
+    Domains, Entry, Input, InputRoute, IntentEvent, IntentRecorded, Justification, Kind, Magnitude,
     MessageIdentifier, MessageRoot, OriginRoute, Output, OutputRoute, Privacy, Record,
-    RecordChange, RecordChangeReceipt, RecordIdentifier, RecordSelection, Rejected, SemaReceipt,
-    SignalFrameError, SignalRejection, Statement, StatementText, ValidationError, VersionReport,
-    VersionText,
+    RecordChange, RecordChangeReceipt, RecordIdentifier, RecordRequest, RecordSelection, Rejected,
+    SemaReceipt, SignalFrameError, SignalRejection, Statement, StatementText, ValidationError,
+    VersionReport, VersionText,
 };
 
 fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
@@ -18,9 +18,26 @@ fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
     }
 }
 
+fn record_request(entry: Entry, statement: &str) -> RecordRequest {
+    RecordRequest {
+        entry,
+        justification: Justification {
+            statement_text: StatementText::new(statement),
+            context: None,
+        },
+    }
+}
+
+fn justification(statement: &str) -> Justification {
+    Justification {
+        statement_text: StatementText::new(statement),
+        context: None,
+    }
+}
+
 #[test]
 fn generated_input_surface_owns_route_header_and_rkyv_frame() {
-    let input = Input::record(Entry {
+    let entry = Entry {
         domains: Domains::from_strings(vec![String::from("schema")]),
         kind: Kind::Constraint,
         description: Description::new("schema creates the signal plane"),
@@ -28,7 +45,8 @@ fn generated_input_surface_owns_route_header_and_rkyv_frame() {
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
         referents: spirit::schema::signal::Referents::new(Vec::new()),
-    });
+    };
+    let input = Input::record(record_request(entry, "schema creates the signal plane"));
 
     assert_eq!(input.route(), InputRoute::Record);
 
@@ -163,6 +181,7 @@ fn generated_record_change_surface_owns_route_header_and_rkyv_frame() {
     let input = Input::change_record(RecordChange {
         record_identifier: RecordIdentifier::new("003g"),
         entry: replacement,
+        justification: justification("record mutation is a schema-visible operation"),
     });
 
     assert_eq!(input.route(), InputRoute::ChangeRecord);
@@ -292,10 +311,9 @@ fn generated_change_certainty_round_trips_the_canonical_shape() {
 #[cfg(feature = "nota-text")]
 #[test]
 fn generated_change_record_round_trips_the_canonical_shape() {
-    let input =
-        "(ChangeRecord (003g ([(Craft Schema)] Correction replacement High Minimum Zero [])))"
-            .parse::<Input>()
-            .expect("parse change record input");
+    let input = "(ChangeRecord (003g ([(Craft Schema)] Correction replacement High Minimum Zero []) (replacement None)))"
+        .parse::<Input>()
+        .expect("parse change record input");
 
     assert_eq!(
         input,
@@ -310,11 +328,12 @@ fn generated_change_record_round_trips_the_canonical_shape() {
                 privacy: Privacy::new(Magnitude::Zero),
                 referents: spirit::schema::signal::Referents::new(Vec::new()),
             },
+            justification: justification("replacement"),
         })
     );
     assert_eq!(
         input.to_string(),
-        "(ChangeRecord (003g ([(Craft Schema)] Correction replacement High Minimum Zero [])))"
+        "(ChangeRecord (003g ([(Craft Schema)] Correction replacement High Minimum Zero []) (replacement None)))"
     );
 }
 
@@ -356,7 +375,7 @@ fn generated_public_private_record_shortcuts_round_trip_nota() {
 #[test]
 fn generated_record_input_renders_bracket_bearing_strings_losslessly() {
     let description = String::from("text contains [brackets] and the pipe close marker |]");
-    let input = Input::record(Entry {
+    let entry = Entry {
         domains: Domains::from_strings(vec![String::from("schema replay")]),
         kind: Kind::Correction,
         description: Description::new(description.clone()),
@@ -364,12 +383,13 @@ fn generated_record_input_renders_bracket_bearing_strings_losslessly() {
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
         referents: spirit::schema::signal::Referents::new(Vec::new()),
-    });
+    };
+    let input = Input::record(record_request(entry, &description));
     let rendered = input.to_string();
 
     assert_eq!(
         rendered,
-        "(Record ([(Craft Schema)] Correction [|text contains [brackets] and the pipe close marker \\|]|] High Minimum Zero []))"
+        "(Record (([(Craft Schema)] Correction [|text contains [brackets] and the pipe close marker \\|]|] High Minimum Zero []) ([|text contains [brackets] and the pipe close marker \\|]|] None)))"
     );
     let reparsed = rendered
         .parse::<Input>()
@@ -397,7 +417,7 @@ fn generated_rejection_output_is_a_signal_schema_variant() {
 
 #[test]
 fn bare_schema_bindings_are_explicit_payload_wrappers() {
-    let record: Record = Entry {
+    let entry = Entry {
         domains: Domains::from_strings(vec![String::from("schema")]),
         kind: Kind::Constraint,
         description: Description::new("alias bindings carry direct payloads"),
@@ -405,13 +425,13 @@ fn bare_schema_bindings_are_explicit_payload_wrappers() {
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
         referents: spirit::schema::signal::Referents::new(Vec::new()),
-    }
-    .into();
+    };
+    let record: Record = record_request(entry, "alias bindings carry direct payloads").into();
     let input = Input::Record(record);
     match input {
         Input::Record(record) => {
             assert_eq!(
-                record.payload().description,
+                record.payload().entry.description,
                 "alias bindings carry direct payloads"
             );
         }
@@ -455,7 +475,7 @@ fn generated_validation_error_round_trips_through_nota() {
 
 #[test]
 fn generated_signal_surface_rejects_unknown_header_before_body_decode() {
-    let mut frame = Input::record(Entry {
+    let entry = Entry {
         domains: Domains::from_strings(vec![String::from("schema")]),
         kind: Kind::Constraint,
         description: Description::new("schema rejects unknown routes"),
@@ -463,9 +483,10 @@ fn generated_signal_surface_rejects_unknown_header_before_body_decode() {
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
         referents: spirit::schema::signal::Referents::new(Vec::new()),
-    })
-    .encode_signal_frame()
-    .expect("encode frame");
+    };
+    let mut frame = Input::record(record_request(entry, "schema rejects unknown routes"))
+        .encode_signal_frame()
+        .expect("encode frame");
 
     frame[..8].copy_from_slice(&0xFFFF_FFFF_FFFF_FFFF_u64.to_le_bytes());
 
@@ -481,7 +502,7 @@ fn generated_signal_surface_rejects_unknown_header_before_body_decode() {
 
 #[test]
 fn generated_signal_surface_emits_mail_sent_event() {
-    let input = Input::record(Entry {
+    let entry = Entry {
         domains: Domains::from_strings(vec![String::from("schema")]),
         kind: Kind::Constraint,
         description: Description::new("schema emits mail events"),
@@ -489,7 +510,8 @@ fn generated_signal_surface_emits_mail_sent_event() {
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
         referents: spirit::schema::signal::Referents::new(Vec::new()),
-    });
+    };
+    let input = Input::record(record_request(entry, "schema emits mail events"));
 
     let message = input.with_origin_route(OriginRoute::new(91));
     let event = message.message_sent(MessageIdentifier::new(9));
