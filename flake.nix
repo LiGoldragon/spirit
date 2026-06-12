@@ -10,15 +10,15 @@
     };
     crane.url = "github:ipetkov/crane";
     nota-next-source = {
-      url = "github:LiGoldragon/nota-next";
+      url = "github:LiGoldragon/nota-next/structural-shape-extension";
       flake = false;
     };
     schema-next-source = {
-      url = "github:LiGoldragon/schema-next";
+      url = "github:LiGoldragon/schema-next/storage-family-declarations";
       flake = false;
     };
     schema-rust-next-source = {
-      url = "github:LiGoldragon/schema-rust-next";
+      url = "github:LiGoldragon/schema-rust-next/record-family-emission";
       flake = false;
     };
     sema-source = {
@@ -26,7 +26,13 @@
       flake = false;
     };
     sema-engine-source = {
-      url = "github:LiGoldragon/sema-engine";
+      url = "github:LiGoldragon/sema-engine/versioned-fold";
+      flake = false;
+    };
+    # The previous engine generation: reads pre-versioning stores for the
+    # production-migration bootstrap.
+    sema-engine-previous-source = {
+      url = "github:LiGoldragon/sema-engine/main";
       flake = false;
     };
     signal-frame-source = {
@@ -38,7 +44,7 @@
       flake = false;
     };
     triad-runtime-source = {
-      url = "github:LiGoldragon/triad-runtime";
+      url = "github:LiGoldragon/triad-runtime/tailnet-listener";
       flake = false;
     };
     signal-spirit-source = {
@@ -75,6 +81,7 @@
       schema-rust-next-source,
       sema-source,
       sema-engine-source,
+      sema-engine-previous-source,
       signal-frame-source,
       signal-sema-source,
       triad-runtime-source,
@@ -131,6 +138,7 @@
               schemaRustNextSource = schema-rust-next-source;
               semaSource = sema-source;
               semaEngineSource = sema-engine-source;
+              semaEnginePreviousSource = sema-engine-previous-source;
               signalFrameSource = signal-frame-source;
               signalSemaSource = signal-sema-source;
               triadRuntimeSource = triad-runtime-source;
@@ -149,6 +157,7 @@
               cp -R "$schemaRustNextSource" $out/vendor-sources/schema-rust-next
               cp -R "$semaSource" $out/vendor-sources/sema
               cp -R "$semaEngineSource" $out/vendor-sources/sema-engine
+              cp -R "$semaEnginePreviousSource" $out/vendor-sources/sema-engine-previous
               cp -R "$signalFrameSource" $out/vendor-sources/signal-frame
               cp -R "$signalSemaSource" $out/vendor-sources/signal-sema
               cp -R "$triadRuntimeSource" $out/vendor-sources/triad-runtime
@@ -159,18 +168,19 @@
               cp -R "$versionProjectionSource" $out/vendor-sources/version-projection
 
               substituteInPlace $out/Cargo.toml \
-                --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota-next = { path = "vendor-sources/nota-next", optional = true }' \
-                --replace-fail 'sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main" }' 'sema-engine = { path = "vendor-sources/sema-engine" }' \
+                --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "structural-shape-extension", optional = true }' 'nota-next = { path = "vendor-sources/nota-next", optional = true }' \
+                --replace-fail 'sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "versioned-fold" }' 'sema-engine = { path = "vendor-sources/sema-engine" }' \
+                --replace-fail 'sema-engine-previous = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main", package = "sema-engine", optional = true }' 'sema-engine-previous = { path = "vendor-sources/sema-engine-previous", package = "sema-engine", optional = true }' \
                 --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }' 'signal-frame = { path = "vendor-sources/signal-frame" }' \
                 --replace-fail 'signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main", optional = true }' 'signal-agent = { path = "vendor-sources/signal-agent", optional = true }' \
                 --replace-fail 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main" }' 'signal-spirit = { path = "vendor-sources/signal-spirit" }' \
-                --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "vendor-sources/triad-runtime" }' \
-                --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust-next = { path = "vendor-sources/schema-rust-next" }' \
+                --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "tailnet-listener" }' 'triad-runtime = { path = "vendor-sources/triad-runtime" }' \
+                --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "record-family-emission" }' 'schema-rust-next = { path = "vendor-sources/schema-rust-next" }' \
                 --replace-fail 'agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", features = ["live-provider"] }' 'agent = { path = "vendor-sources/agent", features = ["live-provider"] }' \
-                --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "vendor-sources/schema-next" }'
+                --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "storage-family-declarations" }' 'schema-next = { path = "vendor-sources/schema-next" }'
 
               substituteInPlace $out/vendor-sources/schema-rust-next/Cargo.toml \
-                --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "../schema-next" }' \
+                --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "storage-family-declarations" }' 'schema-next = { path = "../schema-next" }' \
                 --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next = { path = "../nota-next" }' \
                 --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }' 'signal-frame = { path = "../signal-frame" }' \
                 --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "../triad-runtime" }'
@@ -179,6 +189,11 @@
                 --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next = { path = "../nota-next" }'
 
               substituteInPlace $out/vendor-sources/sema-engine/Cargo.toml \
+                --replace-fail 'sema = { git = "https://github.com/LiGoldragon/sema.git", branch = "main" }' 'sema = { path = "../sema" }' \
+                --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main", default-features = false }' 'signal-frame = { path = "../signal-frame", default-features = false }' \
+                --replace-fail 'signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main", default-features = false }' 'signal-sema = { path = "../signal-sema", default-features = false }'
+
+              substituteInPlace $out/vendor-sources/sema-engine-previous/Cargo.toml \
                 --replace-fail 'sema = { git = "https://github.com/LiGoldragon/sema.git", branch = "main" }' 'sema = { path = "../sema" }' \
                 --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main", default-features = false }' 'signal-frame = { path = "../signal-frame", default-features = false }' \
                 --replace-fail 'signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main", default-features = false }' 'signal-sema = { path = "../signal-sema", default-features = false }'
@@ -238,6 +253,7 @@
 
               [patch."https://github.com/LiGoldragon/sema-engine.git"]
               sema-engine = { path = "vendor-sources/sema-engine" }
+              sema-engine-previous = { path = "vendor-sources/sema-engine-previous", package = "sema-engine" }
 
               [patch."https://github.com/LiGoldragon/signal-frame.git"]
               signal-frame = { path = "vendor-sources/signal-frame" }
@@ -338,18 +354,11 @@
             cargoExtraArgs = "--features nota-text --bin spirit-write-configuration";
           }
         );
-        productionMigrationPackage = craneLib.buildPackage (
+        storeMigrationPackage = craneLib.buildPackage (
           commonArguments
           // {
             cargoArtifacts = notaTextCargoArtifacts;
-            cargoExtraArgs = "--features production-migration --bin spirit-migrate-production";
-          }
-        );
-        storeUpgradePackage = craneLib.buildPackage (
-          commonArguments
-          // {
-            cargoArtifacts = notaTextCargoArtifacts;
-            cargoExtraArgs = "--features production-migration --bin spirit-upgrade-store";
+            cargoExtraArgs = "--features production-migration --bin spirit-migrate-store";
           }
         );
         traceDaemonPackage = craneLib.buildPackage (
@@ -372,8 +381,7 @@
           ln -s "${metaSpiritCliPackage}/bin/meta-spirit" "$out/bin/meta-spirit"
           ln -s "${daemonPackage}/bin/spirit-daemon" "$out/bin/spirit-daemon"
           ln -s "${configurationWriterPackage}/bin/spirit-write-configuration" "$out/bin/spirit-write-configuration"
-          ln -s "${productionMigrationPackage}/bin/spirit-migrate-production" "$out/bin/spirit-migrate-production"
-          ln -s "${storeUpgradePackage}/bin/spirit-upgrade-store" "$out/bin/spirit-upgrade-store"
+          ln -s "${storeMigrationPackage}/bin/spirit-migrate-store" "$out/bin/spirit-migrate-store"
         '';
         traceCombinedPackage = pkgs.runCommand "spirit-trace" { } ''
           mkdir -p "$out/bin"
@@ -398,8 +406,7 @@
         packages.cli = cliPackage;
         packages.daemon = daemonPackage;
         packages.configuration-writer = configurationWriterPackage;
-        packages.production-migration = productionMigrationPackage;
-        packages.store-upgrade = storeUpgradePackage;
+        packages.store-migration = storeMigrationPackage;
         packages.trace = traceCombinedPackage;
         packages."trace-cli" = traceCliPackage;
         packages."trace-daemon" = traceDaemonPackage;
