@@ -52,7 +52,9 @@ struct GuardianOperationPrompt<'operation> {
     operation: &'operation GuardianOperation,
 }
 
-/// The model-emittable rejection reasons, in checklist (gate) order. The
+/// The model-emittable rejection reasons (the daemon-only `Harness*` variants
+/// are excluded — the model never emits them). The order is presentation
+/// grouping, not gate order; the gate sequence lives in `GUARDIAN_CHECKLIST`. The
 /// guardian is shown exactly this set; the daemon-only `Harness*` reasons are
 /// excluded because the model never emits them — they are set on transport
 /// failure. `GuardianRejectionReason::admission_gloss` is exhaustive, so adding
@@ -437,8 +439,10 @@ is suspiciously perfect -> TestimonyFabricated.\n\
 3. DESTRUCTIVE-OP PSYCHE AUTHORIZATION (Supersede, Retire, meaning-changing ChangeRecord, certainty \
 DOWNGRADE). A verbatim psyche quote must authorize THIS destruction; agent-judged staleness alone \
 never does -> InsufficientWarrant.\n\
-4. WARRANT. The quoted words actually license THIS submission. On-point-but-does-not-argue-this -> \
-InsufficientWarrant.\n\
+4. WARRANT. Do the quoted words bear on THIS proposition at all and license recording it? This gate \
+is about RELEVANCE, not certainty strength: words that do not argue this point at all -> \
+InsufficientWarrant; but a hedged-but-on-point quote PASSES here and is judged for over-claim at \
+Gate 7 (do not pre-empt Overstated with InsufficientWarrant just because the wording is tentative).\n\
 5. SHAPE OF THE ARROW. One proposition, else Compound. Durable intent, not task state -> NonIntent \
 — but a HEDGED or tentative want is still durable intent (it belongs at a low certainty, judged at \
 Gate 7), so reserve NonIntent for statements that express no want at all: a status update, a \
@@ -470,13 +474,13 @@ A) Entry Certainty High; Testimony [I could maybe use the schema-derived contrac
 the client side]; Reasoning argues the schema should emit most client machinery. The quote hedges \
 (could, maybe) and cannot clear High. -> (Reject (Overstated [could and maybe are hedged and clear \
 only Low; High is unearned]))\n\
-B) The SAME Testimony, Entry Certainty Low. The hedge honestly clears Low. -> (Accept)\n\
+B) The SAME Testimony, Entry Certainty Low. The hedge honestly clears Low. -> Accept\n\
 \n\
 [Record — orthogonal axes]\n\
 C) Entry Certainty VeryLow, Importance High; Testimony [I keep coming back to whether the guardian \
 should be one model or two, I really am not sure yet]; Reasoning notes the topic recurs across \
 three sessions and blocks the guardian design. Tentative wording clears VeryLow; recurrence + \
-blocking supports High importance. -> (Accept)\n\
+blocking supports High importance. -> Accept\n\
 D) Entry Certainty VeryLow, Importance High; Testimony [maybe two models could be interesting]; \
 Reasoning asserts High importance with no recurrence or blast-radius basis. -> (Reject \
 (ImportanceUnsupported [no recurrence or blast-radius evidence is offered for High importance]))\n\
@@ -489,7 +493,7 @@ accordingly per our alignment]. That sentence reads like agent prose, not how th
 (Reject (TestimonyFabricated [the quote reads like polished agent prose, not a human utterance]))\n\
 G) Entry Decision High; Testimony quote [yes do that] with Antecedent [shall we make the daemon \
 reject inline NOTA configuration?]. The bare affirmation is anchored by its antecedent and clears \
-High. -> (Accept)\n\
+High. -> Accept\n\
 H) The SAME [yes do that] with NO antecedent. Meaningless alone. -> (Reject (MissingTestimony [a \
 bare yes carries no arrow without its antecedent]))\n\
 \n\
@@ -511,7 +515,7 @@ daemons-never-parse-NOTA arrow with no authorizing psyche quote]))\n\
 \n\
 [Clarify — sharpen vs trample]\n\
 N) Target says the guardian is binary; Clarify adds that a reject is a remand the agent re-pleads. \
-Same arrow, sharper. -> (Accept)\n\
+Same arrow, sharper. -> Accept\n\
 O) Target says the guardian is binary; Clarify rewrites it to allow admitting at a corrected \
 certainty. That reverses the arrow. -> (Reject (ClarifyTramples [admitting-at-corrected-certainty \
 inverts the binary arrow; that is a Supersede, not a Clarify]))\n\
@@ -519,7 +523,7 @@ inverts the binary arrow; that is a Supersede, not a Clarify]))\n\
 [Supersede — multi-replacement preservation and authorization]\n\
 P) Retire two distinct live arrows (X: testimony stores raw words; Y: asterisks are a render marker) \
 and install TWO replacements preserving both; Testimony carries the psyche quote [supersede those \
-two with these]. -> (Accept)\n\
+two with these]. -> Accept\n\
 Q) The SAME two targets collapsed into ONE replacement that keeps only X. -> (Reject \
 (ClarifyLosesMeaning [a single replacement drops arrow Y; preserve both or it loses meaning]))\n\
 R) Supersede a live psyche record; Reasoning argues only that the agent judges it stale; no psyche \
@@ -530,8 +534,52 @@ S) Supersede names target abcd, but abcd is absent from the bundle. -> (Reject \
 \n\
 [Retire / ChangeRecord / ChangeCertainty]\n\
 T) Retire a record; Testimony [kill that rule, we are not doing backward compatibility]. Verbatim \
-psyche authorization. -> (Accept)\n\
-U) ChangeRecord fixes a typo in a Description, same arrow, same magnitudes. -> (Accept)\n\
+psyche authorization. -> Accept\n\
+U) ChangeRecord fixes a typo in a Description, same arrow, same magnitudes. -> Accept\n\
 V) ChangeRecord keeps the wording but raises Certainty from Medium to Maximum; Testimony is the \
 original [we should probably do this]. The words still clear only Medium. -> (Reject (Overstated \
 [should probably clears Medium; Maximum is unearned by the quote]))";
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nota_next::NotaSource;
+
+    #[test]
+    fn accept_renders_bare_and_round_trips() {
+        let rendered = GuardianVerdict::Accept.to_nota();
+        assert_eq!(rendered, "Accept", "Accept must render as a bare atom, matching the few-shot");
+        let parsed = NotaSource::new(&rendered)
+            .parse::<GuardianVerdict>()
+            .expect("rendered Accept must parse back");
+        assert!(matches!(parsed, GuardianVerdict::Accept));
+    }
+
+    #[test]
+    fn reject_renders_double_nested_and_round_trips() {
+        let rendered = GuardianVerdict::reject(Reject {
+            guardian_rejection_reason: GuardianRejectionReason::Overstated,
+            explanation: Explanation::new("could is hedged"),
+        })
+        .to_nota();
+        assert!(
+            rendered.starts_with("(Reject (Overstated "),
+            "Reject must be double-nested, got {rendered}"
+        );
+        NotaSource::new(&rendered)
+            .parse::<GuardianVerdict>()
+            .expect("rendered Reject must parse back");
+    }
+
+    #[test]
+    fn every_model_reason_is_glossed_and_no_harness_reason_leaks() {
+        for reason in MODEL_REASONS {
+            assert!(
+                reason.admission_gloss().is_some(),
+                "model reason {reason:?} must carry a gloss"
+            );
+        }
+        assert_eq!(MODEL_REASONS.len(), 15);
+        assert!(GuardianRejectionReason::HarnessMalformed.admission_gloss().is_none());
+    }
+}

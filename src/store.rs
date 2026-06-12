@@ -822,23 +822,39 @@ impl Store {
     ) -> Result<Option<SupersessionReceipt>, StoreError> {
         let retired_identifiers = supersession.retired_identifiers;
         let replacements = supersession.replacements;
-        let mut archive = self.open_archive_database()?;
+        // Snapshot every retired target up front, BEFORE any mutation, so a
+        // missing target is a clean no-op rather than a partial write.
+        let mut snapshots = Vec::new();
         for identifier in retired_identifiers.payload() {
-            let Some(entry) = self.entry_by_identifier(identifier.payload().payload())? else {
+            let identifier_text = identifier.payload().payload().clone();
+            let Some(entry) = self.entry_by_identifier(&identifier_text)? else {
                 return Ok(None);
             };
-            archive.archive_record(
-                StoredRecord::new(identifier.payload().payload().clone(), entry),
-                self.archive_identifier(identifier.payload().payload()),
-            )?;
+            snapshots.push((identifier_text, entry));
         }
-        for identifier in retired_identifiers.payload() {
-            self.remove(identifier.payload().payload())?;
-        }
+        // Propose every replacement FIRST. If any propose fails here, the
+        // retired records are still intact and the caller can safely retry — this
+        // ordering is what prevents a partial supersede from destroying intent
+        // (a removed retired record with no replacement). A residual leak of an
+        // already-committed replacement on a later propose failure is recoverable
+        // (an extra record), never a loss; a single sema-engine WriteTransaction
+        // spanning the whole supersede is the eventual end state.
         let mut record_identifiers = Vec::new();
         for replacement in replacements.into_payload() {
             let sema_receipt = self.propose(replacement)?;
             record_identifiers.push(sema_receipt.record_identifier);
+        }
+        // Only once every replacement is committed do we archive and remove the
+        // retired set.
+        let mut archive = self.open_archive_database()?;
+        for (identifier_text, entry) in &snapshots {
+            archive.archive_record(
+                StoredRecord::new(identifier_text.clone(), entry.clone()),
+                self.archive_identifier(identifier_text),
+            )?;
+        }
+        for (identifier_text, _entry) in &snapshots {
+            self.remove(identifier_text)?;
         }
         Ok(Some(SupersessionReceipt {
             retired_identifiers,

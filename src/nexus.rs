@@ -422,12 +422,15 @@ impl Nexus {
         &self,
         receipt: &SupersessionReceipt,
     ) -> Result<Option<IntentEvent>, StoreError> {
+        // Resolve the replacement entries for the event. A missing lookup must
+        // not silently drop the whole retirement notification, so skip a missing
+        // one rather than collapsing to None (under single-flight every id
+        // resolves; this only hardens against a future concurrency relaxation).
         let mut replacements = Vec::new();
         for identifier in receipt.record_identifiers.payload() {
-            let Some(entry) = self.store.entry_by_identifier(identifier.payload())? else {
-                return Ok(None);
-            };
-            replacements.push(entry);
+            if let Some(entry) = self.store.entry_by_identifier(identifier.payload())? {
+                replacements.push(entry);
+            }
         }
         Ok(Some(IntentEvent::intent_superseded(IntentSuperseded {
             retired_identifiers: receipt.retired_identifiers.clone(),
