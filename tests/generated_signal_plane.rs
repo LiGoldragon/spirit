@@ -6,10 +6,9 @@ use spirit::schema::signal::{
     Certainty, CertaintyChange, CertaintyChangeReceipt, DatabaseMarker, Description, DomainMatch,
     DomainScopes, Domains, Entry, Input, InputRoute, IntentEvent, IntentRecorded, Justification,
     Kind, Magnitude, MessageIdentifier, MessageRoot, OriginRoute, Output, OutputRoute, Privacy,
-    Record, RecordChange, RecordChangeReceipt, RecordIdentifier, RecordRequest, RecordSelection,
-    QuoteText, Reasoning, Rejected, SignalFrameError, SignalRejection, Statement, StatementText,
-    Testimony, ValidationError, VerbatimQuote,
-    VersionReport, VersionText,
+    QuoteText, Reasoning, Record, RecordChange, RecordChangeReceipt, RecordIdentifier,
+    RecordRequest, RecordSelection, Rejected, SignalFrameError, SignalRejection, Statement,
+    StatementText, Testimony, ValidationError, VerbatimQuote, VersionReport, VersionText,
 };
 
 fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {

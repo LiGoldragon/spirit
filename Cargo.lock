@@ -11,14 +11,14 @@ dependencies = [
  "nota-next",
  "reqwest",
  "rkyv",
- "schema-rust-next 0.5.3 (git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main)",
+ "schema-rust-next",
  "serde",
  "serde_json",
  "signal-agent",
  "signal-frame",
  "thiserror",
  "tokio",
- "triad-runtime 0.6.1 (git+https://github.com/LiGoldragon/triad-runtime.git?branch=main)",
+ "triad-runtime",
 ]
 
 [[package]]
@@ -179,7 +179,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -677,7 +677,7 @@ source = "git+https://github.com/LiGoldragon/meta-signal-agent.git?branch=main#5
 dependencies = [
  "nota-next",
  "rkyv",
- "schema-rust-next 0.5.3 (git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main)",
+ "schema-rust-next",
  "signal-frame",
  "thiserror",
 ]
@@ -716,7 +716,7 @@ dependencies = [
 [[package]]
 name = "nota-next"
 version = "0.4.0"
-source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#065fa2ad2fa05bac87677f0bfa826bd92dbd139a"
+source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#3d6c2cdf4a7a62b36640b8622fdcaa2b931f0d43"
 dependencies = [
  "nota-next-derive",
  "rkyv",
@@ -725,7 +725,7 @@ dependencies = [
 [[package]]
 name = "nota-next-derive"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#065fa2ad2fa05bac87677f0bfa826bd92dbd139a"
+source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#3d6c2cdf4a7a62b36640b8622fdcaa2b931f0d43"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1043,7 +1043,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1096,16 +1096,7 @@ checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 [[package]]
 name = "schema-next"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#2397d5b2a4a8f35da1ba5957f48337f9a579db00"
-dependencies = [
- "nota-next",
- "rkyv",
-]
-
-[[package]]
-name = "schema-next"
-version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=storage-family-declarations#89fe33a92ade08af0f1e81a69a3c0016b7699a2c"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#f460e7b6e76ef8766e45b870c323becd0ef461bf"
 dependencies = [
  "blake3",
  "nota-next",
@@ -1115,25 +1106,12 @@ dependencies = [
 [[package]]
 name = "schema-rust-next"
 version = "0.5.3"
-source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#cedb2e0652b2d8e3aa24c96a82b6daee6af785ad"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#7c15bc3fa3d07f4710acca16f14eef1aa68b02dd"
 dependencies = [
  "prettyplease",
  "proc-macro2",
  "quote",
- "schema-next 0.2.0 (git+https://github.com/LiGoldragon/schema-next.git?branch=main)",
- "syn",
- "thiserror",
-]
-
-[[package]]
-name = "schema-rust-next"
-version = "0.5.3"
-source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=record-family-emission#9892d59d7cd23dc47bdb375bf9a78a1d813f25e7"
-dependencies = [
- "prettyplease",
- "proc-macro2",
- "quote",
- "schema-next 0.2.0 (git+https://github.com/LiGoldragon/schema-next.git?branch=storage-family-declarations)",
+ "schema-next",
  "syn",
  "thiserror",
 ]
@@ -1151,7 +1129,7 @@ dependencies = [
 [[package]]
 name = "sema-engine"
 version = "0.2.3"
-source = "git+https://github.com/LiGoldragon/sema-engine.git?branch=main#ebee6e44ba6ee4afcb26998007bcfd128641b54c"
+source = "git+https://github.com/LiGoldragon/sema-engine.git?rev=ebee6e44ba6ee4afcb26998007bcfd128641b54c#ebee6e44ba6ee4afcb26998007bcfd128641b54c"
 dependencies = [
  "rkyv",
  "sema",
@@ -1163,7 +1141,7 @@ dependencies = [
 [[package]]
 name = "sema-engine"
 version = "0.4.0"
-source = "git+https://github.com/LiGoldragon/sema-engine.git?branch=versioned-fold#3593ffe62695a48cc4ebb08292571234c474faf6"
+source = "git+https://github.com/LiGoldragon/sema-engine.git?branch=main#dbe29427d9a2c6c194909385485ad42b008048b8"
 dependencies = [
  "blake3",
  "rkyv",
@@ -1247,7 +1225,7 @@ source = "git+https://github.com/LiGoldragon/signal-agent.git?branch=main#33c2ec
 dependencies = [
  "nota-next",
  "rkyv",
- "schema-rust-next 0.5.3 (git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main)",
+ "schema-rust-next",
  "signal-frame",
  "thiserror",
 ]
@@ -1329,7 +1307,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52d1cfed4120b4d927bf7c0f86d2087a4a7d6027c906d9f9d525a80573b9be51"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -1341,8 +1319,8 @@ dependencies = [
  "getrandom 0.3.4",
  "nota-next",
  "rkyv",
- "schema-next 0.2.0 (git+https://github.com/LiGoldragon/schema-next.git?branch=storage-family-declarations)",
- "schema-rust-next 0.5.3 (git+https://github.com/LiGoldragon/schema-rust-next.git?branch=record-family-emission)",
+ "schema-next",
+ "schema-rust-next",
  "sema-engine 0.2.3",
  "sema-engine 0.4.0",
  "signal-agent",
@@ -1352,7 +1330,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
- "triad-runtime 0.6.1 (git+https://github.com/LiGoldragon/triad-runtime.git?branch=tailnet-listener)",
+ "triad-runtime",
 ]
 
 [[package]]
@@ -1408,7 +1386,7 @@ dependencies = [
  "getrandom 0.4.2",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1573,19 +1551,7 @@ dependencies = [
 [[package]]
 name = "triad-runtime"
 version = "0.6.1"
-source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#6ea831627d13793a4c42d7f9b9174b47279a9b2b"
-dependencies = [
- "kameo",
- "rustix",
- "signal-frame",
- "thiserror",
- "tokio",
-]
-
-[[package]]
-name = "triad-runtime"
-version = "0.6.1"
-source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=tailnet-listener#1b5d0f17840793d00af73e8f16ad7908cad72a38"
+source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#1b5d0f17840793d00af73e8f16ad7908cad72a38"
 dependencies = [
  "kameo",
  "rustix",

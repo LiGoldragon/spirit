@@ -428,7 +428,9 @@ fn remove_nota(identifier: &RecordIdentifier) -> String {
 }
 
 fn collect_removal_candidates_nota(query: &str) -> String {
-    format!("(CollectRemovalCandidates ({query} ([([collect removal candidates] None)] [collect removal candidates])))")
+    format!(
+        "(CollectRemovalCandidates ({query} ([([collect removal candidates] None)] [collect removal candidates])))"
+    )
 }
 
 fn assert_short_record_identifier(identifier: &RecordIdentifier) {

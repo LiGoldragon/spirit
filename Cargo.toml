@@ -63,23 +63,23 @@ nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "ma
 rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
 blake3 = "1"
 getrandom = "0.3"
-sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "versioned-fold" }
+sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main" }
 # The previous engine generation, used only by the production-migration
 # bootstrap: it reads pre-versioning stores the current engine refuses to open.
-sema-engine-previous = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main", package = "sema-engine", optional = true }
+sema-engine-previous = { git = "https://github.com/LiGoldragon/sema-engine.git", rev = "ebee6e44ba6ee4afcb26998007bcfd128641b54c", package = "sema-engine", optional = true }
 signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }
 signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main", optional = true }
 signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main" }
 thiserror = "2"
 tokio = { version = "1.47", features = ["io-util", "net", "rt-multi-thread", "sync"] }
-triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "tailnet-listener" }
+triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }
 
 [build-dependencies]
-schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "record-family-emission" }
+schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }
 
 [dev-dependencies]
 agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", features = ["live-provider"] }
-schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "storage-family-declarations" }
+schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }
 # Typed `SemaOperation` labels for versioned-log shape witnesses.
 signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main" }
 tempfile = "3"

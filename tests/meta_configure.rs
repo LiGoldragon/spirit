@@ -19,7 +19,7 @@ use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest, Outpu
 use spirit::schema::signal::GuardianRejectionReason;
 use spirit::schema::signal::{
     Description, DomainMatch, DomainScopes, Domains, Entry, ImportanceSelection, Input,
-    Justification, Kind, Magnitude, Output, Privacy, QuoteText, Query, Reasoning, RecordRequest,
+    Justification, Kind, Magnitude, Output, Privacy, Query, QuoteText, Reasoning, RecordRequest,
     Testimony, VerbatimQuote,
 };
 use spirit::{

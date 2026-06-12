@@ -14,11 +14,11 @@
       flake = false;
     };
     schema-next-source = {
-      url = "github:LiGoldragon/schema-next/storage-family-declarations";
+      url = "github:LiGoldragon/schema-next";
       flake = false;
     };
     schema-rust-next-source = {
-      url = "github:LiGoldragon/schema-rust-next/record-family-emission";
+      url = "github:LiGoldragon/schema-rust-next";
       flake = false;
     };
     sema-source = {
@@ -26,13 +26,13 @@
       flake = false;
     };
     sema-engine-source = {
-      url = "github:LiGoldragon/sema-engine/versioned-fold";
+      url = "github:LiGoldragon/sema-engine";
       flake = false;
     };
     # The previous engine generation: reads pre-versioning stores for the
     # production-migration bootstrap.
     sema-engine-previous-source = {
-      url = "github:LiGoldragon/sema-engine/main";
+      url = "github:LiGoldragon/sema-engine/ebee6e44ba6ee4afcb26998007bcfd128641b54c";
       flake = false;
     };
     signal-frame-source = {
@@ -44,7 +44,7 @@
       flake = false;
     };
     triad-runtime-source = {
-      url = "github:LiGoldragon/triad-runtime/tailnet-listener";
+      url = "github:LiGoldragon/triad-runtime";
       flake = false;
     };
     signal-spirit-source = {
@@ -169,18 +169,18 @@
 
               substituteInPlace $out/Cargo.toml \
                 --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota-next = { path = "vendor-sources/nota-next", optional = true }' \
-                --replace-fail 'sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "versioned-fold" }' 'sema-engine = { path = "vendor-sources/sema-engine" }' \
-                --replace-fail 'sema-engine-previous = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main", package = "sema-engine", optional = true }' 'sema-engine-previous = { path = "vendor-sources/sema-engine-previous", package = "sema-engine", optional = true }' \
+                --replace-fail 'sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main" }' 'sema-engine = { path = "vendor-sources/sema-engine" }' \
+                --replace-fail 'sema-engine-previous = { git = "https://github.com/LiGoldragon/sema-engine.git", rev = "ebee6e44ba6ee4afcb26998007bcfd128641b54c", package = "sema-engine", optional = true }' 'sema-engine-previous = { path = "vendor-sources/sema-engine-previous", package = "sema-engine", optional = true }' \
                 --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }' 'signal-frame = { path = "vendor-sources/signal-frame" }' \
                 --replace-fail 'signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main", optional = true }' 'signal-agent = { path = "vendor-sources/signal-agent", optional = true }' \
                 --replace-fail 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main" }' 'signal-spirit = { path = "vendor-sources/signal-spirit" }' \
-                --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "tailnet-listener" }' 'triad-runtime = { path = "vendor-sources/triad-runtime" }' \
-                --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "record-family-emission" }' 'schema-rust-next = { path = "vendor-sources/schema-rust-next" }' \
+                --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "vendor-sources/triad-runtime" }' \
+                --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust-next = { path = "vendor-sources/schema-rust-next" }' \
                 --replace-fail 'agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", features = ["live-provider"] }' 'agent = { path = "vendor-sources/agent", features = ["live-provider"] }' \
-                --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "storage-family-declarations" }' 'schema-next = { path = "vendor-sources/schema-next" }'
+                --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "vendor-sources/schema-next" }'
 
               substituteInPlace $out/vendor-sources/schema-rust-next/Cargo.toml \
-                --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "storage-family-declarations" }' 'schema-next = { path = "../schema-next" }' \
+                --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "../schema-next" }' \
                 --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next = { path = "../nota-next" }' \
                 --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }' 'signal-frame = { path = "../signal-frame" }' \
                 --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "../triad-runtime" }'
@@ -284,20 +284,18 @@
             '';
         # The vendor step maps every LiGoldragon git source onto one local
         # path per repository, so the lock must end up with ONE entry per
-        # (name, version). While the version-control stack rides feature
-        # branches, the agent-stack crates still pin the main-branch schema
-        # stack, so the committed lock legitimately carries branch + main
-        # entries for the same package; after source-stripping those would
-        # collide ("specified twice"). Dedup keeps the entry whose original
-        # source matches the vendored branch for that repository.
+        # (name, version). If transient branch and main entries for the same
+        # package appear, source-stripping would make them collide ("specified
+        # twice"). Dedup keeps the entry whose original source matches the
+        # vendored reference for that repository.
         patchedCargoLock = pkgs.runCommand "spirit-patched-Cargo.lock" { } ''
           ${pkgs.python3}/bin/python3 - ${./Cargo.lock} "$out" <<'PYEOF'
           import re, sys
 
           preferred_reference = {
-              "schema-next": "storage-family-declarations",
-              "schema-rust-next": "record-family-emission",
-              "triad-runtime": "tailnet-listener",
+              "schema-next": "main",
+              "schema-rust-next": "main",
+              "triad-runtime": "main",
           }
 
           source_text = open(sys.argv[1]).read()

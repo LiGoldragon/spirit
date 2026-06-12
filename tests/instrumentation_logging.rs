@@ -6,8 +6,8 @@ use spirit::{
         signal::{
             CertaintySelection, Description, DomainMatch, DomainScopes, Domains, Entry,
             ImportanceSelection, Input, Justification, Kind, Magnitude, Output, Privacy,
-            PrivacySelection, Query, RecordRequest, SignalObjectName, SignalRejection,
-            QuoteText, Reasoning, Testimony, ValidationError, VerbatimQuote,
+            PrivacySelection, Query, QuoteText, Reasoning, RecordRequest, SignalObjectName,
+            SignalRejection, Testimony, ValidationError, VerbatimQuote,
         },
     },
 };

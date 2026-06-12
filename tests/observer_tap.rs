@@ -14,7 +14,7 @@
 use spirit::schema::signal::{
     CertaintySelection, Description, DomainMatch, DomainScopes, Domains, Entry,
     ImportanceSelection, Input, Justification, Kind, Magnitude, ObserverFilter, OperationKind,
-    Output, Privacy, PrivacySelection, QuoteText, Query, Reasoning, RecordRequest, Testimony,
+    Output, Privacy, PrivacySelection, Query, QuoteText, Reasoning, RecordRequest, Testimony,
     VerbatimQuote,
 };
 use spirit::{Engine, Store};

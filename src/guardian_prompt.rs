@@ -325,10 +325,16 @@ impl<'operation> GuardianOperationPrompt<'operation> {
     fn to_text(&self) -> String {
         match self.operation {
             GuardianOperation::Record(request) => {
-                format!("Record request (create a new durable intent):\n{}", request.to_nota())
+                format!(
+                    "Record request (create a new durable intent):\n{}",
+                    request.to_nota()
+                )
             }
             GuardianOperation::Propose(proposal) => {
-                format!("Propose request (create a new durable intent):\n{}", proposal.to_nota())
+                format!(
+                    "Propose request (create a new durable intent):\n{}",
+                    proposal.to_nota()
+                )
             }
             GuardianOperation::Clarify(clarification) => format!(
                 "Clarify request (sharpen an existing record without changing its arrow):\n{}",
@@ -345,7 +351,10 @@ impl<'operation> GuardianOperationPrompt<'operation> {
                 retirement.to_nota()
             ),
             GuardianOperation::Remove(removal) => {
-                format!("Remove request (hard removal of a record):\n{}", removal.to_nota())
+                format!(
+                    "Remove request (hard removal of a record):\n{}",
+                    removal.to_nota()
+                )
             }
             GuardianOperation::ChangeRecord(change) => format!(
                 "ChangeRecord request (edit a record in place under the same identifier; a \
@@ -387,7 +396,10 @@ mod tests {
     #[test]
     fn accept_renders_bare_and_round_trips() {
         let rendered = GuardianVerdict::Accept.to_nota();
-        assert_eq!(rendered, "Accept", "Accept must render as a bare atom, matching the few-shot");
+        assert_eq!(
+            rendered, "Accept",
+            "Accept must render as a bare atom, matching the few-shot"
+        );
         let parsed = NotaSource::new(&rendered)
             .parse::<GuardianVerdict>()
             .expect("rendered Accept must parse back");
@@ -419,7 +431,11 @@ mod tests {
             );
         }
         assert_eq!(MODEL_REASONS.len(), 15);
-        assert!(GuardianRejectionReason::HarnessMalformed.admission_gloss().is_none());
+        assert!(
+            GuardianRejectionReason::HarnessMalformed
+                .admission_gloss()
+                .is_none()
+        );
     }
 
     #[test]
@@ -440,4 +456,3 @@ mod tests {
         }
     }
 }
-
