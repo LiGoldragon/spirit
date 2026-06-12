@@ -330,7 +330,10 @@ impl Store {
             .file_stem()
             .map(|stem| stem.to_string_lossy().into_owned())
             .unwrap_or_else(|| String::from("spirit"));
-        self.path.with_file_name(format!("{stem}.guardian.sema"))
+        // The version suffix tracks GUARDIAN_JOURNAL_SCHEMA_VERSION: a
+        // journal-schema change (the stored GuardianOperation embeds the typed
+        // Justification) lands a fresh file rather than reading incompatible rkyv.
+        self.path.with_file_name(format!("{stem}.guardian.v2.sema"))
     }
 
     #[cfg(feature = "agent-guardian")]

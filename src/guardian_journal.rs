@@ -18,7 +18,11 @@ use crate::{
     store::StoreError,
 };
 
-const GUARDIAN_JOURNAL_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(1);
+// Bumped to 2 when the stored GuardianOperation gained the typed Justification
+// (Testimony/Reasoning) and multi-replacement Supersession. The journal filename
+// carries the same version (see `Store::guardian_journal_path`), so a new daemon
+// opens a fresh file instead of reading rkyv bytes with an incompatible layout.
+const GUARDIAN_JOURNAL_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(2);
 const GUARDIAN_DECISIONS_TABLE: TableName = TableName::new("guardian-decisions");
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
