@@ -400,6 +400,38 @@ is not wired because the generated streaming `Frame` carries a single event type
 (`IntentEvent`); the operation history is the load-bearing observer content and
 is delivered request/reply.
 
+### Guardian admission and its prompts
+
+Every working-socket write that changes the live intent corpus is gated by the
+LLM guardian (`AgentGuardian`, behind the `agent-guardian` feature): a clean-
+context judge that renders one strictly-binary `GuardianVerdict` per candidate.
+Two correctness properties are enforced in code, not by hope. (1) The closed
+rejection-reason set and the exact `Accept` / `(Reject (<Reason> [..]))` verdict
+grammar are **rendered from the `GuardianRejectionReason` enum and the
+`GuardianVerdict` type via `NotaEncode`**, so the prompt can never drift from the
+wire shape the daemon parses; `GuardianRejectionReason::admission_gloss` is an
+exhaustive match, so a new reason variant will not compile until it is glossed.
+(2) Empty testimony is a **deterministic structural reject** (`AgentGuardian::
+guard` short-circuits `MissingTestimony` before the model call when
+`GuardianOperation::testimony_is_empty()`) — the model judges only the semantic
+cases (fabrication, warrant, the certainty burden).
+
+**The guardian prompt prose lives in standalone files, never in the Rust.** Each
+static section is a file under `src/guardian-prompts/` (`role.md`,
+`record-shape.md`, `justification-shape.md`, `burden-ladder.md`, `checklist.md`,
+`few-shot.md`, and the `referent.md` template), embedded at compile time with
+`include_str!` so the daemon stays a single self-contained binary while the prose
+is edited as plain text without touching code. `guardian_prompt.rs` only
+**assembles** these sections and splices in the two enum-rendered parts (the
+reason catalogue and the verdict grammar); the `referent.md` template carries
+`{accept}` / `{reject}` placeholders filled by `.replace`. A regression test
+(`assembled_system_prompt_includes_every_file_section`) fails if any prompt file
+is empty or mis-wired. The judge runs at temperature 0 with DeepSeek thinking
+enabled at high reasoning effort (threaded through the typed `ReasoningEffort` /
+`ThinkingMode` controls on the agent contract), with two format-correction
+retries before failing closed. The decision journal is a separate, schema-
+versioned SEMA store (`spirit.guardian.v<N>.sema`).
+
 ### SEMA
 
 `Store` is the SEMA writer. SEMA means database work: the SEMA plane writes
