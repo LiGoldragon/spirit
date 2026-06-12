@@ -104,9 +104,20 @@
         scriptFilter =
           path: type:
           (type == "regular" || type == "directory") && (builtins.match ".*/scripts(/.*)?" path != null);
+        # The guardian prompt prose lives in src/guardian-prompts/*.md and is
+        # pulled into the daemon with include_str!; the crane cargo-source filter
+        # drops .md, so pull the directory and its files in by name match or the
+        # build fails to read them.
+        promptFilter =
+          path: type:
+          (type == "regular" || type == "directory")
+          && (builtins.match ".*/guardian-prompts(/.*)?" path != null);
         sourceFilter =
           path: type:
-          (craneLib.filterCargoSources path type) || (schemaFilter path type) || (scriptFilter path type);
+          (craneLib.filterCargoSources path type)
+          || (schemaFilter path type)
+          || (scriptFilter path type)
+          || (promptFilter path type);
         cleanSource = pkgs.lib.cleanSourceWith {
           src = ./.;
           filter = sourceFilter;
