@@ -105,15 +105,16 @@
     "nota-next-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781206792,
-        "narHash": "sha256-lN1spZDfKRA0ecPJtbs9IQjT5FfYYpzcyOjzznbiofs=",
+        "lastModified": 1781275517,
+        "narHash": "sha256-EBc9iEzbClDclbL6B7vIJL/ywjtU2SY69uBz8jFKDAs=",
         "owner": "LiGoldragon",
         "repo": "nota-next",
-        "rev": "065fa2ad2fa05bac87677f0bfa826bd92dbd139a",
+        "rev": "e92a9295d5dec15488c36a7bae202bd24200e7b0",
         "type": "github"
       },
       "original": {
         "owner": "LiGoldragon",
+        "ref": "structural-shape-extension",
         "repo": "nota-next",
         "type": "github"
       }
@@ -129,6 +130,7 @@
         "nota-next-source": "nota-next-source",
         "schema-next-source": "schema-next-source",
         "schema-rust-next-source": "schema-rust-next-source",
+        "sema-engine-previous-source": "sema-engine-previous-source",
         "sema-engine-source": "sema-engine-source",
         "sema-source": "sema-source",
         "signal-agent-source": "signal-agent-source",
@@ -159,15 +161,16 @@
     "schema-next-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781199727,
-        "narHash": "sha256-U3/u94AtSgPwvpzas/pQRuaK6pL+RqnV9WspuomwMn0=",
+        "lastModified": 1781286722,
+        "narHash": "sha256-hhDhYMB/5RObGCTwFqGZILCyZYW9WW4o/LfJd/xXGk8=",
         "owner": "LiGoldragon",
         "repo": "schema-next",
-        "rev": "2397d5b2a4a8f35da1ba5957f48337f9a579db00",
+        "rev": "89fe33a92ade08af0f1e81a69a3c0016b7699a2c",
         "type": "github"
       },
       "original": {
         "owner": "LiGoldragon",
+        "ref": "storage-family-declarations",
         "repo": "schema-next",
         "type": "github"
       }
@@ -175,31 +178,50 @@
     "schema-rust-next-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781207218,
-        "narHash": "sha256-OUkc4OtGJBf8uDMK/yVDVw76Cnu6569Stiw+lT7bznY=",
+        "lastModified": 1781287743,
+        "narHash": "sha256-HhJ5KtpzNvcNRm7xxtEsi2gP7iJpSaTERSpbMbZPum8=",
         "owner": "LiGoldragon",
         "repo": "schema-rust-next",
-        "rev": "cedb2e0652b2d8e3aa24c96a82b6daee6af785ad",
+        "rev": "9892d59d7cd23dc47bdb375bf9a78a1d813f25e7",
         "type": "github"
       },
       "original": {
         "owner": "LiGoldragon",
+        "ref": "record-family-emission",
         "repo": "schema-rust-next",
+        "type": "github"
+      }
+    },
+    "sema-engine-previous-source": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1781190934,
+        "narHash": "sha256-JjxoCa6nopE45xgALsJJIAvVIbK0gj7yiEjaUqgy4Q8=",
+        "owner": "LiGoldragon",
+        "repo": "sema-engine",
+        "rev": "c970d3f2f463534d5ef640fb18ab5c0da971129c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "LiGoldragon",
+        "ref": "main",
+        "repo": "sema-engine",
         "type": "github"
       }
     },
     "sema-engine-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1780882016,
-        "narHash": "sha256-pwputlTmijhSOc761UopW+OUs/P86ybIk1O/L97sM+E=",
+        "lastModified": 1781289809,
+        "narHash": "sha256-cX6UTW/X3SeF3R/rJQhDIYCJzpAZybLsHlQwQ3ZeRa4=",
         "owner": "LiGoldragon",
         "repo": "sema-engine",
-        "rev": "ebee6e44ba6ee4afcb26998007bcfd128641b54c",
+        "rev": "3593ffe62695a48cc4ebb08292571234c474faf6",
         "type": "github"
       },
       "original": {
         "owner": "LiGoldragon",
+        "ref": "versioned-fold",
         "repo": "sema-engine",
         "type": "github"
       }
@@ -302,15 +324,16 @@
     "triad-runtime-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781019468,
-        "narHash": "sha256-wA+mogx7m7vlPYoteIZ/wsNPNotx46+3Wp1jpfiEegE=",
+        "lastModified": 1781275253,
+        "narHash": "sha256-rpUP8qGhYEQtlziJmJi1OqNtAoyeh+fDEch4WoP8FYQ=",
         "owner": "LiGoldragon",
         "repo": "triad-runtime",
-        "rev": "6ea831627d13793a4c42d7f9b9174b47279a9b2b",
+        "rev": "1b5d0f17840793d00af73e8f16ad7908cad72a38",
         "type": "github"
       },
       "original": {
         "owner": "LiGoldragon",
+        "ref": "tailnet-listener",
         "repo": "triad-runtime",
         "type": "github"
       }
