@@ -59,7 +59,7 @@ path = "tests/instrumentation_logging.rs"
 required-features = ["testing-trace"]
 
 [dependencies]
-nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "structural-shape-extension", optional = true }
+nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }
 rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
 blake3 = "1"
 getrandom = "0.3"

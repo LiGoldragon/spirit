@@ -105,16 +105,15 @@
     "nota-next-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781275517,
-        "narHash": "sha256-EBc9iEzbClDclbL6B7vIJL/ywjtU2SY69uBz8jFKDAs=",
+        "lastModified": 1781206792,
+        "narHash": "sha256-lN1spZDfKRA0ecPJtbs9IQjT5FfYYpzcyOjzznbiofs=",
         "owner": "LiGoldragon",
         "repo": "nota-next",
-        "rev": "e92a9295d5dec15488c36a7bae202bd24200e7b0",
+        "rev": "065fa2ad2fa05bac87677f0bfa826bd92dbd139a",
         "type": "github"
       },
       "original": {
         "owner": "LiGoldragon",
-        "ref": "structural-shape-extension",
         "repo": "nota-next",
         "type": "github"
       }

@@ -10,7 +10,7 @@
     };
     crane.url = "github:ipetkov/crane";
     nota-next-source = {
-      url = "github:LiGoldragon/nota-next/structural-shape-extension";
+      url = "github:LiGoldragon/nota-next";
       flake = false;
     };
     schema-next-source = {
@@ -168,7 +168,7 @@
               cp -R "$versionProjectionSource" $out/vendor-sources/version-projection
 
               substituteInPlace $out/Cargo.toml \
-                --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "structural-shape-extension", optional = true }' 'nota-next = { path = "vendor-sources/nota-next", optional = true }' \
+                --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota-next = { path = "vendor-sources/nota-next", optional = true }' \
                 --replace-fail 'sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "versioned-fold" }' 'sema-engine = { path = "vendor-sources/sema-engine" }' \
                 --replace-fail 'sema-engine-previous = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main", package = "sema-engine", optional = true }' 'sema-engine-previous = { path = "vendor-sources/sema-engine-previous", package = "sema-engine", optional = true }' \
                 --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }' 'signal-frame = { path = "vendor-sources/signal-frame" }' \
@@ -282,10 +282,53 @@
               EOF
 
             '';
+        # The vendor step maps every LiGoldragon git source onto one local
+        # path per repository, so the lock must end up with ONE entry per
+        # (name, version). While the version-control stack rides feature
+        # branches, the agent-stack crates still pin the main-branch schema
+        # stack, so the committed lock legitimately carries branch + main
+        # entries for the same package; after source-stripping those would
+        # collide ("specified twice"). Dedup keeps the entry whose original
+        # source matches the vendored branch for that repository.
         patchedCargoLock = pkgs.runCommand "spirit-patched-Cargo.lock" { } ''
-          cp ${./Cargo.lock} "$out"
-          chmod u+w "$out"
-          sed -i '/source = "git+https:\/\/github.com\/LiGoldragon\//d' "$out"
+          ${pkgs.python3}/bin/python3 - ${./Cargo.lock} "$out" <<'PYEOF'
+          import re, sys
+
+          preferred_reference = {
+              "schema-next": "storage-family-declarations",
+              "schema-rust-next": "record-family-emission",
+              "triad-runtime": "tailnet-listener",
+          }
+
+          source_text = open(sys.argv[1]).read()
+          blocks = source_text.split("[[package]]")
+          header, entries = blocks[0], blocks[1:]
+
+          def field(entry, name):
+              found = re.search(r'^%s = "([^"]*)"' % name, entry, re.M)
+              return found.group(1) if found else ""
+
+          kept, seen = [], {}
+          for entry in entries:
+              key = (field(entry, "name"), field(entry, "version"))
+              source = field(entry, "source")
+              if key in seen:
+                  wanted = preferred_reference.get(key[0])
+                  if wanted and wanted in source:
+                      kept[seen[key]] = entry
+                  continue
+              seen[key] = len(kept)
+              kept.append(entry)
+
+          stripped = [
+              "\n".join(
+                  line for line in entry.split("\n")
+                  if not line.startswith('source = "git+https://github.com/LiGoldragon/')
+              )
+              for entry in kept
+          ]
+          open(sys.argv[2], "w").write(header + "".join("[[package]]" + entry for entry in stripped))
+          PYEOF
         '';
         cargoVendorDirectory = craneLib.vendorCargoDeps {
           inherit src;
