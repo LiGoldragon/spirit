@@ -80,6 +80,8 @@ schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git"
 [dev-dependencies]
 agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", features = ["live-provider"] }
 schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "storage-family-declarations" }
+# Typed `SemaOperation` labels for versioned-log shape witnesses.
+signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main" }
 tempfile = "3"
 
 [[test]]

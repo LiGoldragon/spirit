@@ -460,6 +460,19 @@ uses `sema-engine` over a `*.sema` file:
   `Migration` marker — migration as a logged fold, not an unlogged rewrite.
   The default archive sibling is rebuilt alongside; the v2 guardian journal
   file stays on disk and a fresh v3 journal file starts.
+- The migration swap is crash-safe with single-rename exposure. The fold
+  writes the fresh store beside the live one
+  (`<stem>.schema-9-migrating-<pid>.sema`); the swap first hard-links the
+  previous store to the backup path (`<stem>.schema-old-backup-<N>.sema`,
+  first free `N`), then ONE atomic rename moves the fresh store over the
+  live path — the live path is never absent. A crash before the rename
+  leaves the previous store live (re-run `spirit-migrate-store`; it removes
+  the stale temporary and redoes the fold); a crash after it leaves the
+  migrated store live and a re-run reports `Current`. The previous store's
+  bytes always survive at the backup path; rollback is stop the daemon and
+  copy the newest backup over the live path
+  (`cp <stem>.schema-old-backup-<N>.sema <stem>.sema`). The archive sibling
+  swaps with the same backup-link plus single-rename pattern.
 - `SemaEngine::apply(sema::Sema<sema::WriteInput>) ->
   sema::Sema<sema::WriteOutput>` is the mutation surface. A `Record` becomes
   a keyed assertion: Spirit mints an unused short/base36 string

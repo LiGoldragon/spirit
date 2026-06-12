@@ -1151,12 +1151,22 @@ impl EngineRecord for StoredRecord {
     }
 }
 
-impl EngineRecord for Migration {
-    fn record_key(&self) -> RecordKey {
+impl Migration {
+    /// The marker row's stable key in the migrations family, derived from
+    /// the typed source schema version — one row per migrated-from version,
+    /// so a repeated fold from the same source lands on the same key. The
+    /// single named home of the marker-key format: typed in, string out.
+    fn marker_key(&self) -> RecordKey {
         RecordKey::new(format!(
             "from-schema-{}",
             self.source_schema_version.payload()
         ))
+    }
+}
+
+impl EngineRecord for Migration {
+    fn record_key(&self) -> RecordKey {
+        self.marker_key()
     }
 }
 

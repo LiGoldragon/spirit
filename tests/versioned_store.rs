@@ -9,11 +9,18 @@
 
 use std::path::PathBuf;
 
+use signal_sema::SemaOperation;
 use spirit::{
     Store,
-    schema::signal::{
-        Certainty, Description, Domain, Domains, Entry, Importance, Kind, Magnitude, Privacy,
-        Referent, Referents,
+    schema::{
+        sema::{
+            self, RecordFamily, SemaEngine, WriteInput as SemaWriteInput,
+            WriteOutput as SemaWriteOutput,
+        },
+        signal::{
+            Certainty, CertaintyChange, Description, Domain, Domains, Entry, Importance, Kind,
+            Magnitude, Privacy, Referent, ReferentRegistration, Referents, Removal,
+        },
     },
 };
 use tempfile::TempDir;
@@ -126,6 +133,183 @@ fn checkpoint_and_suffix_restore_an_identical_store() {
         );
     }
     assert_eq!(restored.database_marker(), source.database_marker());
+}
+
+fn sema_write(input: SemaWriteInput, offset: u64) -> sema::Sema<sema::WriteInput> {
+    input.with_origin_route(sema::OriginRoute::new(9_000_000 + offset))
+}
+
+/// Mutations land in the versioned log with the shape replay depends on:
+/// a keyed operation labeled `Mutate` whose payload decodes through the
+/// generated closed family sum to the post-mutation row — for both a
+/// record certainty change and a referent alias merge, driven through the
+/// generated SEMA write surface the daemon itself uses. A log-shape
+/// regression on the mutation path fails here, not in a later replay.
+#[test]
+fn versioned_log_witnesses_mutation_payloads() {
+    let fixture = Fixture::new();
+    let mut store = Store::open(fixture.database_path("mutated")).expect("open store");
+
+    store
+        .register_referent(ReferentRegistration {
+            referent: Referent::new("sema-engine"),
+            aliases: Referents::new(vec![Referent::new("sema engine")]),
+            justification: justification("witness referent registration"),
+        })
+        .expect("register referent");
+    let receipt = store
+        .record_entry(entry("mutation target", Vec::new()))
+        .expect("record entry");
+
+    let changed = SemaEngine::apply(
+        &mut store,
+        sema_write(
+            SemaWriteInput::change_certainty(CertaintyChange {
+                record_identifier: receipt.record_identifier.clone(),
+                certainty: Certainty::new(Magnitude::Zero),
+            }),
+            1,
+        ),
+    );
+    match changed.root() {
+        SemaWriteOutput::CertaintyChanged(_) => {}
+        other => panic!("expected CertaintyChanged receipt, got {other:?}"),
+    }
+    let merged = SemaEngine::apply(
+        &mut store,
+        sema_write(
+            SemaWriteInput::register_referent(ReferentRegistration {
+                referent: Referent::new("sema-engine"),
+                aliases: Referents::new(vec![Referent::new("semantic engine")]),
+                justification: justification("witness referent alias merge"),
+            }),
+            2,
+        ),
+    );
+    match merged.root() {
+        SemaWriteOutput::ReferentRegistered(_) => {}
+        other => panic!("expected ReferentRegistered receipt, got {other:?}"),
+    }
+
+    let log = store.versioned_log().expect("read versioned log");
+    let mutations: Vec<_> = log
+        .iter()
+        .flat_map(|log_entry| log_entry.operations().iter())
+        .filter(|operation| operation.operation() == SemaOperation::Mutate)
+        .collect();
+    assert_eq!(
+        mutations.len(),
+        2,
+        "expected exactly the certainty-change and alias-merge mutations",
+    );
+    let mut record_mutations = 0;
+    let mut referent_mutations = 0;
+    for mutation in mutations {
+        let payload = mutation
+            .payload()
+            .bytes()
+            .expect("mutation payload carries record bytes");
+        match RecordFamily::decode(mutation.family(), payload).expect("decode mutated payload") {
+            RecordFamily::RecordsFamily(record) => {
+                record_mutations += 1;
+                assert_eq!(&record.record_identifier, &receipt.record_identifier);
+                assert_eq!(record.entry.certainty, Certainty::new(Magnitude::Zero));
+                assert_eq!(
+                    mutation.key().map(|key| key.as_str()),
+                    Some(receipt.record_identifier.payload().as_str()),
+                    "mutation is keyed to the mutated record",
+                );
+            }
+            RecordFamily::ReferentsFamily(referent) => {
+                referent_mutations += 1;
+                assert_eq!(referent.referent, Referent::new("sema-engine"));
+                for alias in ["sema engine", "semantic engine"] {
+                    assert!(
+                        referent.aliases.payload().contains(&Referent::new(alias)),
+                        "merged referent row carries alias {alias}",
+                    );
+                }
+            }
+            RecordFamily::MigrationsFamily(migration) => {
+                panic!("no migration was recorded, got {migration:?}")
+            }
+        }
+    }
+    assert_eq!(record_mutations, 1, "one certainty-change mutation");
+    assert_eq!(referent_mutations, 1, "one referent alias-merge mutation");
+}
+
+/// Retractions land in the versioned log as the engine's keyed tombstone:
+/// the operation is labeled `Retract`, addressed to the removed record's
+/// key in the records family, and carries no record bytes. A log-shape
+/// regression on the removal path fails here, not in a later replay.
+#[test]
+fn versioned_log_witnesses_retraction_tombstones() {
+    let fixture = Fixture::new();
+    let mut store = Store::open(fixture.database_path("retracted")).expect("open store");
+
+    let kept = store
+        .record_entry(entry("kept neighbor", Vec::new()))
+        .expect("record kept entry");
+    let removed = store
+        .record_entry(entry("removal target", Vec::new()))
+        .expect("record removal target");
+
+    let removal = SemaEngine::apply(
+        &mut store,
+        sema_write(
+            SemaWriteInput::remove(Removal {
+                record_identifier: removed.record_identifier.clone(),
+                justification: justification("witness removal"),
+            }),
+            1,
+        ),
+    );
+    match removal.root() {
+        SemaWriteOutput::Removed(receipt) => {
+            assert_eq!(receipt.payload().payload(), &removed.record_identifier);
+        }
+        other => panic!("expected Removed receipt, got {other:?}"),
+    }
+
+    let log = store.versioned_log().expect("read versioned log");
+    let retractions: Vec<_> = log
+        .iter()
+        .flat_map(|log_entry| log_entry.operations().iter())
+        .filter(|operation| operation.operation() == SemaOperation::Retract)
+        .collect();
+    assert_eq!(retractions.len(), 1, "expected exactly one retraction");
+    let retraction = retractions[0];
+    assert!(
+        retraction.payload().is_tombstone(),
+        "retraction carries the engine tombstone, not record bytes",
+    );
+    assert_eq!(retraction.payload().bytes(), None);
+    assert_eq!(
+        retraction.key().map(|key| key.as_str()),
+        Some(removed.record_identifier.payload().as_str()),
+        "tombstone is keyed to the removed record",
+    );
+    assert_eq!(
+        retraction.family().schema_hash(),
+        RecordFamily::records_family().schema_hash(),
+        "tombstone lands in the records family",
+    );
+
+    // The fold of that log matches: the removed record is gone from the
+    // query surface while its neighbor survives.
+    assert_eq!(
+        store
+            .entry_by_identifier(removed.record_identifier.payload())
+            .expect("query removed identifier"),
+        None,
+    );
+    assert!(
+        store
+            .entry_by_identifier(kept.record_identifier.payload())
+            .expect("query kept identifier")
+            .is_some(),
+    );
 }
 
 /// Every durable write is covered by the versioned log: the log decodes

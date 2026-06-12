@@ -16,6 +16,35 @@
 //! fold, so the fold input is the previous store's materialized rows. From
 //! version 9 onward the versioned log is authoritative and the next schema
 //! bump replays the previous store's log through the version chain instead.
+//!
+//! # Crash safety of the in-place swap
+//!
+//! The fold writes the fresh store beside the live one
+//! (`<stem>.schema-9-migrating-<pid>.sema`), then swaps it into place with
+//! single-rename exposure: the previous store first gets a second name — a
+//! hard link at the backup path (`<stem>.schema-old-backup-<N>.sema`, first
+//! free `N`) — and ONE atomic rename then moves the fresh store over the
+//! live path. The live path is therefore never absent. The previous store's
+//! bytes survive every crash:
+//!
+//! - crash before the backup link: the live path still holds the previous
+//!   store, untouched (the previous engine opens it read-only); at most a
+//!   stale `.schema-9-migrating-*` temporary remains. Recovery: re-run
+//!   `spirit-migrate-store` — it removes the stale temporary and redoes the
+//!   fold.
+//! - crash between the backup link and the rename: the live path still holds
+//!   the previous store; the backup path is a second name for the same
+//!   bytes. Recovery: re-run the migration (it mints the next free backup
+//!   suffix; the extra backup name may be deleted).
+//! - crash after the rename: the migration is complete — the live path holds
+//!   the migrated version-9 store, the backup path holds the previous store.
+//!   A re-run reports `Current` and changes nothing.
+//!
+//! To roll back to the previous store, an operator stops the daemon and
+//! copies the newest backup over the live path:
+//! `cp <stem>.schema-old-backup-<N>.sema <stem>.sema`. The default archive
+//! sibling (`<stem>.archive.sema`) is swapped with the same backup-link plus
+//! single-rename pattern and recovers the same way.
 
 use std::{
     fs,
@@ -1011,8 +1040,15 @@ impl StoreMigration {
         })?;
         drop(target_store);
         self.migrate_archive_sibling(&database_path, previous_schema_version)?;
+        // Swap with single-rename exposure: first give the previous store a
+        // second name (the backup hard link), then atomically rename the
+        // fresh store over the live path. The live path is never absent — a
+        // crash before the rename leaves the previous store live (plus a
+        // backup name for the same bytes); a crash after it leaves the
+        // migrated store live with the previous store intact at the backup
+        // path. See the module documentation for operator recovery.
         let backup_path = Self::backup_path(&database_path);
-        fs::rename(&database_path, backup_path)?;
+        fs::hard_link(&database_path, backup_path)?;
         fs::rename(temporary_path, database_path)?;
         Ok(StoreMigrationOutput::migrated(StoreMigrationCompleted {
             record_count,
@@ -1051,8 +1087,10 @@ impl StoreMigration {
             })?;
         }
         drop(fresh_archive);
+        // Same single-rename-exposure swap as the live store: backup hard
+        // link first, then one atomic rename over the archive path.
         let backup_path = Self::backup_path(&archive_path);
-        fs::rename(&archive_path, backup_path)?;
+        fs::hard_link(&archive_path, backup_path)?;
         fs::rename(temporary_path, archive_path)?;
         Ok(())
     }

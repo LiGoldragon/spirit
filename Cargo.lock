@@ -1182,7 +1182,7 @@ dependencies = [
 [[package]]
 name = "sema-engine"
 version = "0.4.0"
-source = "git+https://github.com/LiGoldragon/sema-engine.git?branch=versioned-fold#39991c18b59607800cf1cfa91ba1c2496a728d54"
+source = "git+https://github.com/LiGoldragon/sema-engine.git?branch=versioned-fold#3593ffe62695a48cc4ebb08292571234c474faf6"
 dependencies = [
  "blake3",
  "rkyv",
@@ -1366,6 +1366,7 @@ dependencies = [
  "sema-engine 0.4.0",
  "signal-agent",
  "signal-frame",
+ "signal-sema",
  "signal-spirit",
  "tempfile",
  "thiserror",
