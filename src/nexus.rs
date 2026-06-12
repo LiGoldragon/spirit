@@ -19,17 +19,16 @@ use crate::{
         signal::{
             Certainty, Clarification, ClarificationReceipt, DatabaseMarker, Description, Domain,
             Domains, Entry, ErrorMessage, ErrorReport, GuardianRejection, Importance, Input,
-            IntentClarified, IntentEvent, IntentRecorded, IntentRetired, IntentSubscription,
-            IntentSuperseded, Justification, Kind, Magnitude, ObservedOperation,
-            ObservedOperations, ObserverFilter, ObserverRetraction, ObserverSubscription,
-            OperationKind, Output, Privacy, Proposal, RecordChange, RecordChangeReceipt,
-            RecordCount, RecordIdentifier, RecordRequest, Records, ReferentGuardianRejection,
-            ReferentRegistration, ReferentRegistrationReceipt, Referents, Removal,
-            RemovalArchiveRecords, RemovalCandidateCollection, RemovalCandidatesCollection,
-            RemoveReceipt, RemovedIdentifiers, Retirement, RetirementReceipt, SemaReceipt,
-            SignalRejection, SkippedRemovalCandidates, StashHandle, StashedObservation, Statement,
-            SubscriptionToken, Supersession, SupersessionReceipt, ValidationError, VersionReport,
-            VersionText,
+            IntentClarified, IntentEvent, IntentRecorded, IntentSubscription, IntentSuperseded,
+            Justification, Kind, Magnitude, ObservedOperation, ObservedOperations, ObserverFilter,
+            ObserverRetraction, ObserverSubscription, OperationKind, Output, Privacy, Proposal,
+            RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier, RecordRequest,
+            Records, ReferentGuardianRejection, ReferentRegistration, ReferentRegistrationReceipt,
+            Referents, Removal, RemovalArchiveRecords, RemovalCandidateCollection,
+            RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifiers, Retirement,
+            RetirementReceipt, SemaReceipt, SignalRejection, SkippedRemovalCandidates, StashHandle,
+            StashedObservation, Statement, SubscriptionToken, Supersession, SupersessionReceipt,
+            ValidationError, VersionReport, VersionText,
         },
     },
     store::{Store, StoreError},
@@ -164,6 +163,7 @@ impl OperationKind {
             Input::Untap(_) => Self::Untap,
             Input::SubscribeIntent(_) => Self::SubscribeIntent,
             Input::Version => Self::Version,
+            Input::Marker => Self::Marker,
         }
     }
 }
@@ -394,10 +394,7 @@ impl Nexus {
             .map(|entry| {
                 IntentEvent::intent_recorded(IntentRecorded {
                     entry,
-                    sema_receipt: SemaReceipt {
-                        record_identifier: record_identifier.clone(),
-                        database_marker: self.database_marker(),
-                    },
+                    record_identifier: record_identifier.clone(),
                 })
             }))
     }
@@ -408,12 +405,11 @@ impl Nexus {
     ) -> Result<Option<IntentEvent>, StoreError> {
         Ok(self
             .store
-            .entry_by_identifier(receipt.record_identifier.payload())?
+            .entry_by_identifier(receipt.payload().payload())?
             .map(|entry| {
                 IntentEvent::intent_clarified(IntentClarified {
-                    record_identifier: receipt.record_identifier.clone(),
+                    record_identifier: receipt.payload().clone(),
                     entry,
-                    database_marker: receipt.database_marker.clone(),
                 })
             }))
     }
@@ -424,21 +420,18 @@ impl Nexus {
     ) -> Result<Option<IntentEvent>, StoreError> {
         Ok(self
             .store
-            .entry_by_identifier(receipt.sema_receipt.record_identifier.payload())?
+            .entry_by_identifier(receipt.record_identifier.payload())?
             .map(|entry| {
                 IntentEvent::intent_superseded(IntentSuperseded {
                     retired_identifiers: receipt.retired_identifiers.clone(),
                     entry,
-                    sema_receipt: receipt.sema_receipt.clone(),
+                    record_identifier: receipt.record_identifier.clone(),
                 })
             }))
     }
 
     pub fn intent_retired_event(&self, receipt: &RetirementReceipt) -> IntentEvent {
-        IntentEvent::intent_retired(IntentRetired {
-            record_identifier: receipt.record_identifier.clone(),
-            database_marker: receipt.database_marker.clone(),
-        })
+        IntentEvent::intent_retired(receipt.payload().clone())
     }
 
     /// Apply a Nexus-local effect, producing the matching effect result
@@ -520,10 +513,9 @@ impl Nexus {
             }
             NexusEffectCommand::OpenIntentSubscription(_query) => {
                 let token: SubscriptionTokenInner = self.subscription_token_issuer.issue();
-                NexusEffectResult::intent_subscription_opened(IntentSubscription {
-                    subscription_token: SubscriptionToken::new(token.value()),
-                    database_marker: self.database_marker(),
-                })
+                NexusEffectResult::intent_subscription_opened(IntentSubscription::new(
+                    SubscriptionToken::new(token.value()),
+                ))
             }
             NexusEffectCommand::CollectRemovalCandidates(collection) => {
                 self.collect_removal_candidates(collection.into_payload())
@@ -535,7 +527,6 @@ impl Nexus {
                     subscription_token: SubscriptionToken::new(token),
                     observer_filter,
                     observed_operations,
-                    database_marker: self.database_marker(),
                 })
             }
             NexusEffectCommand::CloseObserverTap(token) => {
@@ -547,7 +538,6 @@ impl Nexus {
                 NexusEffectResult::observer_tap_closed(ObserverRetraction {
                     subscription_token,
                     observed_operations,
-                    database_marker: self.database_marker(),
                 })
             }
         }
@@ -729,7 +719,6 @@ impl Nexus {
                 explanation: Explanation::new(
                     "guardian is required but no guardian agent is configured",
                 ),
-                database_marker,
             }));
         };
         let records = self.store.guardian_records_for_operation(&operation)?;
@@ -753,6 +742,12 @@ impl Nexus {
         &mut self,
         registration: ReferentRegistration,
     ) -> Result<Result<ReferentRegistrationReceipt, ReferentGuardianRejection>, StoreError> {
+        if let Some(receipt) = self
+            .store
+            .settled_referent_registration_receipt(&registration)?
+        {
+            return Ok(Ok(receipt));
+        }
         let Some(guardian) = &self.guardian else {
             if !self.guardian_required {
                 return Ok(Ok(self.store.register_referent(registration)?));
@@ -783,7 +778,6 @@ impl Nexus {
                 explanation: Explanation::new(
                     "guardian is required but no guardian agent is configured",
                 ),
-                database_marker,
             }));
         };
         let registered_referents = self.store.registered_referents()?;
@@ -842,16 +836,12 @@ impl Nexus {
                 removal_archive_records: RemovalArchiveRecords::new(Vec::new()),
                 removed_identifiers: RemovedIdentifiers::new(Vec::new()),
                 skipped_removal_candidates: SkippedRemovalCandidates::new(Vec::new()),
-                database_marker: self.database_marker(),
             });
         NexusEffectResult::removal_candidates_collected(result)
     }
 
     fn operation_failed(&self, message: impl Into<String>) -> NexusEffectResult {
-        NexusEffectResult::operation_failed(ErrorReport {
-            error_message: ErrorMessage::new(message.into()),
-            database_marker: self.database_marker(),
-        })
+        NexusEffectResult::operation_failed(ErrorReport::new(ErrorMessage::new(message.into())))
     }
 
     /// Run a SEMA write without pinning synchronous database work onto a
@@ -958,14 +948,11 @@ impl Nexus {
     }
 
     fn budget_exhausted_reply(&self, exhausted: ContinuationExhausted) -> Output {
-        Output::error(ErrorReport {
-            error_message: ErrorMessage::new(format!(
-                "nexus continuation budget exhausted after {} steps (limit {})",
-                exhausted.completed_step_count(),
-                exhausted.limit().count()
-            )),
-            database_marker: self.database_marker(),
-        })
+        Output::error(ErrorReport::new(ErrorMessage::new(format!(
+            "nexus continuation budget exhausted after {} steps (limit {})",
+            exhausted.completed_step_count(),
+            exhausted.limit().count()
+        ))))
     }
 }
 
@@ -1125,16 +1112,14 @@ impl Nexus {
                 NexusEffectCommand::guard_referent_registration(register.into_payload()),
             ),
             Input::LookupStash(handle) => match self.stash_table.lookup(handle.payload()) {
-                Some((records, database_marker)) => NexusAction::reply_to_signal(
-                    Output::records_observed(crate::schema::signal::ObservedRecords {
-                        record_set: crate::schema::signal::RecordSet::new(records.into_payload()),
-                        database_marker,
-                    }),
+                Some((records, _database_marker)) => NexusAction::reply_to_signal(
+                    Output::records_observed(crate::schema::signal::ObservedRecords::new(
+                        crate::schema::signal::RecordSet::new(records.into_payload()),
+                    )),
                 ),
-                None => NexusAction::reply_to_signal(Output::rejected(SignalRejection {
-                    validation_error: ValidationError::StashHandleNotFound,
-                    database_marker: self.database_marker(),
-                })),
+                None => NexusAction::reply_to_signal(Output::rejected(SignalRejection::new(
+                    ValidationError::StashHandleNotFound,
+                ))),
             },
             Input::CollectRemovalCandidates(collection) => NexusAction::command_effect(
                 NexusEffectCommand::collect_removal_candidates(collection.into_payload()),
@@ -1148,11 +1133,11 @@ impl Nexus {
             Input::SubscribeIntent(query) => NexusAction::command_effect(
                 NexusEffectCommand::open_intent_subscription(query.into_payload()),
             ),
-            Input::Version => {
-                NexusAction::reply_to_signal(Output::version_reported(VersionReport {
-                    version_text: VersionText::new(env!("CARGO_PKG_VERSION")),
-                    database_marker: self.database_marker(),
-                }))
+            Input::Version => NexusAction::reply_to_signal(Output::version_reported(
+                VersionReport::new(VersionText::new(env!("CARGO_PKG_VERSION"))),
+            )),
+            Input::Marker => {
+                NexusAction::reply_to_signal(Output::marker_reported(self.database_marker()))
             }
         }
     }
@@ -1190,11 +1175,10 @@ impl Nexus {
                 // through Stash effect so the wire reply carries a
                 // handle, not the full record set.
                 let observed = observed.into_payload();
-                let database_marker = observed.database_marker;
-                let records = Records::new(observed.record_set.into_payload());
+                let records = Records::new(observed.into_payload().into_payload());
                 NexusAction::command_effect(NexusEffectCommand::stash(StashRequest {
                     records,
-                    database_marker,
+                    database_marker: self.database_marker(),
                 }))
             }
             SemaReadOutput::Found(record) => {
@@ -1262,12 +1246,11 @@ impl Nexus {
                 let StashResult {
                     stash_handle,
                     record_count,
-                    database_marker,
+                    database_marker: _database_marker,
                 } = stashed.into_payload();
                 NexusAction::reply_to_signal(Output::records_stashed(StashedObservation {
                     stash_handle,
                     record_count,
-                    database_marker,
                 }))
             }
             NexusEffectResult::IntentSubscriptionOpened(subscription) => {

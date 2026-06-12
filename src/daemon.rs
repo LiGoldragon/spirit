@@ -200,7 +200,8 @@ impl ComponentDaemon for SpiritDaemon {
             | Input::CollectRemovalCandidates(_)
             | Input::Tap(_)
             | Input::Untap(_)
-            | Input::Version => None,
+            | Input::Version
+            | Input::Marker => None,
         }
     }
 
@@ -208,7 +209,7 @@ impl ComponentDaemon for SpiritDaemon {
         match output {
             Output::SubscriptionStarted(subscription) => {
                 Some(IntentSubscriptionToken::from_signal_token(
-                    subscription.payload().subscription_token.clone(),
+                    subscription.payload().payload().clone(),
                 ))
             }
             _ => None,

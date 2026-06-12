@@ -15,10 +15,9 @@ use crate::{
             Entry, ErrorMessage, ImportanceSelection, Input, Integer, IntentEvent, KeywordMatch,
             MailIdentifier, MailLedgerEvent, MessageIdentifier, MessageProcessed,
             MessageProcessedHook, MessageSent, MessageSentHook, OriginRoute, Output, Privacy,
-            PrivacySelection, ProcessedMail, Query, RecordCount, RecordSelection, ReferentSelection,
-            ScopeSet,
-            SemaReceipt, SentMail, ShortHeader, SignalEngine, SignalRejection, StatementText,
-            SupersessionReceipt, TextMatch, ValidationError,
+            PrivacySelection, ProcessedMail, Query, RecordCount, RecordSelection,
+            ReferentSelection, ScopeSet, SemaReceipt, SentMail, ShortHeader, SignalEngine,
+            SignalRejection, StatementText, SupersessionReceipt, TextMatch, ValidationError,
         },
     },
     store::{Store, StoreError},
@@ -160,7 +159,7 @@ impl Engine {
         let accepted = match self.signal_admission.admit(input) {
             Ok(accepted) => accepted,
             Err(rejected) => {
-                let output = rejected.into_signal_output(self.nexus.database_marker());
+                let output = rejected.into_signal_output();
                 #[cfg(feature = "testing-trace")]
                 self.signal_admission.trace_signal_rejected();
                 #[cfg(feature = "testing-trace")]
@@ -520,7 +519,8 @@ impl Input {
             | Self::LookupStash(_)
             | Self::Tap(_)
             | Self::Untap(_)
-            | Self::Version => Ok(()),
+            | Self::Version
+            | Self::Marker => Ok(()),
             Self::ChangeRecord(change) => change.payload().validate(),
             Self::Remove(remove) => remove.payload().validate(),
             Self::RegisterReferent(register) => register.payload().validate(),
@@ -823,7 +823,6 @@ impl MessageProcessed<Output> {
         MailLedgerEvent::processed(ProcessedMail {
             mail_identifier: MailIdentifier::new(self.identifier().as_integer()),
             origin_route: self.origin_route(),
-            database_marker: self.reply.database_marker(),
         })
     }
 }
@@ -838,53 +837,6 @@ impl MailLedgerEvent {
     }
 }
 
-impl Output {
-    pub fn database_marker(&self) -> DatabaseMarker {
-        match self {
-            Self::RecordAccepted(_) | Self::Proposed(_) => DatabaseMarker::zero(),
-            Self::Clarified(receipt) => receipt.payload().database_marker.clone(),
-            Self::Superseded(receipt) => receipt.payload().sema_receipt.database_marker.clone(),
-            Self::Retired(receipt) => receipt.payload().database_marker.clone(),
-            Self::GuardianRejected(rejection) => rejection.payload().database_marker.clone(),
-            Self::ReferentGuardianRejected(rejection) => {
-                rejection.payload().database_marker.clone()
-            }
-            Self::RecordsObserved(records) => records.payload().database_marker.clone(),
-            Self::RecordsStashed(stashed) => stashed.payload().database_marker.clone(),
-            Self::RecordFound(record) => record.payload().database_marker.clone(),
-            Self::RecordsCounted(records) => records.payload().database_marker.clone(),
-            Self::RecordRemoved(receipt) => receipt.payload().database_marker.clone(),
-            Self::CertaintyChanged(receipt) => receipt.payload().database_marker.clone(),
-            Self::ImportanceBumped(receipt) => receipt.payload().database_marker.clone(),
-            Self::RecordChanged(receipt) => receipt.payload().database_marker.clone(),
-            Self::ReferentRegistered(receipt) => receipt.payload().database_marker.clone(),
-            Self::RemovalCandidatesCollected(collection) => {
-                collection.payload().database_marker.clone()
-            }
-            Self::ObservationTapped(subscription) => subscription.payload().database_marker.clone(),
-            Self::ObservationUntapped(retraction) => retraction.payload().database_marker.clone(),
-            Self::SubscriptionStarted(subscription) => {
-                subscription.payload().database_marker.clone()
-            }
-            Self::VersionReported(report) => report.payload().database_marker.clone(),
-            Self::Event(event) => event.database_marker(),
-            Self::Error(report) => report.payload().database_marker.clone(),
-            Self::Rejected(rejection) => rejection.payload().database_marker.clone(),
-        }
-    }
-}
-
-impl crate::schema::signal::IntentEvent {
-    pub fn database_marker(&self) -> DatabaseMarker {
-        match self {
-            Self::IntentRecorded(recorded) => recorded.sema_receipt.database_marker.clone(),
-            Self::IntentClarified(clarified) => clarified.database_marker.clone(),
-            Self::IntentSuperseded(superseded) => superseded.sema_receipt.database_marker.clone(),
-            Self::IntentRetired(retired) => retired.database_marker.clone(),
-        }
-    }
-}
-
 impl DatabaseMarker {
     pub fn zero() -> Self {
         Self {
@@ -895,11 +847,8 @@ impl DatabaseMarker {
 }
 
 impl ValidationError {
-    pub fn into_signal_output(self, database_marker: DatabaseMarker) -> Output {
-        Output::rejected(SignalRejection {
-            validation_error: self,
-            database_marker,
-        })
+    pub fn into_signal_output(self) -> Output {
+        Output::rejected(SignalRejection::new(self))
     }
 }
 
@@ -910,10 +859,9 @@ impl nexus_schema::nexus::Nexus<NexusAction> {
             NexusAction::ReplyToSignal(output) => {
                 output.into_payload().with_origin_route(origin_route.into())
             }
-            _ => Output::error(ErrorReport {
-                error_message: ErrorMessage::new("nexus returned non-signal action"),
-                database_marker: DatabaseMarker::zero(),
-            })
+            _ => Output::error(ErrorReport::new(ErrorMessage::new(
+                "nexus returned non-signal action",
+            )))
             .with_origin_route(origin_route.into()),
         }
     }
@@ -1492,12 +1440,9 @@ impl std::ops::Deref for signal_schema::Processed {
 }
 
 impl SignalRejected {
-    pub fn into_signal_output(
-        self,
-        database_marker: DatabaseMarker,
-    ) -> signal_schema::signal::Signal<Output> {
+    pub fn into_signal_output(self) -> signal_schema::signal::Signal<Output> {
         self.validation_error
-            .into_signal_output(database_marker)
+            .into_signal_output()
             .with_origin_route(self.origin_route)
     }
 }

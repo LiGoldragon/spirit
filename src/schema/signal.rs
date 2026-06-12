@@ -345,6 +345,11 @@ pub struct SubscriptionStarted(IntentSubscription);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct MarkerReported(DatabaseMarker);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Error(ErrorReport);
 
 #[rustfmt::skip]
@@ -466,18 +471,12 @@ pub struct SemaReceipt {
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct RemoveReceipt {
-    pub record_identifier: RecordIdentifier,
-    pub database_marker: DatabaseMarker,
-}
+pub struct RemoveReceipt(RecordIdentifier);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ObservedRecords {
-    pub record_set: RecordSet,
-    pub database_marker: DatabaseMarker,
-}
+pub struct ObservedRecords(RecordSet);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -493,32 +492,22 @@ pub struct ObservedRecord {
 pub struct FoundRecord {
     pub record_identifier: RecordIdentifier,
     pub entry: Entry,
-    pub database_marker: DatabaseMarker,
 }
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct CountedRecords {
-    pub record_count: RecordCount,
-    pub database_marker: DatabaseMarker,
-}
+pub struct CountedRecords(RecordCount);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ErrorReport {
-    pub error_message: ErrorMessage,
-    pub database_marker: DatabaseMarker,
-}
+pub struct ErrorReport(ErrorMessage);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct SignalRejection {
-    pub validation_error: ValidationError,
-    pub database_marker: DatabaseMarker,
-}
+pub struct SignalRejection(ValidationError);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -526,16 +515,12 @@ pub struct SignalRejection {
 pub struct StashedObservation {
     pub stash_handle: StashHandle,
     pub record_count: RecordCount,
-    pub database_marker: DatabaseMarker,
 }
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct IntentSubscription {
-    pub subscription_token: SubscriptionToken,
-    pub database_marker: DatabaseMarker,
-}
+pub struct IntentSubscription(SubscriptionToken);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -573,10 +558,7 @@ pub struct ReferentRegistration {
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ReferentRegistrationReceipt {
-    pub referent: Referent,
-    pub database_marker: DatabaseMarker,
-}
+pub struct ReferentRegistrationReceipt(Referent);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -599,17 +581,14 @@ pub struct VersionReported(VersionReport);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct VersionReport {
-    pub version_text: VersionText,
-    pub database_marker: DatabaseMarker,
-}
+pub struct VersionReport(VersionText);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct IntentRecorded {
     pub entry: Entry,
-    pub sema_receipt: SemaReceipt,
+    pub record_identifier: RecordIdentifier,
 }
 
 #[rustfmt::skip]
@@ -618,7 +597,6 @@ pub struct IntentRecorded {
 pub struct IntentClarified {
     pub record_identifier: RecordIdentifier,
     pub entry: Entry,
-    pub database_marker: DatabaseMarker,
 }
 
 #[rustfmt::skip]
@@ -627,16 +605,13 @@ pub struct IntentClarified {
 pub struct IntentSuperseded {
     pub retired_identifiers: RetiredIdentifiers,
     pub entry: Entry,
-    pub sema_receipt: SemaReceipt,
+    pub record_identifier: RecordIdentifier,
 }
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct IntentRetired {
-    pub record_identifier: RecordIdentifier,
-    pub database_marker: DatabaseMarker,
-}
+pub struct IntentRetired(RecordIdentifier);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -685,7 +660,6 @@ pub struct SentMail {
 pub struct ProcessedMail {
     pub mail_identifier: MailIdentifier,
     pub origin_route: OriginRoute,
-    pub database_marker: DatabaseMarker,
 }
 
 #[rustfmt::skip]
@@ -949,7 +923,6 @@ pub struct RemovalCandidatesCollection {
     pub removal_archive_records: RemovalArchiveRecords,
     pub removed_identifiers: RemovedIdentifiers,
     pub skipped_removal_candidates: SkippedRemovalCandidates,
-    pub database_marker: DatabaseMarker,
 }
 
 #[rustfmt::skip]
@@ -977,7 +950,6 @@ pub struct ObserverSubscription {
     pub subscription_token: SubscriptionToken,
     pub observer_filter: ObserverFilter,
     pub observed_operations: ObservedOperations,
-    pub database_marker: DatabaseMarker,
 }
 
 #[rustfmt::skip]
@@ -986,7 +958,6 @@ pub struct ObserverSubscription {
 pub struct ObserverRetraction {
     pub subscription_token: SubscriptionToken,
     pub observed_operations: ObservedOperations,
-    pub database_marker: DatabaseMarker,
 }
 
 #[rustfmt::skip]
@@ -1024,6 +995,7 @@ pub enum OperationKind {
     Untap,
     SubscribeIntent,
     Version,
+    Marker,
 }
 
 #[rustfmt::skip]
@@ -1068,7 +1040,6 @@ pub struct CertaintyChange {
 pub struct CertaintyChangeReceipt {
     pub record_identifier: RecordIdentifier,
     pub certainty: Certainty,
-    pub database_marker: DatabaseMarker,
 }
 
 #[rustfmt::skip]
@@ -1082,7 +1053,6 @@ pub struct ImportanceBump(RecordIdentifier);
 pub struct ImportanceBumpReceipt {
     pub record_identifier: RecordIdentifier,
     pub importance: Importance,
-    pub database_marker: DatabaseMarker,
 }
 
 #[rustfmt::skip]
@@ -1097,10 +1067,7 @@ pub struct RecordChange {
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct RecordChangeReceipt {
-    pub record_identifier: RecordIdentifier,
-    pub database_marker: DatabaseMarker,
-}
+pub struct RecordChangeReceipt(RecordIdentifier);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -1114,10 +1081,7 @@ pub struct Clarification {
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ClarificationReceipt {
-    pub record_identifier: RecordIdentifier,
-    pub database_marker: DatabaseMarker,
-}
+pub struct ClarificationReceipt(RecordIdentifier);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -1133,7 +1097,7 @@ pub struct Supersession {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct SupersessionReceipt {
     pub retired_identifiers: RetiredIdentifiers,
-    pub sema_receipt: SemaReceipt,
+    pub record_identifier: RecordIdentifier,
 }
 
 #[rustfmt::skip]
@@ -1147,10 +1111,7 @@ pub struct Retirement {
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct RetirementReceipt {
-    pub record_identifier: RecordIdentifier,
-    pub database_marker: DatabaseMarker,
-}
+pub struct RetirementReceipt(RecordIdentifier);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -1197,7 +1158,6 @@ pub struct GuardianRejection {
     pub guardian_rejection_reason: GuardianRejectionReason,
     pub record_set: RecordSet,
     pub explanation: Explanation,
-    pub database_marker: DatabaseMarker,
 }
 
 #[rustfmt::skip]
@@ -1231,7 +1191,6 @@ pub struct ReferentGuardianRejection {
     pub referent_guardian_rejection_reason: ReferentGuardianRejectionReason,
     pub registered_referents: RegisteredReferents,
     pub explanation: Explanation,
-    pub database_marker: DatabaseMarker,
 }
 
 #[rustfmt::skip]
@@ -1335,6 +1294,7 @@ pub enum Input {
     Untap(Untap),
     SubscribeIntent(SubscribeIntent),
     Version,
+    Marker,
 }
 
 #[rustfmt::skip]
@@ -1362,6 +1322,7 @@ pub enum Output {
     ObservationUntapped(ObservationUntapped),
     SubscriptionStarted(SubscriptionStarted),
     VersionReported(VersionReported),
+    MarkerReported(MarkerReported),
     Event(IntentEvent),
     Error(Error),
     Rejected(Rejected),
@@ -2204,6 +2165,25 @@ impl From<IntentSubscription> for SubscriptionStarted {
 }
 
 #[rustfmt::skip]
+impl MarkerReported {
+    pub fn new(payload: DatabaseMarker) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &DatabaseMarker {
+        &self.0
+    }
+    pub fn into_payload(self) -> DatabaseMarker {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<DatabaseMarker> for MarkerReported {
+    fn from(payload: DatabaseMarker) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl Error {
     pub fn new(payload: ErrorReport) -> Self {
         Self(payload)
@@ -2603,6 +2583,139 @@ impl From<String> for Explanation {
 }
 
 #[rustfmt::skip]
+impl RemoveReceipt {
+    pub fn new(payload: RecordIdentifier) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &RecordIdentifier {
+        &self.0
+    }
+    pub fn into_payload(self) -> RecordIdentifier {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<RecordIdentifier> for RemoveReceipt {
+    fn from(payload: RecordIdentifier) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl ObservedRecords {
+    pub fn new(payload: RecordSet) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &RecordSet {
+        &self.0
+    }
+    pub fn into_payload(self) -> RecordSet {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<RecordSet> for ObservedRecords {
+    fn from(payload: RecordSet) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl CountedRecords {
+    pub fn new(payload: RecordCount) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &RecordCount {
+        &self.0
+    }
+    pub fn into_payload(self) -> RecordCount {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<RecordCount> for CountedRecords {
+    fn from(payload: RecordCount) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl ErrorReport {
+    pub fn new(payload: ErrorMessage) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ErrorMessage {
+        &self.0
+    }
+    pub fn into_payload(self) -> ErrorMessage {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ErrorMessage> for ErrorReport {
+    fn from(payload: ErrorMessage) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl SignalRejection {
+    pub fn new(payload: ValidationError) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ValidationError {
+        &self.0
+    }
+    pub fn into_payload(self) -> ValidationError {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ValidationError> for SignalRejection {
+    fn from(payload: ValidationError) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl IntentSubscription {
+    pub fn new(payload: SubscriptionToken) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &SubscriptionToken {
+        &self.0
+    }
+    pub fn into_payload(self) -> SubscriptionToken {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<SubscriptionToken> for IntentSubscription {
+    fn from(payload: SubscriptionToken) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl ReferentRegistrationReceipt {
+    pub fn new(payload: Referent) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Referent {
+        &self.0
+    }
+    pub fn into_payload(self) -> Referent {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Referent> for ReferentRegistrationReceipt {
+    fn from(payload: Referent) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl RegisteredReferents {
     pub fn new(payload: Vec<RegisteredReferent>) -> Self {
         Self(payload)
@@ -2636,6 +2749,44 @@ impl VersionReported {
 #[rustfmt::skip]
 impl From<VersionReport> for VersionReported {
     fn from(payload: VersionReport) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl VersionReport {
+    pub fn new(payload: VersionText) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &VersionText {
+        &self.0
+    }
+    pub fn into_payload(self) -> VersionText {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<VersionText> for VersionReport {
+    fn from(payload: VersionText) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl IntentRetired {
+    pub fn new(payload: RecordIdentifier) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &RecordIdentifier {
+        &self.0
+    }
+    pub fn into_payload(self) -> RecordIdentifier {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<RecordIdentifier> for IntentRetired {
+    fn from(payload: RecordIdentifier) -> Self {
         Self::new(payload)
     }
 }
@@ -3211,6 +3362,63 @@ impl From<RecordIdentifier> for ImportanceBump {
 }
 
 #[rustfmt::skip]
+impl RecordChangeReceipt {
+    pub fn new(payload: RecordIdentifier) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &RecordIdentifier {
+        &self.0
+    }
+    pub fn into_payload(self) -> RecordIdentifier {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<RecordIdentifier> for RecordChangeReceipt {
+    fn from(payload: RecordIdentifier) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl ClarificationReceipt {
+    pub fn new(payload: RecordIdentifier) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &RecordIdentifier {
+        &self.0
+    }
+    pub fn into_payload(self) -> RecordIdentifier {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<RecordIdentifier> for ClarificationReceipt {
+    fn from(payload: RecordIdentifier) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl RetirementReceipt {
+    pub fn new(payload: RecordIdentifier) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &RecordIdentifier {
+        &self.0
+    }
+    pub fn into_payload(self) -> RecordIdentifier {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<RecordIdentifier> for RetirementReceipt {
+    fn from(payload: RecordIdentifier) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl RetiredIdentifier {
     pub fn new(payload: RecordIdentifier) -> Self {
         Self(payload)
@@ -3297,8 +3505,8 @@ impl IntentEvent {
     pub fn intent_superseded(payload: IntentSuperseded) -> Self {
         Self::IntentSuperseded(payload)
     }
-    pub fn intent_retired(payload: IntentRetired) -> Self {
-        Self::IntentRetired(payload)
+    pub fn intent_retired(payload: RecordIdentifier) -> Self {
+        Self::IntentRetired(IntentRetired::new(payload))
     }
 }
 
@@ -3519,6 +3727,9 @@ impl Output {
     }
     pub fn version_reported(payload: VersionReport) -> Self {
         Self::VersionReported(VersionReported::new(payload))
+    }
+    pub fn marker_reported(payload: DatabaseMarker) -> Self {
+        Self::MarkerReported(MarkerReported::new(payload))
     }
     pub fn event(payload: IntentEvent) -> Self {
         Self::Event(payload)
@@ -3980,6 +4191,13 @@ impl From<VersionReported> for Output {
 }
 
 #[rustfmt::skip]
+impl From<MarkerReported> for Output {
+    fn from(payload: MarkerReported) -> Self {
+        Self::MarkerReported(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl From<IntentEvent> for Output {
     fn from(payload: IntentEvent) -> Self {
         Self::Event(payload)
@@ -4056,6 +4274,7 @@ pub mod short_header {
     pub const INPUT_UNTAP: u64 = 0x0013000000000000;
     pub const INPUT_SUBSCRIBE_INTENT: u64 = 0x0014000000000000;
     pub const INPUT_VERSION: u64 = 0x0015000000000000;
+    pub const INPUT_MARKER: u64 = 0x0016000000000000;
     pub const OUTPUT_RECORD_ACCEPTED: u64 = 0x0100000000000000;
     pub const OUTPUT_PROPOSED: u64 = 0x0101000000000000;
     pub const OUTPUT_CLARIFIED: u64 = 0x0102000000000000;
@@ -4077,9 +4296,10 @@ pub mod short_header {
     pub const OUTPUT_OBSERVATION_UNTAPPED: u64 = 0x0112000000000000;
     pub const OUTPUT_SUBSCRIPTION_STARTED: u64 = 0x0113000000000000;
     pub const OUTPUT_VERSION_REPORTED: u64 = 0x0114000000000000;
-    pub const OUTPUT_EVENT: u64 = 0x0115000000000000;
-    pub const OUTPUT_ERROR: u64 = 0x0116000000000000;
-    pub const OUTPUT_REJECTED: u64 = 0x0117000000000000;
+    pub const OUTPUT_MARKER_REPORTED: u64 = 0x0115000000000000;
+    pub const OUTPUT_EVENT: u64 = 0x0116000000000000;
+    pub const OUTPUT_ERROR: u64 = 0x0117000000000000;
+    pub const OUTPUT_REJECTED: u64 = 0x0118000000000000;
 }
 
 #[rustfmt::skip]
@@ -4152,6 +4372,7 @@ pub enum InputRoute {
     Untap,
     SubscribeIntent,
     Version,
+    Marker,
 }
 
 #[rustfmt::skip]
@@ -4188,6 +4409,7 @@ pub enum OutputRoute {
     ObservationUntapped,
     SubscriptionStarted,
     VersionReported,
+    MarkerReported,
     Event,
     Error,
     Rejected,
@@ -4219,6 +4441,7 @@ impl Input {
             Self::Untap(_) => InputRoute::Untap,
             Self::SubscribeIntent(_) => InputRoute::SubscribeIntent,
             Self::Version => InputRoute::Version,
+            Self::Marker => InputRoute::Marker,
         }
     }
     pub fn short_header(&self) -> u64 {
@@ -4247,6 +4470,7 @@ impl Input {
             Self::Untap(_) => short_header::INPUT_UNTAP,
             Self::SubscribeIntent(_) => short_header::INPUT_SUBSCRIBE_INTENT,
             Self::Version => short_header::INPUT_VERSION,
+            Self::Marker => short_header::INPUT_MARKER,
         }
     }
     pub fn route_from_short_header(header: u64) -> Result<InputRoute, SignalFrameError> {
@@ -4275,6 +4499,7 @@ impl Input {
             short_header::INPUT_UNTAP => Ok(InputRoute::Untap),
             short_header::INPUT_SUBSCRIBE_INTENT => Ok(InputRoute::SubscribeIntent),
             short_header::INPUT_VERSION => Ok(InputRoute::Version),
+            short_header::INPUT_MARKER => Ok(InputRoute::Marker),
             _ => {
                 Err(SignalFrameError::UnknownHeader {
                     root_enum: "Input",
@@ -4348,6 +4573,7 @@ impl Output {
             Self::ObservationUntapped(_) => OutputRoute::ObservationUntapped,
             Self::SubscriptionStarted(_) => OutputRoute::SubscriptionStarted,
             Self::VersionReported(_) => OutputRoute::VersionReported,
+            Self::MarkerReported(_) => OutputRoute::MarkerReported,
             Self::Event(_) => OutputRoute::Event,
             Self::Error(_) => OutputRoute::Error,
             Self::Rejected(_) => OutputRoute::Rejected,
@@ -4380,6 +4606,7 @@ impl Output {
             Self::ObservationUntapped(_) => short_header::OUTPUT_OBSERVATION_UNTAPPED,
             Self::SubscriptionStarted(_) => short_header::OUTPUT_SUBSCRIPTION_STARTED,
             Self::VersionReported(_) => short_header::OUTPUT_VERSION_REPORTED,
+            Self::MarkerReported(_) => short_header::OUTPUT_MARKER_REPORTED,
             Self::Event(_) => short_header::OUTPUT_EVENT,
             Self::Error(_) => short_header::OUTPUT_ERROR,
             Self::Rejected(_) => short_header::OUTPUT_REJECTED,
@@ -4420,6 +4647,7 @@ impl Output {
                 Ok(OutputRoute::SubscriptionStarted)
             }
             short_header::OUTPUT_VERSION_REPORTED => Ok(OutputRoute::VersionReported),
+            short_header::OUTPUT_MARKER_REPORTED => Ok(OutputRoute::MarkerReported),
             short_header::OUTPUT_EVENT => Ok(OutputRoute::Event),
             short_header::OUTPUT_ERROR => Ok(OutputRoute::Error),
             short_header::OUTPUT_REJECTED => Ok(OutputRoute::Rejected),
@@ -4496,6 +4724,7 @@ impl signal_frame::SignalOperationHeads for Input {
         "Untap",
         "SubscribeIntent",
         "Version",
+        "Marker",
     ];
 }
 #[rustfmt::skip]
@@ -4615,6 +4844,7 @@ impl SignalObjectName {
                     InputRoute::Untap => "SignalInputUntap",
                     InputRoute::SubscribeIntent => "SignalInputSubscribeIntent",
                     InputRoute::Version => "SignalInputVersion",
+                    InputRoute::Marker => "SignalInputMarker",
                 }
             }
             Self::Output(route) => {
@@ -4644,6 +4874,7 @@ impl SignalObjectName {
                     OutputRoute::ObservationUntapped => "SignalOutputObservationUntapped",
                     OutputRoute::SubscriptionStarted => "SignalOutputSubscriptionStarted",
                     OutputRoute::VersionReported => "SignalOutputVersionReported",
+                    OutputRoute::MarkerReported => "SignalOutputMarkerReported",
                     OutputRoute::Event => "SignalOutputEvent",
                     OutputRoute::Error => "SignalOutputError",
                     OutputRoute::Rejected => "SignalOutputRejected",

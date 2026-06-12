@@ -131,73 +131,60 @@ impl SemaEngine for Store {
                     record_identifier: RecordIdentifier::new(identifier),
                     database_marker: self.database_marker(),
                 }),
-                Err(error) => SemaWriteOutput::missed(ErrorReport {
-                    error_message: ErrorMessage::new(error.to_string()),
-                    database_marker: self.database_marker(),
-                }),
+                Err(error) => {
+                    SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(error.to_string())))
+                }
             },
             SemaWriteInput::Remove(remove) => {
                 let record_identifier = remove.into_payload().record_identifier;
                 match self.remove(record_identifier.payload()) {
-                    Ok(true) => SemaWriteOutput::removed(RemoveReceipt {
-                        record_identifier,
-                        database_marker: self.database_marker(),
-                    }),
-                    Ok(false) => SemaWriteOutput::missed(ErrorReport {
-                        error_message: ErrorMessage::new("record not found"),
-                        database_marker: self.database_marker(),
-                    }),
-                    Err(error) => SemaWriteOutput::missed(ErrorReport {
-                        error_message: ErrorMessage::new(error.to_string()),
-                        database_marker: self.database_marker(),
-                    }),
+                    Ok(true) => SemaWriteOutput::removed(RemoveReceipt::new(record_identifier)),
+                    Ok(false) => SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(
+                        "record not found",
+                    ))),
+                    Err(error) => SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(
+                        error.to_string(),
+                    ))),
                 }
             }
             SemaWriteInput::ChangeCertainty(change) => {
                 match self.change_certainty(change.into_payload()) {
                     Ok(Some(receipt)) => SemaWriteOutput::certainty_changed(receipt),
-                    Ok(None) => SemaWriteOutput::missed(ErrorReport {
-                        error_message: ErrorMessage::new("record not found"),
-                        database_marker: self.database_marker(),
-                    }),
-                    Err(error) => SemaWriteOutput::missed(ErrorReport {
-                        error_message: ErrorMessage::new(error.to_string()),
-                        database_marker: self.database_marker(),
-                    }),
+                    Ok(None) => SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(
+                        "record not found",
+                    ))),
+                    Err(error) => SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(
+                        error.to_string(),
+                    ))),
                 }
             }
             SemaWriteInput::BumpImportance(change) => {
                 match self.bump_importance(change.into_payload()) {
                     Ok(Some(receipt)) => SemaWriteOutput::importance_bumped(receipt),
-                    Ok(None) => SemaWriteOutput::missed(ErrorReport {
-                        error_message: ErrorMessage::new("record not found"),
-                        database_marker: self.database_marker(),
-                    }),
-                    Err(error) => SemaWriteOutput::missed(ErrorReport {
-                        error_message: ErrorMessage::new(error.to_string()),
-                        database_marker: self.database_marker(),
-                    }),
+                    Ok(None) => SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(
+                        "record not found",
+                    ))),
+                    Err(error) => SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(
+                        error.to_string(),
+                    ))),
                 }
             }
             SemaWriteInput::ChangeRecord(change) => match self.change_record(change.into_payload())
             {
                 Ok(Some(receipt)) => SemaWriteOutput::record_changed(receipt),
-                Ok(None) => SemaWriteOutput::missed(ErrorReport {
-                    error_message: ErrorMessage::new("record not found"),
-                    database_marker: self.database_marker(),
-                }),
-                Err(error) => SemaWriteOutput::missed(ErrorReport {
-                    error_message: ErrorMessage::new(error.to_string()),
-                    database_marker: self.database_marker(),
-                }),
+                Ok(None) => {
+                    SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new("record not found")))
+                }
+                Err(error) => {
+                    SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(error.to_string())))
+                }
             },
             SemaWriteInput::RegisterReferent(register) => {
                 match self.register_referent(register.into_payload()) {
                     Ok(receipt) => SemaWriteOutput::referent_registered(receipt),
-                    Err(error) => SemaWriteOutput::missed(ErrorReport {
-                        error_message: ErrorMessage::new(error.to_string()),
-                        database_marker: self.database_marker(),
-                    }),
+                    Err(error) => SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(
+                        error.to_string(),
+                    ))),
                 }
             }
         };
@@ -211,18 +198,15 @@ impl SemaEngine for Store {
         let origin_route = query.origin_route();
         let output = match query.into_root() {
             SemaReadInput::Observe(observe) => match self.observe(observe.payload()) {
-                Ok(entries) if !entries.is_empty() => SemaReadOutput::observed(ObservedRecords {
-                    record_set: RecordSet::new(entries),
-                    database_marker: self.database_marker(),
-                }),
-                Ok(_) => SemaReadOutput::missed(ErrorReport {
-                    error_message: ErrorMessage::new("no matching record"),
-                    database_marker: self.database_marker(),
-                }),
-                Err(error) => SemaReadOutput::missed(ErrorReport {
-                    error_message: ErrorMessage::new(error.to_string()),
-                    database_marker: self.database_marker(),
-                }),
+                Ok(entries) if !entries.is_empty() => {
+                    SemaReadOutput::observed(ObservedRecords::new(RecordSet::new(entries)))
+                }
+                Ok(_) => SemaReadOutput::missed(ErrorReport::new(ErrorMessage::new(
+                    "no matching record",
+                ))),
+                Err(error) => {
+                    SemaReadOutput::missed(ErrorReport::new(ErrorMessage::new(error.to_string())))
+                }
             },
             SemaReadInput::Lookup(lookup) => {
                 let record_identifier = lookup.into_payload();
@@ -230,27 +214,20 @@ impl SemaEngine for Store {
                     Ok(Some(entry)) => SemaReadOutput::found(FoundRecord {
                         record_identifier,
                         entry,
-                        database_marker: self.database_marker(),
                     }),
-                    Ok(None) => SemaReadOutput::missed(ErrorReport {
-                        error_message: ErrorMessage::new("record not found"),
-                        database_marker: self.database_marker(),
-                    }),
-                    Err(error) => SemaReadOutput::missed(ErrorReport {
-                        error_message: ErrorMessage::new(error.to_string()),
-                        database_marker: self.database_marker(),
-                    }),
+                    Ok(None) => SemaReadOutput::missed(ErrorReport::new(ErrorMessage::new(
+                        "record not found",
+                    ))),
+                    Err(error) => SemaReadOutput::missed(ErrorReport::new(ErrorMessage::new(
+                        error.to_string(),
+                    ))),
                 }
             }
             SemaReadInput::Count(count) => match self.count(count.payload()) {
-                Ok(count) => SemaReadOutput::counted(CountedRecords {
-                    record_count: RecordCount::new(count),
-                    database_marker: self.database_marker(),
-                }),
-                Err(error) => SemaReadOutput::missed(ErrorReport {
-                    error_message: ErrorMessage::new(error.to_string()),
-                    database_marker: self.database_marker(),
-                }),
+                Ok(count) => SemaReadOutput::counted(CountedRecords::new(RecordCount::new(count))),
+                Err(error) => {
+                    SemaReadOutput::missed(ErrorReport::new(ErrorMessage::new(error.to_string())))
+                }
             },
         };
         output.with_origin_route(origin_route)
@@ -439,7 +416,6 @@ impl Store {
             removal_archive_records: RemovalArchiveRecords::new(archived_records),
             removed_identifiers: RemovedIdentifiers::new(removed_identifiers),
             skipped_removal_candidates: SkippedRemovalCandidates::new(skipped_candidates),
-            database_marker: self.database_marker(),
         })
     }
 
@@ -474,6 +450,9 @@ impl Store {
         &self,
         registration: ReferentRegistration,
     ) -> Result<ReferentRegistrationReceipt, StoreError> {
+        if let Some(receipt) = self.settled_referent_registration_receipt(&registration)? {
+            return Ok(receipt);
+        }
         let mut record = StoredReferent::new(registration.referent, registration.aliases);
         self.reject_conflicting_referent_names(&record)?;
         if let Some(existing) = self.referent_by_key(record.referent.payload())? {
@@ -484,10 +463,18 @@ impl Store {
             self.database
                 .assert(Assertion::new(self.referents, record.clone()))?;
         }
-        Ok(ReferentRegistrationReceipt {
-            referent: record.referent,
-            database_marker: self.database_marker(),
-        })
+        Ok(ReferentRegistrationReceipt::new(record.referent))
+    }
+
+    pub(crate) fn settled_referent_registration_receipt(
+        &self,
+        registration: &ReferentRegistration,
+    ) -> Result<Option<ReferentRegistrationReceipt>, StoreError> {
+        Ok(self
+            .referents()?
+            .into_iter()
+            .find(|referent| referent.contains_registration(registration))
+            .map(|referent| ReferentRegistrationReceipt::new(referent.referent)))
     }
 
     fn record(&self, entry: Entry) -> Result<String, StoreError> {
@@ -516,7 +503,7 @@ impl Store {
             return Ok(Ok(self.propose(entry)?));
         };
         let record_identifier = RecordIdentifier::new(duplicate.record_identifier.clone());
-        let importance_receipt = self
+        let _importance_receipt = self
             .bump_importance(ImportanceBump::new(record_identifier.clone()))?
             .ok_or_else(|| {
                 StoreError::DuplicateRecordVanished(record_identifier.payload().clone())
@@ -533,7 +520,6 @@ impl Store {
                 entry: updated_entry,
             }]),
             explanation: Explanation::new("proposal duplicates an existing forward arrow"),
-            database_marker: importance_receipt.database_marker,
         }))
     }
 
@@ -671,7 +657,7 @@ impl Store {
             return Ok(fallback);
         };
         let record_identifier = RecordIdentifier::new(duplicate.record_identifier.clone());
-        let importance_receipt = self
+        let _importance_receipt = self
             .bump_importance(ImportanceBump::new(record_identifier.clone()))?
             .ok_or_else(|| {
                 StoreError::DuplicateRecordVanished(record_identifier.payload().clone())
@@ -688,7 +674,6 @@ impl Store {
                 entry: updated_entry,
             }]),
             explanation: Explanation::new("guardian judged the write as a duplicate"),
-            database_marker: importance_receipt.database_marker,
         })
     }
 
@@ -725,10 +710,7 @@ impl Store {
         if !self.remove(record_identifier.payload())? {
             return Ok(None);
         }
-        Ok(Some(RemoveReceipt {
-            record_identifier,
-            database_marker: self.database_marker(),
-        }))
+        Ok(Some(RemoveReceipt::new(record_identifier)))
     }
 
     pub fn retire(&self, retirement: Retirement) -> Result<Option<RetirementReceipt>, StoreError> {
@@ -744,10 +726,7 @@ impl Store {
         if !self.remove(record_identifier.payload())? {
             return Ok(None);
         }
-        Ok(Some(RetirementReceipt {
-            record_identifier,
-            database_marker: self.database_marker(),
-        }))
+        Ok(Some(RetirementReceipt::new(record_identifier)))
     }
 
     fn change_certainty(
@@ -767,7 +746,6 @@ impl Store {
         Ok(Some(CertaintyChangeReceipt {
             record_identifier,
             certainty: change.certainty,
-            database_marker: self.database_marker(),
         }))
     }
 
@@ -789,7 +767,6 @@ impl Store {
         Ok(Some(ImportanceBumpReceipt {
             record_identifier,
             importance,
-            database_marker: self.database_marker(),
         }))
     }
 
@@ -810,10 +787,7 @@ impl Store {
             self.entries,
             StoredRecord::new(identifier_text, entry),
         ))?;
-        Ok(Some(RecordChangeReceipt {
-            record_identifier,
-            database_marker: self.database_marker(),
-        }))
+        Ok(Some(RecordChangeReceipt::new(record_identifier)))
     }
 
     pub fn clarify(
@@ -835,10 +809,7 @@ impl Store {
             self.entries,
             StoredRecord::new(identifier_text, entry),
         ))?;
-        Ok(Some(ClarificationReceipt {
-            record_identifier,
-            database_marker: self.database_marker(),
-        }))
+        Ok(Some(ClarificationReceipt::new(record_identifier)))
     }
 
     pub fn supersede(
@@ -863,7 +834,7 @@ impl Store {
         let sema_receipt = self.propose(replacement)?;
         Ok(Some(SupersessionReceipt {
             retired_identifiers,
-            sema_receipt,
+            record_identifier: sema_receipt.record_identifier,
         }))
     }
 
@@ -1073,6 +1044,15 @@ impl StoredReferent {
                 .payload()
                 .iter()
                 .any(|alias| self.matches(alias))
+    }
+
+    fn contains_registration(&self, registration: &ReferentRegistration) -> bool {
+        self.matches(&registration.referent)
+            && registration
+                .aliases
+                .payload()
+                .iter()
+                .all(|alias| self.matches(alias))
     }
 
     #[cfg(feature = "agent-guardian")]

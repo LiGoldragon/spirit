@@ -627,11 +627,9 @@ fn cli_and_daemon_report_version_from_bare_nota_atom() {
     match version {
         Output::VersionReported(report) => {
             assert_eq!(
-                report.payload().version_text.payload(),
+                report.payload().payload().payload(),
                 env!("CARGO_PKG_VERSION")
             );
-            assert_eq!(report.payload().database_marker.commit_sequence, 0);
-            assert_eq!(report.payload().database_marker.state_digest, 0);
         }
         other => panic!("expected VersionReported from bare Version input, got {other:?}"),
     }
@@ -651,8 +649,7 @@ fn cli_subscription_receives_matching_intent_events_without_blocking_daemon() {
 
     match subscriber.next_output(Duration::from_secs(2)) {
         Output::SubscriptionStarted(subscription) => {
-            assert_eq!(subscription.subscription_token, 1);
-            assert_eq!(subscription.database_marker.commit_sequence, 0);
+            assert_eq!(subscription.payload().payload().payload(), &1);
         }
         other => panic!("expected SubscriptionStarted, got {other:?}"),
     }
@@ -691,7 +688,7 @@ fn cli_subscription_receives_matching_intent_events_without_blocking_daemon() {
             );
             assert_eq!(recorded.entry.kind, Kind::Decision);
             assert_eq!(recorded.entry.description, "subscriber receives this");
-            assert_eq!(&recorded.sema_receipt.record_identifier, receipt.payload());
+            assert_eq!(&recorded.record_identifier, receipt.payload());
         }
         other => panic!("expected IntentRecorded event, got {other:?}"),
     }
@@ -728,15 +725,27 @@ fn cli_and_daemon_classify_state_into_provisional_record() {
     );
     match looked_up {
         Output::RecordsObserved(records) => {
-            assert_eq!(records.record_set.len(), 1);
+            assert_eq!(records.payload().payload().len(), 1);
             assert_eq!(
-                records.record_set[0].entry.domains,
+                records.payload().payload()[0].entry.domains,
                 Domains::from_strings(vec![String::from("meaning")])
             );
-            assert_eq!(records.record_set[0].entry.kind, Kind::Clarification);
-            assert_eq!(records.record_set[0].entry.description, "daemon raw intent");
-            assert_eq!(records.record_set[0].entry.certainty, Magnitude::Minimum);
-            assert_eq!(records.record_set[0].entry.privacy, Magnitude::Zero);
+            assert_eq!(
+                records.payload().payload()[0].entry.kind,
+                Kind::Clarification
+            );
+            assert_eq!(
+                records.payload().payload()[0].entry.description,
+                "daemon raw intent"
+            );
+            assert_eq!(
+                records.payload().payload()[0].entry.certainty,
+                Magnitude::Minimum
+            );
+            assert_eq!(
+                records.payload().payload()[0].entry.privacy,
+                Magnitude::Zero
+            );
         }
         other => panic!("expected LookupStash to return classified State record, got {other:?}"),
     }
@@ -777,7 +786,6 @@ fn cli_and_daemon_change_certainty_without_changing_record_identifier() {
         Output::CertaintyChanged(receipt) => {
             assert_eq!(receipt.record_identifier, record_identifier);
             assert_eq!(receipt.certainty, Magnitude::Zero);
-            assert_eq!(receipt.database_marker.commit_sequence, 2);
         }
         other => panic!("expected CertaintyChanged, got {other:?}"),
     }
@@ -798,7 +806,6 @@ fn cli_and_daemon_change_certainty_without_changing_record_identifier() {
     match explicit_candidate_query {
         Output::RecordsStashed(stashed) => {
             assert_eq!(stashed.record_count, 1);
-            assert_eq!(stashed.database_marker.commit_sequence, 2);
         }
         other => panic!("expected explicit zero-certainty query to stash record, got {other:?}"),
     }
@@ -905,8 +912,7 @@ fn cli_and_daemon_change_record_replaces_entry_under_same_identifier() {
     );
     match changed {
         Output::RecordChanged(receipt) => {
-            assert_eq!(receipt.record_identifier, record_identifier);
-            assert_eq!(receipt.database_marker.commit_sequence, 2);
+            assert_eq!(receipt.payload().payload(), &record_identifier);
         }
         other => panic!("expected RecordChanged, got {other:?}"),
     }
@@ -964,7 +970,7 @@ fn cli_renders_alias_payload_outputs_without_wrapper_repetition() {
     let rejected_stdout = String::from_utf8(rejected.stdout).expect("cli stdout is UTF-8");
     assert_eq!(
         rejected_stdout.trim(),
-        "(Rejected (EmptyDomain (0 0)))",
+        "(Rejected EmptyDomain)",
         "Rejected aliases must render the direct SignalRejection payload without a Rejected wrapper"
     );
     let rejected_output = Output::from_str(rejected_stdout.trim()).unwrap_or_else(|error| {
@@ -1061,7 +1067,8 @@ fn daemon_persists_sema_file_across_a_restart() {
     match looked_up {
         Output::RecordsObserved(records) => {
             assert_eq!(
-                records.record_set[0].entry.description, "survives restart",
+                records.payload().payload()[0].entry.description,
+                "survives restart",
                 "the restarted daemon's stash retrieves the durable content"
             );
         }
@@ -1265,7 +1272,8 @@ fn stashed_descriptions(socket_path: &Path, output: Output) -> Vec<String> {
     match resolved {
         Output::RecordsObserved(records) => {
             let mut descriptions: Vec<String> = records
-                .record_set
+                .payload()
+                .payload()
                 .iter()
                 .map(|record| record.entry.description.payload().clone())
                 .collect();

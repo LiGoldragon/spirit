@@ -80,7 +80,7 @@ fn signal_schema_input_uses_exported_object_variant_names() {
 
     // The active production Input enum body — compact exported objects.
     witness.must_contain(
-        "[State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version]",
+        "[State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version Marker]",
         "4",
     );
     witness.must_contain("State Statement", "4");
@@ -164,7 +164,7 @@ fn signal_schema_output_uses_exported_object_variant_names() {
 
     // The active production Output enum body.
     witness.must_contain(
-        "[RecordAccepted Proposed Clarified Superseded Retired GuardianRejected ReferentGuardianRejected RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged ImportanceBumped RecordChanged ReferentRegistered RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted VersionReported (Event IntentEvent) Error Rejected]",
+        "[RecordAccepted Proposed Clarified Superseded Retired GuardianRejected ReferentGuardianRejected RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged ImportanceBumped RecordChanged ReferentRegistered RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted VersionReported MarkerReported (Event IntentEvent) Error Rejected]",
         "4",
     );
     witness.must_contain("RecordAccepted RecordIdentifier", "4");
@@ -184,7 +184,8 @@ fn signal_schema_output_uses_exported_object_variant_names() {
     witness.must_contain("ReferentRegistered ReferentRegistrationReceipt", "4");
     witness.must_contain("SubscriptionStarted IntentSubscription", "4");
     witness.must_contain("VersionReported VersionReport", "4");
-    witness.must_contain("VersionReport { VersionText * DatabaseMarker * }", "4");
+    witness.must_contain("MarkerReported DatabaseMarker", "4");
+    witness.must_contain("VersionReport { VersionText * }", "4");
     witness.must_contain(
         "IntentEvent [(IntentRecorded IntentRecorded belongs IntentEventStream) (IntentClarified IntentClarified belongs IntentEventStream) (IntentSuperseded IntentSuperseded belongs IntentEventStream) (IntentRetired IntentRetired belongs IntentEventStream)]",
         "4",
@@ -252,7 +253,7 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     sema_witness.must_round_trip_as_schema_source();
 
     signal_witness.must_contain(
-        "[State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version]",
+        "[State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version Marker]",
         "4",
     );
     signal_witness.must_contain("State Statement", "4");
@@ -267,6 +268,7 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     signal_witness.must_contain("RegisterReferent ReferentRegistration", "4");
     signal_witness.must_contain("SubscribeIntent Query", "4");
     signal_witness.must_contain("Version", "4");
+    signal_witness.must_contain("Marker", "4");
     sema_witness.must_contain("[WriteInput ReadInput]", "4");
     sema_witness.must_contain(
         "WriteInput [(Record) (Remove) (ChangeCertainty) (BumpImportance) (ChangeRecord) (RegisterReferent)]",
@@ -347,6 +349,7 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     signal_witness.must_contain("BumpImportance(BumpImportance)", "4");
     signal_witness.must_contain("RegisterReferent(RegisterReferent)", "4");
     signal_witness.must_contain("Version", "4");
+    signal_witness.must_contain("Marker", "4");
 
     // The schema-emitted Output enum carries exported wrapper nouns.
     signal_witness.must_contain("pub enum Output {", "4");
@@ -364,6 +367,7 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     signal_witness.must_contain("ReferentRegistered(ReferentRegistered)", "4");
     signal_witness.must_contain("ReferentGuardianRejected(ReferentGuardianRejected)", "4");
     signal_witness.must_contain("VersionReported(VersionReported)", "4");
+    signal_witness.must_contain("MarkerReported(MarkerReported)", "4");
     signal_witness.must_contain("Error(Error)", "4");
     signal_witness.must_contain("Rejected(Rejected)", "4");
 

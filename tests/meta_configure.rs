@@ -139,6 +139,9 @@ fn configure_sets_archive_target_and_leaves_live_database_unchanged() {
                 rejection.payload().configure_rejection_reason
             )
         }
+        MetaOutput::Imported(imported) => {
+            panic!("configure unexpectedly imported records: {imported:?}")
+        }
     }
 
     // CORE PROOF (2): the LIVE database is UNCHANGED by Configure. A record

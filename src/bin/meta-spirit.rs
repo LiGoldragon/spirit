@@ -29,8 +29,8 @@ impl MetaSpiritCli {
     fn run(&self) -> Result<(), MetaSpiritCliError> {
         let source = self.source()?;
         let input = source.parse_input()?;
-        let socket_path =
-            env::var("SPIRIT_META_SOCKET").unwrap_or_else(|_| String::from("/tmp/meta-spirit.sock"));
+        let socket_path = env::var("SPIRIT_META_SOCKET")
+            .unwrap_or_else(|_| String::from("/tmp/meta-spirit.sock"));
         let mut transport = MetaSignalTransport::connect(socket_path)?;
         let (_route, output) = transport.exchange(&input)?;
         println!("{output}");

@@ -100,8 +100,8 @@ use std::{
 
 use spirit::Configuration;
 use spirit::schema::signal::{
-    DatabaseMarker, Description, Domains, Entry, Kind, Magnitude, Output, OutputRoute, Privacy,
-    RecordIdentifier, SignalRejection, ValidationError,
+    Description, Domains, Entry, Kind, Magnitude, Output, OutputRoute, Privacy, RecordIdentifier,
+    SignalRejection, ValidationError,
 };
 use tempfile::TempDir;
 
@@ -400,13 +400,6 @@ fn entry(description: &str) -> Entry {
     }
 }
 
-fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
-    DatabaseMarker {
-        commit_sequence: commit_sequence.into(),
-        state_digest: state_digest.into(),
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Tests — every one of these proves the schema-driven build pipeline
 // AND the runtime end-to-end, through the same binaries Nix builds.
@@ -484,10 +477,7 @@ fn nix_built_daemon_rejects_invalid_input_through_schema_emitted_rejection() {
 
     assert_eq!(
         output,
-        Output::rejected(SignalRejection {
-            validation_error: ValidationError::EmptyDomain,
-            database_marker: marker(0, 0),
-        }),
+        Output::rejected(SignalRejection::new(ValidationError::EmptyDomain)),
         "the Nix-built daemon's schema-emitted SignalRejection variant must arrive intact"
     );
 }
@@ -517,9 +507,9 @@ fn nix_built_daemon_persists_state_across_two_cli_invocations() {
         Output::RecordAccepted(receipt) => assert_short_record_identifier(receipt.payload()),
         other => panic!("expected RecordAccepted, got {other:?}"),
     };
-    let first_marker = match run_cli_for_output(&binaries, daemon.socket(), "Version") {
-        Output::VersionReported(report) => report.payload().database_marker.clone(),
-        other => panic!("expected VersionReported after first record, got {other:?}"),
+    let first_marker = match run_cli_for_output(&binaries, daemon.socket(), "Marker") {
+        Output::MarkerReported(marker) => marker.into_payload(),
+        other => panic!("expected MarkerReported after first record, got {other:?}"),
     };
 
     let second = run_cli_for_output(
@@ -535,9 +525,9 @@ fn nix_built_daemon_persists_state_across_two_cli_invocations() {
         Output::RecordAccepted(receipt) => assert_short_record_identifier(receipt.payload()),
         other => panic!("expected RecordAccepted, got {other:?}"),
     };
-    let second_marker = match run_cli_for_output(&binaries, daemon.socket(), "Version") {
-        Output::VersionReported(report) => report.payload().database_marker.clone(),
-        other => panic!("expected VersionReported after second record, got {other:?}"),
+    let second_marker = match run_cli_for_output(&binaries, daemon.socket(), "Marker") {
+        Output::MarkerReported(marker) => marker.into_payload(),
+        other => panic!("expected MarkerReported after second record, got {other:?}"),
     };
 
     assert!(
@@ -584,10 +574,6 @@ fn nix_built_daemon_observes_recorded_entries_back_through_query() {
     let stash_handle = match observed {
         Output::RecordsStashed(stashed) => {
             assert_eq!(stashed.record_count, 1);
-            assert_eq!(
-                stashed.database_marker.commit_sequence, 1,
-                "Observe does not advance the schema-emitted CommitSequence"
-            );
             stashed.stash_handle.clone()
         }
         other => panic!("expected schema-emitted RecordsStashed, got {other:?}"),
@@ -601,13 +587,12 @@ fn nix_built_daemon_observes_recorded_entries_back_through_query() {
 
     match resolved {
         Output::RecordsObserved(records) => {
-            assert_short_record_identifier(&records.record_set[0].record_identifier);
+            assert_short_record_identifier(&records.payload().payload()[0].record_identifier);
             assert_eq!(
-                records.record_set[0].entry,
+                records.payload().payload()[0].entry,
                 entry("observe round trip"),
                 "LookupStash must echo the schema-emitted Entry we recorded"
             );
-            assert_eq!(records.database_marker.commit_sequence, 1);
         }
         other => panic!("expected schema-emitted RecordsObserved from LookupStash, got {other:?}"),
     }
@@ -633,8 +618,7 @@ fn nix_built_daemon_returns_missed_when_no_matching_record_exists() {
     match output {
         Output::Error(report) => {
             // The schema-emitted ErrorMessage carries the SEMA "no matching record" string.
-            assert_eq!(report.payload().error_message, "no matching record");
-            assert_eq!(report.payload().database_marker, marker(0, 0));
+            assert_eq!(report.payload().payload().payload(), "no matching record");
         }
         other => panic!("expected schema-emitted Output::Error, got {other:?}"),
     }
@@ -665,11 +649,9 @@ fn nix_built_daemon_handles_back_to_back_inputs_through_one_socket() {
             Output::RecordAccepted(receipt) => assert_short_record_identifier(receipt.payload()),
             other => panic!("expected RecordAccepted for {description}, got {other:?}"),
         }
-        match run_cli_for_output(&binaries, daemon.socket(), "Version") {
-            Output::VersionReported(report) => {
-                markers.push(report.payload().database_marker.clone())
-            }
-            other => panic!("expected VersionReported for {description}, got {other:?}"),
+        match run_cli_for_output(&binaries, daemon.socket(), "Marker") {
+            Output::MarkerReported(marker) => markers.push(marker.into_payload()),
+            other => panic!("expected MarkerReported for {description}, got {other:?}"),
         }
     }
 
@@ -712,10 +694,9 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     match &version {
         Output::VersionReported(report) => {
             assert_eq!(
-                report.payload().version_text.payload(),
+                report.payload().payload().payload(),
                 env!("CARGO_PKG_VERSION")
             );
-            assert_eq!(report.payload().database_marker, marker(0, 0));
         }
         other => panic!("expected VersionReported, got {other:?}"),
     }
@@ -865,9 +846,9 @@ fn nix_built_daemon_alias_state_across_separate_cli_processes() {
     );
     match resolved {
         Output::RecordsObserved(records) => {
-            assert_short_record_identifier(&records.record_set[0].record_identifier);
+            assert_short_record_identifier(&records.payload().payload()[0].record_identifier);
             assert_eq!(
-                records.record_set[0].entry,
+                records.payload().payload()[0].entry,
                 entry("process a record"),
                 "the daemon must remember the record across separate CLI processes"
             )

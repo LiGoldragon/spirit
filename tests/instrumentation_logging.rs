@@ -4,8 +4,8 @@ use spirit::{
         nexus::NexusObjectName,
         sema::SemaObjectName,
         signal::{
-            CertaintySelection, DatabaseMarker, Description, DomainMatch, DomainScopes, Domains,
-            Entry, ImportanceSelection, Input, Justification, Kind, Magnitude, Output, Privacy,
+            CertaintySelection, Description, DomainMatch, DomainScopes, Domains, Entry,
+            ImportanceSelection, Input, Justification, Kind, Magnitude, Output, Privacy,
             PrivacySelection, Query, RecordRequest, SignalObjectName, SignalRejection,
             StatementText, ValidationError,
         },
@@ -82,7 +82,7 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
     // each NexusEntered/NexusDecided pair is one decision step. Observe needs
     // three steps: command SEMA read, command stash effect, reply to Signal.
     let record_marker = match observed.root() {
-        Output::RecordsStashed(stash) => stash.payload().database_marker.clone(),
+        Output::RecordsStashed(_) => engine.database_marker(),
         other => panic!("expected RecordsStashed, got {other:?}"),
     };
 
@@ -226,13 +226,7 @@ fn testing_trace_records_signal_rejection_without_nexus_or_sema_activations() {
     assert_eq!(engine.record_count(), 0);
     assert_eq!(
         output.root(),
-        &Output::rejected(SignalRejection {
-            validation_error: ValidationError::EmptyDomain,
-            database_marker: DatabaseMarker {
-                commit_sequence: 0.into(),
-                state_digest: 0.into(),
-            },
-        })
+        &Output::rejected(SignalRejection::new(ValidationError::EmptyDomain))
     );
     assert_activation_names(&trace_log.events(), &["SignalRejected", "SignalReplied"]);
 }

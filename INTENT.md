@@ -19,14 +19,21 @@ Load-bearing constraints:
 
 *The three runtime centers are concrete objects.* `SignalActor` handles admission, `Nexus` is the mail keeper and translator owning the store and ledger, and `Store` is the durable SEMA plane over `sema-engine`. `Engine` composes them and owns no SEMA state. Generated plane namespaces expose `signal::Input`/`signal::Output`, `nexus::Work`/`nexus::Action`, and `sema::WriteInput`/`sema::WriteOutput`/`sema::ReadInput`/`sema::ReadOutput`.
 
-*Signal admission is explicit.* `SignalActor::admit` mints the origin route, validates generated `Input`, and creates `SignalAccepted`. Invalid input returns `Output::Rejected(SignalRejection { validation_error, database_marker })` where `ValidationError` is generated from schema; the runtime does not use a hand-written rejection enum.
+*Signal admission is explicit.* `SignalActor::admit` mints the origin route, validates generated `Input`, and creates `SignalAccepted`. Invalid input returns `Output::Rejected(SignalRejection(ValidationError))` where `ValidationError` is generated from schema; the runtime does not use a hand-written rejection enum.
 
 *Version is a NOTA-native Signal operation.* Per Spirit record `x5b7` (High
 certainty), the CLI version query is the bare NOTA input `Version`, invoked as
 `spirit Version`; it is not a Unix flag and not a parenthesized empty record.
-Nexus replies directly with generated `Output::VersionReported(VersionReport {
-VersionText, DatabaseMarker })`, and the version text comes from the component
-package version.
+Nexus replies directly with generated `Output::VersionReported(VersionReport(VersionText))`, and the version text comes from the component package version.
+
+*Ordinary agent-facing replies do not carry database markers.* Per Spirit
+record `8jtz`, `DatabaseMarker` is explicit introspection state, not context
+for every agent-facing reply. `Lookup`, `Version`, `Count`, `Observe`,
+mutation receipts, guardian rejections, referent registrations, errors, and
+stream events omit marker tuples. Callers ask for marker state through the
+dedicated bare `Marker` input, which replies `MarkerReported(DatabaseMarker)`.
+The marker tuple is `(CommitSequence, StateDigest)`: persisted database
+sequence plus a state digest/fingerprint.
 
 *Intent streaming is the first subscription pilot.* Per Spirit record `ubgg`
 (Medium certainty), the first streaming proof is agent-facing intent
@@ -35,8 +42,8 @@ subscription through the Spirit CLI: `Input::SubscribeIntent(Query)` opens
 and keeps the client attached for daemon-pushed `Output::Event(IntentEvent)`
 frames. The stream filters with the same generated `Query` noun as ordinary
 observation, and pushed `IntentRecorded` events carry the recorded `Entry` plus
-the `SemaReceipt`. The low-level subscription frame is generated from schema
-and built through `signal-frame`/`triad-runtime`; Spirit owns only the
+the `RecordIdentifier`. The low-level subscription frame is generated from
+schema and built through `signal-frame`/`triad-runtime`; Spirit owns only the
 component filter and delivery policy.
 
 *State is the first production-surface compatibility operation.* Generated
@@ -60,8 +67,7 @@ identifier. Nexus exposes both operations as schema-declared
 instead of hidden branches. SEMA applies both as keyed mutations, preserving
 the existing `RecordIdentifier`; certainty changes mutate only the stored
 entry's certainty, while record changes replace the full stored
-`Entry`. Replies carry `CertaintyChangeReceipt` or `RecordChangeReceipt` with the updated
-database marker.
+`Entry`. Replies carry the updated `CertaintyChangeReceipt` or `RecordChangeReceipt`; callers use `Marker` when they need the database marker.
 
 *Public/private record query shortcuts are ergonomic Signal operations.*
 Generated `Input::PublicRecords(RecordSelection)` and
@@ -79,6 +85,14 @@ candidates stay out of normal query surfaces. SEMA still owns the canonical
 record for removal while direct `Lookup` remains possible. Importance names
 importance/repetition and drives retrieval order/filtering. Importance must not be
 overloaded onto certainty.
+
+*Settled referent registrations do not need guardian judgment.* Per Spirit
+record `bwxn`, when a referent registration request names a referent and aliases
+that already resolve to one registered referent, the registry itself settles the
+case. Spirit returns the existing canonical referent receipt without calling the
+referent guardian and without mutating the store. Adding a new alias or new
+referent is still a real registry change and remains guardian-gated when the
+guardian feature is active.
 
 *Nexus is the recursive runner payload keeper and the internal feature catalog.*
 Signal triage produces a generated `nexus::Nexus<nexus::Work>` envelope;
@@ -113,7 +127,7 @@ subscription registry / retained writer plumbing. Spirit owns only binary
 configuration decoding, engine construction, one working-input hook, the
 owner-only meta request hook, and stream filter/event policy.
 
-*SEMA is durable.* `Store` maps generated SEMA roots onto `sema-engine` keyed-record operations over a `.sema` file. Record identifiers are production-compatible short/base36 string keys, not sequential numeric counters; migration imports production identifiers unchanged, and fresh records mint unused short keys. Each `Record` asserts a keyed `StoredRecord`, each `ChangeCertainty` and `ChangeRecord` mutates the same key, each `Remove` retracts that key, and `Observe`/`Count` read through sema-engine query plans while `Lookup` bypasses filters by exact key. SEMA replies carry generated `DatabaseMarker` values so Signal replies report the state commit sequence and digest.
+*SEMA is durable.* `Store` maps generated SEMA roots onto `sema-engine` keyed-record operations over a `.sema` file. Record identifiers are production-compatible short/base36 string keys, not sequential numeric counters; migration imports production identifiers unchanged, and fresh records mint unused short keys. Each `Record` asserts a keyed `StoredRecord`, each `ChangeCertainty` and `ChangeRecord` mutates the same key, each `Remove` retracts that key, and `Observe`/`Count` read through sema-engine query plans while `Lookup` bypasses filters by exact key. SEMA keeps `DatabaseMarker` as internal/database introspection; the public Signal surface exposes it only through `Marker`.
 
 *The daemon's single argument is a path to a binary rkyv `SpiritDaemonConfiguration` object from the `signal-spirit` contract.* The packaged `spirit-write-configuration` text-edge helper may create that file from a typed NOTA request for launch/deploy tooling, but the daemon startup path only decodes binary state. The daemon wraps the decoded contract value in its local `Configuration` runtime object so it can implement `BindingSurface` without moving runtime behavior into the contract crate.
 

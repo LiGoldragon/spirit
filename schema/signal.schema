@@ -42,8 +42,8 @@
   DomainScopes spirit:domain:DomainScopes
   ScopeSet spirit:domain:ScopeSet
 }
-[State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version]
-[RecordAccepted Proposed Clarified Superseded Retired GuardianRejected ReferentGuardianRejected RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged ImportanceBumped RecordChanged ReferentRegistered RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted VersionReported (Event IntentEvent) Error Rejected]
+[State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version Marker]
+[RecordAccepted Proposed Clarified Superseded Retired GuardianRejected ReferentGuardianRejected RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged ImportanceBumped RecordChanged ReferentRegistered RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted VersionReported MarkerReported (Event IntentEvent) Error Rejected]
 {
   SourcePath String
   LocalPath String
@@ -94,6 +94,7 @@
   ObservationTapped ObserverSubscription
   ObservationUntapped ObserverRetraction
   SubscriptionStarted IntentSubscription
+  MarkerReported DatabaseMarker
   Error ErrorReport
   Rejected SignalRejection
 
@@ -119,33 +120,33 @@
 
   DatabaseMarker { CommitSequence * StateDigest * }
   SemaReceipt { RecordIdentifier * DatabaseMarker * }
-  RemoveReceipt { RecordIdentifier * DatabaseMarker * }
-  ObservedRecords { RecordSet * DatabaseMarker * }
+  RemoveReceipt { RecordIdentifier * }
+  ObservedRecords { RecordSet * }
   ObservedRecord { RecordIdentifier * Entry * }
-  FoundRecord { RecordIdentifier * Entry * DatabaseMarker * }
-  CountedRecords { RecordCount * DatabaseMarker * }
-  ErrorReport { ErrorMessage * DatabaseMarker * }
-  SignalRejection { ValidationError * DatabaseMarker * }
-  StashedObservation { StashHandle * RecordCount * DatabaseMarker * }
-  IntentSubscription { SubscriptionToken * DatabaseMarker * }
+  FoundRecord { RecordIdentifier * Entry * }
+  CountedRecords { RecordCount * }
+  ErrorReport { ErrorMessage * }
+  SignalRejection { ValidationError * }
+  StashedObservation { StashHandle * RecordCount * }
+  IntentSubscription { SubscriptionToken * }
   Justification { StatementText * context (Optional StatementText) }
   RecordRequest { Entry * Justification * }
   Proposal { Entry * Justification * }
   ReferentRegistration { Referent * aliases Referents Justification * }
-  ReferentRegistrationReceipt { Referent * DatabaseMarker * }
+  ReferentRegistrationReceipt { Referent * }
   RegisteredReferent { Referent * aliases Referents }
   RegisteredReferents (Vec RegisteredReferent)
   VersionReported VersionReport
-  VersionReport { VersionText * DatabaseMarker * }
-  IntentRecorded { Entry * SemaReceipt * }
-  IntentClarified { RecordIdentifier * Entry * DatabaseMarker * }
-  IntentSuperseded { RetiredIdentifiers * Entry * SemaReceipt * }
-  IntentRetired { RecordIdentifier * DatabaseMarker * }
+  VersionReport { VersionText * }
+  IntentRecorded { Entry * RecordIdentifier * }
+  IntentClarified { RecordIdentifier * Entry * }
+  IntentSuperseded { RetiredIdentifiers * Entry * RecordIdentifier * }
+  IntentRetired { RecordIdentifier * }
   IntentEvent [(IntentRecorded IntentRecorded belongs IntentEventStream) (IntentClarified IntentClarified belongs IntentEventStream) (IntentSuperseded IntentSuperseded belongs IntentEventStream) (IntentRetired IntentRetired belongs IntentEventStream)]
   IntentEventStream (Stream { token SubscriptionToken opened SubscriptionStarted event IntentEvent close SubscriptionToken })
   ValidationError [EmptyDomain EmptyDescription EmptyQueryDomain EmptyKeyword EmptySearchText EmptyQueryReferent StashHandleNotFound]
   SentMail { MailIdentifier * OriginRoute * ShortHeader * }
-  ProcessedMail { MailIdentifier * OriginRoute * DatabaseMarker * }
+  ProcessedMail { MailIdentifier * OriginRoute * }
   MailLedgerEvent [(Sent) (Processed)]
   Sent SentMail
   Processed ProcessedMail
@@ -187,35 +188,35 @@
   RemovalCandidateSkipReason [ArchiveFailed RecordChanged RecordAlreadyRemoved NoLongerCandidate]
   SkippedRemovalCandidate { RecordIdentifier * RemovalCandidateSkipReason * }
   SkippedRemovalCandidates (Vec SkippedRemovalCandidate)
-  RemovalCandidatesCollection { RemovalArchiveRecords * RemovedIdentifiers * SkippedRemovalCandidates * DatabaseMarker * }
+  RemovalCandidatesCollection { RemovalArchiveRecords * RemovedIdentifiers * SkippedRemovalCandidates * }
 
   ObserverFilter [All OperationsOnly EffectsOnly]
-  ObserverSubscription { SubscriptionToken * ObserverFilter * ObservedOperations * DatabaseMarker * }
-  ObserverRetraction { SubscriptionToken * ObservedOperations * DatabaseMarker * }
-  OperationKind [State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap SubscribeIntent Version]
+  ObserverSubscription { SubscriptionToken * ObserverFilter * ObservedOperations * }
+  ObserverRetraction { SubscriptionToken * ObservedOperations * }
+  OperationKind [State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap SubscribeIntent Version Marker]
   ObservedOperation { OperationKind * }
   ObservedOperations (Vec ObservedOperation)
 
   Entry { Domains * Kind * Description * Certainty * Importance * Privacy * Referents * }
   Statement { StatementText * }
   CertaintyChange { RecordIdentifier * Certainty * }
-  CertaintyChangeReceipt { RecordIdentifier * Certainty * DatabaseMarker * }
+  CertaintyChangeReceipt { RecordIdentifier * Certainty * }
   ImportanceBump { RecordIdentifier * }
-  ImportanceBumpReceipt { RecordIdentifier * Importance * DatabaseMarker * }
+  ImportanceBumpReceipt { RecordIdentifier * Importance * }
   RecordChange { RecordIdentifier * Entry * Justification * }
-  RecordChangeReceipt { RecordIdentifier * DatabaseMarker * }
+  RecordChangeReceipt { RecordIdentifier * }
   Clarification { RecordIdentifier * Description * Justification * }
-  ClarificationReceipt { RecordIdentifier * DatabaseMarker * }
+  ClarificationReceipt { RecordIdentifier * }
   Supersession { RetiredIdentifiers * replacement Entry Justification * }
-  SupersessionReceipt { RetiredIdentifiers * SemaReceipt * }
+  SupersessionReceipt { RetiredIdentifiers * RecordIdentifier * }
   Retirement { RecordIdentifier * Justification * }
-  RetirementReceipt { RecordIdentifier * DatabaseMarker * }
+  RetirementReceipt { RecordIdentifier * }
   RetiredIdentifier RecordIdentifier
   RetiredIdentifiers (Vec RetiredIdentifier)
   GuardianRejectionReason [Duplicate Contradiction Compound NonIntent UnclearPrivacy UnclearDomain ClarifyTramples ClarifyLosesMeaning SupersedeTargetMissing RetrievalInsufficient HarnessUnavailable HarnessMalformed HarnessTimedOut]
-  GuardianRejection { GuardianRejectionReason * RecordSet * Explanation * DatabaseMarker * }
+  GuardianRejection { GuardianRejectionReason * RecordSet * Explanation * }
   ReferentGuardianRejectionReason [Duplicate Ambiguous TooVague AliasCollision NonReferent UnclearJustification HarnessUnavailable HarnessMalformed HarnessTimedOut]
-  ReferentGuardianRejection { ReferentGuardianRejectionReason * RegisteredReferents * Explanation * DatabaseMarker * }
+  ReferentGuardianRejection { ReferentGuardianRejectionReason * RegisteredReferents * Explanation * }
   RecordSelection { DomainMatch * kind (Optional Kind) }
   Query { DomainMatch * keyword_match KeywordMatch text_match TextMatch referent_selection ReferentSelection kind (Optional Kind) privacy_selection PrivacySelection certainty_selection CertaintySelection importance_selection ImportanceSelection }
   Records (Vec ObservedRecord)

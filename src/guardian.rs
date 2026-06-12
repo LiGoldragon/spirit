@@ -390,7 +390,6 @@ impl AgentReferentGuardianRejection {
             referent_guardian_rejection_reason: self.reason,
             registered_referents: self.registered_referents,
             explanation: self.explanation,
-            database_marker: self.database_marker,
         }
     }
 }
@@ -410,7 +409,6 @@ impl AgentGuardianRejection {
             guardian_rejection_reason: self.reason,
             record_set: self.records,
             explanation: self.explanation,
-            database_marker: self.database_marker,
         }
     }
 }
