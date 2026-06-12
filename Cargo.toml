@@ -32,13 +32,8 @@ path = "src/bin/spirit-write-configuration.rs"
 required-features = ["nota-text"]
 
 [[bin]]
-name = "spirit-migrate-production"
-path = "src/bin/spirit-migrate-production.rs"
-required-features = ["production-migration"]
-
-[[bin]]
-name = "spirit-upgrade-store"
-path = "src/bin/spirit-upgrade-store.rs"
+name = "spirit-migrate-store"
+path = "src/bin/spirit-migrate-store.rs"
 required-features = ["production-migration"]
 
 [[test]]
@@ -55,7 +50,7 @@ required-features = ["nota-text"]
 default = []
 nota-text = ["dep:nota-next"]
 agent-guardian = ["nota-text", "dep:signal-agent"]
-production-migration = ["nota-text"]
+production-migration = ["nota-text", "dep:sema-engine-previous"]
 testing-trace = []
 
 [[test]]
@@ -64,24 +59,27 @@ path = "tests/instrumentation_logging.rs"
 required-features = ["testing-trace"]
 
 [dependencies]
-nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }
+nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "structural-shape-extension", optional = true }
 rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
 blake3 = "1"
 getrandom = "0.3"
-sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main" }
+sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "versioned-fold" }
+# The previous engine generation, used only by the production-migration
+# bootstrap: it reads pre-versioning stores the current engine refuses to open.
+sema-engine-previous = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main", package = "sema-engine", optional = true }
 signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }
 signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main", optional = true }
 signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main" }
 thiserror = "2"
 tokio = { version = "1.47", features = ["io-util", "net", "rt-multi-thread", "sync"] }
-triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }
+triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "tailnet-listener" }
 
 [build-dependencies]
-schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }
+schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "record-family-emission" }
 
 [dev-dependencies]
 agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", features = ["live-provider"] }
-schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }
+schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "storage-family-declarations" }
 tempfile = "3"
 
 [[test]]

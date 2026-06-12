@@ -8,17 +8,17 @@ version = "0.2.0"
 source = "git+https://github.com/LiGoldragon/agent.git?branch=main#5a2cd5ab9bd9031c979c1c2932bd4e7b8b12b37b"
 dependencies = [
  "meta-signal-agent",
- "nota-next",
+ "nota-next 0.4.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=main)",
  "reqwest",
  "rkyv",
- "schema-rust-next",
+ "schema-rust-next 0.5.3 (git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main)",
  "serde",
  "serde_json",
  "signal-agent",
  "signal-frame",
  "thiserror",
  "tokio",
- "triad-runtime",
+ "triad-runtime 0.6.1 (git+https://github.com/LiGoldragon/triad-runtime.git?branch=main)",
 ]
 
 [[package]]
@@ -675,9 +675,9 @@ name = "meta-signal-agent"
 version = "0.2.0"
 source = "git+https://github.com/LiGoldragon/meta-signal-agent.git?branch=main#50eb30c7dacf245cba0384ee7afabd9a07af25cb"
 dependencies = [
- "nota-next",
+ "nota-next 0.4.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=main)",
  "rkyv",
- "schema-rust-next",
+ "schema-rust-next 0.5.3 (git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main)",
  "signal-frame",
  "thiserror",
 ]
@@ -718,7 +718,16 @@ name = "nota-next"
 version = "0.4.0"
 source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#065fa2ad2fa05bac87677f0bfa826bd92dbd139a"
 dependencies = [
- "nota-next-derive",
+ "nota-next-derive 0.2.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=main)",
+ "rkyv",
+]
+
+[[package]]
+name = "nota-next"
+version = "0.4.0"
+source = "git+https://github.com/LiGoldragon/nota-next.git?branch=structural-shape-extension#e92a9295d5dec15488c36a7bae202bd24200e7b0"
+dependencies = [
+ "nota-next-derive 0.2.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=structural-shape-extension)",
  "rkyv",
 ]
 
@@ -726,6 +735,16 @@ dependencies = [
 name = "nota-next-derive"
 version = "0.2.0"
 source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#065fa2ad2fa05bac87677f0bfa826bd92dbd139a"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "nota-next-derive"
+version = "0.2.0"
+source = "git+https://github.com/LiGoldragon/nota-next.git?branch=structural-shape-extension#e92a9295d5dec15488c36a7bae202bd24200e7b0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1098,7 +1117,17 @@ name = "schema-next"
 version = "0.2.0"
 source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#2397d5b2a4a8f35da1ba5957f48337f9a579db00"
 dependencies = [
- "nota-next",
+ "nota-next 0.4.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=main)",
+ "rkyv",
+]
+
+[[package]]
+name = "schema-next"
+version = "0.2.0"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=storage-family-declarations#89fe33a92ade08af0f1e81a69a3c0016b7699a2c"
+dependencies = [
+ "blake3",
+ "nota-next 0.4.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=main)",
  "rkyv",
 ]
 
@@ -1110,7 +1139,20 @@ dependencies = [
  "prettyplease",
  "proc-macro2",
  "quote",
- "schema-next",
+ "schema-next 0.2.0 (git+https://github.com/LiGoldragon/schema-next.git?branch=main)",
+ "syn",
+ "thiserror",
+]
+
+[[package]]
+name = "schema-rust-next"
+version = "0.5.3"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=record-family-emission#9892d59d7cd23dc47bdb375bf9a78a1d813f25e7"
+dependencies = [
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "schema-next 0.2.0 (git+https://github.com/LiGoldragon/schema-next.git?branch=storage-family-declarations)",
  "syn",
  "thiserror",
 ]
@@ -1130,6 +1172,19 @@ name = "sema-engine"
 version = "0.2.3"
 source = "git+https://github.com/LiGoldragon/sema-engine.git?branch=main#ebee6e44ba6ee4afcb26998007bcfd128641b54c"
 dependencies = [
+ "rkyv",
+ "sema",
+ "signal-frame",
+ "signal-sema",
+ "thiserror",
+]
+
+[[package]]
+name = "sema-engine"
+version = "0.4.0"
+source = "git+https://github.com/LiGoldragon/sema-engine.git?branch=versioned-fold#39991c18b59607800cf1cfa91ba1c2496a728d54"
+dependencies = [
+ "blake3",
  "rkyv",
  "sema",
  "signal-frame",
@@ -1209,9 +1264,9 @@ name = "signal-agent"
 version = "0.3.0"
 source = "git+https://github.com/LiGoldragon/signal-agent.git?branch=main#33c2ecacd4c02c3f834d576607d27fcd4ac6b788"
 dependencies = [
- "nota-next",
+ "nota-next 0.4.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=main)",
  "rkyv",
- "schema-rust-next",
+ "schema-rust-next 0.5.3 (git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main)",
  "signal-frame",
  "thiserror",
 ]
@@ -1221,7 +1276,7 @@ name = "signal-frame"
 version = "0.2.1"
 source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#166bda84dc63bf8461fff11a41c43d6a1c92a941"
 dependencies = [
- "nota-next",
+ "nota-next 0.4.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=main)",
  "paste",
  "rkyv",
  "signal-frame-macros",
@@ -1303,18 +1358,19 @@ dependencies = [
  "agent",
  "blake3",
  "getrandom 0.3.4",
- "nota-next",
+ "nota-next 0.4.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=structural-shape-extension)",
  "rkyv",
- "schema-next",
- "schema-rust-next",
- "sema-engine",
+ "schema-next 0.2.0 (git+https://github.com/LiGoldragon/schema-next.git?branch=storage-family-declarations)",
+ "schema-rust-next 0.5.3 (git+https://github.com/LiGoldragon/schema-rust-next.git?branch=record-family-emission)",
+ "sema-engine 0.2.3",
+ "sema-engine 0.4.0",
  "signal-agent",
  "signal-frame",
  "signal-spirit",
  "tempfile",
  "thiserror",
  "tokio",
- "triad-runtime",
+ "triad-runtime 0.6.1 (git+https://github.com/LiGoldragon/triad-runtime.git?branch=tailnet-listener)",
 ]
 
 [[package]]
@@ -1536,6 +1592,18 @@ dependencies = [
 name = "triad-runtime"
 version = "0.6.1"
 source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#6ea831627d13793a4c42d7f9b9174b47279a9b2b"
+dependencies = [
+ "kameo",
+ "rustix",
+ "signal-frame",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "triad-runtime"
+version = "0.6.1"
+source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=tailnet-listener#1b5d0f17840793d00af73e8f16ad7908cad72a38"
 dependencies = [
  "kameo",
  "rustix",
