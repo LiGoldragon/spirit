@@ -140,6 +140,37 @@ owner-only meta request hook, and stream filter/event policy.
 
 *SEMA is durable.* `Store` maps generated SEMA roots onto `sema-engine` keyed-record operations over a `.sema` file. Record identifiers are production-compatible short/base36 string keys, not sequential numeric counters; migration imports production identifiers unchanged, and fresh records mint unused short keys. Each `Record` asserts a keyed `StoredRecord`, each `ChangeCertainty` and `ChangeRecord` mutates the same key, each `Remove` retracts that key, and `Observe`/`Count` read through sema-engine query plans while `Lookup` bypasses filters by exact key. SEMA keeps `DatabaseMarker` as internal/database introspection; the public Signal surface exposes it only through `Marker`.
 
+*The store is a fold of its versioned log.* Per Spirit record `iir4` (Decision,
+High certainty): [The versioned operation log is the authoritative source of
+truth for component Sema state, and the redb store becomes a rebuildable
+materialized view folded from the log. This kernel inversion is chosen for the
+first version-control implementation rather than deferred.] The stored record
+families (`StoredRecord`, `StoredReferent`, `Migration`) are declared in
+`schema/sema.schema` as `RecordsFamily`/`ReferentsFamily`/`MigrationsFamily`;
+the generated module carries the per-family content-hash identities, the closed
+`RecordFamily` sum, the table descriptors, and the `versioning_policy()`.
+`Store::open` opts in through that generated surface only — no hand-built
+policy, family name, or hash exists in spirit — so every durable write lands a
+replayable versioned log entry, checkpoints with payload restore through the
+engine-owned import session, and the daemon-level query surface of a restored
+store is identical to the original.
+
+*Migration is a logged fold; the copy-everything binaries retired.* Per Spirit
+record `t0tu` (Decision, High certainty): [Spirit's next schema bump is the
+pilot for migration as a logged fold: replay the previous store's versioned
+operation log through the version From-chain into a store at the next schema,
+recording a typed migration entry. The copy-everything migration binaries
+retire; migration becomes a fold the version-control system records rather
+than an unlogged database rewrite.] Schema version 9 is that pilot's bootstrap
+case: versions 1 through 8 carry no versioned log, so `StoreMigration` reads
+them with `sema-engine-previous` (the generation that wrote them), converts
+through the historical `From`-chain, and writes every record, referent, and
+the typed `Migration` marker into the fresh version-9 store through the
+ordinary logged choke points — the migrated store's log is the first complete
+history a spirit store has carried. `spirit-migrate-production` and
+`spirit-upgrade-store` retired; `spirit-migrate-store` is the one migration
+entry point. From version 9 onward the previous store's LOG is the fold input.
+
 *The daemon's single argument is a path to a binary rkyv `SpiritDaemonConfiguration` object from the `signal-spirit` contract.* The packaged `spirit-write-configuration` text-edge helper may create that file from a typed NOTA request for launch/deploy tooling, but the daemon startup path only decodes binary state. The daemon wraps the decoded contract value in its local `Configuration` runtime object so it can implement `BindingSurface` without moving runtime behavior into the contract crate.
 
 *The daemon configuration carries the meta slot.* Per Spirit record `pb1g`

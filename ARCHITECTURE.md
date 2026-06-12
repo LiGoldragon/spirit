@@ -439,7 +439,27 @@ durable state to the component database file (records 1007/1008). The store
 uses `sema-engine` over a `*.sema` file:
 
 - `Store::open(path)` creates or opens the `.sema` file through
-  `sema_engine::Engine` and registers the keyed `records` table.
+  `sema_engine::Engine`, opts into the versioned commit log with the
+  schema-generated `RecordFamily::versioning_policy()`, and registers the
+  schema-declared families (`RecordsFamily` over `records`, `ReferentsFamily`
+  over `referents`, `MigrationsFamily` over `migrations`) through their
+  generated descriptors. The stored shapes (`StoredRecord`, `StoredReferent`,
+  the `Migration` marker) are schema nouns in `schema/sema.schema`, not hand
+  Rust. Every durable write therefore lands a replayable versioned log entry;
+  `Store::checkpoint` folds the log into a content-addressed restore artifact,
+  and `Store::import` restores a fresh store from checkpoint + log suffix with
+  an identical query surface. The separate archive database and the guardian
+  decision journal register family identities but stay UNVERSIONED (no
+  policy): both are derived/audit state, not the authoritative intent log.
+- `StoreMigration` (feature `production-migration`, binary
+  `spirit-migrate-store`) is the schema-version bump path: pre-versioning
+  stores (schema versions 1–8, unreadable by the current engine's storage
+  layout) are read with the renamed `sema-engine-previous` dependency,
+  converted through the historical `From`-chain, and written into a fresh
+  version-9 store through the logged choke points, closing with the typed
+  `Migration` marker — migration as a logged fold, not an unlogged rewrite.
+  The default archive sibling is rebuilt alongside; the v2 guardian journal
+  file stays on disk and a fresh v3 journal file starts.
 - `SemaEngine::apply(sema::Sema<sema::WriteInput>) ->
   sema::Sema<sema::WriteOutput>` is the mutation surface. A `Record` becomes
   a keyed assertion: Spirit mints an unused short/base36 string
