@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 use sema_engine::{
-    Assertion, Engine as SemaDatabase, EngineOpen, EngineRecord, QueryPlan, RecordKey,
-    SchemaVersion, TableDescriptor, TableName, TableReference,
+    Assertion, Engine as SemaDatabase, EngineOpen, EngineRecord, FamilyName, QueryPlan, RecordKey,
+    SchemaHash, SchemaVersion, TableDescriptor, TableName, TableReference,
 };
 
 use crate::{
@@ -18,12 +18,17 @@ use crate::{
     store::StoreError,
 };
 
-// Bumped to 2 when the stored GuardianOperation gained the typed Justification
-// (Testimony/Reasoning) and multi-replacement Supersession. The journal filename
-// carries the same version (see `Store::guardian_journal_path`), so a new daemon
-// opens a fresh file instead of reading rkyv bytes with an incompatible layout.
-const GUARDIAN_JOURNAL_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(2);
+// Bumped to 3 on the sema-engine storage-layout-3 break (typed family
+// identity in the catalog): a layout-2 journal file no longer opens under the
+// current engine. The journal filename carries the same version (see
+// `Store::guardian_journal_path`), so a new daemon opens a fresh file instead
+// of failing on an incompatible layout; the v2 file stays on disk untouched.
+const GUARDIAN_JOURNAL_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(3);
 const GUARDIAN_DECISIONS_TABLE: TableName = TableName::new("guardian-decisions");
+// The journal is hand-written audit state, not a schema-declared wire family,
+// so its family identity hashes the journal version label by hand. The label
+// moves with GUARDIAN_JOURNAL_SCHEMA_VERSION.
+const GUARDIAN_DECISIONS_FAMILY_LABEL: &str = "spirit:guardian-journal:v3";
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub(crate) enum GuardianOperation {
@@ -119,9 +124,7 @@ impl GuardianOperation {
         match self {
             Self::Record(request) => vec![&request.entry],
             Self::Propose(proposal) => vec![&proposal.entry],
-            Self::Supersede(supersession) => {
-                supersession.replacements.payload().iter().collect()
-            }
+            Self::Supersede(supersession) => supersession.replacements.payload().iter().collect(),
             Self::ChangeRecord(change) => vec![&change.entry],
             Self::Clarify(_)
             | Self::Retire(_)
@@ -219,7 +222,11 @@ impl GuardianJournal {
             path.into(),
             GUARDIAN_JOURNAL_SCHEMA_VERSION,
         ))?;
-        let decisions = database.register_table(TableDescriptor::new(GUARDIAN_DECISIONS_TABLE))?;
+        let decisions = database.register_table(TableDescriptor::new(
+            GUARDIAN_DECISIONS_TABLE,
+            FamilyName::new("GuardianDecisionsFamily"),
+            SchemaHash::for_label(GUARDIAN_DECISIONS_FAMILY_LABEL),
+        ))?;
         Ok(Self {
             database,
             decisions,

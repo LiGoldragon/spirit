@@ -1,24 +1,52 @@
+//! Store migration as a logged fold.
+//!
+//! The previous store generations (schema versions 1 through 8) carry no
+//! versioned operation log: spirit never opted into engine versioning before
+//! schema version 9, and they predate the current engine's storage layout, so
+//! the current engine refuses to open them at all. This module therefore
+//! reads them with `sema-engine-previous` — the engine generation that wrote
+//! them — converts each row through the historical `From`-chain, and writes
+//! every record into a fresh version-9 store THROUGH the current engine's
+//! logged choke points. The migrated store's versioned commit log thereby
+//! begins with a complete, replayable record of the migration — the first
+//! complete history a spirit store has ever had — closed by a typed
+//! [`Migration`] marker row that is itself logged and restorable.
+//!
+//! This bootstrap is not yet a previous-LOG fold: there is no previous log to
+//! fold, so the fold input is the previous store's materialized rows. From
+//! version 9 onward the versioned log is authoritative and the next schema
+//! bump replays the previous store's log through the version chain instead.
+
 use std::{
     fs,
     path::{Path, PathBuf},
 };
 
 use nota_next::{NotaDecode, NotaDecodeError, NotaEncode, NotaSource};
-use sema_engine::{
-    Engine as SemaDatabase, EngineOpen, EngineRecord, QueryPlan, RecordKey, SchemaVersion,
-    StorageKernelError, TableDescriptor, TableName, TableReference,
+use sema_engine_previous::{
+    Engine as PreviousSemaDatabase, EngineOpen as PreviousEngineOpen,
+    EngineRecord as PreviousEngineRecord, QueryPlan as PreviousQueryPlan,
+    RecordKey as PreviousRecordKey, SchemaVersion, StorageKernelError,
+    TableDescriptor as PreviousTableDescriptor, TableName,
+    TableReference as PreviousTableReference,
 };
 use thiserror::Error;
 
 use crate::{
     Store, StoreError,
-    schema::signal::{
-        Certainty, Description, Domain, Domains, Entry, Importance, Kind, Magnitude, Privacy,
-        Referents,
+    schema::{
+        sema::{
+            MigratedRecordCount, MigratedReferentCount, Migration, SourceSchemaVersion,
+            StoredRecord, StoredReferent,
+        },
+        signal::{
+            Certainty, Description, Domain, Domains, Entry, Importance, Kind, Magnitude, Privacy,
+            RecordIdentifier, Referent, Referents,
+        },
     },
+    store::ArchiveDatabase,
 };
 
-const PRODUCTION_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(5);
 const SPIRIT_STORE_V1_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(1);
 const SPIRIT_STORE_V2_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(2);
 const SPIRIT_STORE_V3_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(3);
@@ -26,107 +54,90 @@ const SPIRIT_STORE_V4_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(4);
 const SPIRIT_STORE_V5_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(5);
 const SPIRIT_STORE_V6_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(6);
 const SPIRIT_STORE_V7_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(7);
-const SPIRIT_STORE_CURRENT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(8);
+const SPIRIT_STORE_V8_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(8);
+const SPIRIT_STORE_CURRENT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(9);
 const RECORDS_TABLE: TableName = TableName::new("records");
+const REFERENTS_TABLE: TableName = TableName::new("referents");
 
 #[derive(Debug, Clone, PartialEq, Eq, NotaDecode, NotaEncode)]
-pub struct ProductionMigrationRequest {
-    source_database_path: String,
-    target_database_path: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, NotaDecode, NotaEncode)]
-pub struct ProductionMigrationCompleted {
-    record_count: u64,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, NotaDecode, NotaEncode)]
-pub enum ProductionMigrationOutput {
-    Completed(ProductionMigrationCompleted),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, NotaDecode, NotaEncode)]
-pub struct SpiritStoreUpgradeRequest {
+pub struct StoreMigrationRequest {
     database_path: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, NotaDecode, NotaEncode)]
-pub struct SpiritStoreUpgradeCompleted {
+pub struct StoreMigrationCompleted {
     record_count: u64,
+    referent_count: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, NotaDecode, NotaEncode)]
-pub enum SpiritStoreUpgradeOutput {
-    Current(SpiritStoreUpgradeCompleted),
-    Upgraded(SpiritStoreUpgradeCompleted),
+pub enum StoreMigrationOutput {
+    Current(StoreMigrationCompleted),
+    Migrated(StoreMigrationCompleted),
 }
 
 #[derive(Debug, Error)]
-pub enum ProductionMigrationError {
-    #[error("production database: {0}")]
-    ProductionDatabase(#[from] sema_engine::Error),
-    #[error("new spirit store: {0}")]
+pub enum StoreMigrationError {
+    #[error("previous spirit store: {0}")]
+    PreviousStore(#[from] sema_engine_previous::Error),
+    #[error("migrated spirit store: {0}")]
     Store(#[from] StoreError),
-    #[error("store upgrade domain decode: {0}")]
+    #[error("store migration domain decode: {0}")]
     DomainDecode(#[from] NotaDecodeError),
-    #[error("store upgrade io: {0}")]
+    #[error("store migration io: {0}")]
     Io(#[from] std::io::Error),
+    #[error("unrecognized spirit store schema version: {found}")]
+    UnknownSchemaVersion { found: SchemaVersion },
 }
 
-pub struct ProductionMigration {
-    request: ProductionMigrationRequest,
+/// The in-place store migration: detect the source schema version, read the
+/// previous store with the previous engine generation, and rebuild it as a
+/// fresh versioned store whose log records the whole fold.
+pub struct StoreMigration {
+    request: StoreMigrationRequest,
 }
 
-pub struct SpiritStoreUpgrade {
-    request: SpiritStoreUpgradeRequest,
-}
-
-struct ProductionDatabase {
-    database: SemaDatabase,
-    records: TableReference<ProductionStoredRecord>,
+/// The detected schema version of the store file at the requested path:
+/// already current, or a previous generation the migration folds forward.
+enum SourceStoreVersion {
+    Current,
+    Previous(SchemaVersion),
 }
 
 struct SpiritStoreV1Database {
-    database: SemaDatabase,
-    records: TableReference<SpiritStoreV1Record>,
+    database: PreviousSemaDatabase,
+    records: PreviousTableReference<SpiritStoreV1Record>,
 }
 
 struct SpiritStoreV2Database {
-    database: SemaDatabase,
-    records: TableReference<SpiritStoreV2Record>,
+    database: PreviousSemaDatabase,
+    records: PreviousTableReference<SpiritStoreV2Record>,
 }
 
 struct SpiritStoreV4Database {
-    database: SemaDatabase,
-    records: TableReference<SpiritStoreV4Record>,
+    database: PreviousSemaDatabase,
+    records: PreviousTableReference<SpiritStoreV4Record>,
 }
 
 struct SpiritStoreV5Database {
-    database: SemaDatabase,
-    records: TableReference<SpiritStoreV5Record>,
+    database: PreviousSemaDatabase,
+    records: PreviousTableReference<SpiritStoreV5Record>,
 }
 
 struct SpiritStoreV6Database {
-    database: SemaDatabase,
-    records: TableReference<SpiritStoreV6Record>,
+    database: PreviousSemaDatabase,
+    records: PreviousTableReference<SpiritStoreV6Record>,
 }
 
 struct SpiritStoreV7Database {
-    database: SemaDatabase,
-    records: TableReference<SpiritStoreV7Record>,
+    database: PreviousSemaDatabase,
+    records: PreviousTableReference<SpiritStoreV7Record>,
 }
 
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
-struct ProductionStoredRecord {
-    identifier: signal_spirit::RecordIdentifier,
-    entry: ProductionStampedEntry,
-}
-
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
-struct ProductionStampedEntry {
-    entry: signal_spirit::Entry,
-    date: signal_spirit::Date,
-    time: signal_spirit::Time,
+struct SpiritStoreV8Database {
+    database: PreviousSemaDatabase,
+    records: PreviousTableReference<SpiritStoreV8Record>,
+    referents: Option<PreviousTableReference<SpiritStoreV8Referent>>,
 }
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -225,6 +236,22 @@ struct SpiritStoreV7Entry {
     importance: Importance,
     privacy: Privacy,
     referents: Referents,
+}
+
+// The version-8 stored shapes: the last pre-versioning generation. The entry
+// is already the current generated `Entry`; only the storage registration
+// (hand-typed `String` identifier, no family identity, no versioned log)
+// distinguishes v8 rows from the v9 store's schema-declared `StoredRecord`.
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+struct SpiritStoreV8Record {
+    record_identifier: String,
+    entry: Entry,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+struct SpiritStoreV8Referent {
+    referent: Referent,
+    aliases: Referents,
 }
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -832,39 +859,7 @@ mod store_version_seven {
     }
 }
 
-impl ProductionMigrationRequest {
-    pub fn new(
-        source_database_path: impl Into<String>,
-        target_database_path: impl Into<String>,
-    ) -> Self {
-        Self {
-            source_database_path: source_database_path.into(),
-            target_database_path: target_database_path.into(),
-        }
-    }
-
-    pub fn source_database_path(&self) -> &str {
-        &self.source_database_path
-    }
-
-    pub fn target_database_path(&self) -> &str {
-        &self.target_database_path
-    }
-}
-
-impl ProductionMigrationCompleted {
-    pub fn record_count(&self) -> u64 {
-        self.record_count
-    }
-}
-
-impl ProductionMigrationOutput {
-    pub fn completed(completed: ProductionMigrationCompleted) -> Self {
-        Self::Completed(completed)
-    }
-}
-
-impl SpiritStoreUpgradeRequest {
+impl StoreMigrationRequest {
     pub fn new(database_path: impl Into<String>) -> Self {
         Self {
             database_path: database_path.into(),
@@ -876,126 +871,202 @@ impl SpiritStoreUpgradeRequest {
     }
 }
 
-impl SpiritStoreUpgradeCompleted {
+impl StoreMigrationCompleted {
     pub fn record_count(&self) -> u64 {
         self.record_count
     }
+
+    pub fn referent_count(&self) -> u64 {
+        self.referent_count
+    }
 }
 
-impl SpiritStoreUpgradeOutput {
-    pub fn current(completed: SpiritStoreUpgradeCompleted) -> Self {
+impl StoreMigrationOutput {
+    pub fn current(completed: StoreMigrationCompleted) -> Self {
         Self::Current(completed)
     }
 
-    pub fn upgraded(completed: SpiritStoreUpgradeCompleted) -> Self {
-        Self::Upgraded(completed)
+    pub fn migrated(completed: StoreMigrationCompleted) -> Self {
+        Self::Migrated(completed)
     }
 }
 
-impl ProductionMigration {
-    pub fn new(request: ProductionMigrationRequest) -> Self {
+impl StoreMigration {
+    pub fn new(request: StoreMigrationRequest) -> Self {
         Self { request }
     }
 
-    pub fn run(&self) -> Result<ProductionMigrationCompleted, ProductionMigrationError> {
-        let production_database =
-            ProductionDatabase::open(Path::new(self.request.source_database_path()))?;
-        let target_store = Store::open(PathBuf::from(self.request.target_database_path()))?;
-        let records = production_database.records()?;
-        for record in records.iter().cloned() {
-            target_store.import_record(record.record_identifier(), record.into_new_entry())?;
-        }
-        Ok(ProductionMigrationCompleted {
-            record_count: records.len() as u64,
-        })
-    }
-}
-
-impl SpiritStoreUpgrade {
-    pub fn new(request: SpiritStoreUpgradeRequest) -> Self {
-        Self { request }
-    }
-
-    pub fn run(&self) -> Result<SpiritStoreUpgradeOutput, ProductionMigrationError> {
+    pub fn run(&self) -> Result<StoreMigrationOutput, StoreMigrationError> {
         let database_path = PathBuf::from(self.request.database_path());
         if !database_path.exists() {
-            return Ok(SpiritStoreUpgradeOutput::current(
-                SpiritStoreUpgradeCompleted { record_count: 0 },
-            ));
+            return Ok(StoreMigrationOutput::current(StoreMigrationCompleted {
+                record_count: 0,
+                referent_count: 0,
+            }));
         }
-        match Store::open(&database_path) {
-            Ok(store) => Ok(SpiritStoreUpgradeOutput::current(
-                SpiritStoreUpgradeCompleted {
+        match self.source_store_version(&database_path)? {
+            SourceStoreVersion::Current => {
+                let store = Store::open(&database_path)?;
+                Ok(StoreMigrationOutput::current(StoreMigrationCompleted {
                     record_count: store.len() as u64,
-                },
-            )),
-            Err(StoreError::Database(sema_engine::Error::Sema(
-                StorageKernelError::SchemaVersionMismatch { expected, found },
-            ))) if expected == SPIRIT_STORE_CURRENT_SCHEMA_VERSION
-                && (found == SPIRIT_STORE_V1_SCHEMA_VERSION
-                    || found == SPIRIT_STORE_V2_SCHEMA_VERSION
-                    || found == SPIRIT_STORE_V3_SCHEMA_VERSION
-                    || found == SPIRIT_STORE_V4_SCHEMA_VERSION
-                    || found == SPIRIT_STORE_V5_SCHEMA_VERSION
-                    || found == SPIRIT_STORE_V6_SCHEMA_VERSION
-                    || found == SPIRIT_STORE_V7_SCHEMA_VERSION) =>
-            {
-                self.upgrade_previous_store(database_path, found)
+                    referent_count: 0,
+                }))
+            }
+            SourceStoreVersion::Previous(previous_schema_version) => {
+                self.migrate_previous_store(database_path, previous_schema_version)
+            }
+        }
+    }
+
+    /// Probe the source store's schema version with the previous engine
+    /// generation. The current engine cannot probe a pre-versioning store:
+    /// it rejects the storage layout before reaching the schema version. The
+    /// previous engine's open is read-only against an existing store, so the
+    /// probe never mutates the source.
+    fn source_store_version(
+        &self,
+        database_path: &Path,
+    ) -> Result<SourceStoreVersion, StoreMigrationError> {
+        match PreviousSemaDatabase::open(PreviousEngineOpen::new(
+            database_path,
+            SPIRIT_STORE_V8_SCHEMA_VERSION,
+        )) {
+            Ok(_) => Ok(SourceStoreVersion::Previous(SPIRIT_STORE_V8_SCHEMA_VERSION)),
+            Err(sema_engine_previous::Error::Sema(StorageKernelError::SchemaVersionMismatch {
+                found,
+                ..
+            })) => {
+                if found == SPIRIT_STORE_CURRENT_SCHEMA_VERSION {
+                    Ok(SourceStoreVersion::Current)
+                } else if found >= SPIRIT_STORE_V1_SCHEMA_VERSION
+                    && found <= SPIRIT_STORE_V7_SCHEMA_VERSION
+                {
+                    Ok(SourceStoreVersion::Previous(found))
+                } else {
+                    Err(StoreMigrationError::UnknownSchemaVersion { found })
+                }
             }
             Err(error) => Err(error.into()),
         }
     }
 
-    fn upgrade_previous_store(
+    /// The logged fold: read every previous row with the previous engine,
+    /// convert through the historical `From`-chain, write each record and
+    /// referent into a fresh current store through the ordinary logged
+    /// choke points, close with the typed [`Migration`] marker, then swap
+    /// the fresh store into place. Identifiers survive unchanged.
+    fn migrate_previous_store(
         &self,
         database_path: PathBuf,
         previous_schema_version: SchemaVersion,
-    ) -> Result<SpiritStoreUpgradeOutput, ProductionMigrationError> {
-        let records = match previous_schema_version {
+    ) -> Result<StoreMigrationOutput, StoreMigrationError> {
+        let source = match previous_schema_version {
             SPIRIT_STORE_V1_SCHEMA_VERSION => {
-                SpiritStorePreviousRecords::from_v1(SpiritStoreV1Database::open(&database_path)?)
+                SpiritStorePreviousStore::from_v1(SpiritStoreV1Database::open(&database_path)?)
             }
             SPIRIT_STORE_V2_SCHEMA_VERSION | SPIRIT_STORE_V3_SCHEMA_VERSION => {
-                SpiritStorePreviousRecords::from_v2(SpiritStoreV2Database::open(
+                SpiritStorePreviousStore::from_v2(SpiritStoreV2Database::open(
                     &database_path,
                     previous_schema_version,
                 )?)
             }
             SPIRIT_STORE_V4_SCHEMA_VERSION => {
-                SpiritStorePreviousRecords::from_v4(SpiritStoreV4Database::open(&database_path)?)
+                SpiritStorePreviousStore::from_v4(SpiritStoreV4Database::open(&database_path)?)
             }
             SPIRIT_STORE_V5_SCHEMA_VERSION => {
-                SpiritStorePreviousRecords::from_v5(SpiritStoreV5Database::open(&database_path)?)
+                SpiritStorePreviousStore::from_v5(SpiritStoreV5Database::open(&database_path)?)
             }
             SPIRIT_STORE_V6_SCHEMA_VERSION => {
-                SpiritStorePreviousRecords::from_v6(SpiritStoreV6Database::open(&database_path)?)
+                SpiritStorePreviousStore::from_v6(SpiritStoreV6Database::open(&database_path)?)
             }
             SPIRIT_STORE_V7_SCHEMA_VERSION => {
-                SpiritStorePreviousRecords::from_v7(SpiritStoreV7Database::open(&database_path)?)
+                SpiritStorePreviousStore::from_v7(SpiritStoreV7Database::open(&database_path)?)
             }
-            _ => unreachable!("upgrade is only called for known previous schema versions"),
+            SPIRIT_STORE_V8_SCHEMA_VERSION => {
+                SpiritStorePreviousStore::from_v8(SpiritStoreV8Database::open_live(&database_path)?)
+            }
+            _ => unreachable!("migration is only called for known previous schema versions"),
         }?;
         let temporary_path = Self::temporary_path(&database_path);
         if temporary_path.exists() {
             fs::remove_file(&temporary_path)?;
         }
         let target_store = Store::open(&temporary_path)?;
-        let record_count = records.len();
-        for record in records.into_records() {
+        let record_count = source.records.len() as u64;
+        let referent_count = source.referents.len() as u64;
+        // Referents land first: record import canonicalizes entry referents
+        // against the registered referent table.
+        for referent in source.referents {
+            target_store.import_referent(referent)?;
+        }
+        for record in source.records {
             target_store.import_record(record.record_identifier, record.entry)?;
         }
+        target_store.record_migration(Migration {
+            source_schema_version: SourceSchemaVersion::new(u64::from(
+                previous_schema_version.value(),
+            )),
+            migrated_record_count: MigratedRecordCount::new(record_count),
+            migrated_referent_count: MigratedReferentCount::new(referent_count),
+        })?;
+        drop(target_store);
+        self.migrate_archive_sibling(&database_path, previous_schema_version)?;
         let backup_path = Self::backup_path(&database_path);
         fs::rename(&database_path, backup_path)?;
         fs::rename(temporary_path, database_path)?;
-        Ok(SpiritStoreUpgradeOutput::upgraded(
-            SpiritStoreUpgradeCompleted {
-                record_count: record_count as u64,
-            },
-        ))
+        Ok(StoreMigrationOutput::migrated(StoreMigrationCompleted {
+            record_count,
+            referent_count,
+        }))
+    }
+
+    /// Rebuild the default archive sibling (`<stem>.archive.sema`) under the
+    /// current engine when one exists, preserving every archive key. The
+    /// archive feature shipped in the version-8 era, so earlier sources have
+    /// no sibling; an owner-configured non-default archive path is not
+    /// covered and must be migrated by a separate request against that path.
+    fn migrate_archive_sibling(
+        &self,
+        database_path: &Path,
+        previous_schema_version: SchemaVersion,
+    ) -> Result<(), StoreMigrationError> {
+        if previous_schema_version != SPIRIT_STORE_V8_SCHEMA_VERSION {
+            return Ok(());
+        }
+        let archive_path = Self::archive_sibling_path(database_path);
+        if !archive_path.exists() {
+            return Ok(());
+        }
+        let archive_records =
+            SpiritStoreV8Database::open_archive(&archive_path)?.archived_records()?;
+        let temporary_path = Self::temporary_path(&archive_path);
+        if temporary_path.exists() {
+            fs::remove_file(&temporary_path)?;
+        }
+        let mut fresh_archive = ArchiveDatabase::open(&temporary_path)?;
+        for record in archive_records {
+            fresh_archive.import_archived_record(StoredRecord {
+                record_identifier: RecordIdentifier::new(record.record_identifier),
+                entry: record.entry,
+            })?;
+        }
+        drop(fresh_archive);
+        let backup_path = Self::backup_path(&archive_path);
+        fs::rename(&archive_path, backup_path)?;
+        fs::rename(temporary_path, archive_path)?;
+        Ok(())
+    }
+
+    fn archive_sibling_path(database_path: &Path) -> PathBuf {
+        let stem = database_path
+            .file_stem()
+            .map(|stem| stem.to_string_lossy().into_owned())
+            .unwrap_or_else(|| String::from("spirit"));
+        database_path.with_file_name(format!("{stem}.archive.sema"))
     }
 
     fn temporary_path(database_path: &Path) -> PathBuf {
-        database_path.with_extension(format!("schema-8-migrating-{}.sema", std::process::id()))
+        database_path.with_extension(format!("schema-9-migrating-{}.sema", std::process::id()))
     }
 
     fn backup_path(database_path: &Path) -> PathBuf {
@@ -1010,125 +1081,180 @@ impl SpiritStoreUpgrade {
     }
 }
 
-impl ProductionDatabase {
-    fn open(path: &Path) -> Result<Self, ProductionMigrationError> {
-        let mut database = SemaDatabase::open(EngineOpen::new(path, PRODUCTION_SCHEMA_VERSION))?;
-        let records = database.register_table(TableDescriptor::new(RECORDS_TABLE))?;
-        Ok(Self { database, records })
-    }
-
-    fn records(&self) -> Result<Vec<ProductionStoredRecord>, ProductionMigrationError> {
-        Ok(self
-            .database
-            .match_records(QueryPlan::all(self.records))?
-            .records()
-            .to_vec())
-    }
-}
-
 impl SpiritStoreV1Database {
-    fn open(path: &Path) -> Result<Self, ProductionMigrationError> {
-        let mut database =
-            SemaDatabase::open(EngineOpen::new(path, SPIRIT_STORE_V1_SCHEMA_VERSION))?;
-        let records = database.register_table(TableDescriptor::new(RECORDS_TABLE))?;
+    fn open(path: &Path) -> Result<Self, StoreMigrationError> {
+        let mut database = PreviousSemaDatabase::open(PreviousEngineOpen::new(
+            path,
+            SPIRIT_STORE_V1_SCHEMA_VERSION,
+        ))?;
+        let records = database.register_table(PreviousTableDescriptor::new(RECORDS_TABLE))?;
         Ok(Self { database, records })
     }
 
-    fn records(&self) -> Result<Vec<SpiritStoreV1Record>, ProductionMigrationError> {
+    fn records(&self) -> Result<Vec<SpiritStoreV1Record>, StoreMigrationError> {
         Ok(self
             .database
-            .match_records(QueryPlan::all(self.records))?
+            .match_records(PreviousQueryPlan::all(self.records))?
             .records()
             .to_vec())
     }
 }
 
 impl SpiritStoreV2Database {
-    fn open(path: &Path, schema_version: SchemaVersion) -> Result<Self, ProductionMigrationError> {
-        let mut database = SemaDatabase::open(EngineOpen::new(path, schema_version))?;
-        let records = database.register_table(TableDescriptor::new(RECORDS_TABLE))?;
+    fn open(path: &Path, schema_version: SchemaVersion) -> Result<Self, StoreMigrationError> {
+        let mut database =
+            PreviousSemaDatabase::open(PreviousEngineOpen::new(path, schema_version))?;
+        let records = database.register_table(PreviousTableDescriptor::new(RECORDS_TABLE))?;
         Ok(Self { database, records })
     }
 
-    fn records(&self) -> Result<Vec<SpiritStoreV2Record>, ProductionMigrationError> {
+    fn records(&self) -> Result<Vec<SpiritStoreV2Record>, StoreMigrationError> {
         Ok(self
             .database
-            .match_records(QueryPlan::all(self.records))?
+            .match_records(PreviousQueryPlan::all(self.records))?
             .records()
             .to_vec())
     }
 }
 
 impl SpiritStoreV4Database {
-    fn open(path: &Path) -> Result<Self, ProductionMigrationError> {
-        let mut database =
-            SemaDatabase::open(EngineOpen::new(path, SPIRIT_STORE_V4_SCHEMA_VERSION))?;
-        let records = database.register_table(TableDescriptor::new(RECORDS_TABLE))?;
+    fn open(path: &Path) -> Result<Self, StoreMigrationError> {
+        let mut database = PreviousSemaDatabase::open(PreviousEngineOpen::new(
+            path,
+            SPIRIT_STORE_V4_SCHEMA_VERSION,
+        ))?;
+        let records = database.register_table(PreviousTableDescriptor::new(RECORDS_TABLE))?;
         Ok(Self { database, records })
     }
 
-    fn records(&self) -> Result<Vec<SpiritStoreV4Record>, ProductionMigrationError> {
+    fn records(&self) -> Result<Vec<SpiritStoreV4Record>, StoreMigrationError> {
         Ok(self
             .database
-            .match_records(QueryPlan::all(self.records))?
+            .match_records(PreviousQueryPlan::all(self.records))?
             .records()
             .to_vec())
     }
 }
 
 impl SpiritStoreV5Database {
-    fn open(path: &Path) -> Result<Self, ProductionMigrationError> {
-        let mut database =
-            SemaDatabase::open(EngineOpen::new(path, SPIRIT_STORE_V5_SCHEMA_VERSION))?;
-        let records = database.register_table(TableDescriptor::new(RECORDS_TABLE))?;
+    fn open(path: &Path) -> Result<Self, StoreMigrationError> {
+        let mut database = PreviousSemaDatabase::open(PreviousEngineOpen::new(
+            path,
+            SPIRIT_STORE_V5_SCHEMA_VERSION,
+        ))?;
+        let records = database.register_table(PreviousTableDescriptor::new(RECORDS_TABLE))?;
         Ok(Self { database, records })
     }
 
-    fn records(&self) -> Result<Vec<SpiritStoreV5Record>, ProductionMigrationError> {
+    fn records(&self) -> Result<Vec<SpiritStoreV5Record>, StoreMigrationError> {
         Ok(self
             .database
-            .match_records(QueryPlan::all(self.records))?
+            .match_records(PreviousQueryPlan::all(self.records))?
             .records()
             .to_vec())
     }
 }
 
 impl SpiritStoreV6Database {
-    fn open(path: &Path) -> Result<Self, ProductionMigrationError> {
-        let mut database =
-            SemaDatabase::open(EngineOpen::new(path, SPIRIT_STORE_V6_SCHEMA_VERSION))?;
-        let records = database.register_table(TableDescriptor::new(RECORDS_TABLE))?;
+    fn open(path: &Path) -> Result<Self, StoreMigrationError> {
+        let mut database = PreviousSemaDatabase::open(PreviousEngineOpen::new(
+            path,
+            SPIRIT_STORE_V6_SCHEMA_VERSION,
+        ))?;
+        let records = database.register_table(PreviousTableDescriptor::new(RECORDS_TABLE))?;
         Ok(Self { database, records })
     }
 
-    fn records(&self) -> Result<Vec<SpiritStoreV6Record>, ProductionMigrationError> {
+    fn records(&self) -> Result<Vec<SpiritStoreV6Record>, StoreMigrationError> {
         Ok(self
             .database
-            .match_records(QueryPlan::all(self.records))?
+            .match_records(PreviousQueryPlan::all(self.records))?
             .records()
             .to_vec())
     }
 }
 
 impl SpiritStoreV7Database {
-    fn open(path: &Path) -> Result<Self, ProductionMigrationError> {
-        let mut database =
-            SemaDatabase::open(EngineOpen::new(path, SPIRIT_STORE_V7_SCHEMA_VERSION))?;
-        let records = database.register_table(TableDescriptor::new(RECORDS_TABLE))?;
+    fn open(path: &Path) -> Result<Self, StoreMigrationError> {
+        let mut database = PreviousSemaDatabase::open(PreviousEngineOpen::new(
+            path,
+            SPIRIT_STORE_V7_SCHEMA_VERSION,
+        ))?;
+        let records = database.register_table(PreviousTableDescriptor::new(RECORDS_TABLE))?;
         Ok(Self { database, records })
     }
 
-    fn records(&self) -> Result<Vec<SpiritStoreV7Record>, ProductionMigrationError> {
+    fn records(&self) -> Result<Vec<SpiritStoreV7Record>, StoreMigrationError> {
         Ok(self
             .database
-            .match_records(QueryPlan::all(self.records))?
+            .match_records(PreviousQueryPlan::all(self.records))?
             .records()
             .to_vec())
     }
 }
 
-struct SpiritStorePreviousRecords {
+impl SpiritStoreV8Database {
+    /// Open a version-8 LIVE store: records plus the referent registry.
+    fn open_live(path: &Path) -> Result<Self, StoreMigrationError> {
+        let mut database = PreviousSemaDatabase::open(PreviousEngineOpen::new(
+            path,
+            SPIRIT_STORE_V8_SCHEMA_VERSION,
+        ))?;
+        let records = database.register_table(PreviousTableDescriptor::new(RECORDS_TABLE))?;
+        let referents = database.register_table(PreviousTableDescriptor::new(REFERENTS_TABLE))?;
+        Ok(Self {
+            database,
+            records,
+            referents: Some(referents),
+        })
+    }
+
+    /// Open a version-8 ARCHIVE store: the archive only ever registered the
+    /// records table, and registering the referents table here would write a
+    /// catalog row into the source being migrated.
+    fn open_archive(path: &Path) -> Result<Self, StoreMigrationError> {
+        let mut database = PreviousSemaDatabase::open(PreviousEngineOpen::new(
+            path,
+            SPIRIT_STORE_V8_SCHEMA_VERSION,
+        ))?;
+        let records = database.register_table(PreviousTableDescriptor::new(RECORDS_TABLE))?;
+        Ok(Self {
+            database,
+            records,
+            referents: None,
+        })
+    }
+
+    fn records(&self) -> Result<Vec<SpiritStoreV8Record>, StoreMigrationError> {
+        Ok(self
+            .database
+            .match_records(PreviousQueryPlan::all(self.records))?
+            .records()
+            .to_vec())
+    }
+
+    fn archived_records(&self) -> Result<Vec<SpiritStoreV8Record>, StoreMigrationError> {
+        self.records()
+    }
+
+    fn referents(&self) -> Result<Vec<SpiritStoreV8Referent>, StoreMigrationError> {
+        let Some(referents) = self.referents else {
+            return Ok(Vec::new());
+        };
+        Ok(self
+            .database
+            .match_records(PreviousQueryPlan::all(referents))?
+            .records()
+            .to_vec())
+    }
+}
+
+/// The previous store's rows after conversion through the historical
+/// `From`-chain: current-shape records plus (from version 8 on) the
+/// registered referents, ready for the logged fold into a fresh store.
+struct SpiritStorePreviousStore {
     records: Vec<SpiritStorePreviousRecord>,
+    referents: Vec<StoredReferent>,
 }
 
 struct SpiritStorePreviousRecord {
@@ -1136,73 +1262,86 @@ struct SpiritStorePreviousRecord {
     entry: Entry,
 }
 
-impl SpiritStorePreviousRecords {
-    fn from_v1(database: SpiritStoreV1Database) -> Result<Self, ProductionMigrationError> {
+impl SpiritStorePreviousStore {
+    fn from_v1(database: SpiritStoreV1Database) -> Result<Self, StoreMigrationError> {
         Ok(Self {
             records: database
                 .records()?
                 .into_iter()
                 .map(SpiritStorePreviousRecord::from_v1)
                 .collect(),
+            referents: Vec::new(),
         })
     }
 
-    fn from_v2(database: SpiritStoreV2Database) -> Result<Self, ProductionMigrationError> {
+    fn from_v2(database: SpiritStoreV2Database) -> Result<Self, StoreMigrationError> {
         Ok(Self {
             records: database
                 .records()?
                 .into_iter()
                 .map(SpiritStorePreviousRecord::from_v2)
                 .collect(),
+            referents: Vec::new(),
         })
     }
 
-    fn from_v4(database: SpiritStoreV4Database) -> Result<Self, ProductionMigrationError> {
+    fn from_v4(database: SpiritStoreV4Database) -> Result<Self, StoreMigrationError> {
         Ok(Self {
             records: database
                 .records()?
                 .into_iter()
                 .map(SpiritStorePreviousRecord::from_v4)
                 .collect(),
+            referents: Vec::new(),
         })
     }
 
-    fn from_v5(database: SpiritStoreV5Database) -> Result<Self, ProductionMigrationError> {
+    fn from_v5(database: SpiritStoreV5Database) -> Result<Self, StoreMigrationError> {
         Ok(Self {
             records: database
                 .records()?
                 .into_iter()
                 .map(SpiritStorePreviousRecord::from_v5)
                 .collect(),
+            referents: Vec::new(),
         })
     }
 
-    fn from_v6(database: SpiritStoreV6Database) -> Result<Self, ProductionMigrationError> {
+    fn from_v6(database: SpiritStoreV6Database) -> Result<Self, StoreMigrationError> {
         Ok(Self {
             records: database
                 .records()?
                 .into_iter()
                 .map(SpiritStorePreviousRecord::from_v6)
                 .collect(),
+            referents: Vec::new(),
         })
     }
 
-    fn from_v7(database: SpiritStoreV7Database) -> Result<Self, ProductionMigrationError> {
+    fn from_v7(database: SpiritStoreV7Database) -> Result<Self, StoreMigrationError> {
         Ok(Self {
             records: database
                 .records()?
                 .into_iter()
                 .map(SpiritStorePreviousRecord::from_v7)
                 .collect::<Result<Vec<_>, _>>()?,
+            referents: Vec::new(),
         })
     }
 
-    fn into_records(self) -> Vec<SpiritStorePreviousRecord> {
-        self.records
-    }
-
-    fn len(&self) -> usize {
-        self.records.len()
+    fn from_v8(database: SpiritStoreV8Database) -> Result<Self, StoreMigrationError> {
+        Ok(Self {
+            records: database
+                .records()?
+                .into_iter()
+                .map(SpiritStorePreviousRecord::from_v8)
+                .collect(),
+            referents: database
+                .referents()?
+                .into_iter()
+                .map(StoredReferent::from)
+                .collect(),
+        })
     }
 }
 
@@ -1242,63 +1381,75 @@ impl SpiritStorePreviousRecord {
         }
     }
 
-    fn from_v7(record: SpiritStoreV7Record) -> Result<Self, ProductionMigrationError> {
+    fn from_v7(record: SpiritStoreV7Record) -> Result<Self, StoreMigrationError> {
         Ok(Self {
             record_identifier: record.record_identifier,
             entry: record.entry.into_new_entry()?,
         })
     }
-}
 
-impl ProductionStoredRecord {
-    fn record_identifier(&self) -> String {
-        self.identifier.code()
-    }
-
-    fn into_new_entry(self) -> Entry {
-        self.entry.into_new_entry()
+    fn from_v8(record: SpiritStoreV8Record) -> Self {
+        Self {
+            record_identifier: record.record_identifier,
+            entry: record.entry,
+        }
     }
 }
 
-impl EngineRecord for ProductionStoredRecord {
-    fn record_key(&self) -> RecordKey {
-        RecordKey::new(self.identifier.code())
+impl From<SpiritStoreV8Referent> for StoredReferent {
+    fn from(referent: SpiritStoreV8Referent) -> Self {
+        Self {
+            referent: referent.referent,
+            aliases: referent.aliases,
+        }
     }
 }
 
-impl EngineRecord for SpiritStoreV1Record {
-    fn record_key(&self) -> RecordKey {
-        RecordKey::new(self.record_identifier.clone())
+impl PreviousEngineRecord for SpiritStoreV1Record {
+    fn record_key(&self) -> PreviousRecordKey {
+        PreviousRecordKey::new(self.record_identifier.clone())
     }
 }
 
-impl EngineRecord for SpiritStoreV2Record {
-    fn record_key(&self) -> RecordKey {
-        RecordKey::new(self.record_identifier.clone())
+impl PreviousEngineRecord for SpiritStoreV2Record {
+    fn record_key(&self) -> PreviousRecordKey {
+        PreviousRecordKey::new(self.record_identifier.clone())
     }
 }
 
-impl EngineRecord for SpiritStoreV4Record {
-    fn record_key(&self) -> RecordKey {
-        RecordKey::new(self.record_identifier.clone())
+impl PreviousEngineRecord for SpiritStoreV4Record {
+    fn record_key(&self) -> PreviousRecordKey {
+        PreviousRecordKey::new(self.record_identifier.clone())
     }
 }
 
-impl EngineRecord for SpiritStoreV5Record {
-    fn record_key(&self) -> RecordKey {
-        RecordKey::new(self.record_identifier.clone())
+impl PreviousEngineRecord for SpiritStoreV5Record {
+    fn record_key(&self) -> PreviousRecordKey {
+        PreviousRecordKey::new(self.record_identifier.clone())
     }
 }
 
-impl EngineRecord for SpiritStoreV6Record {
-    fn record_key(&self) -> RecordKey {
-        RecordKey::new(self.record_identifier.clone())
+impl PreviousEngineRecord for SpiritStoreV6Record {
+    fn record_key(&self) -> PreviousRecordKey {
+        PreviousRecordKey::new(self.record_identifier.clone())
     }
 }
 
-impl EngineRecord for SpiritStoreV7Record {
-    fn record_key(&self) -> RecordKey {
-        RecordKey::new(self.record_identifier.clone())
+impl PreviousEngineRecord for SpiritStoreV7Record {
+    fn record_key(&self) -> PreviousRecordKey {
+        PreviousRecordKey::new(self.record_identifier.clone())
+    }
+}
+
+impl PreviousEngineRecord for SpiritStoreV8Record {
+    fn record_key(&self) -> PreviousRecordKey {
+        PreviousRecordKey::new(self.record_identifier.clone())
+    }
+}
+
+impl PreviousEngineRecord for SpiritStoreV8Referent {
+    fn record_key(&self) -> PreviousRecordKey {
+        PreviousRecordKey::new(self.referent.payload().clone())
     }
 }
 
@@ -1375,7 +1526,7 @@ impl SpiritStoreV6Entry {
 }
 
 impl SpiritStoreV7Entry {
-    fn into_new_entry(self) -> Result<Entry, ProductionMigrationError> {
+    fn into_new_entry(self) -> Result<Entry, StoreMigrationError> {
         Ok(Entry {
             domains: self.domains.into_current()?,
             kind: self.kind,
@@ -1385,50 +1536,6 @@ impl SpiritStoreV7Entry {
             privacy: self.privacy,
             referents: self.referents,
         })
-    }
-}
-
-impl ProductionStampedEntry {
-    fn into_new_entry(self) -> Entry {
-        Entry {
-            domains: Domains::from_strings(
-                self.entry
-                    .topics
-                    .as_slice()
-                    .iter()
-                    .map(|topic| topic.as_str().to_owned())
-                    .collect(),
-            ),
-            kind: Self::kind_from(self.entry.kind),
-            description: Description::new(self.entry.description.as_str().to_owned()),
-            certainty: Certainty::new(Self::magnitude_from(self.entry.certainty)),
-            importance: Importance::new(Magnitude::Minimum),
-            privacy: Privacy::new(Self::magnitude_from(self.entry.privacy)),
-            referents: Referents::new(Vec::new()),
-        }
-    }
-
-    fn kind_from(value: signal_spirit::Kind) -> Kind {
-        match value {
-            signal_spirit::Kind::Decision => Kind::Decision,
-            signal_spirit::Kind::Principle => Kind::Principle,
-            signal_spirit::Kind::Correction => Kind::Correction,
-            signal_spirit::Kind::Clarification => Kind::Clarification,
-            signal_spirit::Kind::Constraint => Kind::Constraint,
-        }
-    }
-
-    fn magnitude_from(value: signal_spirit::Magnitude) -> Magnitude {
-        match value {
-            signal_spirit::Magnitude::Zero => Magnitude::Zero,
-            signal_spirit::Magnitude::Minimum => Magnitude::Minimum,
-            signal_spirit::Magnitude::VeryLow => Magnitude::VeryLow,
-            signal_spirit::Magnitude::Low => Magnitude::Low,
-            signal_spirit::Magnitude::Medium => Magnitude::Medium,
-            signal_spirit::Magnitude::High => Magnitude::High,
-            signal_spirit::Magnitude::VeryHigh => Magnitude::VeryHigh,
-            signal_spirit::Magnitude::Maximum => Magnitude::Maximum,
-        }
     }
 }
 
@@ -1481,90 +1588,295 @@ impl LegacyCategory {
 
 #[cfg(test)]
 mod tests {
-    use sema_engine::{Assertion, Engine as SemaDatabase, EngineOpen, TableDescriptor};
+    use sema_engine_previous::{
+        Assertion as PreviousAssertion, Engine as PreviousSemaDatabase,
+        EngineOpen as PreviousEngineOpen, TableDescriptor as PreviousTableDescriptor,
+    };
 
     use super::{
-        PRODUCTION_SCHEMA_VERSION, ProductionMigration, ProductionMigrationRequest,
-        ProductionStampedEntry, ProductionStoredRecord, RECORDS_TABLE,
-        SPIRIT_STORE_V7_SCHEMA_VERSION, SpiritStoreUpgrade, SpiritStoreUpgradeRequest,
-        SpiritStoreV7Entry, SpiritStoreV7Record, store_version_seven,
+        RECORDS_TABLE, REFERENTS_TABLE, SPIRIT_STORE_V7_SCHEMA_VERSION,
+        SPIRIT_STORE_V8_SCHEMA_VERSION, SpiritStoreV7Entry, SpiritStoreV7Record,
+        SpiritStoreV8Record, SpiritStoreV8Referent, StoreMigration, StoreMigrationOutput,
+        StoreMigrationRequest, store_version_seven,
     };
     use crate::{
         Store,
-        schema::signal::{
-            Data, Domain, Domains, Information, Magnitude, Operations, Software, Technology,
+        schema::{
+            sema::RecordFamily,
+            signal::{
+                Certainty, Data, Description, Domain, Domains, Entry, Importance, Information,
+                Kind, Magnitude, Operations, Privacy, Referent, Referents, Software, Technology,
+            },
         },
     };
 
-    #[test]
-    fn migrates_production_version_five_records_into_current_store() {
-        let temporary = tempfile::tempdir().expect("create migration sandbox");
-        let source_database_path = temporary.path().join("production.sema");
-        let target_database_path = temporary.path().join("current.sema");
-        let production_identifier = signal_spirit::RecordIdentifier::new(42);
-        let migrated_identifier = production_identifier.code();
+    fn version_eight_entry(description: &str, referents: Vec<Referent>) -> Entry {
+        Entry {
+            domains: Domains::new(vec![Domain::Information(Information::Documentation)]),
+            kind: Kind::Decision,
+            description: Description::new(description),
+            certainty: Certainty::new(Magnitude::High),
+            importance: Importance::new(Magnitude::Medium),
+            privacy: Privacy::new(Magnitude::Zero),
+            referents: Referents::new(referents),
+        }
+    }
 
-        let mut production_database = SemaDatabase::open(EngineOpen::new(
-            &source_database_path,
-            PRODUCTION_SCHEMA_VERSION,
+    /// Seed a version-8 store — records, a registered referent, and an
+    /// archive sibling — through the PREVIOUS engine generation, exactly as
+    /// deployed spirit main wrote them.
+    fn seed_version_eight_store(live_path: &std::path::Path, archive_path: &std::path::Path) {
+        let mut live = PreviousSemaDatabase::open(PreviousEngineOpen::new(
+            live_path,
+            SPIRIT_STORE_V8_SCHEMA_VERSION,
         ))
-        .expect("open production database");
-        let production_records = production_database
-            .register_table(TableDescriptor::new(RECORDS_TABLE))
-            .expect("register production records table");
-        production_database
-            .assert(Assertion::new(
-                production_records,
-                ProductionStoredRecord {
-                    identifier: production_identifier,
-                    entry: ProductionStampedEntry {
-                        entry: signal_spirit::Entry {
-                            topics: signal_spirit::Topics::new(vec![signal_spirit::Topic::new(
-                                "schema",
-                            )]),
-                            kind: signal_spirit::Kind::Decision,
-                            description: signal_spirit::Description::new(
-                                "production record survives migration",
-                            ),
-                            certainty: signal_spirit::Magnitude::High,
-                            privacy: signal_spirit::Magnitude::Zero,
-                        },
-                        date: signal_spirit::Date::new(2026, 6, 11),
-                        time: signal_spirit::Time::new(12, 0, 0),
-                    },
+        .expect("open version eight live store");
+        let records = live
+            .register_table(PreviousTableDescriptor::new(RECORDS_TABLE))
+            .expect("register version eight records table");
+        let referents = live
+            .register_table(PreviousTableDescriptor::new(REFERENTS_TABLE))
+            .expect("register version eight referents table");
+        live.assert(PreviousAssertion::new(
+            referents,
+            SpiritStoreV8Referent {
+                referent: Referent::new("sema-engine"),
+                aliases: Referents::new(vec![Referent::new("sema engine")]),
+            },
+        ))
+        .expect("seed version eight referent");
+        live.assert(PreviousAssertion::new(
+            records,
+            SpiritStoreV8Record {
+                record_identifier: String::from("hj63"),
+                entry: version_eight_entry(
+                    "version eight record survives the logged fold",
+                    vec![Referent::new("sema-engine")],
+                ),
+            },
+        ))
+        .expect("seed first version eight record");
+        live.assert(PreviousAssertion::new(
+            records,
+            SpiritStoreV8Record {
+                record_identifier: String::from("t0tu"),
+                entry: version_eight_entry("migration is a logged fold", Vec::new()),
+            },
+        ))
+        .expect("seed second version eight record");
+        drop(live);
+
+        let mut archive = PreviousSemaDatabase::open(PreviousEngineOpen::new(
+            archive_path,
+            SPIRIT_STORE_V8_SCHEMA_VERSION,
+        ))
+        .expect("open version eight archive store");
+        let archive_records = archive
+            .register_table(PreviousTableDescriptor::new(RECORDS_TABLE))
+            .expect("register version eight archive records table");
+        archive
+            .assert(PreviousAssertion::new(
+                archive_records,
+                SpiritStoreV8Record {
+                    record_identifier: String::from("old1-3"),
+                    entry: version_eight_entry("archived record survives", Vec::new()),
                 },
             ))
-            .expect("seed production record");
-        drop(production_database);
+            .expect("seed version eight archived record");
+    }
 
-        let completed = ProductionMigration::new(ProductionMigrationRequest::new(
-            source_database_path.display().to_string(),
-            target_database_path.display().to_string(),
+    /// The t0tu pilot witness: a version-8 store (no versioned log) migrates
+    /// into a fresh version-9 store whose versioned log covers every migrated
+    /// row, with identifiers unchanged, the typed migration marker present,
+    /// and the archive sibling rebuilt under the current engine.
+    #[test]
+    fn migrates_version_eight_store_as_a_logged_fold() {
+        let temporary = tempfile::tempdir().expect("create migration sandbox");
+        let database_path = temporary.path().join("store.sema");
+        let archive_path = temporary.path().join("store.archive.sema");
+        seed_version_eight_store(&database_path, &archive_path);
+
+        let output = StoreMigration::new(StoreMigrationRequest::new(
+            database_path.display().to_string(),
         ))
         .run()
-        .expect("run production migration");
-        let target_store = Store::open(target_database_path).expect("open migrated store");
-        let migrated_entry = target_store
-            .entry_by_identifier(&migrated_identifier)
-            .expect("query migrated entry")
-            .expect("migrated entry exists");
+        .expect("run store migration");
+        let StoreMigrationOutput::Migrated(completed) = output else {
+            panic!("version eight store must migrate, got {output:?}");
+        };
+        assert_eq!(completed.record_count(), 2);
+        assert_eq!(completed.referent_count(), 1);
 
-        assert_eq!(completed.record_count(), 1);
+        // The normal daemon query surface reads identical records with
+        // identical identifiers.
+        let migrated = Store::open(&database_path).expect("open migrated store");
+        let first = migrated
+            .entry_by_identifier("hj63")
+            .expect("query first migrated entry")
+            .expect("first migrated entry exists");
         assert_eq!(
-            migrated_entry.description.payload(),
-            "production record survives migration"
+            first.description.payload(),
+            "version eight record survives the logged fold"
         );
-        assert_eq!(migrated_entry.kind, crate::schema::signal::Kind::Decision);
-        assert_eq!(migrated_entry.certainty.payload(), &Magnitude::High);
-        assert_eq!(migrated_entry.importance.payload(), &Magnitude::Minimum);
-        assert_eq!(migrated_entry.privacy.payload(), &Magnitude::Zero);
-        assert_eq!(migrated_entry.referents.payload(), &Vec::new());
         assert_eq!(
-            migrated_entry.domains.payload(),
-            &vec![Domain::Technology(Technology::Software(Software::Data(
-                Data::SchemaEvolution
-            )))]
+            first.referents.payload(),
+            &vec![Referent::new("sema-engine")]
         );
+        let second = migrated
+            .entry_by_identifier("t0tu")
+            .expect("query second migrated entry")
+            .expect("second migrated entry exists");
+        assert_eq!(second.description.payload(), "migration is a logged fold");
+
+        // The versioned log covers every migrated row: one logged assert per
+        // referent, record, and the marker, decodable through the generated
+        // closed family sum back to the exact stored payloads.
+        let log = migrated.versioned_log().expect("read versioned log");
+        let operations: Vec<_> = log
+            .iter()
+            .flat_map(|entry| entry.operations().iter())
+            .collect();
+        assert_eq!(operations.len(), 4);
+        let mut logged_record_identifiers = Vec::new();
+        let mut logged_referent_count = 0;
+        let mut logged_migrations = Vec::new();
+        for operation in &operations {
+            let payload = operation.payload().bytes().expect("assert payload bytes");
+            match RecordFamily::decode(operation.family(), payload)
+                .expect("decode logged family payload")
+            {
+                RecordFamily::RecordsFamily(record) => {
+                    let stored = migrated
+                        .entry_by_identifier(record.record_identifier.payload())
+                        .expect("query logged record")
+                        .expect("logged record exists in the store");
+                    assert_eq!(stored, record.entry);
+                    logged_record_identifiers.push(record.record_identifier.payload().clone());
+                }
+                RecordFamily::ReferentsFamily(referent) => {
+                    assert_eq!(referent.referent, Referent::new("sema-engine"));
+                    logged_referent_count += 1;
+                }
+                RecordFamily::MigrationsFamily(migration) => logged_migrations.push(migration),
+            }
+        }
+        logged_record_identifiers.sort();
+        assert_eq!(logged_record_identifiers, vec!["hj63", "t0tu"]);
+        assert_eq!(logged_referent_count, 1);
+
+        // The typed migration marker is logged AND materialized.
+        assert_eq!(logged_migrations.len(), 1);
+        let migrations = migrated.migrations().expect("read migration markers");
+        assert_eq!(migrations.len(), 1);
+        assert_eq!(*migrations[0].source_schema_version.payload(), 8);
+        assert_eq!(*migrations[0].migrated_record_count.payload(), 2);
+        assert_eq!(*migrations[0].migrated_referent_count.payload(), 1);
+        assert_eq!(logged_migrations[0], migrations[0]);
+
+        // The archive sibling was rebuilt under the current engine with its
+        // archive keys preserved: retire into it to prove it accepts writes.
+        let retired = migrated
+            .retire(crate::schema::signal::Retirement {
+                record_identifier: crate::schema::signal::RecordIdentifier::new("t0tu"),
+                justification: crate::schema::signal::Justification {
+                    testimony: crate::schema::signal::Testimony::new(vec![
+                        crate::schema::signal::VerbatimQuote {
+                            quote_text: crate::schema::signal::QuoteText::new(
+                                "witness: the migrated archive accepts writes",
+                            ),
+                            antecedent: None,
+                        },
+                    ]),
+                    reasoning: crate::schema::signal::Reasoning::new(
+                        "migration witness retirement",
+                    ),
+                },
+            })
+            .expect("retire into migrated archive");
+        assert!(retired.is_some());
+    }
+
+    /// The data-loss-protection witness on the real pilot: checkpoint the
+    /// MIGRATED store, import checkpoint + suffix into a fresh store through
+    /// the engine-owned import session, and the daemon-level query surface is
+    /// identical — including the migration marker.
+    #[test]
+    fn migrated_store_checkpoint_restores_an_identical_fresh_store() {
+        let temporary = tempfile::tempdir().expect("create migration sandbox");
+        let database_path = temporary.path().join("store.sema");
+        let archive_path = temporary.path().join("store.archive.sema");
+        seed_version_eight_store(&database_path, &archive_path);
+        StoreMigration::new(StoreMigrationRequest::new(
+            database_path.display().to_string(),
+        ))
+        .run()
+        .expect("run store migration");
+
+        let migrated = Store::open(&database_path).expect("open migrated store");
+        migrated.checkpoint().expect("checkpoint migrated store");
+        // Post-checkpoint suffix: one more durable write rides the log.
+        let suffix_receipt = migrated
+            .record_entry(version_eight_entry(
+                "suffix write after migration",
+                Vec::new(),
+            ))
+            .expect("record suffix entry");
+        let checkpoint = migrated
+            .latest_checkpoint()
+            .expect("load checkpoint")
+            .expect("checkpoint exists");
+        let suffix = migrated
+            .versioned_log_from(checkpoint.metadata().covered().last().next())
+            .expect("read log suffix");
+        assert_eq!(suffix.len(), 1);
+
+        let restored = Store::import(temporary.path().join("restored.sema"), checkpoint, suffix)
+            .expect("import migrated checkpoint into fresh store");
+
+        assert_eq!(restored.len(), migrated.len());
+        for identifier in [
+            "hj63",
+            "t0tu",
+            suffix_receipt.record_identifier.payload().as_str(),
+        ] {
+            assert_eq!(
+                restored
+                    .entry_by_identifier(identifier)
+                    .expect("query restored entry"),
+                migrated
+                    .entry_by_identifier(identifier)
+                    .expect("query migrated entry"),
+                "restored entry differs for identifier {identifier}",
+            );
+        }
+        assert_eq!(restored.database_marker(), migrated.database_marker());
+        assert_eq!(
+            restored.migrations().expect("restored migration markers"),
+            migrated.migrations().expect("migrated migration markers"),
+        );
+    }
+
+    /// A second migration run over an already-migrated store reports
+    /// `Current` and rewrites nothing.
+    #[test]
+    fn second_migration_run_is_a_current_no_op() {
+        let temporary = tempfile::tempdir().expect("create migration sandbox");
+        let database_path = temporary.path().join("store.sema");
+        let archive_path = temporary.path().join("store.archive.sema");
+        seed_version_eight_store(&database_path, &archive_path);
+        let request = StoreMigrationRequest::new(database_path.display().to_string());
+
+        let first = StoreMigration::new(request.clone())
+            .run()
+            .expect("first migration run");
+        assert!(matches!(first, StoreMigrationOutput::Migrated(_)));
+        let second = StoreMigration::new(request)
+            .run()
+            .expect("second migration run");
+        let StoreMigrationOutput::Current(completed) = second else {
+            panic!("already-migrated store must report Current, got {second:?}");
+        };
+        assert_eq!(completed.record_count(), 2);
     }
 
     #[test]
@@ -1572,16 +1884,16 @@ mod tests {
         let temporary = tempfile::tempdir().expect("create upgrade sandbox");
         let database_path = temporary.path().join("store.sema");
 
-        let mut version_seven_database = SemaDatabase::open(EngineOpen::new(
+        let mut version_seven_database = PreviousSemaDatabase::open(PreviousEngineOpen::new(
             &database_path,
             SPIRIT_STORE_V7_SCHEMA_VERSION,
         ))
         .expect("open version seven database");
         let records = version_seven_database
-            .register_table(TableDescriptor::new(RECORDS_TABLE))
+            .register_table(PreviousTableDescriptor::new(RECORDS_TABLE))
             .expect("register version seven records table");
         version_seven_database
-            .assert(Assertion::new(
+            .assert(PreviousAssertion::new(
                 records,
                 SpiritStoreV7Record {
                     record_identifier: String::from("0001"),
@@ -1609,21 +1921,18 @@ mod tests {
             .expect("seed version seven record");
         drop(version_seven_database);
 
-        let output = SpiritStoreUpgrade::new(SpiritStoreUpgradeRequest::new(
+        let output = StoreMigration::new(StoreMigrationRequest::new(
             database_path.display().to_string(),
         ))
         .run()
-        .expect("run store upgrade");
+        .expect("run store migration");
         let target_store = Store::open(database_path).expect("open upgraded store");
         let migrated_entry = target_store
             .entry_by_identifier("0001")
             .expect("query upgraded entry")
             .expect("upgraded entry exists");
 
-        assert!(matches!(
-            output,
-            super::SpiritStoreUpgradeOutput::Upgraded(_)
-        ));
+        assert!(matches!(output, StoreMigrationOutput::Migrated(_)));
         assert_eq!(
             migrated_entry.domains,
             Domains::new(vec![
@@ -1634,5 +1943,8 @@ mod tests {
                 Domain::Information(Information::Documentation),
             ])
         );
+        let migrations = target_store.migrations().expect("read migration markers");
+        assert_eq!(migrations.len(), 1);
+        assert_eq!(*migrations[0].source_schema_version.payload(), 7);
     }
 }

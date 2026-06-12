@@ -5,8 +5,9 @@ use std::{
 };
 
 use sema_engine::{
-    Assertion, Engine as SemaDatabase, EngineOpen, EngineRecord, Mutation, QueryPlan, RecordKey,
-    Retraction, SchemaVersion, TableDescriptor, TableName, TableReference,
+    Assertion, Checkpoint, CheckpointReceipt, CommitSequence, Engine as SemaDatabase, EngineOpen,
+    EngineRecord, FamilyDirectory, Mutation, QueryPlan, RecordKey, Retraction, RowMaterializer,
+    SchemaHash, SchemaVersion, TableReference, VersionedCommitLogEntry,
 };
 use thiserror::Error;
 
@@ -16,9 +17,9 @@ use crate::schema::{
     meta_signal::ArchiveDatabaseTarget,
     sema::{
         self as sema_schema, EngineStartFailure as SemaEngineStartFailure,
-        EngineStopFailure as SemaEngineStopFailure, ReadInput as SemaReadInput,
-        ReadOutput as SemaReadOutput, SemaEngine, WriteInput as SemaWriteInput,
-        WriteOutput as SemaWriteOutput,
+        EngineStopFailure as SemaEngineStopFailure, Migration, ReadInput as SemaReadInput,
+        ReadOutput as SemaReadOutput, RecordFamily, SemaEngine, StoredRecord, StoredReferent,
+        WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput, family_identity,
     },
     signal::{
         Certainty, CertaintyChange, CertaintyChangeReceipt, CertaintySelection, Clarification,
@@ -28,8 +29,7 @@ use crate::schema::{
         KeywordMatch, Keywords, Magnitude, ObservedRecord, ObservedRecords, Privacy,
         PrivacySelection, Query, RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier,
         RecordIdentifiers, RecordSet, Referent, ReferentRegistration, ReferentRegistrationReceipt,
-        ReferentSelection,
-        Referents, Removal, RemovalArchiveRecord, RemovalArchiveRecords,
+        ReferentSelection, Referents, Removal, RemovalArchiveRecord, RemovalArchiveRecords,
         RemovalCandidateCollection, RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifier,
         RemovedIdentifiers, Retirement, RetirementReceipt, SearchText, SemaReceipt,
         SkippedRemovalCandidate, SkippedRemovalCandidates, Supersession, SupersessionReceipt,
@@ -43,9 +43,12 @@ use crate::schema::signal::{DomainScope, RegisteredReferent, RegisteredReferents
 #[cfg(feature = "testing-trace")]
 use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
 
-const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(8);
-const ENTRIES_TABLE: TableName = TableName::new("records");
-const REFERENTS_TABLE: TableName = TableName::new("referents");
+// Version 9 is the versioned-store bootstrap: the store opts into the
+// sema-engine versioned commit log through the schema-generated family
+// descriptors and versioning policy, so every durable write from this version
+// on is replayable history. Version 8 and earlier are pre-versioning stores
+// readable only through `sema-engine-previous` in `production_migration`.
+const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(9);
 const RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH: usize = 4;
 const RECORD_IDENTIFIER_MAXIMUM_CODE_LENGTH: usize = 7;
 const RECORD_IDENTIFIER_CODE_RADIX: u64 = 36;
@@ -64,22 +67,22 @@ pub struct Store {
     database: SemaDatabase,
     entries: TableReference<StoredRecord>,
     referents: TableReference<StoredReferent>,
+    migrations: TableReference<Migration>,
     path: PathBuf,
     archive_target: ArchiveDatabaseTarget,
     #[cfg(feature = "testing-trace")]
     trace_log: TraceLog,
 }
 
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
-struct StoredRecord {
-    record_identifier: String,
-    entry: Entry,
-}
-
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
-struct StoredReferent {
-    referent: Referent,
-    aliases: Referents,
+/// The component's typed knowledge of where each schema-declared record
+/// family materializes: the fold/import surface hands this directory one
+/// canonical-view row at a time and it lands the row in the right typed
+/// table. Dispatch is on the generated per-family schema hash, so no family
+/// name is ever hand-typed here.
+pub struct StoreFamilyDirectory {
+    entries: TableReference<StoredRecord>,
+    referents: TableReference<StoredReferent>,
+    migrations: TableReference<Migration>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -240,17 +243,25 @@ impl Store {
     ///
     /// A fresh file is created with empty engine counters; an existing
     /// file resumes its persisted commit sequence and record identifier
-    /// counter through sema-engine.
+    /// counter through sema-engine. The store opts into the versioned
+    /// commit log with the schema-generated [`RecordFamily`] policy and
+    /// registers every schema-declared family through its generated
+    /// descriptor, so the log is the authoritative replayable history of
+    /// the intent corpus.
     pub fn open(path: impl Into<PathBuf>) -> Result<Self, StoreError> {
         let path = path.into();
-        let mut database =
-            SemaDatabase::open(EngineOpen::new(path.clone(), SPIRIT_SCHEMA_VERSION))?;
-        let entries = database.register_table(TableDescriptor::new(ENTRIES_TABLE))?;
-        let referents = database.register_table(TableDescriptor::new(REFERENTS_TABLE))?;
+        let mut database = SemaDatabase::open(
+            EngineOpen::new(path.clone(), SPIRIT_SCHEMA_VERSION)
+                .with_versioning(RecordFamily::versioning_policy()),
+        )?;
+        let entries = database.register_table(RecordFamily::records_family())?;
+        let referents = database.register_table(RecordFamily::referents_family())?;
+        let migrations = database.register_table(RecordFamily::migrations_family())?;
         Ok(Self {
             database,
             entries,
             referents,
+            migrations,
             path,
             archive_target: ArchiveDatabaseTarget::Default,
             #[cfg(feature = "testing-trace")]
@@ -300,6 +311,104 @@ impl Store {
         &self.archive_target
     }
 
+    /// Write a checkpoint of the versioned log: the portable restore
+    /// artifact a fresh store imports from.
+    pub fn checkpoint(&self) -> Result<CheckpointReceipt, StoreError> {
+        Ok(self.database.checkpoint()?)
+    }
+
+    /// The latest stored checkpoint, content-verified, when one exists.
+    pub fn latest_checkpoint(&self) -> Result<Option<Checkpoint>, StoreError> {
+        Ok(self.database.latest_checkpoint()?)
+    }
+
+    /// The full versioned commit log: the authoritative replayable history
+    /// of every durable write since the store opted into versioning.
+    pub fn versioned_log(&self) -> Result<Vec<VersionedCommitLogEntry>, StoreError> {
+        Ok(self.database.versioned_commit_log()?)
+    }
+
+    /// The versioned-log suffix strictly after `sequence`, in commit order —
+    /// the entries an importer ingests on top of a checkpoint.
+    pub fn versioned_log_from(
+        &self,
+        sequence: CommitSequence,
+    ) -> Result<Vec<VersionedCommitLogEntry>, StoreError> {
+        Ok(self.database.versioned_replay_from_sequence(sequence)?)
+    }
+
+    /// Restore a fresh store at `path` from a checkpoint plus versioned-log
+    /// suffix through the engine-owned import session. The path must hold no
+    /// prior engine history; the imported log and counters land verbatim, so
+    /// the restored store is indistinguishable from the original at the
+    /// imported range. Family registration happens after the import, against
+    /// the restored catalog.
+    pub fn import(
+        path: impl Into<PathBuf>,
+        checkpoint: Checkpoint,
+        suffix: Vec<VersionedCommitLogEntry>,
+    ) -> Result<Self, StoreError> {
+        let path = path.into();
+        let mut database = SemaDatabase::open(
+            EngineOpen::new(path.clone(), SPIRIT_SCHEMA_VERSION)
+                .with_versioning(RecordFamily::versioning_policy()),
+        )?;
+        let mut session = database.begin_import()?;
+        session.ingest_checkpoint(checkpoint)?;
+        session.ingest_suffix(suffix);
+        session.commit(&StoreFamilyDirectory::from_generated_families())?;
+        let entries = database.register_table(RecordFamily::records_family())?;
+        let referents = database.register_table(RecordFamily::referents_family())?;
+        let migrations = database.register_table(RecordFamily::migrations_family())?;
+        Ok(Self {
+            database,
+            entries,
+            referents,
+            migrations,
+            path,
+            archive_target: ArchiveDatabaseTarget::Default,
+            #[cfg(feature = "testing-trace")]
+            trace_log: TraceLog::default(),
+        })
+    }
+
+    /// The typed family directory over this store's registered tables, for
+    /// fold materialization (rebuild and import).
+    pub fn family_directory(&self) -> StoreFamilyDirectory {
+        StoreFamilyDirectory {
+            entries: self.entries,
+            referents: self.referents,
+            migrations: self.migrations,
+        }
+    }
+
+    /// Record the typed migration marker as an ordinary logged assert, so
+    /// the migration itself is part of the replayable history.
+    pub fn record_migration(&self, migration: Migration) -> Result<(), StoreError> {
+        self.database
+            .assert(Assertion::new(self.migrations, migration))?;
+        Ok(())
+    }
+
+    /// Every recorded migration marker, oldest source version first.
+    pub fn migrations(&self) -> Result<Vec<Migration>, StoreError> {
+        let mut migrations = self
+            .database
+            .match_records(QueryPlan::all(self.migrations))?
+            .records()
+            .to_vec();
+        migrations.sort_by_key(|migration| *migration.source_schema_version.payload());
+        Ok(migrations)
+    }
+
+    /// Import one pre-vetted referent registration with its canonical atom
+    /// and aliases unchanged — the migration sibling of [`Self::import_record`].
+    pub fn import_referent(&self, referent: StoredReferent) -> Result<(), StoreError> {
+        self.database
+            .assert(Assertion::new(self.referents, referent))?;
+        Ok(())
+    }
+
     /// Resolve the configured archive target to a concrete `*.sema` path for
     /// the SEPARATE archive database.
     ///
@@ -331,9 +440,10 @@ impl Store {
             .map(|stem| stem.to_string_lossy().into_owned())
             .unwrap_or_else(|| String::from("spirit"));
         // The version suffix tracks GUARDIAN_JOURNAL_SCHEMA_VERSION: a
-        // journal-schema change (the stored GuardianOperation embeds the typed
-        // Justification) lands a fresh file rather than reading incompatible rkyv.
-        self.path.with_file_name(format!("{stem}.guardian.v2.sema"))
+        // journal-schema change (v3: the sema-engine storage-layout-3 break)
+        // lands a fresh file rather than reading an incompatible layout. The
+        // v2 file stays on disk untouched, readable by the previous engine.
+        self.path.with_file_name(format!("{stem}.guardian.v3.sema"))
     }
 
     #[cfg(feature = "agent-guardian")]
@@ -389,7 +499,7 @@ impl Store {
         let mut removed_identifiers = Vec::new();
         let mut skipped_candidates = Vec::new();
         for record in self.records()? {
-            let identifier = record.record_identifier.clone();
+            let identifier = record.record_identifier.payload().clone();
             if !record.entry.matches(&query) {
                 continue;
             }
@@ -506,7 +616,7 @@ impl Store {
         let Some(duplicate) = self.duplicate_record(&entry)? else {
             return Ok(Ok(self.propose(entry)?));
         };
-        let record_identifier = RecordIdentifier::new(duplicate.record_identifier.clone());
+        let record_identifier = duplicate.record_identifier.clone();
         let _importance_receipt = self
             .bump_importance(ImportanceBump::new(record_identifier.clone()))?
             .ok_or_else(|| {
@@ -660,7 +770,7 @@ impl Store {
         let Some(duplicate) = self.duplicate_record(entry)? else {
             return Ok(fallback);
         };
-        let record_identifier = RecordIdentifier::new(duplicate.record_identifier.clone());
+        let record_identifier = duplicate.record_identifier.clone();
         let _importance_receipt = self
             .bump_importance(ImportanceBump::new(record_identifier.clone()))?
             .ok_or_else(|| {
@@ -907,7 +1017,7 @@ impl Store {
         for record in records {
             let archive = rkyv::to_bytes::<rkyv::rancor::Error>(&record)
                 .map_err(|_| StoreError::ArchiveEncode)?;
-            hasher.update(record.record_identifier.as_bytes());
+            hasher.update(record.record_identifier.payload().as_bytes());
             hasher.update(&archive);
         }
         for referent in referents {
@@ -1018,14 +1128,14 @@ impl Store {
 impl StoredRecord {
     fn new(record_identifier: String, entry: Entry) -> Self {
         Self {
-            record_identifier,
+            record_identifier: RecordIdentifier::new(record_identifier),
             entry,
         }
     }
 
     fn into_observed_record(self) -> ObservedRecord {
         ObservedRecord {
-            record_identifier: RecordIdentifier::new(self.record_identifier),
+            record_identifier: self.record_identifier,
             entry: self.entry,
         }
     }
@@ -1037,7 +1147,45 @@ impl StoredRecord {
 
 impl EngineRecord for StoredRecord {
     fn record_key(&self) -> RecordKey {
-        RecordKey::new(self.record_identifier.clone())
+        RecordKey::new(self.record_identifier.payload().clone())
+    }
+}
+
+impl EngineRecord for Migration {
+    fn record_key(&self) -> RecordKey {
+        RecordKey::new(format!(
+            "from-schema-{}",
+            self.source_schema_version.payload()
+        ))
+    }
+}
+
+impl StoreFamilyDirectory {
+    /// The directory derived purely from the generated descriptors, for
+    /// import into a virgin store whose tables are not yet registered.
+    fn from_generated_families() -> Self {
+        Self {
+            entries: TableReference::new(*RecordFamily::records_family().name()),
+            referents: TableReference::new(*RecordFamily::referents_family().name()),
+            migrations: TableReference::new(*RecordFamily::migrations_family().name()),
+        }
+    }
+}
+
+impl FamilyDirectory for StoreFamilyDirectory {
+    fn materialize(&self, row: RowMaterializer<'_>) -> sema_engine::Result<()> {
+        let schema_hash = row.family().schema_hash();
+        if schema_hash == SchemaHash::new(family_identity::RECORDS_FAMILY) {
+            row.apply(self.entries)
+        } else if schema_hash == SchemaHash::new(family_identity::REFERENTS_FAMILY) {
+            row.apply(self.referents)
+        } else if schema_hash == SchemaHash::new(family_identity::MIGRATIONS_FAMILY) {
+            row.apply(self.migrations)
+        } else {
+            Err(sema_engine::Error::FamilyUnknown {
+                family: row.family().family().as_str().to_owned(),
+            })
+        }
     }
 }
 
@@ -1145,7 +1293,7 @@ impl GuardianRecordCandidate {
             return None;
         }
         let score = record.entry.guardian_relevance_score(proposed);
-        let record_identifier = record.record_identifier.clone();
+        let record_identifier = record.record_identifier.payload().clone();
         Some(Self {
             score,
             record_identifier,
@@ -1179,7 +1327,7 @@ impl RecordIdentifierMint {
         Self {
             used_identifiers: records
                 .iter()
-                .map(|record| record.record_identifier.clone())
+                .map(|record| record.record_identifier.payload().clone())
                 .collect(),
         }
     }
@@ -1272,15 +1420,20 @@ impl RecordIdentifierCodeRange {
 /// `Entry` into it, and drops the handle when the collection completes. The
 /// archive owns no relationship to the live `Store` database beyond holding the
 /// records the live log let go.
-struct ArchiveDatabase {
+pub(crate) struct ArchiveDatabase {
     database: SemaDatabase,
     entries: TableReference<StoredRecord>,
 }
 
 impl ArchiveDatabase {
-    fn open(path: impl Into<PathBuf>) -> Result<Self, StoreError> {
+    /// Open the archive at the same schema version as the live store,
+    /// registered through the same generated records-family descriptor. The
+    /// archive stays unversioned (no `VersioningPolicy`): it is a derived
+    /// holding pen for records the live log let go, not an authoritative
+    /// history of its own.
+    pub(crate) fn open(path: impl Into<PathBuf>) -> Result<Self, StoreError> {
         let mut database = SemaDatabase::open(EngineOpen::new(path.into(), SPIRIT_SCHEMA_VERSION))?;
-        let entries = database.register_table(TableDescriptor::new(ENTRIES_TABLE))?;
+        let entries = database.register_table(RecordFamily::records_family())?;
         Ok(Self { database, entries })
     }
 
@@ -1296,6 +1449,18 @@ impl ArchiveDatabase {
             self.entries,
             StoredRecord::new(archive_identifier, record.entry),
         ))?;
+        Ok(())
+    }
+
+    /// Durably import one already-keyed archived record verbatim — the
+    /// archive-migration path. Live archiving re-keys through
+    /// [`Self::archive_record`].
+    #[cfg(feature = "production-migration")]
+    pub(crate) fn import_archived_record(
+        &mut self,
+        record: StoredRecord,
+    ) -> Result<(), StoreError> {
+        self.database.assert(Assertion::new(self.entries, record))?;
         Ok(())
     }
 }

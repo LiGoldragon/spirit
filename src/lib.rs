@@ -74,12 +74,11 @@ pub use meta_transport::{
 pub use nexus::{Nexus, StashTable};
 #[cfg(feature = "production-migration")]
 pub use production_migration::{
-    ProductionMigration, ProductionMigrationCompleted, ProductionMigrationError,
-    ProductionMigrationOutput, ProductionMigrationRequest, SpiritStoreUpgrade,
-    SpiritStoreUpgradeCompleted, SpiritStoreUpgradeOutput, SpiritStoreUpgradeRequest,
+    StoreMigration, StoreMigrationCompleted, StoreMigrationError, StoreMigrationOutput,
+    StoreMigrationRequest,
 };
 pub use schema::daemon::{ComponentDaemon, DaemonCommand, DaemonEntry, DaemonError, ListenerTier};
-pub use store::{Store, StoreError};
+pub use store::{Store, StoreError, StoreFamilyDirectory};
 #[cfg(feature = "testing-trace")]
 pub use trace::{TraceClient, TraceError, TraceLog, TraceSocketListener, TraceSocketPath};
 pub use trace_event::{ObjectName, TraceEvent};
