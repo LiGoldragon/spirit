@@ -159,8 +159,10 @@ impl ComponentDaemon for SpiritDaemon {
             .await?
             .into_bytes();
         let (_route, input) = MetaInput::decode_signal_frame(&frame)?;
-        let MetaInput::Configure(request) = input;
-        let reply = engine.configure_async(request.into_payload()).await;
+        let reply = match input {
+            MetaInput::Configure(request) => engine.configure_async(request.into_payload()).await,
+            MetaInput::Import(request) => engine.import_async(request.into_payload()).await,
+        };
         LengthPrefixedCodec::default()
             .write_body_async(
                 connection.stream_mut(),

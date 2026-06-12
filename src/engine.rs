@@ -3,7 +3,10 @@ use std::{convert::Infallible, sync::Mutex as StdMutex};
 use crate::{
     nexus::Nexus,
     schema::{
-        meta_signal::{ConfigureReceipt, ConfigureRequest, Output as MetaOutput},
+        meta_signal::{
+            ConfigureReceipt, ConfigureRejection, ConfigureRejectionReason, ConfigureRequest,
+            ImportReceipt, ImportRequest, Output as MetaOutput,
+        },
         nexus::{self as nexus_schema, NexusAction, NexusEffectCommand, NexusEngine, NexusWork},
         sema::ErrorReport,
         signal::{
@@ -12,7 +15,8 @@ use crate::{
             Entry, ErrorMessage, ImportanceSelection, Input, Integer, IntentEvent, KeywordMatch,
             MailIdentifier, MailLedgerEvent, MessageIdentifier, MessageProcessed,
             MessageProcessedHook, MessageSent, MessageSentHook, OriginRoute, Output, Privacy,
-            PrivacySelection, ProcessedMail, Query, RecordSelection, ReferentSelection, ScopeSet,
+            PrivacySelection, ProcessedMail, Query, RecordCount, RecordSelection, ReferentSelection,
+            ScopeSet,
             SemaReceipt, SentMail, ShortHeader, SignalEngine, SignalRejection, StatementText,
             SupersessionReceipt, TextMatch, ValidationError,
         },
@@ -221,6 +225,40 @@ impl Engine {
 
     pub async fn configure_async(&mut self, request: ConfigureRequest) -> MetaOutput {
         self.configure(request)
+    }
+
+    /// Owner-only meta-socket `Import`: write pre-vetted records straight to the
+    /// SEMA store with their given identifiers, bypassing the guardian admission
+    /// pipeline entirely. This is the privileged restore/migration path — corpus
+    /// rebuild, disaster recovery, machine-to-machine moves. The working signal
+    /// stays fully gated; only the owner-only meta socket can import. It aborts
+    /// to `Rejected` on the first store error so a partial import is loud, never
+    /// silent.
+    pub fn import(&mut self, request: ImportRequest) -> MetaOutput {
+        let mut record_count: Integer = 0;
+        for imported in request.into_payload().into_payload() {
+            match self
+                .nexus
+                .store()
+                .import_record(imported.record_identifier.into_payload(), imported.entry)
+            {
+                Ok(_) => record_count += 1,
+                Err(_) => {
+                    return MetaOutput::rejected(ConfigureRejection {
+                        configure_rejection_reason: ConfigureRejectionReason::InternalError,
+                        database_marker: self.nexus.database_marker(),
+                    });
+                }
+            }
+        }
+        MetaOutput::imported(ImportReceipt {
+            record_count: RecordCount::new(record_count),
+            database_marker: self.nexus.database_marker(),
+        })
+    }
+
+    pub async fn import_async(&mut self, request: ImportRequest) -> MetaOutput {
+        self.import(request)
     }
 
     pub fn intent_recorded_event(

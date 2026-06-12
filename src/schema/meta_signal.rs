@@ -11,6 +11,12 @@ pub type Path = std::string::String;
 
 #[rustfmt::skip]
 pub use crate::schema::signal::DatabaseMarker as DatabaseMarker;
+#[rustfmt::skip]
+pub use crate::schema::signal::Entry as Entry;
+#[rustfmt::skip]
+pub use crate::schema::signal::RecordIdentifier as RecordIdentifier;
+#[rustfmt::skip]
+pub use crate::schema::signal::RecordCount as RecordCount;
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
@@ -24,7 +30,17 @@ pub struct Configure(ConfigureRequest);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Import(ImportRequest);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Configured(ConfigureReceipt);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Imported(ImportReceipt);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -90,8 +106,35 @@ pub enum ConfigureRejectionReason {
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ImportedRecord {
+    pub record_identifier: RecordIdentifier,
+    pub entry: Entry,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ImportedRecords(Vec<ImportedRecord>);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ImportRequest(ImportedRecords);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ImportReceipt {
+    pub record_count: RecordCount,
+    pub database_marker: DatabaseMarker,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum Input {
     Configure(Configure),
+    Import(Import),
 }
 
 #[rustfmt::skip]
@@ -99,6 +142,7 @@ pub enum Input {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum Output {
     Configured(Configured),
+    Imported(Imported),
     Rejected(Rejected),
 }
 
@@ -122,6 +166,25 @@ impl From<ConfigureRequest> for Configure {
 }
 
 #[rustfmt::skip]
+impl Import {
+    pub fn new(payload: ImportRequest) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ImportRequest {
+        &self.0
+    }
+    pub fn into_payload(self) -> ImportRequest {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ImportRequest> for Import {
+    fn from(payload: ImportRequest) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl Configured {
     pub fn new(payload: ConfigureReceipt) -> Self {
         Self(payload)
@@ -136,6 +199,25 @@ impl Configured {
 #[rustfmt::skip]
 impl From<ConfigureReceipt> for Configured {
     fn from(payload: ConfigureReceipt) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Imported {
+    pub fn new(payload: ImportReceipt) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ImportReceipt {
+        &self.0
+    }
+    pub fn into_payload(self) -> ImportReceipt {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ImportReceipt> for Imported {
+    fn from(payload: ImportReceipt) -> Self {
         Self::new(payload)
     }
 }
@@ -217,6 +299,44 @@ impl From<ArchiveDatabaseTarget> for ConfigureRequest {
 }
 
 #[rustfmt::skip]
+impl ImportedRecords {
+    pub fn new(payload: Vec<ImportedRecord>) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Vec<ImportedRecord> {
+        &self.0
+    }
+    pub fn into_payload(self) -> Vec<ImportedRecord> {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Vec<ImportedRecord>> for ImportedRecords {
+    fn from(payload: Vec<ImportedRecord>) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl ImportRequest {
+    pub fn new(payload: ImportedRecords) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ImportedRecords {
+        &self.0
+    }
+    pub fn into_payload(self) -> ImportedRecords {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ImportedRecords> for ImportRequest {
+    fn from(payload: ImportedRecords) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl ArchiveDatabaseTarget {
     pub fn path(payload: ArchivePathText) -> Self {
         Self::Path(ArchivePath::new(payload))
@@ -228,12 +348,18 @@ impl Input {
     pub fn configure(payload: ConfigureRequest) -> Self {
         Self::Configure(Configure::new(payload))
     }
+    pub fn import(payload: ImportRequest) -> Self {
+        Self::Import(Import::new(payload))
+    }
 }
 
 #[rustfmt::skip]
 impl Output {
     pub fn configured(payload: ConfigureReceipt) -> Self {
         Self::Configured(Configured::new(payload))
+    }
+    pub fn imported(payload: ImportReceipt) -> Self {
+        Self::Imported(Imported::new(payload))
     }
     pub fn rejected(payload: ConfigureRejection) -> Self {
         Self::Rejected(Rejected::new(payload))
@@ -255,9 +381,23 @@ impl From<Configure> for Input {
 }
 
 #[rustfmt::skip]
+impl From<Import> for Input {
+    fn from(payload: Import) -> Self {
+        Self::Import(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl From<Configured> for Output {
     fn from(payload: Configured) -> Self {
         Self::Configured(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<Imported> for Output {
+    fn from(payload: Imported) -> Self {
+        Self::Imported(payload)
     }
 }
 
@@ -303,8 +443,10 @@ impl std::fmt::Display for Output {
 #[rustfmt::skip]
 pub mod short_header {
     pub const INPUT_CONFIGURE: u64 = 0x0000000000000000;
+    pub const INPUT_IMPORT: u64 = 0x0001000000000000;
     pub const OUTPUT_CONFIGURED: u64 = 0x0100000000000000;
-    pub const OUTPUT_REJECTED: u64 = 0x0101000000000000;
+    pub const OUTPUT_IMPORTED: u64 = 0x0101000000000000;
+    pub const OUTPUT_REJECTED: u64 = 0x0102000000000000;
 }
 
 #[rustfmt::skip]
@@ -356,6 +498,7 @@ impl std::error::Error for SignalFrameError {}
 )]
 pub enum InputRoute {
     Configure,
+    Import,
 }
 
 #[rustfmt::skip]
@@ -372,6 +515,7 @@ pub enum InputRoute {
 )]
 pub enum OutputRoute {
     Configured,
+    Imported,
     Rejected,
 }
 
@@ -380,16 +524,19 @@ impl Input {
     pub fn route(&self) -> InputRoute {
         match self {
             Self::Configure(_) => InputRoute::Configure,
+            Self::Import(_) => InputRoute::Import,
         }
     }
     pub fn short_header(&self) -> u64 {
         match self {
             Self::Configure(_) => short_header::INPUT_CONFIGURE,
+            Self::Import(_) => short_header::INPUT_IMPORT,
         }
     }
     pub fn route_from_short_header(header: u64) -> Result<InputRoute, SignalFrameError> {
         match header {
             short_header::INPUT_CONFIGURE => Ok(InputRoute::Configure),
+            short_header::INPUT_IMPORT => Ok(InputRoute::Import),
             _ => {
                 Err(SignalFrameError::UnknownHeader {
                     root_enum: "Input",
@@ -441,12 +588,14 @@ impl Output {
     pub fn route(&self) -> OutputRoute {
         match self {
             Self::Configured(_) => OutputRoute::Configured,
+            Self::Imported(_) => OutputRoute::Imported,
             Self::Rejected(_) => OutputRoute::Rejected,
         }
     }
     pub fn short_header(&self) -> u64 {
         match self {
             Self::Configured(_) => short_header::OUTPUT_CONFIGURED,
+            Self::Imported(_) => short_header::OUTPUT_IMPORTED,
             Self::Rejected(_) => short_header::OUTPUT_REJECTED,
         }
     }
@@ -455,6 +604,7 @@ impl Output {
     ) -> Result<OutputRoute, SignalFrameError> {
         match header {
             short_header::OUTPUT_CONFIGURED => Ok(OutputRoute::Configured),
+            short_header::OUTPUT_IMPORTED => Ok(OutputRoute::Imported),
             short_header::OUTPUT_REJECTED => Ok(OutputRoute::Rejected),
             _ => {
                 Err(SignalFrameError::UnknownHeader {
@@ -506,7 +656,7 @@ impl Output {
 impl signal_frame::RequestPayload for Input {}
 #[rustfmt::skip]
 impl signal_frame::SignalOperationHeads for Input {
-    const HEADS: &'static [&'static str] = &["Configure"];
+    const HEADS: &'static [&'static str] = &["Configure", "Import"];
 }
 #[rustfmt::skip]
 impl signal_frame::LogVariant for Input {

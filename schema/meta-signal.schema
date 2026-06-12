@@ -1,11 +1,16 @@
 {
   DatabaseMarker spirit:signal:DatabaseMarker
+  Entry spirit:signal:Entry
+  RecordIdentifier spirit:signal:RecordIdentifier
+  RecordCount spirit:signal:RecordCount
 }
-[Configure]
-[Configured Rejected]
+[Configure Import]
+[Configured Imported Rejected]
 {
   Configure ConfigureRequest
+  Import ImportRequest
   Configured ConfigureReceipt
+  Imported ImportReceipt
   Rejected ConfigureRejection
 
   ArchivePathText String
@@ -16,4 +21,9 @@
   ConfigureReceipt { ArchiveDatabaseTarget * DatabaseMarker * }
   ConfigureRejection { ConfigureRejectionReason * DatabaseMarker * }
   ConfigureRejectionReason [ArchiveTargetUnwritable InternalError]
+
+  ImportedRecord { RecordIdentifier * Entry * }
+  ImportedRecords (Vec ImportedRecord)
+  ImportRequest { ImportedRecords * }
+  ImportReceipt { RecordCount * DatabaseMarker * }
 }

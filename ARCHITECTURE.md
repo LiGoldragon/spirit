@@ -178,9 +178,9 @@ policy and configuration authority have a component-owned home apart from the
 peer-callable working signal. The meta contract is the crate-local
 `schema/meta-signal.schema` wire-only module (a fourth schema module emitted via
 `RustEmissionTarget::WireContract` into `src/schema/meta_signal.rs`): it carries
-only the `Configure` `Input` root, the `Configured`/`Rejected` `Output` roots,
-their records, and the rkyv derives — no Nexus/SEMA planes and no engine traits.
-The single owner-only operation is
+the `Configure` and `Import` `Input` roots, the `Configured`/`Imported`/`Rejected`
+`Output` roots, their records, and the rkyv derives — no Nexus/SEMA planes and no
+engine traits. The first owner-only operation is
 `Configure(ConfigureRequest { ArchiveDatabaseTarget })`, where
 `ArchiveDatabaseTarget` is the ported `[Default | Path(ArchivePath)]` enum. It
 sets WHERE the SEPARATE archive database lives — the destination the
@@ -191,6 +191,17 @@ it through `Engine::configure` (an owner-config effect under the same
 single-flight Nexus mutex the working path uses, NOT a SEMA log write), which
 stores the target on the SEMA `Store` (`Store::set_archive_target`, a field +
 accessor) and replies with the now-active target plus the live database marker.
+
+The second owner-only operation is `Import(ImportRequest { [ImportedRecord] })`,
+each `ImportedRecord { RecordIdentifier, Entry }`: it writes pre-vetted records
+straight to the live SEMA store with their given identifiers, BYPASSING the
+guardian admission pipeline (`Engine::import` over `Store::import_record`). This
+is the privileged restore/migration path — corpus rebuild, disaster recovery,
+machine moves. Guardian-bypassing writes exist ONLY here on the owner-only meta
+socket; the working signal stays fully gated. It aborts to `Rejected` on the
+first store error so a partial import is loud. The `meta-spirit` CLI is the
+owner-only client for these operations — the privileged sibling of `spirit`.
+
 The authority split is load-bearing: the OWNER configures WHERE archives go
 (meta `Configure`); a PEER does the archiving (working
 `CollectRemovalCandidates`). The earlier `set_archive_target` re-opened the LIVE

@@ -1,6 +1,6 @@
 [package]
 name         = "spirit"
-version      = "0.9.4"
+version      = "0.9.5"
 edition      = "2024"
 rust-version = "1.88"
 license      = "MIT OR Apache-2.0"
@@ -15,6 +15,11 @@ path = "src/lib.rs"
 [[bin]]
 name = "spirit"
 path = "src/bin/spirit.rs"
+required-features = ["nota-text"]
+
+[[bin]]
+name = "meta-spirit"
+path = "src/bin/meta-spirit.rs"
 required-features = ["nota-text"]
 
 [[bin]]
