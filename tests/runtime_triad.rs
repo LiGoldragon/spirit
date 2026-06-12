@@ -748,29 +748,19 @@ fn nexus_change_record_is_visible_as_schema_declared_write_command() {
     let first_action = NexusEngine::decide(&mut nexus, nexus_input);
 
     assert_eq!(first_action.origin_route(), nexus_route(6));
-    #[cfg(feature = "agent-guardian")]
     match first_action.root() {
         NexusAction::CommandEffect(effect) => {
-            let NexusEffectCommand::GuardChangeRecord(change) = effect.payload() else {
-                panic!("expected GuardChangeRecord effect, got {effect:?}");
+            let NexusEffectCommand::ChangeRecordWithImpliedReferents(change) = effect.payload()
+            else {
+                panic!("expected ChangeRecordWithImpliedReferents effect, got {effect:?}");
             };
             assert_eq!(change.payload().record_identifier, identifier);
             assert_eq!(change.payload().entry, replacement);
         }
         other => {
             panic!(
-                "expected ChangeRecord to become CommandEffect(GuardChangeRecord), got {other:?}"
+                "expected ChangeRecord to become CommandEffect(ChangeRecordWithImpliedReferents), got {other:?}"
             )
-        }
-    }
-    #[cfg(not(feature = "agent-guardian"))]
-    match first_action.root() {
-        NexusAction::CommandSemaWrite(CommandSemaWrite::ChangeRecord(change)) => {
-            assert_eq!(change.record_identifier, identifier);
-            assert_eq!(change.entry, replacement);
-        }
-        other => {
-            panic!("expected ChangeRecord to become CommandSemaWrite(ChangeRecord), got {other:?}")
         }
     }
 }
@@ -882,9 +872,14 @@ fn nexus_write_operations_are_visible_as_schema_declared_effect_commands() {
     );
     match propose.root() {
         NexusAction::CommandEffect(effect) => {
-            assert!(matches!(effect.payload(), NexusEffectCommand::Propose(_)));
+            assert!(matches!(
+                effect.payload(),
+                NexusEffectCommand::ProposeWithImpliedReferents(_)
+            ));
         }
-        other => panic!("expected Propose to become CommandEffect(Propose), got {other:?}"),
+        other => panic!(
+            "expected Propose to become CommandEffect(ProposeWithImpliedReferents), got {other:?}"
+        ),
     }
 
     let clarify = NexusEngine::decide(
@@ -909,9 +904,14 @@ fn nexus_write_operations_are_visible_as_schema_declared_effect_commands() {
     );
     match supersede.root() {
         NexusAction::CommandEffect(effect) => {
-            assert!(matches!(effect.payload(), NexusEffectCommand::Supersede(_)));
+            assert!(matches!(
+                effect.payload(),
+                NexusEffectCommand::SupersedeWithImpliedReferents(_)
+            ));
         }
-        other => panic!("expected Supersede to become CommandEffect(Supersede), got {other:?}"),
+        other => panic!(
+            "expected Supersede to become CommandEffect(SupersedeWithImpliedReferents), got {other:?}"
+        ),
     }
 
     let retire = NexusEngine::decide(
@@ -1559,14 +1559,62 @@ fn agent_guardian_reject_verdict_blocks_referent_registration() {
         other => panic!("expected ReferentGuardianRejected, got {other:?}"),
     }
     assert_eq!(engine.guardian_decision_count(), 1);
-    drop(engine);
     fake_agent.join();
-    let mut engine = sema.engine();
-    let rejected_record = engine.handle(input_record(entry_with_referents(
-        "rejected referent stays unregistered",
+}
+
+#[cfg(feature = "agent-guardian")]
+#[test]
+fn agent_guardian_reject_verdict_blocks_embedded_referent_registration() {
+    let sema = SemaFile::new();
+    let fake_agent = FakeGuardianAgent::spawn_referent(ReferentGuardianVerdict::reject_referent(
+        RejectReferent {
+            referent_guardian_rejection_reason: ReferentGuardianRejectionReason::TooVague,
+            explanation: spirit::schema::signal::Explanation::new("not a concrete referent"),
+        },
+    ));
+    let mut engine = sema.engine_with_guardian(fake_agent.guardian());
+
+    let output = engine.handle(input_record(entry_with_referents(
+        "embedded referent rejection blocks record",
         &["thing"],
     )));
-    assert!(matches!(rejected_record.root(), Output::Error(_)));
+
+    match output.root() {
+        Output::ReferentGuardianRejected(rejection) => {
+            assert_eq!(
+                rejection.payload().referent_guardian_rejection_reason,
+                ReferentGuardianRejectionReason::TooVague
+            );
+        }
+        other => panic!("expected ReferentGuardianRejected, got {other:?}"),
+    }
+    assert_eq!(engine.record_count(), 0);
+    assert_eq!(engine.guardian_decision_count(), 1);
+    fake_agent.join();
+}
+
+#[cfg(feature = "agent-guardian")]
+#[test]
+fn agent_guardian_accepts_embedded_referent_before_guarding_record() {
+    let sema = SemaFile::new();
+    let fake_agent = FakeGuardianAgent::spawn_texts(vec![
+        ReferentGuardianVerdict::Accept.to_nota(),
+        GuardianVerdict::Accept.to_nota(),
+    ]);
+    let mut engine = sema.engine_with_guardian(fake_agent.guardian());
+
+    let output = engine.handle(input_record(entry_with_referents(
+        "embedded referent accepted before record",
+        &["schemaNext"],
+    )));
+
+    match output.root() {
+        Output::RecordAccepted(receipt) => assert_short_record_identifier(receipt.payload()),
+        other => panic!("expected RecordAccepted, got {other:?}"),
+    }
+    assert_eq!(engine.record_count(), 1);
+    assert_eq!(engine.guardian_decision_count(), 2);
+    fake_agent.join();
 }
 
 #[cfg(feature = "agent-guardian")]
@@ -2833,54 +2881,91 @@ fn full_runtime_triad_registers_referent_through_signal_nexus_and_sema() {
 }
 
 #[test]
-fn full_runtime_triad_rejects_record_with_unregistered_referent() {
+fn full_runtime_triad_records_and_registers_embedded_referent() {
     let sema = SemaFile::new();
     let mut engine = sema.engine();
 
     let output = engine.handle(input_record(entry_with_referents(
-        "unregistered referent should fail",
+        "embedded referent should register",
         &["schemaNext"],
     )));
 
     match output.root() {
-        Output::Error(report) => {
-            assert!(
-                report
-                    .payload()
-                    .payload()
-                    .payload()
-                    .contains("unregistered referent"),
-                "unexpected error: {:?}",
-                report.payload().payload()
+        Output::RecordAccepted(receipt) => assert_short_record_identifier(receipt.payload()),
+        other => panic!("expected RecordAccepted for embedded referent, got {other:?}"),
+    }
+    let observed = engine.handle(input_observe(Query {
+        referent_selection: ReferentSelection::any_referent(referents_from_slice(&["schemaNext"])),
+        ..query()
+    }));
+    let stash = match observed.root() {
+        Output::RecordsStashed(stashed) => stashed.stash_handle.clone(),
+        other => panic!("expected RecordsStashed for embedded referent query, got {other:?}"),
+    };
+    let records = engine.handle(input_lookup_stash(stash));
+    match records.root() {
+        Output::RecordsObserved(records) => {
+            assert_eq!(records.payload().payload().len(), 1);
+            assert_eq!(
+                records.payload().payload()[0].entry.description,
+                "embedded referent should register"
             );
         }
-        other => panic!("expected Error for unregistered referent, got {other:?}"),
+        other => panic!("expected RecordsObserved for embedded referent query, got {other:?}"),
     }
 }
 
 #[test]
-fn full_runtime_triad_rejects_proposal_with_unregistered_referent() {
+fn full_runtime_triad_proposes_and_registers_embedded_referent() {
     let sema = SemaFile::new();
     let mut engine = sema.engine();
 
     let output = engine.handle(input_propose(entry_with_referents(
-        "unregistered proposal referent should fail",
+        "embedded proposal referent should register",
         &["schemaNext"],
     )));
 
     match output.root() {
-        Output::Error(report) => {
-            assert!(
-                report
-                    .payload()
-                    .payload()
-                    .payload()
-                    .contains("unregistered referent"),
-                "unexpected error: {:?}",
-                report.payload().payload()
+        Output::Proposed(receipt) => assert_short_record_identifier(receipt.payload()),
+        other => panic!("expected Proposed for embedded referent, got {other:?}"),
+    }
+}
+
+#[test]
+fn full_runtime_triad_change_record_registers_embedded_referent() {
+    let sema = SemaFile::new();
+    let mut engine = sema.engine();
+
+    let accepted = engine.handle(input_record(entry(
+        "record before embedded referent change",
+    )));
+    let record_identifier = match accepted.root() {
+        Output::RecordAccepted(receipt) => receipt.payload().clone(),
+        other => panic!("expected setup RecordAccepted, got {other:?}"),
+    };
+    let changed = engine.handle(input_change_record(
+        record_identifier.clone(),
+        entry_with_referents("record after embedded referent change", &["schemaNext"]),
+    ));
+
+    match changed.root() {
+        Output::RecordChanged(receipt) => {
+            assert_eq!(
+                receipt.payload().payload().payload(),
+                record_identifier.payload()
+            )
+        }
+        other => panic!("expected RecordChanged for embedded referent change, got {other:?}"),
+    }
+    let found = engine.handle(Input::lookup(record_identifier));
+    match found.root() {
+        Output::RecordFound(record) => {
+            assert_eq!(
+                record.entry.referents.payload(),
+                &[Referent::new("schemaNext")]
             );
         }
-        other => panic!("expected Error for unregistered proposal referent, got {other:?}"),
+        other => panic!("expected RecordFound after embedded referent change, got {other:?}"),
     }
 }
 

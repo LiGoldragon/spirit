@@ -444,12 +444,18 @@ impl Nexus {
                     .classify(statement.into_payload());
                 NexusEffectResult::state_classified(record_request)
             }
+            NexusEffectCommand::RecordWithImpliedReferents(record) => {
+                self.apply_record_with_implied_referents(record.into_payload())
+            }
             NexusEffectCommand::GuardRecord(record) => {
                 match self.guard_record(record.into_payload()) {
                     Ok(Ok(receipt)) => NexusEffectResult::recorded(receipt),
                     Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
                     Err(error) => self.operation_failed(error.to_string()),
                 }
+            }
+            NexusEffectCommand::ProposeWithImpliedReferents(propose) => {
+                self.apply_propose_with_implied_referents(propose.into_payload())
             }
             NexusEffectCommand::Propose(propose) => {
                 match self.guard_propose(propose.into_payload()) {
@@ -465,6 +471,9 @@ impl Nexus {
                     Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
                     Err(error) => self.operation_failed(error.to_string()),
                 }
+            }
+            NexusEffectCommand::SupersedeWithImpliedReferents(supersede) => {
+                self.apply_supersede_with_implied_referents(supersede.into_payload())
             }
             NexusEffectCommand::Supersede(supersede) => {
                 match self.guard_supersede(supersede.into_payload()) {
@@ -487,6 +496,9 @@ impl Nexus {
                     Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
                     Err(error) => self.operation_failed(error.to_string()),
                 }
+            }
+            NexusEffectCommand::ChangeRecordWithImpliedReferents(change) => {
+                self.apply_change_record_with_implied_referents(change.into_payload())
             }
             NexusEffectCommand::GuardChangeRecord(change) => {
                 match self.guard_change_record(change.into_payload()) {
@@ -540,6 +552,46 @@ impl Nexus {
                     observed_operations,
                 })
             }
+        }
+    }
+
+    fn apply_record_with_implied_referents(&mut self, request: RecordRequest) -> NexusEffectResult {
+        match self.register_implied_referents(&request.entry, &request.justification) {
+            Ok(Ok(())) => NexusEffectResult::record_referents_settled(request),
+            Ok(Err(rejection)) => NexusEffectResult::referent_guardian_rejected(rejection),
+            Err(error) => self.operation_failed(error.to_string()),
+        }
+    }
+
+    fn apply_propose_with_implied_referents(&mut self, proposal: Proposal) -> NexusEffectResult {
+        match self.register_implied_referents(&proposal.entry, &proposal.justification) {
+            Ok(Ok(())) => NexusEffectResult::propose_referents_settled(proposal),
+            Ok(Err(rejection)) => NexusEffectResult::referent_guardian_rejected(rejection),
+            Err(error) => self.operation_failed(error.to_string()),
+        }
+    }
+
+    fn apply_supersede_with_implied_referents(
+        &mut self,
+        supersession: Supersession,
+    ) -> NexusEffectResult {
+        match self
+            .register_implied_referents(&supersession.replacement, &supersession.justification)
+        {
+            Ok(Ok(())) => NexusEffectResult::supersede_referents_settled(supersession),
+            Ok(Err(rejection)) => NexusEffectResult::referent_guardian_rejected(rejection),
+            Err(error) => self.operation_failed(error.to_string()),
+        }
+    }
+
+    fn apply_change_record_with_implied_referents(
+        &mut self,
+        change: RecordChange,
+    ) -> NexusEffectResult {
+        match self.register_implied_referents(&change.entry, &change.justification) {
+            Ok(Ok(())) => NexusEffectResult::change_record_referents_settled(change),
+            Ok(Err(rejection)) => NexusEffectResult::referent_guardian_rejected(rejection),
+            Err(error) => self.operation_failed(error.to_string()),
         }
     }
 
@@ -795,6 +847,24 @@ impl Nexus {
         }
     }
 
+    fn register_implied_referents(
+        &mut self,
+        entry: &Entry,
+        justification: &Justification,
+    ) -> Result<Result<(), ReferentGuardianRejection>, StoreError> {
+        for referent in entry.referents.payload() {
+            let registration = ReferentRegistration {
+                referent: referent.clone(),
+                aliases: Referents::new(Vec::new()),
+                justification: justification.clone(),
+            };
+            if let Err(rejection) = self.guard_referent_registration(registration)? {
+                return Ok(Err(rejection));
+            }
+        }
+        Ok(Ok(()))
+    }
+
     #[cfg(feature = "agent-guardian")]
     fn duplicate_rejection_if_needed(
         &self,
@@ -1035,29 +1105,18 @@ impl Nexus {
             Input::State(statement) => NexusAction::command_effect(
                 NexusEffectCommand::classify_state(statement.into_payload()),
             ),
-            Input::Record(record) => {
-                #[cfg(feature = "agent-guardian")]
-                {
-                    NexusAction::command_effect(NexusEffectCommand::guard_record(
-                        record.into_payload(),
-                    ))
-                }
-                #[cfg(not(feature = "agent-guardian"))]
-                {
-                    NexusAction::command_sema_write(CommandSemaWrite::record(
-                        record.into_payload().entry,
-                    ))
-                }
-            }
-            Input::Propose(propose) => {
-                NexusAction::command_effect(NexusEffectCommand::propose(propose.into_payload()))
-            }
+            Input::Record(record) => NexusAction::command_effect(
+                NexusEffectCommand::record_with_implied_referents(record.into_payload()),
+            ),
+            Input::Propose(propose) => NexusAction::command_effect(
+                NexusEffectCommand::propose_with_implied_referents(propose.into_payload()),
+            ),
             Input::Clarify(clarify) => {
                 NexusAction::command_effect(NexusEffectCommand::clarify(clarify.into_payload()))
             }
-            Input::Supersede(supersede) => {
-                NexusAction::command_effect(NexusEffectCommand::supersede(supersede.into_payload()))
-            }
+            Input::Supersede(supersede) => NexusAction::command_effect(
+                NexusEffectCommand::supersede_with_implied_referents(supersede.into_payload()),
+            ),
             Input::Retire(retire) => {
                 NexusAction::command_effect(NexusEffectCommand::retire(retire.into_payload()))
             }
@@ -1094,20 +1153,9 @@ impl Nexus {
             Input::BumpImportance(change) => NexusAction::command_sema_write(
                 CommandSemaWrite::bump_importance(change.into_payload()),
             ),
-            Input::ChangeRecord(change) => {
-                #[cfg(feature = "agent-guardian")]
-                {
-                    NexusAction::command_effect(NexusEffectCommand::guard_change_record(
-                        change.into_payload(),
-                    ))
-                }
-                #[cfg(not(feature = "agent-guardian"))]
-                {
-                    NexusAction::command_sema_write(CommandSemaWrite::change_record(
-                        change.into_payload(),
-                    ))
-                }
-            }
+            Input::ChangeRecord(change) => NexusAction::command_effect(
+                NexusEffectCommand::change_record_with_implied_referents(change.into_payload()),
+            ),
             Input::RegisterReferent(register) => NexusAction::command_effect(
                 NexusEffectCommand::guard_referent_registration(register.into_payload()),
             ),
@@ -1195,17 +1243,40 @@ impl Nexus {
 
     fn decide_effect_completion(&self, result: NexusEffectResult) -> NexusAction {
         match result {
-            NexusEffectResult::StateClassified(entry) => {
+            NexusEffectResult::StateClassified(entry) => NexusAction::command_effect(
+                NexusEffectCommand::record_with_implied_referents(entry.into_payload()),
+            ),
+            NexusEffectResult::RecordReferentsSettled(record) => {
                 #[cfg(feature = "agent-guardian")]
                 {
                     NexusAction::command_effect(NexusEffectCommand::guard_record(
-                        entry.into_payload(),
+                        record.into_payload(),
                     ))
                 }
                 #[cfg(not(feature = "agent-guardian"))]
                 {
                     NexusAction::command_sema_write(CommandSemaWrite::record(
-                        entry.into_payload().entry,
+                        record.into_payload().entry,
+                    ))
+                }
+            }
+            NexusEffectResult::ProposeReferentsSettled(propose) => {
+                NexusAction::command_effect(NexusEffectCommand::propose(propose.into_payload()))
+            }
+            NexusEffectResult::SupersedeReferentsSettled(supersede) => {
+                NexusAction::command_effect(NexusEffectCommand::supersede(supersede.into_payload()))
+            }
+            NexusEffectResult::ChangeRecordReferentsSettled(change) => {
+                #[cfg(feature = "agent-guardian")]
+                {
+                    NexusAction::command_effect(NexusEffectCommand::guard_change_record(
+                        change.into_payload(),
+                    ))
+                }
+                #[cfg(not(feature = "agent-guardian"))]
+                {
+                    NexusAction::command_sema_write(CommandSemaWrite::change_record(
+                        change.into_payload(),
                     ))
                 }
             }

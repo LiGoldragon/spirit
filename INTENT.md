@@ -94,6 +94,17 @@ referent guardian and without mutating the store. Adding a new alias or new
 referent is still a real registry change and remains guardian-gated when the
 guardian feature is active.
 
+*Intent submissions imply missing referent registration.* Entry-bearing writes
+(`Record`, `Propose`, `ChangeRecord`, and `Supersede` replacement entries) treat
+each listed `Referent` as an embedded `ReferentRegistration` request with no
+aliases and the write's own `Justification`. The implied registration runs
+through the same settled-state and referent-guardian path as explicit
+`RegisterReferent`; a rejected implied registration blocks the entry write.
+This is not hidden parser logic: Nexus exposes the stages as generated
+`RecordWithImpliedReferents`, `ProposeWithImpliedReferents`,
+`SupersedeWithImpliedReferents`, `ChangeRecordWithImpliedReferents`, and the
+matching `*ReferentsSettled` results before the normal guard/write operation.
+
 *Nexus is the recursive runner payload keeper and the internal feature catalog.*
 Signal triage produces a generated `nexus::Nexus<nexus::Work>` envelope;
 `triad-runtime::Runner` owns the continuation budget and repeated dispatch.

@@ -285,24 +285,32 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     );
     nexus_witness.must_contain("NexusAction [(CommandSemaWrite)", "4");
     nexus_witness.must_contain(
-        "NexusEffectCommand [(Stash) (ClassifyState) (GuardRecord) (Propose) (Clarify) (Supersede) (Retire) (GuardRemove) (GuardChangeRecord) (GuardReferentRegistration) (OpenIntentSubscription) (CollectRemovalCandidates) (OpenObserverTap) (CloseObserverTap)]",
+        "NexusEffectCommand [(Stash) (ClassifyState) (RecordWithImpliedReferents) (GuardRecord) (ProposeWithImpliedReferents) (Propose) (Clarify) (SupersedeWithImpliedReferents) (Supersede) (Retire) (GuardRemove) (ChangeRecordWithImpliedReferents) (GuardChangeRecord) (GuardReferentRegistration) (OpenIntentSubscription) (CollectRemovalCandidates) (OpenObserverTap) (CloseObserverTap)]",
         "4",
     );
     nexus_witness.must_contain("ClassifyState Statement", "4");
+    nexus_witness.must_contain("RecordWithImpliedReferents RecordRequest", "4");
     nexus_witness.must_contain("GuardRecord RecordRequest", "4");
+    nexus_witness.must_contain("ProposeWithImpliedReferents Proposal", "4");
     nexus_witness.must_contain("Propose Proposal", "4");
     nexus_witness.must_contain("Clarify Clarification", "4");
+    nexus_witness.must_contain("SupersedeWithImpliedReferents Supersession", "4");
     nexus_witness.must_contain("Supersede Supersession", "4");
     nexus_witness.must_contain("Retire Retirement", "4");
     nexus_witness.must_contain("GuardRemove Removal", "4");
+    nexus_witness.must_contain("ChangeRecordWithImpliedReferents RecordChange", "4");
     nexus_witness.must_contain("GuardChangeRecord RecordChange", "4");
     nexus_witness.must_contain("GuardReferentRegistration ReferentRegistration", "4");
     nexus_witness.must_contain("OpenIntentSubscription Query", "4");
     nexus_witness.must_contain(
-        "NexusEffectResult [(Stashed) (StateClassified) (Recorded) (Proposed) (Clarified) (Superseded) (Retired) (Removed) (RecordChanged) (GuardianRejected) (ReferentRegistered) (ReferentGuardianRejected) (OperationFailed) (IntentSubscriptionOpened) (RemovalCandidatesCollected) (ObserverTapOpened) (ObserverTapClosed)]",
+        "NexusEffectResult [(Stashed) (StateClassified) (RecordReferentsSettled) (ProposeReferentsSettled) (SupersedeReferentsSettled) (ChangeRecordReferentsSettled) (Recorded) (Proposed) (Clarified) (Superseded) (Retired) (Removed) (RecordChanged) (GuardianRejected) (ReferentRegistered) (ReferentGuardianRejected) (OperationFailed) (IntentSubscriptionOpened) (RemovalCandidatesCollected) (ObserverTapOpened) (ObserverTapClosed)]",
         "4",
     );
     nexus_witness.must_contain("StateClassified RecordRequest", "4");
+    nexus_witness.must_contain("RecordReferentsSettled RecordRequest", "4");
+    nexus_witness.must_contain("ProposeReferentsSettled Proposal", "4");
+    nexus_witness.must_contain("SupersedeReferentsSettled Supersession", "4");
+    nexus_witness.must_contain("ChangeRecordReferentsSettled RecordChange", "4");
     nexus_witness.must_contain("Recorded SemaReceipt", "4");
     nexus_witness.must_contain("Proposed SemaReceipt", "4");
     nexus_witness.must_contain("Clarified ClarificationReceipt", "4");
@@ -379,9 +387,19 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     nexus_witness.must_contain("pub enum NexusEffectCommand {", "4");
     nexus_witness.must_contain("pub struct ClassifyState(Statement);", "4");
     nexus_witness.must_contain("ClassifyState(ClassifyState)", "4");
+    nexus_witness.must_contain("pub struct RecordWithImpliedReferents(RecordRequest);", "4");
     nexus_witness.must_contain("pub struct GuardRecord(RecordRequest);", "4");
+    nexus_witness.must_contain("pub struct ProposeWithImpliedReferents(Proposal);", "4");
     nexus_witness.must_contain("pub struct Propose(Proposal);", "4");
+    nexus_witness.must_contain(
+        "pub struct SupersedeWithImpliedReferents(Supersession);",
+        "4",
+    );
     nexus_witness.must_contain("pub struct GuardRemove(Removal);", "4");
+    nexus_witness.must_contain(
+        "pub struct ChangeRecordWithImpliedReferents(RecordChange);",
+        "4",
+    );
     nexus_witness.must_contain("pub struct GuardChangeRecord(RecordChange);", "4");
     nexus_witness.must_contain(
         "pub struct GuardReferentRegistration(ReferentRegistration);",
