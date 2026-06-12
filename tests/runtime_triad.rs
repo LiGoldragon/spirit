@@ -19,7 +19,8 @@ use spirit::{
             RecordChange, RecordIdentifier, RecordRequest, RecordSelection, Referent,
             ReferentRegistration, ReferentSelection, Referents, Removal, RetiredIdentifier,
             RetiredIdentifiers, Retirement, SearchText, SemaReceipt, SentMail, SignalEngine,
-            SignalRejection, Software, StashHandle, Statement, StatementText, Supersession,
+            QuoteText, Reasoning, Replacements, SignalRejection, Software, StashHandle, Statement,
+            StatementText, Supersession, Testimony, VerbatimQuote,
             Technology, TextMatch, ValidationError,
         },
     },
@@ -261,8 +262,11 @@ fn entry_with_referents(description: &str, referents: &[&str]) -> Entry {
 
 fn justification(statement: &str) -> Justification {
     Justification {
-        statement_text: StatementText::new(statement),
-        context: None,
+        testimony: Testimony::new(vec![VerbatimQuote {
+            quote_text: QuoteText::new(statement.to_owned()),
+            antecedent: None,
+        }]),
+        reasoning: Reasoning::new(statement.to_owned()),
     }
 }
 
@@ -505,7 +509,7 @@ fn input_supersede(record_identifier: RecordIdentifier, replacement: Entry) -> I
         retired_identifiers: RetiredIdentifiers::new(vec![RetiredIdentifier::new(
             record_identifier,
         )]),
-        replacement,
+        replacements: Replacements::new(vec![replacement]),
         justification: justification("replacement forward arrow"),
     })
 }
@@ -1070,7 +1074,8 @@ fn signal_write_operations_propose_clarify_supersede_and_retire() {
                 receipt.payload().retired_identifiers.payload()[0].payload(),
                 &original_identifier
             );
-            receipt.payload().record_identifier.clone()
+            assert_eq!(receipt.payload().record_identifiers.payload().len(), 1);
+            receipt.payload().record_identifiers.payload()[0].clone()
         }
         other => panic!("expected Superseded receipt, got {other:?}"),
     };

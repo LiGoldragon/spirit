@@ -19,7 +19,8 @@ use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest, Outpu
 use spirit::schema::signal::GuardianRejectionReason;
 use spirit::schema::signal::{
     Description, DomainMatch, DomainScopes, Domains, Entry, ImportanceSelection, Input,
-    Justification, Kind, Magnitude, Output, Privacy, Query, RecordRequest, StatementText,
+    Justification, Kind, Magnitude, Output, Privacy, QuoteText, Query, Reasoning, RecordRequest,
+    Testimony, VerbatimQuote,
 };
 use spirit::{
     Configuration, Daemon, DaemonError, MetaSignalTransport, SignalTransport, SpiritDaemon,
@@ -78,8 +79,11 @@ fn record_request(description: &str) -> RecordRequest {
     RecordRequest {
         entry: decision_entry(description),
         justification: Justification {
-            statement_text: StatementText::new(description),
-            context: None,
+            testimony: Testimony::new(vec![VerbatimQuote {
+                quote_text: QuoteText::new(description.to_owned()),
+                antecedent: None,
+            }]),
+            reasoning: Reasoning::new(description.to_owned()),
         },
     }
 }

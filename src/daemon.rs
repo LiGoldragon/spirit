@@ -276,7 +276,11 @@ impl Query {
         match event {
             IntentEvent::IntentRecorded(recorded) => recorded.entry.matches(self),
             IntentEvent::IntentClarified(clarified) => clarified.entry.matches(self),
-            IntentEvent::IntentSuperseded(superseded) => superseded.entry.matches(self),
+            IntentEvent::IntentSuperseded(superseded) => superseded
+                .replacements
+                .payload()
+                .iter()
+                .any(|entry| entry.matches(self)),
             IntentEvent::IntentRetired(_retired) => false,
         }
     }

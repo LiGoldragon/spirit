@@ -7,7 +7,7 @@ use spirit::{
             CertaintySelection, Description, DomainMatch, DomainScopes, Domains, Entry,
             ImportanceSelection, Input, Justification, Kind, Magnitude, Output, Privacy,
             PrivacySelection, Query, RecordRequest, SignalObjectName, SignalRejection,
-            StatementText, ValidationError,
+            QuoteText, Reasoning, Testimony, ValidationError, VerbatimQuote,
         },
     },
 };
@@ -48,8 +48,11 @@ fn record_request(entry: Entry) -> RecordRequest {
     RecordRequest {
         entry,
         justification: Justification {
-            statement_text: StatementText::new(statement),
-            context: None,
+            testimony: Testimony::new(vec![VerbatimQuote {
+                quote_text: QuoteText::new(statement.clone()),
+                antecedent: None,
+            }]),
+            reasoning: Reasoning::new(statement),
         },
     }
 }

@@ -27,7 +27,8 @@ use crate::schema::{
         Importance, ImportanceBump, ImportanceBumpReceipt, ImportanceSelection, Keyword,
         KeywordMatch, Keywords, Magnitude, ObservedRecord, ObservedRecords, Privacy,
         PrivacySelection, Query, RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier,
-        RecordSet, Referent, ReferentRegistration, ReferentRegistrationReceipt, ReferentSelection,
+        RecordIdentifiers, RecordSet, Referent, ReferentRegistration, ReferentRegistrationReceipt,
+        ReferentSelection,
         Referents, Removal, RemovalArchiveRecord, RemovalArchiveRecords,
         RemovalCandidateCollection, RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifier,
         RemovedIdentifiers, Retirement, RetirementReceipt, SearchText, SemaReceipt,
@@ -548,7 +549,7 @@ impl Store {
         operation: &GuardianOperation,
     ) -> Result<RecordSet, StoreError> {
         let mut bundle = GuardianRecordBundle::new();
-        if let Some(candidate) = operation.candidate_entry() {
+        for candidate in operation.candidate_entries() {
             bundle.extend(self.guardian_records_for_entry(candidate)?);
         }
         match operation {
@@ -817,7 +818,7 @@ impl Store {
         supersession: Supersession,
     ) -> Result<Option<SupersessionReceipt>, StoreError> {
         let retired_identifiers = supersession.retired_identifiers;
-        let replacement = supersession.replacement;
+        let replacements = supersession.replacements;
         let mut archive = self.open_archive_database()?;
         for identifier in retired_identifiers.payload() {
             let Some(entry) = self.entry_by_identifier(identifier.payload().payload())? else {
@@ -831,10 +832,14 @@ impl Store {
         for identifier in retired_identifiers.payload() {
             self.remove(identifier.payload().payload())?;
         }
-        let sema_receipt = self.propose(replacement)?;
+        let mut record_identifiers = Vec::new();
+        for replacement in replacements.into_payload() {
+            let sema_receipt = self.propose(replacement)?;
+            record_identifiers.push(sema_receipt.record_identifier);
+        }
         Ok(Some(SupersessionReceipt {
             retired_identifiers,
-            record_identifier: sema_receipt.record_identifier,
+            record_identifiers: RecordIdentifiers::new(record_identifiers),
         }))
     }
 

@@ -100,7 +100,7 @@ fn signal_schema_input_uses_exported_object_variant_names() {
     witness.must_contain("ChangeRecord RecordChange", "4");
     witness.must_contain("RegisterReferent ReferentRegistration", "4");
     witness.must_contain(
-        "Justification { StatementText * context (Optional StatementText) }",
+        "Justification { Testimony * Reasoning * }",
         "4",
     );
     witness.must_contain("RecordRequest { Entry * Justification * }", "4");

@@ -129,7 +129,12 @@
   SignalRejection { ValidationError * }
   StashedObservation { StashHandle * RecordCount * }
   IntentSubscription { SubscriptionToken * }
-  Justification { StatementText * context (Optional StatementText) }
+  QuoteText String
+  Antecedent String
+  VerbatimQuote { QuoteText * antecedent (Optional Antecedent) }
+  Testimony (Vec VerbatimQuote)
+  Reasoning String
+  Justification { Testimony * Reasoning * }
   RecordRequest { Entry * Justification * }
   Proposal { Entry * Justification * }
   ReferentRegistration { Referent * aliases Referents Justification * }
@@ -140,7 +145,7 @@
   VersionReport { VersionText * }
   IntentRecorded { Entry * RecordIdentifier * }
   IntentClarified { RecordIdentifier * Entry * }
-  IntentSuperseded { RetiredIdentifiers * Entry * RecordIdentifier * }
+  IntentSuperseded { RetiredIdentifiers * Replacements * RecordIdentifiers * }
   IntentRetired { RecordIdentifier * }
   IntentEvent [(IntentRecorded IntentRecorded belongs IntentEventStream) (IntentClarified IntentClarified belongs IntentEventStream) (IntentSuperseded IntentSuperseded belongs IntentEventStream) (IntentRetired IntentRetired belongs IntentEventStream)]
   IntentEventStream (Stream { token SubscriptionToken opened SubscriptionStarted event IntentEvent close SubscriptionToken })
@@ -207,13 +212,15 @@
   RecordChangeReceipt { RecordIdentifier * }
   Clarification { RecordIdentifier * Description * Justification * }
   ClarificationReceipt { RecordIdentifier * }
-  Supersession { RetiredIdentifiers * replacement Entry Justification * }
-  SupersessionReceipt { RetiredIdentifiers * RecordIdentifier * }
+  Replacements (Vec Entry)
+  RecordIdentifiers (Vec RecordIdentifier)
+  Supersession { RetiredIdentifiers * Replacements * Justification * }
+  SupersessionReceipt { RetiredIdentifiers * RecordIdentifiers * }
   Retirement { RecordIdentifier * Justification * }
   RetirementReceipt { RecordIdentifier * }
   RetiredIdentifier RecordIdentifier
   RetiredIdentifiers (Vec RetiredIdentifier)
-  GuardianRejectionReason [Duplicate Contradiction Compound NonIntent UnclearPrivacy UnclearDomain ClarifyTramples ClarifyLosesMeaning SupersedeTargetMissing RetrievalInsufficient HarnessUnavailable HarnessMalformed HarnessTimedOut]
+  GuardianRejectionReason [Duplicate Contradiction Compound NonIntent UnclearPrivacy UnclearDomain ClarifyTramples ClarifyLosesMeaning SupersedeTargetMissing RetrievalInsufficient MissingTestimony TestimonyFabricated InsufficientWarrant Overstated ImportanceUnsupported HarnessUnavailable HarnessMalformed HarnessTimedOut]
   GuardianRejection { GuardianRejectionReason * RecordSet * Explanation * }
   ReferentGuardianRejectionReason [Duplicate Ambiguous TooVague AliasCollision NonReferent UnclearJustification HarnessUnavailable HarnessMalformed HarnessTimedOut]
   ReferentGuardianRejection { ReferentGuardianRejectionReason * RegisteredReferents * Explanation * }

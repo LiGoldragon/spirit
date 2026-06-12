@@ -93,16 +93,36 @@ impl GuardianOperation {
         Self::CollectRemovalCandidates(collection)
     }
 
-    pub(crate) fn candidate_entry(&self) -> Option<&Entry> {
+    /// Whether the operation's justification carries no verbatim testimony at
+    /// all. Empty testimony is a structural fact the daemon checks
+    /// deterministically — a candidate with zero quotes has produced no evidence
+    /// — rather than relying on the model to notice an empty vector.
+    pub(crate) fn testimony_is_empty(&self) -> bool {
+        let justification = match self {
+            Self::Record(request) => &request.justification,
+            Self::Propose(proposal) => &proposal.justification,
+            Self::Clarify(clarification) => &clarification.justification,
+            Self::Supersede(supersession) => &supersession.justification,
+            Self::Retire(retirement) => &retirement.justification,
+            Self::Remove(removal) => &removal.justification,
+            Self::ChangeRecord(change) => &change.justification,
+            Self::CollectRemovalCandidates(collection) => &collection.justification,
+        };
+        justification.testimony.payload().is_empty()
+    }
+
+    pub(crate) fn candidate_entries(&self) -> Vec<&Entry> {
         match self {
-            Self::Record(request) => Some(&request.entry),
-            Self::Propose(proposal) => Some(&proposal.entry),
-            Self::Supersede(supersession) => Some(&supersession.replacement),
-            Self::ChangeRecord(change) => Some(&change.entry),
+            Self::Record(request) => vec![&request.entry],
+            Self::Propose(proposal) => vec![&proposal.entry],
+            Self::Supersede(supersession) => {
+                supersession.replacements.payload().iter().collect()
+            }
+            Self::ChangeRecord(change) => vec![&change.entry],
             Self::Clarify(_)
             | Self::Retire(_)
             | Self::Remove(_)
-            | Self::CollectRemovalCandidates(_) => None,
+            | Self::CollectRemovalCandidates(_) => Vec::new(),
         }
     }
 

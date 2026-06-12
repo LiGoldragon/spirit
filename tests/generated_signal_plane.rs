@@ -7,7 +7,8 @@ use spirit::schema::signal::{
     DomainScopes, Domains, Entry, Input, InputRoute, IntentEvent, IntentRecorded, Justification,
     Kind, Magnitude, MessageIdentifier, MessageRoot, OriginRoute, Output, OutputRoute, Privacy,
     Record, RecordChange, RecordChangeReceipt, RecordIdentifier, RecordRequest, RecordSelection,
-    Rejected, SignalFrameError, SignalRejection, Statement, StatementText, ValidationError,
+    QuoteText, Reasoning, Rejected, SignalFrameError, SignalRejection, Statement, StatementText,
+    Testimony, ValidationError, VerbatimQuote,
     VersionReport, VersionText,
 };
 
@@ -22,16 +23,22 @@ fn record_request(entry: Entry, statement: &str) -> RecordRequest {
     RecordRequest {
         entry,
         justification: Justification {
-            statement_text: StatementText::new(statement),
-            context: None,
+            testimony: Testimony::new(vec![VerbatimQuote {
+                quote_text: QuoteText::new(statement.to_owned()),
+                antecedent: None,
+            }]),
+            reasoning: Reasoning::new(statement.to_owned()),
         },
     }
 }
 
 fn justification(statement: &str) -> Justification {
     Justification {
-        statement_text: StatementText::new(statement),
-        context: None,
+        testimony: Testimony::new(vec![VerbatimQuote {
+            quote_text: QuoteText::new(statement.to_owned()),
+            antecedent: None,
+        }]),
+        reasoning: Reasoning::new(statement.to_owned()),
     }
 }
 
@@ -325,7 +332,7 @@ fn generated_change_certainty_round_trips_the_canonical_shape() {
 #[cfg(feature = "nota-text")]
 #[test]
 fn generated_change_record_round_trips_the_canonical_shape() {
-    let input = "(ChangeRecord (003g ([(Technology (Software (Data SchemaEvolution)))] Correction replacement High Minimum Zero []) (replacement None)))"
+    let input = "(ChangeRecord (003g ([(Technology (Software (Data SchemaEvolution)))] Correction replacement High Minimum Zero []) ([(replacement None)] replacement)))"
         .parse::<Input>()
         .expect("parse change record input");
 
@@ -347,7 +354,7 @@ fn generated_change_record_round_trips_the_canonical_shape() {
     );
     assert_eq!(
         input.to_string(),
-        "(ChangeRecord (003g ([(Technology (Software (Data SchemaEvolution)))] Correction replacement High Minimum Zero []) (replacement None)))"
+        "(ChangeRecord (003g ([(Technology (Software (Data SchemaEvolution)))] Correction replacement High Minimum Zero []) ([(replacement None)] replacement)))"
     );
 }
 
@@ -443,7 +450,7 @@ fn generated_record_input_renders_bracket_bearing_strings_losslessly() {
 
     assert_eq!(
         rendered,
-        "(Record (([(Technology (Software (Data SchemaEvolution)))] Correction [|text contains [brackets] and the pipe close marker \\|]|] High Minimum Zero []) ([|text contains [brackets] and the pipe close marker \\|]|] None)))"
+        "(Record (([(Technology (Software (Data SchemaEvolution)))] Correction [|text contains [brackets] and the pipe close marker \\|]|] High Minimum Zero []) ([([|text contains [brackets] and the pipe close marker \\|]|] None)] [|text contains [brackets] and the pipe close marker \\|]|])))"
     );
     let reparsed = rendered
         .parse::<Input>()

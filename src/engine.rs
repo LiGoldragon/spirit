@@ -555,15 +555,20 @@ impl Entry {
 
 impl crate::schema::signal::Justification {
     pub fn validate(&self) -> Result<(), ValidationError> {
-        if self.statement_text.trim().is_empty() {
+        if self.reasoning.payload().trim().is_empty() {
             return Err(ValidationError::EmptyDescription);
         }
-        if self
-            .context
-            .as_ref()
-            .is_some_and(|context| context.trim().is_empty())
-        {
-            return Err(ValidationError::EmptyDescription);
+        for quote in self.testimony.payload() {
+            if quote.quote_text.payload().trim().is_empty() {
+                return Err(ValidationError::EmptyDescription);
+            }
+            if quote
+                .antecedent
+                .as_ref()
+                .is_some_and(|antecedent| antecedent.payload().trim().is_empty())
+            {
+                return Err(ValidationError::EmptyDescription);
+            }
         }
         Ok(())
     }
@@ -640,7 +645,12 @@ impl crate::schema::signal::Supersession {
         if self.retired_identifiers.payload().is_empty() {
             return Err(ValidationError::EmptyDescription);
         }
-        self.replacement.validate()?;
+        if self.replacements.payload().is_empty() {
+            return Err(ValidationError::EmptyDescription);
+        }
+        for replacement in self.replacements.payload() {
+            replacement.validate()?;
+        }
         self.justification.validate()
     }
 }

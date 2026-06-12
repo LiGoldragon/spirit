@@ -525,9 +525,37 @@ pub struct IntentSubscription(SubscriptionToken);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct QuoteText(String);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Antecedent(String);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct VerbatimQuote {
+    pub quote_text: QuoteText,
+    pub antecedent: Option<Antecedent>,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Testimony(Vec<VerbatimQuote>);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Reasoning(String);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Justification {
-    pub statement_text: StatementText,
-    pub context: Option<StatementText>,
+    pub testimony: Testimony,
+    pub reasoning: Reasoning,
 }
 
 #[rustfmt::skip]
@@ -604,8 +632,8 @@ pub struct IntentClarified {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct IntentSuperseded {
     pub retired_identifiers: RetiredIdentifiers,
-    pub entry: Entry,
-    pub record_identifier: RecordIdentifier,
+    pub replacements: Replacements,
+    pub record_identifiers: RecordIdentifiers,
 }
 
 #[rustfmt::skip]
@@ -1086,9 +1114,19 @@ pub struct ClarificationReceipt(RecordIdentifier);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Replacements(Vec<Entry>);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct RecordIdentifiers(Vec<RecordIdentifier>);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Supersession {
     pub retired_identifiers: RetiredIdentifiers,
-    pub replacement: Entry,
+    pub replacements: Replacements,
     pub justification: Justification,
 }
 
@@ -1097,7 +1135,7 @@ pub struct Supersession {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct SupersessionReceipt {
     pub retired_identifiers: RetiredIdentifiers,
-    pub record_identifier: RecordIdentifier,
+    pub record_identifiers: RecordIdentifiers,
 }
 
 #[rustfmt::skip]
@@ -1146,6 +1184,11 @@ pub enum GuardianRejectionReason {
     ClarifyLosesMeaning,
     SupersedeTargetMissing,
     RetrievalInsufficient,
+    MissingTestimony,
+    TestimonyFabricated,
+    InsufficientWarrant,
+    Overstated,
+    ImportanceUnsupported,
     HarnessUnavailable,
     HarnessMalformed,
     HarnessTimedOut,
@@ -2697,6 +2740,82 @@ impl From<SubscriptionToken> for IntentSubscription {
 }
 
 #[rustfmt::skip]
+impl QuoteText {
+    pub fn new(payload: impl Into<String>) -> Self {
+        Self(payload.into())
+    }
+    pub fn payload(&self) -> &String {
+        &self.0
+    }
+    pub fn into_payload(self) -> String {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<String> for QuoteText {
+    fn from(payload: String) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Antecedent {
+    pub fn new(payload: impl Into<String>) -> Self {
+        Self(payload.into())
+    }
+    pub fn payload(&self) -> &String {
+        &self.0
+    }
+    pub fn into_payload(self) -> String {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<String> for Antecedent {
+    fn from(payload: String) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Testimony {
+    pub fn new(payload: Vec<VerbatimQuote>) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Vec<VerbatimQuote> {
+        &self.0
+    }
+    pub fn into_payload(self) -> Vec<VerbatimQuote> {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Vec<VerbatimQuote>> for Testimony {
+    fn from(payload: Vec<VerbatimQuote>) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Reasoning {
+    pub fn new(payload: impl Into<String>) -> Self {
+        Self(payload.into())
+    }
+    pub fn payload(&self) -> &String {
+        &self.0
+    }
+    pub fn into_payload(self) -> String {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<String> for Reasoning {
+    fn from(payload: String) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl ReferentRegistrationReceipt {
     pub fn new(payload: Referent) -> Self {
         Self(payload)
@@ -3395,6 +3514,44 @@ impl ClarificationReceipt {
 #[rustfmt::skip]
 impl From<RecordIdentifier> for ClarificationReceipt {
     fn from(payload: RecordIdentifier) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl Replacements {
+    pub fn new(payload: Vec<Entry>) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Vec<Entry> {
+        &self.0
+    }
+    pub fn into_payload(self) -> Vec<Entry> {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Vec<Entry>> for Replacements {
+    fn from(payload: Vec<Entry>) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl RecordIdentifiers {
+    pub fn new(payload: Vec<RecordIdentifier>) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Vec<RecordIdentifier> {
+        &self.0
+    }
+    pub fn into_payload(self) -> Vec<RecordIdentifier> {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Vec<RecordIdentifier>> for RecordIdentifiers {
+    fn from(payload: Vec<RecordIdentifier>) -> Self {
         Self::new(payload)
     }
 }

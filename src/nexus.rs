@@ -28,6 +28,7 @@ use crate::{
             RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifiers, Retirement,
             RetirementReceipt, SemaReceipt, SignalRejection, SkippedRemovalCandidates, StashHandle,
             StashedObservation, Statement, SubscriptionToken, Supersession, SupersessionReceipt,
+            QuoteText, Reasoning, Replacements, Testimony, VerbatimQuote,
             ValidationError, VersionReport, VersionText,
         },
     },
@@ -257,8 +258,11 @@ impl ClassificationPolicy {
         let statement_text = statement.into_payload();
         let description = statement_text.payload().clone();
         let justification = Justification {
-            statement_text,
-            context: None,
+            testimony: Testimony::new(vec![VerbatimQuote {
+                quote_text: QuoteText::new(description.clone()),
+                antecedent: None,
+            }]),
+            reasoning: Reasoning::new(description.clone()),
         };
         let entry = Entry {
             domains: Domains::new(vec![self.fallback_domain.clone()]),
@@ -418,16 +422,18 @@ impl Nexus {
         &self,
         receipt: &SupersessionReceipt,
     ) -> Result<Option<IntentEvent>, StoreError> {
-        Ok(self
-            .store
-            .entry_by_identifier(receipt.record_identifier.payload())?
-            .map(|entry| {
-                IntentEvent::intent_superseded(IntentSuperseded {
-                    retired_identifiers: receipt.retired_identifiers.clone(),
-                    entry,
-                    record_identifier: receipt.record_identifier.clone(),
-                })
-            }))
+        let mut replacements = Vec::new();
+        for identifier in receipt.record_identifiers.payload() {
+            let Some(entry) = self.store.entry_by_identifier(identifier.payload())? else {
+                return Ok(None);
+            };
+            replacements.push(entry);
+        }
+        Ok(Some(IntentEvent::intent_superseded(IntentSuperseded {
+            retired_identifiers: receipt.retired_identifiers.clone(),
+            replacements: Replacements::new(replacements),
+            record_identifiers: receipt.record_identifiers.clone(),
+        })))
     }
 
     pub fn intent_retired_event(&self, receipt: &RetirementReceipt) -> IntentEvent {
@@ -575,13 +581,16 @@ impl Nexus {
         &mut self,
         supersession: Supersession,
     ) -> NexusEffectResult {
-        match self
-            .register_implied_referents(&supersession.replacement, &supersession.justification)
-        {
-            Ok(Ok(())) => NexusEffectResult::supersede_referents_settled(supersession),
-            Ok(Err(rejection)) => NexusEffectResult::referent_guardian_rejected(rejection),
-            Err(error) => self.operation_failed(error.to_string()),
+        for replacement in supersession.replacements.payload().clone() {
+            match self.register_implied_referents(&replacement, &supersession.justification) {
+                Ok(Ok(())) => {}
+                Ok(Err(rejection)) => {
+                    return NexusEffectResult::referent_guardian_rejected(rejection);
+                }
+                Err(error) => return self.operation_failed(error.to_string()),
+            }
         }
+        NexusEffectResult::supersede_referents_settled(supersession)
     }
 
     fn apply_change_record_with_implied_referents(

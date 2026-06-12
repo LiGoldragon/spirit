@@ -13,7 +13,8 @@ use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest};
 use spirit::schema::signal::{
     CertaintySelection, Description, DomainMatch, DomainScopes, Domains, Entry,
     ImportanceSelection, Input, Justification, Kind, Magnitude, Output, Privacy, PrivacySelection,
-    Query, RecordRequest, RemovalCandidateCollection, StatementText,
+    Query, QuoteText, Reasoning, RecordRequest, RemovalCandidateCollection, Testimony,
+    VerbatimQuote,
 };
 use spirit::{Engine, Store};
 use tempfile::TempDir;
@@ -47,8 +48,11 @@ fn record_request(entry: Entry) -> RecordRequest {
     RecordRequest {
         entry,
         justification: Justification {
-            statement_text: StatementText::new(statement),
-            context: None,
+            testimony: Testimony::new(vec![VerbatimQuote {
+                quote_text: QuoteText::new(statement.clone()),
+                antecedent: None,
+            }]),
+            reasoning: Reasoning::new(statement),
         },
     }
 }
@@ -80,11 +84,15 @@ fn removal_candidate_query(domain: &str) -> Query {
 }
 
 fn removal_candidate_collection(domain: &str) -> RemovalCandidateCollection {
+    let statement = format!("collect {domain} removal candidates");
     RemovalCandidateCollection {
         record_query: removal_candidate_query(domain).into(),
         justification: Justification {
-            statement_text: StatementText::new(format!("collect {domain} removal candidates")),
-            context: None,
+            testimony: Testimony::new(vec![VerbatimQuote {
+                quote_text: QuoteText::new(statement.clone()),
+                antecedent: None,
+            }]),
+            reasoning: Reasoning::new(statement),
         },
     }
 }

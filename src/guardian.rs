@@ -24,6 +24,14 @@ use crate::{
     },
 };
 
+/// Format-correction retries after the initial guardian call. Even a strong
+/// thinking model slips the double-nested `(Reject ( <Reason> [..] ))` verdict
+/// shape occasionally; each retry feeds back the malformed text plus the parse
+/// error, so a transient format slip is corrected rather than fail-closed into a
+/// spurious reject. The agent daemon already does its own one-shot NOTA-parse
+/// retry underneath this, so these are verdict-TYPE corrections on top.
+const GUARDIAN_FORMAT_RETRIES: usize = 2;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentGuardianConfiguration {
     socket_path: PathBuf,
@@ -114,6 +122,19 @@ impl AgentGuardian {
         records: RecordSet,
         database_marker: DatabaseMarker,
     ) -> AgentGuardianDecision {
+        // Empty testimony is a structural fact, not a semantic judgement: a
+        // candidate with no verbatim quote at all has produced no evidence, and
+        // the flash-vs-pro eval showed even a strong model intermittently
+        // overlooks an empty testimony vector. Reject it deterministically and
+        // skip the model call (the guardian prompt still teaches MissingTestimony
+        // for the semantic bare-affirmation-without-antecedent case).
+        if operation.testimony_is_empty() {
+            let verdict = GuardianVerdict::reject(Reject {
+                guardian_rejection_reason: GuardianRejectionReason::MissingTestimony,
+                explanation: Explanation::new("the justification carries no verbatim testimony"),
+            });
+            return AgentGuardianDecision::new(verdict, records, database_marker);
+        }
         let verdict = self
             .call_guardian(operation, &records)
             .unwrap_or_else(|error| {
@@ -148,24 +169,23 @@ impl AgentGuardian {
         records: &RecordSet,
     ) -> Result<GuardianVerdict, AgentGuardianError> {
         let prompts = self.prompt_builder();
-        let output = self.call_agent(prompts.guardian_prompt(operation, records, None))?;
-        let AgentOutput::Completed(completion) = output else {
-            return Err(AgentGuardianError::AgentRejected(format!("{output:?}")));
-        };
-        match self.parse_verdict(&completion.text) {
-            Ok(verdict) => Ok(verdict),
-            Err(first_error) => {
-                let retry = GuardianRetry::new(completion.text, first_error.to_string());
-                let retry_output =
-                    self.call_agent(prompts.guardian_prompt(operation, records, Some(&retry)))?;
-                let AgentOutput::Completed(retry_completion) = retry_output else {
-                    return Err(AgentGuardianError::AgentRejected(format!(
-                        "{retry_output:?}"
-                    )));
-                };
-                self.parse_verdict(&retry_completion.text)
+        let mut retry: Option<GuardianRetry> = None;
+        let mut last_error: Option<AgentGuardianError> = None;
+        for _ in 0..=GUARDIAN_FORMAT_RETRIES {
+            let output =
+                self.call_agent(prompts.guardian_prompt(operation, records, retry.as_ref()))?;
+            let AgentOutput::Completed(completion) = output else {
+                return Err(AgentGuardianError::AgentRejected(format!("{output:?}")));
+            };
+            match self.parse_verdict(&completion.text) {
+                Ok(verdict) => return Ok(verdict),
+                Err(error) => {
+                    retry = Some(GuardianRetry::new(completion.text, error.to_string()));
+                    last_error = Some(error);
+                }
             }
         }
+        Err(last_error.expect("at least one guardian attempt always runs"))
     }
 
     fn call_referent_guardian(
@@ -174,28 +194,26 @@ impl AgentGuardian {
         registered_referents: &RegisteredReferents,
     ) -> Result<ReferentGuardianVerdict, AgentGuardianError> {
         let prompts = self.prompt_builder();
-        let output =
-            self.call_agent(prompts.referent_prompt(registration, registered_referents, None))?;
-        let AgentOutput::Completed(completion) = output else {
-            return Err(AgentGuardianError::AgentRejected(format!("{output:?}")));
-        };
-        match self.parse_referent_verdict(&completion.text) {
-            Ok(verdict) => Ok(verdict),
-            Err(first_error) => {
-                let retry = GuardianRetry::new(completion.text, first_error.to_string());
-                let retry_output = self.call_agent(prompts.referent_prompt(
-                    registration,
-                    registered_referents,
-                    Some(&retry),
-                ))?;
-                let AgentOutput::Completed(retry_completion) = retry_output else {
-                    return Err(AgentGuardianError::AgentRejected(format!(
-                        "{retry_output:?}"
-                    )));
-                };
-                self.parse_referent_verdict(&retry_completion.text)
+        let mut retry: Option<GuardianRetry> = None;
+        let mut last_error: Option<AgentGuardianError> = None;
+        for _ in 0..=GUARDIAN_FORMAT_RETRIES {
+            let output = self.call_agent(prompts.referent_prompt(
+                registration,
+                registered_referents,
+                retry.as_ref(),
+            ))?;
+            let AgentOutput::Completed(completion) = output else {
+                return Err(AgentGuardianError::AgentRejected(format!("{output:?}")));
+            };
+            match self.parse_referent_verdict(&completion.text) {
+                Ok(verdict) => return Ok(verdict),
+                Err(error) => {
+                    retry = Some(GuardianRetry::new(completion.text, error.to_string()));
+                    last_error = Some(error);
+                }
             }
         }
+        Err(last_error.expect("at least one referent guardian attempt always runs"))
     }
 
     fn call_agent(&self, prompt: Prompt) -> Result<AgentOutput, AgentGuardianError> {

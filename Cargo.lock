@@ -4,8 +4,8 @@ version = 4
 
 [[package]]
 name = "agent"
-version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/agent.git?branch=main#684a814d9001e4953e16e55d4104849f48597b20"
+version = "0.2.0"
+source = "git+https://github.com/LiGoldragon/agent.git?branch=main#5a2cd5ab9bd9031c979c1c2932bd4e7b8b12b37b"
 dependencies = [
  "meta-signal-agent",
  "nota-next",
@@ -1206,8 +1206,8 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "signal-agent"
-version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/signal-agent.git?branch=main#1bc6ad9b0e5b6a9173fdc1653bd0aca756c1bb89"
+version = "0.3.0"
+source = "git+https://github.com/LiGoldragon/signal-agent.git?branch=main#33c2ecacd4c02c3f834d576607d27fcd4ac6b788"
 dependencies = [
  "nota-next",
  "rkyv",
@@ -1298,7 +1298,7 @@ dependencies = [
 
 [[package]]
 name = "spirit"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "agent",
  "blake3",

@@ -14,7 +14,8 @@
 use spirit::schema::signal::{
     CertaintySelection, Description, DomainMatch, DomainScopes, Domains, Entry,
     ImportanceSelection, Input, Justification, Kind, Magnitude, ObserverFilter, OperationKind,
-    Output, Privacy, PrivacySelection, Query, RecordRequest, StatementText,
+    Output, Privacy, PrivacySelection, QuoteText, Query, Reasoning, RecordRequest, Testimony,
+    VerbatimQuote,
 };
 use spirit::{Engine, Store};
 use tempfile::TempDir;
@@ -35,8 +36,11 @@ fn record_request(description: &str) -> RecordRequest {
     RecordRequest {
         entry: entry(description),
         justification: Justification {
-            statement_text: StatementText::new(description),
-            context: None,
+            testimony: Testimony::new(vec![VerbatimQuote {
+                quote_text: QuoteText::new(description.to_owned()),
+                antecedent: None,
+            }]),
+            reasoning: Reasoning::new(description.to_owned()),
         },
     }
 }

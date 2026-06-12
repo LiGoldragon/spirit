@@ -416,19 +416,19 @@ fn run_cli(socket_path: &Path, nota_argument: &str) -> Output {
 
 fn record_nota(domains: &str, kind: &str, description: &str) -> String {
     format!(
-        "(Record (({domains} {kind} [{description}] Maximum Minimum Zero []) ([{description}] None)))"
+        "(Record (({domains} {kind} [{description}] Maximum Minimum Zero []) ([([{description}] None)] [{description}])))"
     )
 }
 
 fn remove_nota(identifier: &RecordIdentifier) -> String {
     format!(
-        "(Remove ({} ([remove record] None)))",
+        "(Remove ({} ([([remove record] None)] [remove record])))",
         record_identifier_argument(identifier)
     )
 }
 
 fn collect_removal_candidates_nota(query: &str) -> String {
-    format!("(CollectRemovalCandidates ({query} ([collect removal candidates] None)))")
+    format!("(CollectRemovalCandidates ({query} ([([collect removal candidates] None)] [collect removal candidates])))")
 }
 
 fn assert_short_record_identifier(identifier: &RecordIdentifier) {
@@ -906,7 +906,7 @@ fn cli_and_daemon_change_record_replaces_entry_under_same_identifier() {
     let changed = run_cli(
         &socket_path,
         &format!(
-            "(ChangeRecord ({} ([(Information Documentation)] Correction [replacement record] High Minimum Zero []) ([replacement record] None)))",
+            "(ChangeRecord ({} ([(Information Documentation)] Correction [replacement record] High Minimum Zero []) ([([replacement record] None)] [replacement record])))",
             record_identifier_argument(&record_identifier)
         ),
     );
