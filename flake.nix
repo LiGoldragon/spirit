@@ -313,6 +313,13 @@
             cargoExtraArgs = "--features nota-text --bin spirit";
           }
         );
+        metaSpiritCliPackage = craneLib.buildPackage (
+          commonArguments
+          // {
+            cargoArtifacts = notaTextCargoArtifacts;
+            cargoExtraArgs = "--features nota-text --bin meta-spirit";
+          }
+        );
         configurationWriterPackage = craneLib.buildPackage (
           commonArguments
           // {
@@ -351,6 +358,7 @@
         combinedPackage = pkgs.runCommand "spirit" { } ''
           mkdir -p "$out/bin"
           ln -s "${cliPackage}/bin/spirit" "$out/bin/spirit"
+          ln -s "${metaSpiritCliPackage}/bin/meta-spirit" "$out/bin/meta-spirit"
           ln -s "${daemonPackage}/bin/spirit-daemon" "$out/bin/spirit-daemon"
           ln -s "${configurationWriterPackage}/bin/spirit-write-configuration" "$out/bin/spirit-write-configuration"
           ln -s "${productionMigrationPackage}/bin/spirit-migrate-production" "$out/bin/spirit-migrate-production"
