@@ -16,6 +16,10 @@ pub use crate::schema::signal::Query as Query;
 #[rustfmt::skip]
 pub use crate::schema::signal::RecordIdentifier as RecordIdentifier;
 #[rustfmt::skip]
+pub use crate::schema::signal::Referent as Referent;
+#[rustfmt::skip]
+pub use crate::schema::signal::Referents as Referents;
+#[rustfmt::skip]
 pub use crate::schema::signal::Removal as Removal;
 #[rustfmt::skip]
 pub use crate::schema::signal::CertaintyChange as CertaintyChange;
@@ -188,6 +192,46 @@ pub struct Found(FoundRecord);
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Counted(CountedRecords);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct StoredRecord {
+    pub record_identifier: RecordIdentifier,
+    pub entry: Entry,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct StoredReferent {
+    pub referent: Referent,
+    pub aliases: Referents,
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct SourceSchemaVersion(Integer);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct MigratedRecordCount(Integer);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct MigratedReferentCount(Integer);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct Migration {
+    pub source_schema_version: SourceSchemaVersion,
+    pub migrated_record_count: MigratedRecordCount,
+    pub migrated_referent_count: MigratedReferentCount,
+}
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -567,6 +611,63 @@ impl From<CountedRecords> for Counted {
 }
 
 #[rustfmt::skip]
+impl SourceSchemaVersion {
+    pub fn new(payload: Integer) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Integer {
+        &self.0
+    }
+    pub fn into_payload(self) -> Integer {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Integer> for SourceSchemaVersion {
+    fn from(payload: Integer) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl MigratedRecordCount {
+    pub fn new(payload: Integer) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Integer {
+        &self.0
+    }
+    pub fn into_payload(self) -> Integer {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Integer> for MigratedRecordCount {
+    fn from(payload: Integer) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl MigratedReferentCount {
+    pub fn new(payload: Integer) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Integer {
+        &self.0
+    }
+    pub fn into_payload(self) -> Integer {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Integer> for MigratedReferentCount {
+    fn from(payload: Integer) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl WriteInput {
     pub fn record(payload: Entry) -> Self {
         Self::Record(Record::new(payload))
@@ -859,6 +960,159 @@ impl std::str::FromStr for Output {
 impl std::fmt::Display for Output {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str(&<Self as NotaEncode>::to_nota(self))
+    }
+}
+
+#[rustfmt::skip]
+pub mod family_identity {
+    pub const RECORDS_FAMILY: [u8; 32] = [
+        128, 152, 120, 200, 198, 145, 69, 202, 209, 143, 69, 0, 194, 68, 236, 123, 66,
+        45, 71, 174, 61, 91, 152, 128, 240, 76, 53, 227, 70, 162, 14, 185,
+    ];
+    pub const REFERENTS_FAMILY: [u8; 32] = [
+        148, 20, 243, 164, 221, 37, 189, 55, 141, 132, 255, 229, 160, 20, 221, 151, 9,
+        87, 17, 16, 190, 49, 67, 192, 49, 14, 212, 75, 162, 60, 82, 157,
+    ];
+    pub const MIGRATIONS_FAMILY: [u8; 32] = [
+        96, 13, 160, 54, 2, 240, 240, 159, 129, 176, 196, 115, 153, 242, 20, 188, 11,
+        198, 33, 180, 70, 0, 165, 6, 233, 11, 118, 11, 189, 6, 149, 16,
+    ];
+}
+
+#[rustfmt::skip]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RecordFamilyError {
+    UnknownFamily { family: sema_engine::FamilyName },
+    SchemaHashMismatch {
+        family: sema_engine::FamilyName,
+        stored: sema_engine::SchemaHash,
+        generated: sema_engine::SchemaHash,
+    },
+    RecordDecode { family: sema_engine::FamilyName },
+}
+#[rustfmt::skip]
+impl std::fmt::Display for RecordFamilyError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnknownFamily { family } => {
+                write!(formatter, "unknown record family {family}")
+            }
+            Self::SchemaHashMismatch { family, stored, generated } => {
+                write!(
+                    formatter,
+                    "schema hash mismatch for record family {family}: stored {stored}, generated {generated}",
+                )
+            }
+            Self::RecordDecode { family } => {
+                write!(formatter, "failed to decode {family} record archive")
+            }
+        }
+    }
+}
+#[rustfmt::skip]
+impl std::error::Error for RecordFamilyError {}
+
+#[rustfmt::skip]
+#[derive(Clone, Debug, PartialEq)]
+pub enum RecordFamily {
+    RecordsFamily(StoredRecord),
+    ReferentsFamily(StoredReferent),
+    MigrationsFamily(Migration),
+}
+#[rustfmt::skip]
+impl RecordFamily {
+    pub const STORE_NAME: &'static str = "spirit:sema";
+    pub fn versioning_policy() -> sema_engine::VersioningPolicy {
+        sema_engine::VersioningPolicy::new(
+            sema_engine::VersionedStoreName::new(Self::STORE_NAME),
+        )
+    }
+    pub fn records_family() -> sema_engine::TableDescriptor<StoredRecord> {
+        sema_engine::TableDescriptor::new(
+            sema_engine::TableName::new("records"),
+            sema_engine::FamilyName::new("RecordsFamily"),
+            sema_engine::SchemaHash::new(family_identity::RECORDS_FAMILY),
+        )
+    }
+    pub fn referents_family() -> sema_engine::TableDescriptor<StoredReferent> {
+        sema_engine::TableDescriptor::new(
+            sema_engine::TableName::new("referents"),
+            sema_engine::FamilyName::new("ReferentsFamily"),
+            sema_engine::SchemaHash::new(family_identity::REFERENTS_FAMILY),
+        )
+    }
+    pub fn migrations_family() -> sema_engine::TableDescriptor<Migration> {
+        sema_engine::TableDescriptor::new(
+            sema_engine::TableName::new("migrations"),
+            sema_engine::FamilyName::new("MigrationsFamily"),
+            sema_engine::SchemaHash::new(family_identity::MIGRATIONS_FAMILY),
+        )
+    }
+    pub fn decode(
+        identity: &sema_engine::FamilyIdentity,
+        bytes: &[u8],
+    ) -> Result<Self, RecordFamilyError> {
+        match identity.family().as_str() {
+            "RecordsFamily" => {
+                let generated = sema_engine::SchemaHash::new(
+                    family_identity::RECORDS_FAMILY,
+                );
+                if identity.schema_hash() != generated {
+                    return Err(RecordFamilyError::SchemaHashMismatch {
+                        family: sema_engine::FamilyName::new("RecordsFamily"),
+                        stored: identity.schema_hash(),
+                        generated,
+                    });
+                }
+                let record = rkyv::from_bytes::<StoredRecord, rkyv::rancor::Error>(bytes)
+                    .map_err(|_| RecordFamilyError::RecordDecode {
+                        family: sema_engine::FamilyName::new("RecordsFamily"),
+                    })?;
+                Ok(Self::RecordsFamily(record))
+            }
+            "ReferentsFamily" => {
+                let generated = sema_engine::SchemaHash::new(
+                    family_identity::REFERENTS_FAMILY,
+                );
+                if identity.schema_hash() != generated {
+                    return Err(RecordFamilyError::SchemaHashMismatch {
+                        family: sema_engine::FamilyName::new("ReferentsFamily"),
+                        stored: identity.schema_hash(),
+                        generated,
+                    });
+                }
+                let record = rkyv::from_bytes::<
+                    StoredReferent,
+                    rkyv::rancor::Error,
+                >(bytes)
+                    .map_err(|_| RecordFamilyError::RecordDecode {
+                        family: sema_engine::FamilyName::new("ReferentsFamily"),
+                    })?;
+                Ok(Self::ReferentsFamily(record))
+            }
+            "MigrationsFamily" => {
+                let generated = sema_engine::SchemaHash::new(
+                    family_identity::MIGRATIONS_FAMILY,
+                );
+                if identity.schema_hash() != generated {
+                    return Err(RecordFamilyError::SchemaHashMismatch {
+                        family: sema_engine::FamilyName::new("MigrationsFamily"),
+                        stored: identity.schema_hash(),
+                        generated,
+                    });
+                }
+                let record = rkyv::from_bytes::<Migration, rkyv::rancor::Error>(bytes)
+                    .map_err(|_| RecordFamilyError::RecordDecode {
+                        family: sema_engine::FamilyName::new("MigrationsFamily"),
+                    })?;
+                Ok(Self::MigrationsFamily(record))
+            }
+            _ => {
+                Err(RecordFamilyError::UnknownFamily {
+                    family: identity.family().clone(),
+                })
+            }
+        }
     }
 }
 
