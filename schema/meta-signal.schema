@@ -1,8 +1,8 @@
 {
-  DatabaseMarker spirit:signal:DatabaseMarker
-  Entry spirit:signal:Entry
-  RecordIdentifier spirit:signal:RecordIdentifier
-  RecordCount spirit:signal:RecordCount
+  DatabaseMarker signal-spirit:signal:DatabaseMarker
+  Entry signal-spirit:signal:Entry
+  RecordIdentifier signal-spirit:signal:RecordIdentifier
+  RecordCount signal-spirit:signal:RecordCount
 }
 [Configure Import]
 [Configured Imported Rejected]

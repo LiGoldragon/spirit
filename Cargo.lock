@@ -5,7 +5,7 @@ version = 4
 [[package]]
 name = "agent"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/agent.git?branch=main#5a2cd5ab9bd9031c979c1c2932bd4e7b8b12b37b"
+source = "git+https://github.com/LiGoldragon/agent.git?branch=main#dc5cf888344b3c448090dec08a70ed9337cf62e2"
 dependencies = [
  "meta-signal-agent",
  "nota-next",
@@ -179,7 +179,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -673,7 +673,7 @@ checksum = "6b947ae49db0d222b1dbc6b113ce7248a3fc3a6ca21b696717bfc000ba4484d8"
 [[package]]
 name = "meta-signal-agent"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-agent.git?branch=main#50eb30c7dacf245cba0384ee7afabd9a07af25cb"
+source = "git+https://github.com/LiGoldragon/meta-signal-agent.git?branch=main#0afa9857642040b821dd02235cc91c825400f498"
 dependencies = [
  "nota-next",
  "rkyv",
@@ -1043,7 +1043,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1106,7 +1106,7 @@ dependencies = [
 [[package]]
 name = "schema-rust-next"
 version = "0.5.3"
-source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#7c15bc3fa3d07f4710acca16f14eef1aa68b02dd"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#00763d676d63395d45b5f8a81dbf9a2287574ca9"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -1221,7 +1221,7 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 [[package]]
 name = "signal-agent"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/signal-agent.git?branch=main#33c2ecacd4c02c3f834d576607d27fcd4ac6b788"
+source = "git+https://github.com/LiGoldragon/signal-agent.git?branch=main#3c88f388047645b7eb3a1f9cb778ae7eebb1a251"
 dependencies = [
  "nota-next",
  "rkyv",
@@ -1273,10 +1273,12 @@ dependencies = [
 
 [[package]]
 name = "signal-spirit"
-version = "0.5.3"
-source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=main#c2bfeb57c0c68febf1870a69702201b4e9077339"
+version = "0.6.0"
+source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=main#87cf9bf5158ad3e0c220c68640c5c5b86574850e"
 dependencies = [
+ "nota-next",
  "rkyv",
+ "schema-rust-next",
  "signal-frame",
  "thiserror",
  "version-projection",
@@ -1307,7 +1309,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52d1cfed4120b4d927bf7c0f86d2087a4a7d6027c906d9f9d525a80573b9be51"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1386,7 +1388,7 @@ dependencies = [
  "getrandom 0.4.2",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1617,6 +1619,7 @@ name = "version-projection"
 version = "0.1.0"
 source = "git+https://github.com/LiGoldragon/version-projection.git?branch=main#f00b239f75aca30098a60b30e877faafe8625d77"
 dependencies = [
+ "nota-next",
  "rkyv",
  "thiserror",
 ]

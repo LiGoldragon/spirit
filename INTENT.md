@@ -1,11 +1,13 @@
 # INTENT — spirit
 
 `spirit` is the production Spirit daemon and proves a running component can be
-built from schema-derived interfaces. It is the current copyable three-plane exemplar for the next Spirit engine
-stack: a daemon crate with crate-local `schema/signal.schema`,
-`schema/nexus.schema`, and `schema/sema.schema`, shared build-driver
-generation, generated plane modules under `spirit::schema`, `sema-engine`
-storage, and `triad-runtime` runner/listener/runtime support. It must not be
+built from schema-derived interfaces. It is the current copyable triad runtime
+exemplar for the next Spirit engine stack: the ordinary public signal/domain
+contract lives in the `signal-spirit` contract crate, while this daemon crate
+keeps crate-local `schema/nexus.schema`, `schema/sema.schema`, and
+`schema/meta-signal.schema`, shared build-driver generation, generated daemon
+runtime modules under `spirit::schema`, `sema-engine` storage, and
+`triad-runtime` runner/listener/runtime support. It must not be
 described as an all-in-one pilot whose shape future components should avoid.
 (Spirit record `y88n`, High certainty.)
 
@@ -13,13 +15,24 @@ Load-bearing constraints:
 
 *CLI input and output are NOTA when the `nota-text` feature is enabled.* Component/process communication is always binary rkyv. Generated schema datatypes always carry rkyv support; NOTA encode/decode is an opt-in text-client surface, not a daemon requirement. The daemon binary must not depend on `nota-next`; the CLI crate enables `nota-text`. Tests run `cargo tree --edges normal --no-default-features` and assert `nota-next` is absent from the binary, while the text surface must contain it.
 
-*Rust data types are generated from crate-local `schema/{signal,nexus,sema}.schema` plane schemas.* Authored schema source is a typed artifact before Rust emission. The shared generation driver reads each plane schema into `SchemaSource`, round-trips canonical source text and rkyv archive bytes through `SchemaSourceArtifact`, lowers from that typed source value to semantic `Schema`, and compares only the generated Rust artifacts with checked-in files. The source language has an in/out codec instead of being a one-way parser, and `.asschema` is no longer a checked component artifact.
+*Rust data types are generated from schema source, with the public signal
+contract imported from `signal-spirit`.* Authored schema source is a typed
+artifact before Rust emission. `signal-spirit` generates the ordinary
+`signal::Input` / `signal::Output` contract and recursive domain tree from its
+own `schema/signal.schema` and `schema/domain.schema`. Spirit's shared
+generation driver imports that dependency schema, reads the daemon-local Nexus,
+SEMA, and meta-signal schemas into `SchemaSource`, round-trips canonical source
+text and rkyv archive bytes through `SchemaSourceArtifact`, lowers from that
+typed source value to semantic `Schema`, and compares only the daemon-local
+generated Rust artifacts with checked-in files. The source language has an
+in/out codec instead of being a one-way parser, and `.asschema` is no longer a
+checked component artifact.
 
 *Schema namespaces are strict NOTA key-value maps.* Braces are key-value pairs. A namespace entry is a pair like `Topic String`, `Entry { Topics * Kind * ... }`, or `Kind [...]`. Struct fields are key-value pairs; `Topics *` reuses the same type, while `kind (Optional Kind)` binds a field to a different reference. Root enum bodies are square-bracket lists of exported object names. Namespace enum bodies use bare names for unit variants, self-tagged `(Variant)` entries when the payload type has the same name, and explicit `(Variant Payload)` entries only when the payload name differs. Namespace bindings such as `Record RecordRequest`, `RecordAccepted RecordIdentifier`, and `SignalArrived Input` define the payload aliases those signatures reference. Bare bindings lower to aliases and direct enum payloads, not wrapper structs.
 
-*The three runtime centers are concrete objects.* `SignalActor` handles admission, `Nexus` is the mail keeper and translator owning the store and ledger, and `Store` is the durable SEMA plane over `sema-engine`. `Engine` composes them and owns no SEMA state. Generated plane namespaces expose `signal::Input`/`signal::Output`, `nexus::Work`/`nexus::Action`, and `sema::WriteInput`/`sema::WriteOutput`/`sema::ReadInput`/`sema::ReadOutput`.
+*The three runtime centers are concrete objects.* `SignalAdmission` handles admission, `Nexus` is the mail keeper and translator owning the store and ledger, and `Store` is the durable SEMA plane over `sema-engine`. `Engine` composes them and owns no SEMA state. The imported ordinary contract exposes `signal::Input`/`signal::Output`; the daemon-local generated plane namespaces expose `nexus::Work`/`nexus::Action` and `sema::WriteInput`/`sema::WriteOutput`/`sema::ReadInput`/`sema::ReadOutput`.
 
-*Signal admission is explicit.* `SignalActor::admit` mints the origin route, validates generated `Input`, and creates `SignalAccepted`. Invalid input returns `Output::Rejected(SignalRejection(ValidationError))` where `ValidationError` is generated from schema; the runtime does not use a hand-written rejection enum.
+*Signal admission is explicit.* `SignalAdmission::admit` mints the origin route, validates generated `Input`, and creates `SignalAccepted`. Invalid input returns `Output::Rejected(SignalRejection(ValidationError))` where `ValidationError` is generated from the signal-spirit contract; the runtime does not use a hand-written rejection enum.
 
 *Version is a NOTA-native Signal operation.* Per Spirit record `x5b7` (High
 certainty), the CLI version query is the bare NOTA input `Version`, invoked as
@@ -116,10 +129,12 @@ surface stays visible in `schema/nexus.schema` instead of hidden in ad-hoc
 implementation code.
 Per intent record `k4d9`, that schema visibility does not imply broad
 crate-root export: the generated plane modules are the schema API surface.
-Generated Signal/Nexus/SEMA nouns stay public through
-`spirit::schema::{signal,nexus,sema}`; the daemon crate root exports only
-hand-written runtime composition objects such as `Engine`, `Nexus`, `Store`,
-`Daemon`, `SignalTransport`, and trace/runtime errors.
+Generated ordinary Signal nouns stay public through
+`spirit::schema::signal` as a re-export of the `signal-spirit` contract; Nexus
+and SEMA nouns stay public through `spirit::schema::{nexus,sema}`. The daemon
+crate root exports only hand-written runtime composition objects such as
+`Engine`, `Nexus`, `Store`, `Daemon`, `SignalTransport`, and trace/runtime
+errors.
 
 *Reusable triad role names are shared traits, not component enum names.*
 Spirit's generated roots implement `triad-runtime` role traits such as

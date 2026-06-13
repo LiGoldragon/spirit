@@ -1,9 +1,9 @@
 //! `spirit` runtime.
 //!
 //! This crate is a running schema-derived Spirit pilot. The public wire
-//! types are checked-in generated source from the three plane schemas
-//! (`schema/signal.schema`, `schema/nexus.schema`, `schema/sema.schema`)
-//! through `schema-next` and `schema-rust-next`; the hand-written code here is
+//! types come from the generated `signal-spirit` contract; the daemon-local
+//! Nexus, SEMA, meta-signal, and daemon modules are checked-in generated source
+//! through `schema-next` and `schema-rust-next`. The hand-written code here is
 //! the runtime shim around those generated interfaces. `build.rs` verifies the
 //! generated modules are fresh.
 //!
@@ -48,9 +48,13 @@ pub mod transport;
 
 pub mod schema {
     #[rustfmt::skip]
-    pub mod domain;
+    pub mod domain {
+        pub use signal_spirit::schema::domain::*;
+    }
     #[rustfmt::skip]
-    pub mod signal;
+    pub mod signal {
+        pub use signal_spirit::schema::signal::*;
+    }
     #[rustfmt::skip]
     pub mod nexus;
     #[rustfmt::skip]
@@ -63,7 +67,12 @@ pub mod schema {
 
 pub use config::{Configuration, ConfigurationError};
 pub use daemon::{Daemon, SpiritDaemon, SpiritDaemonError};
-pub use engine::{Engine, MailLedger, MailLedgerHook, SignalAccepted, SignalAdmission};
+pub use engine::{
+    Engine, MailIdentifier, MailLedger, MailLedgerEvent, MailLedgerHook, MessageIdentifier,
+    MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook, OriginRoute,
+    ProcessedMail, SentMail, ShortHeader, SignalAccepted, SignalAdmission, SignalObjectName,
+    SignalResponse,
+};
 #[cfg(feature = "agent-guardian")]
 pub use guardian::{
     AgentGuardian, AgentGuardianConfiguration, AgentGuardianError, AgentGuardianRejection,

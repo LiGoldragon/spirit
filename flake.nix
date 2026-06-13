@@ -522,9 +522,13 @@
                 # Rust from the typed schema-in-Rust values, and compares the
                 # checked-in generated Rust. This check only keeps retired
                 # side-channel source paths absent.
-                test -f ${src}/src/schema/signal.rs
+                test ! -e ${src}/schema/signal.schema
+                test ! -e ${src}/schema/domain.schema
+                test ! -e ${src}/src/schema/signal.rs
+                test ! -e ${src}/src/schema/domain.rs
                 test -f ${src}/src/schema/nexus.rs
                 test -f ${src}/src/schema/sema.rs
+                test -f ${src}/src/schema/daemon.rs
                 ! grep -R "lower_source(" ${src}/build.rs
                 ! grep -R "lower_source_with_context" ${src}/build.rs
                 ! grep -R "macros_applied" ${src}/build.rs

@@ -19,8 +19,8 @@
 //! Behavioural witnesses for the schema-emitted plane chain live in
 //! `tests/generated_signal_plane.rs` and `tests/runtime_triad.rs`.
 
-const SIGNAL_SCHEMA: &str = include_str!("../schema/signal.schema");
-const DOMAIN_SCHEMA: &str = include_str!("../schema/domain.schema");
+const SIGNAL_SCHEMA: &str = signal_spirit::SIGNAL_SCHEMA_SOURCE;
+const DOMAIN_SCHEMA: &str = signal_spirit::DOMAIN_SCHEMA_SOURCE;
 const NEXUS_SCHEMA: &str = include_str!("../schema/nexus.schema");
 const SEMA_SCHEMA: &str = include_str!("../schema/sema.schema");
 
@@ -70,13 +70,13 @@ impl<'source> SchemaSourceWitness<'source> {
     }
 }
 
-/// Claim 4 — `schema/signal.schema` declares the `Input` enum body with
+/// Claim 4 — `signal-spirit/schema/signal.schema` declares the `Input` enum body with
 /// compact exported object names. The retired `Record@Entry`
 /// short-suffix sugar is absent from the active production schema, and
 /// the payload shape lives in namespace declarations.
 #[test]
 fn signal_schema_input_uses_exported_object_variant_names() {
-    let witness = SchemaSourceWitness::new("schema/signal.schema", SIGNAL_SCHEMA);
+    let witness = SchemaSourceWitness::new("signal-spirit/schema/signal.schema", SIGNAL_SCHEMA);
 
     // The active production Input enum body — compact exported objects.
     witness.must_contain(
@@ -118,7 +118,7 @@ fn signal_schema_input_uses_exported_object_variant_names() {
 
 #[test]
 fn signal_schema_domains_put_software_under_the_software_branch() {
-    let witness = SchemaSourceWitness::new("schema/domain.schema", DOMAIN_SCHEMA);
+    let witness = SchemaSourceWitness::new("signal-spirit/schema/domain.schema", DOMAIN_SCHEMA);
 
     witness.must_contain(
         "(Craft [Electronics Construction Carpentry Metalworking Sewing Manufacturing Repair Engineering Handicraft Invention])",
@@ -153,11 +153,11 @@ fn signal_schema_domains_put_software_under_the_software_branch() {
     );
 }
 
-/// Claim 4 — `schema/signal.schema` declares the `Output` enum body with
+/// Claim 4 — `signal-spirit/schema/signal.schema` declares the `Output` enum body with
 /// compact exported object names and namespace declarations.
 #[test]
 fn signal_schema_output_uses_exported_object_variant_names() {
-    let witness = SchemaSourceWitness::new("schema/signal.schema", SIGNAL_SCHEMA);
+    let witness = SchemaSourceWitness::new("signal-spirit/schema/signal.schema", SIGNAL_SCHEMA);
 
     // The active production Output enum body.
     witness.must_contain(
@@ -191,12 +191,12 @@ fn signal_schema_output_uses_exported_object_variant_names() {
     witness.must_contain("Rejected SignalRejection", "4");
 }
 
-/// Claim 4 — `schema/signal.schema` declares the `ValidationError` enum body
+/// Claim 4 — `signal-spirit/schema/signal.schema` declares the `ValidationError` enum body
 /// with bare PascalCase unit variants. This is the honest form for
 /// payload-free variants; no parens, no sigil.
 #[test]
 fn signal_schema_unit_variant_enum_uses_bare_pascal_case_atoms() {
-    let witness = SchemaSourceWitness::new("schema/signal.schema", SIGNAL_SCHEMA);
+    let witness = SchemaSourceWitness::new("signal-spirit/schema/signal.schema", SIGNAL_SCHEMA);
 
     // ValidationError carries bare unit variants per designer 480; keyword
     // and text-query validation add typed read-predicate failures.
@@ -223,8 +223,10 @@ fn signal_schema_unit_variant_enum_uses_bare_pascal_case_atoms() {
 /// character anywhere in the schema would resurrect the rejected shorthand.
 #[test]
 fn split_schemas_carry_no_at_sigil_anywhere() {
-    let signal_witness = SchemaSourceWitness::new("schema/signal.schema", SIGNAL_SCHEMA);
-    let domain_witness = SchemaSourceWitness::new("schema/domain.schema", DOMAIN_SCHEMA);
+    let signal_witness =
+        SchemaSourceWitness::new("signal-spirit/schema/signal.schema", SIGNAL_SCHEMA);
+    let domain_witness =
+        SchemaSourceWitness::new("signal-spirit/schema/domain.schema", DOMAIN_SCHEMA);
     let nexus_witness = SchemaSourceWitness::new("schema/nexus.schema", NEXUS_SCHEMA);
     let sema_witness = SchemaSourceWitness::new("schema/sema.schema", SEMA_SCHEMA);
 
@@ -239,8 +241,10 @@ fn split_schemas_carry_no_at_sigil_anywhere() {
 /// intermediate checked-in schema artifact between source and emitted Rust.
 #[test]
 fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
-    let signal_witness = SchemaSourceWitness::new("schema/signal.schema", SIGNAL_SCHEMA);
-    let domain_witness = SchemaSourceWitness::new("schema/domain.schema", DOMAIN_SCHEMA);
+    let signal_witness =
+        SchemaSourceWitness::new("signal-spirit/schema/signal.schema", SIGNAL_SCHEMA);
+    let domain_witness =
+        SchemaSourceWitness::new("signal-spirit/schema/domain.schema", DOMAIN_SCHEMA);
     let nexus_witness = SchemaSourceWitness::new("schema/nexus.schema", NEXUS_SCHEMA);
     let sema_witness = SchemaSourceWitness::new("schema/sema.schema", SEMA_SCHEMA);
 
@@ -326,10 +330,11 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
 /// projection-side witness for claim 4.
 #[test]
 fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
-    let signal_rust = include_str!("../src/schema/signal.rs");
+    let signal_rust = signal_spirit::SIGNAL_RUST_SOURCE;
     let nexus_rust = include_str!("../src/schema/nexus.rs");
     let sema_rust = include_str!("../src/schema/sema.rs");
-    let signal_witness = SchemaSourceWitness::new("src/schema/signal.rs", signal_rust);
+    let signal_witness =
+        SchemaSourceWitness::new("signal-spirit/src/schema/signal.rs", signal_rust);
     let nexus_witness = SchemaSourceWitness::new("src/schema/nexus.rs", nexus_rust);
     let sema_witness = SchemaSourceWitness::new("src/schema/sema.rs", sema_rust);
 

@@ -1,13 +1,13 @@
 use spirit::{
-    Engine, ObjectName, Store, TraceEvent, TraceLog,
+    Engine, ObjectName, SignalObjectName, Store, TraceEvent, TraceLog,
     schema::{
         nexus::NexusObjectName,
         sema::SemaObjectName,
         signal::{
             CertaintySelection, Description, DomainMatch, DomainScopes, Domains, Entry,
             ImportanceSelection, Input, Justification, Kind, Magnitude, Output, Privacy,
-            PrivacySelection, Query, QuoteText, Reasoning, RecordRequest, SignalObjectName,
-            SignalRejection, Testimony, ValidationError, VerbatimQuote,
+            PrivacySelection, Query, QuoteText, Reasoning, RecordRequest, SignalRejection,
+            Testimony, ValidationError, VerbatimQuote,
         },
     },
 };

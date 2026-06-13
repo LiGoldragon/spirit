@@ -77,7 +77,11 @@ const MODEL_REASONS: [GuardianRejectionReason; 15] = [
     GuardianRejectionReason::RetrievalInsufficient,
 ];
 
-impl GuardianRejectionReason {
+trait GuardianRejectionReasonPromptExt {
+    fn admission_gloss(&self) -> Option<&'static str>;
+}
+
+impl GuardianRejectionReasonPromptExt for GuardianRejectionReason {
     /// The one-line gloss shown to the guardian for each model-emittable reason.
     /// `Harness*` reasons return `None`: the model never names them; the daemon
     /// sets them when the agent call itself fails. The match is exhaustive on

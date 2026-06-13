@@ -1,7 +1,8 @@
 #[cfg(feature = "nota-text")]
 use spirit::schema::signal::{Export, Import, NotaEncode};
 use spirit::{
-    Engine, Nexus, SignalAdmission, Store,
+    Engine, MailIdentifier, MailLedgerEvent, MessageIdentifier, MessageSent, MessageSentHook,
+    Nexus, OriginRoute, SentMail, ShortHeader, SignalAdmission, Store,
     schema::{
         domain::{SoftwareScope, TechnologyScope},
         nexus::{self, CommandSemaWrite, NexusAction, NexusEffectCommand, NexusEngine, NexusWork},
@@ -14,13 +15,12 @@ use spirit::{
             Description, Distributed, Domain, DomainMatch, DomainScope, DomainScopes, Domains,
             Entry, ErrorMessage, ErrorReport, GuardianRejectionReason, Hardware, ImportanceBump,
             ImportanceSelection, Information, Input, Justification, Keyword, KeywordMatch,
-            Keywords, Kind, Magnitude, MailLedgerEvent, MessageIdentifier, MessageSent,
-            MessageSentHook, OriginRoute, Output, Privacy, PrivacySelection, Proposal, Query,
+            Keywords, Kind, Magnitude, Output, Privacy, PrivacySelection, Proposal, Query,
             QuoteText, Reasoning, RecordChange, RecordIdentifier, RecordRequest, RecordSelection,
             Referent, ReferentRegistration, ReferentSelection, Referents, Removal, Replacements,
-            RetiredIdentifier, RetiredIdentifiers, Retirement, SearchText, SemaReceipt, SentMail,
-            SignalEngine, SignalRejection, Software, StashHandle, Statement, StatementText,
-            Supersession, Technology, Testimony, TextMatch, ValidationError, VerbatimQuote,
+            RetiredIdentifier, RetiredIdentifiers, Retirement, SearchText, SemaReceipt,
+            SignalRejection, Software, StashHandle, Statement, StatementText, Supersession,
+            Technology, Testimony, TextMatch, ValidationError, VerbatimQuote,
         },
     },
 };
@@ -1719,14 +1719,11 @@ fn signal_admission_pushes_accepted_message_through_sent_hook_before_nexus_holds
         .admit(input_record(signal_entry.clone()))
         .expect("signal input admits");
     let mut hook = SentHookProbe { events: Vec::new() };
-    let expected_sent = MailLedgerEvent::Sent(
-        SentMail {
-            mail_identifier: 1.into(),
-            origin_route: route(1),
-            short_header: expected_short_header.into(),
-        }
-        .into(),
-    );
+    let expected_sent = MailLedgerEvent::Sent(SentMail {
+        mail_identifier: MailIdentifier::new(1),
+        origin_route: route(1),
+        short_header: ShortHeader::new(expected_short_header),
+    });
 
     assert_eq!(
         accepted.message_sent().identifier,
@@ -1743,6 +1740,7 @@ fn signal_admission_pushes_accepted_message_through_sent_hook_before_nexus_holds
     // schema-emitted mail ledger event.
     accepted
         .message_sent()
+        .clone()
         .push_to(&mut hook)
         .expect("sent hook fires");
 
@@ -1765,8 +1763,8 @@ fn nexus_step_decide_routes_signal_arrival_to_sema_command_without_committing() 
 
     // Trace the runner's first action without driving it.
     let signal_admission = SignalAdmission::default();
-    let signal_input = input_record(entry("held in flight")).with_origin_route(route(1));
-    let nexus_input = SignalEngine::triage(&signal_admission, signal_input);
+    let signal_input = input_record(entry("held in flight"));
+    let nexus_input = signal_admission.triage(signal_input, route(1));
     assert_eq!(nexus_input.origin_route(), nexus_route(1));
     match nexus_signal_input(&nexus_input) {
         Input::Record(recorded) => {
@@ -1851,21 +1849,21 @@ fn signal_engine_trait_triages_signal_roots_to_nexus_and_back() {
     let sema = SemaFile::new();
     let signal_admission = SignalAdmission::default();
     let mut nexus = Nexus::new(sema.open_store());
-    let signal_input = input_record(entry("signal trait root")).with_origin_route(route(21));
+    let signal_input = input_record(entry("signal trait root"));
 
-    let nexus_input = SignalEngine::triage(&signal_admission, signal_input);
+    let nexus_input = signal_admission.triage(signal_input, route(21));
     assert_eq!(nexus_input.origin_route(), nexus_route(21));
     assert!(matches!(nexus_signal_input(&nexus_input), Input::Record(_)));
 
     let nexus_output = execute_nexus(&mut nexus, nexus_input);
-    let signal_output = SignalEngine::reply(&signal_admission, nexus_output);
+    let signal_output = signal_admission.reply(nexus_output);
 
     assert_eq!(signal_output.origin_route(), route(21));
     match signal_output.root() {
         Output::RecordAccepted(receipt) => {
             assert_short_record_identifier(receipt.payload());
         }
-        other => panic!("expected SignalEngine to return a Signal output root, got {other:?}"),
+        other => panic!("expected SignalAdmission to return a Signal output root, got {other:?}"),
     }
     assert_eq!(nexus.store().len(), 1);
 }
@@ -2660,7 +2658,7 @@ fn sema_read_miss_completion_routes_through_runner_loop_to_error_reply() {
     .with_origin_route(nexus_route(7));
 
     let nexus_output = execute_nexus(&mut nexus, nexus_input);
-    let signal_output = SignalEngine::reply(&SignalAdmission::default(), nexus_output);
+    let signal_output = SignalAdmission::default().reply(nexus_output);
 
     assert_eq!(
         signal_output.root(),
@@ -2688,7 +2686,7 @@ fn plane_envelopes_keep_payload_names_scoped() {
         Output::RecordAccepted(_)
     ));
 
-    let signal_output = SignalEngine::reply(&SignalAdmission::default(), nexus_output);
+    let signal_output = SignalAdmission::default().reply(nexus_output);
     assert_eq!(signal_output.origin_route(), route(11));
     assert!(matches!(signal_output.root(), Output::RecordAccepted(_)));
 }
@@ -2721,7 +2719,7 @@ fn nexus_and_sema_have_explicit_input_output_languages() {
         NexusWork::sema_write_completed(sema_output).with_origin_route(nexus_route(14));
     let mut second_nexus = Nexus::new(SemaFile::new().open_store());
     let nexus_output_from_sema = execute_nexus(&mut second_nexus, nexus_input_from_sema);
-    let signal_output = SignalEngine::reply(&SignalAdmission::default(), nexus_output_from_sema);
+    let signal_output = SignalAdmission::default().reply(nexus_output_from_sema);
     assert!(matches!(signal_output.root(), Output::RecordAccepted(_)));
 }
 
@@ -2824,11 +2822,11 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
     // First two mail-ledger events are the Record cycle.
     assert!(matches!(
         engine.mail_ledger()[0],
-        MailLedgerEvent::Sent(ref sent) if *sent.mail_identifier.payload() == 1
+        MailLedgerEvent::Sent(ref sent) if sent.mail_identifier.payload() == 1
     ));
     assert!(matches!(
         engine.mail_ledger()[1],
-        MailLedgerEvent::Processed(ref processed) if *processed.mail_identifier.payload() == 1
+        MailLedgerEvent::Processed(ref processed) if processed.mail_identifier.payload() == 1
     ));
 }
 

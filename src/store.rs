@@ -22,24 +22,23 @@ use crate::schema::{
         WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput, family_identity,
     },
     signal::{
-        Certainty, CertaintyChange, CertaintyChangeReceipt, CertaintySelection, Clarification,
-        ClarificationReceipt, CountedRecords, DatabaseMarker, Description, Entry, ErrorMessage,
-        ErrorReport, Explanation, FoundRecord, GuardianRejection, GuardianRejectionReason,
-        Importance, ImportanceBump, ImportanceBumpReceipt, ImportanceSelection, Keyword,
-        KeywordMatch, Keywords, Magnitude, ObservedRecord, ObservedRecords, Privacy,
-        PrivacySelection, Query, RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier,
-        RecordIdentifiers, RecordSet, Referent, ReferentRegistration, ReferentRegistrationReceipt,
-        ReferentSelection, Referents, Removal, RemovalArchiveRecord, RemovalArchiveRecords,
-        RemovalCandidateCollection, RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifier,
-        RemovedIdentifiers, Retirement, RetirementReceipt, SearchText, SemaReceipt,
-        SkippedRemovalCandidate, SkippedRemovalCandidates, Supersession, SupersessionReceipt,
-        TextMatch,
+        CertaintyChange, CertaintyChangeReceipt, Clarification, ClarificationReceipt,
+        CountedRecords, DatabaseMarker, Entry, ErrorMessage, ErrorReport, Explanation, FoundRecord,
+        GuardianRejection, GuardianRejectionReason, ImportanceBump, ImportanceBumpReceipt,
+        ObservedRecord, ObservedRecords, Query, RecordChange, RecordChangeReceipt, RecordCount,
+        RecordIdentifier, RecordIdentifiers, RecordSet, Referent, ReferentRegistration,
+        ReferentRegistrationReceipt, ReferentSelection, Referents, Removal, RemovalArchiveRecord,
+        RemovalArchiveRecords, RemovalCandidateCollection, RemovalCandidatesCollection,
+        RemoveReceipt, RemovedIdentifier, RemovedIdentifiers, Retirement, RetirementReceipt,
+        SemaReceipt, SkippedRemovalCandidate, SkippedRemovalCandidates, Supersession,
+        SupersessionReceipt,
     },
 };
 
 #[cfg(feature = "agent-guardian")]
 use crate::schema::signal::{
-    DomainMatch, DomainScope, DomainScopes, RegisteredReferent, RegisteredReferents,
+    CertaintySelection, DomainMatch, DomainScope, DomainScopes, ImportanceSelection, KeywordMatch,
+    PrivacySelection, RegisteredReferent, RegisteredReferents, TextMatch,
 };
 
 #[cfg(feature = "testing-trace")]
@@ -1291,14 +1290,26 @@ impl GuardianRecordBundle {
 }
 
 #[cfg(feature = "agent-guardian")]
-impl Entry {
+trait GuardianEntryExt {
+    fn guardian_domain_scopes(&self) -> DomainScopes;
+}
+
+#[cfg(feature = "agent-guardian")]
+impl GuardianEntryExt for Entry {
     fn guardian_domain_scopes(&self) -> DomainScopes {
         DomainScopes::from_domains(&self.domains)
     }
 }
 
 #[cfg(feature = "agent-guardian")]
-impl Query {
+trait GuardianQueryExt {
+    fn guardian_domain_scope(scope: DomainScope) -> Self;
+    fn guardian_referents(referents: Referents) -> Self;
+    fn guardian_context(domain_match: DomainMatch, referent_selection: ReferentSelection) -> Self;
+}
+
+#[cfg(feature = "agent-guardian")]
+impl GuardianQueryExt for Query {
     fn guardian_domain_scope(scope: DomainScope) -> Self {
         Self::guardian_context(
             DomainMatch::full(DomainScopes::new(vec![scope])),
@@ -1486,232 +1497,4 @@ pub enum StoreError {
 
     #[error("duplicate record vanished during guardian proposal handling: {0}")]
     DuplicateRecordVanished(String),
-}
-
-impl Entry {
-    pub fn matches(&self, query: &Query) -> bool {
-        query.matches(self)
-    }
-
-    pub fn certainty_rank(&self) -> u64 {
-        self.certainty.payload().rank()
-    }
-
-    pub fn importance_rank(&self) -> u64 {
-        self.importance.payload().rank()
-    }
-}
-
-impl Description {
-    pub fn keywords(&self) -> Keywords {
-        let mut keywords = Vec::new();
-        let mut seen = BTreeSet::new();
-        let mut inside_keyword = false;
-        let mut keyword = String::new();
-        for character in self.payload().chars() {
-            if character == '*' {
-                if inside_keyword {
-                    let normalized = keyword.trim().to_lowercase();
-                    if !normalized.is_empty() && seen.insert(normalized.clone()) {
-                        keywords.push(Keyword::new(normalized));
-                    }
-                    keyword.clear();
-                    inside_keyword = false;
-                } else {
-                    keyword.clear();
-                    inside_keyword = true;
-                }
-            } else if inside_keyword {
-                keyword.push(character);
-            }
-        }
-        Keywords::new(keywords)
-    }
-
-    pub fn contains_search_text(&self, search_text: &SearchText) -> bool {
-        self.payload()
-            .to_lowercase()
-            .contains(&search_text.payload().trim().to_lowercase())
-    }
-
-    #[cfg(feature = "agent-guardian")]
-    pub fn contains_description_text(&self, other: &Description) -> bool {
-        let other = other.payload().trim();
-        !other.is_empty() && self.contains_search_text(&SearchText::new(other))
-    }
-}
-
-impl Keyword {
-    pub fn normalized(&self) -> String {
-        self.payload().trim().to_lowercase()
-    }
-}
-
-impl Keywords {
-    pub fn contains_keyword(&self, expected: &Keyword) -> bool {
-        let expected = expected.normalized();
-        self.payload()
-            .iter()
-            .any(|keyword| keyword.normalized() == expected)
-    }
-
-    pub fn contains_any(&self, expected: &Keywords) -> bool {
-        expected
-            .payload()
-            .iter()
-            .any(|keyword| self.contains_keyword(keyword))
-    }
-
-    pub fn contains_all(&self, expected: &Keywords) -> bool {
-        expected
-            .payload()
-            .iter()
-            .all(|keyword| self.contains_keyword(keyword))
-    }
-}
-
-impl Query {
-    pub fn matches(&self, entry: &Entry) -> bool {
-        self.domain_match.matches(&entry.domains)
-            && self.keyword_match.matches(&entry.description)
-            && self.text_match.matches(&entry.description)
-            && self.referent_selection.matches(&entry.referents)
-            && self.kind.as_ref().is_none_or(|kind| &entry.kind == kind)
-            && self.privacy_selection.matches(&entry.privacy)
-            && self.certainty_selection.matches(&entry.certainty)
-            && self.importance_selection.matches(&entry.importance)
-    }
-}
-
-impl ReferentSelection {
-    pub fn matches(&self, entry_referents: &Referents) -> bool {
-        match self {
-            Self::Any => true,
-            Self::AnyReferent(expected) => expected
-                .payload()
-                .payload()
-                .iter()
-                .any(|referent| entry_referents.payload().contains(referent)),
-            Self::AllReferents(expected) => expected
-                .payload()
-                .payload()
-                .iter()
-                .all(|referent| entry_referents.payload().contains(referent)),
-        }
-    }
-}
-
-impl KeywordMatch {
-    pub fn matches(&self, description: &Description) -> bool {
-        match self {
-            Self::Any => true,
-            Self::AnyKeyword(expected) => description.keywords().contains_any(expected.payload()),
-            Self::AllKeywords(expected) => description.keywords().contains_all(expected.payload()),
-        }
-    }
-}
-
-impl TextMatch {
-    pub fn matches(&self, description: &Description) -> bool {
-        match self {
-            Self::Any => true,
-            Self::ContainsText(search_text) => {
-                description.contains_search_text(search_text.payload())
-            }
-        }
-    }
-}
-
-impl PrivacySelection {
-    pub fn default_observation_privacy() -> Self {
-        Self::exact(Privacy::new(Magnitude::Zero))
-    }
-
-    pub fn matches(&self, privacy: &Privacy) -> bool {
-        match self {
-            Self::Any => true,
-            Self::Exact(expected) => privacy == expected.payload(),
-            Self::AtMost(maximum) => privacy.payload().rank() <= maximum.payload().payload().rank(),
-            Self::AtLeast(minimum) => {
-                privacy.payload().rank() >= minimum.payload().payload().rank()
-            }
-        }
-    }
-}
-
-impl CertaintySelection {
-    pub fn default_observation_certainty() -> Self {
-        Self::at_least_certainty(Certainty::new(Magnitude::Minimum))
-    }
-
-    pub fn removal_candidate_certainty() -> Self {
-        Self::exact_certainty(Certainty::new(Magnitude::Zero))
-    }
-
-    pub fn matches(&self, certainty: &Certainty) -> bool {
-        let certainty = certainty.payload();
-        match self {
-            Self::Any => true,
-            Self::ExactCertainty(expected) => certainty == expected.payload().payload(),
-            Self::AtMostCertainty(maximum) => {
-                certainty.rank() <= maximum.payload().payload().rank()
-            }
-            Self::AtLeastCertainty(minimum) => {
-                certainty.rank() >= minimum.payload().payload().rank()
-            }
-        }
-    }
-}
-
-impl ImportanceSelection {
-    pub fn default_observation_importance() -> Self {
-        Self::Any
-    }
-
-    pub fn matches(&self, importance: &Importance) -> bool {
-        let importance = importance.payload();
-        match self {
-            Self::Any => true,
-            Self::ExactImportance(expected) => importance == expected.payload().payload(),
-            Self::AtMostImportance(maximum) => {
-                importance.rank() <= maximum.payload().payload().rank()
-            }
-            Self::AtLeastImportance(minimum) => {
-                importance.rank() >= minimum.payload().payload().rank()
-            }
-        }
-    }
-}
-
-impl Importance {
-    pub fn next(&self) -> Self {
-        Self::new(self.payload().next())
-    }
-}
-
-impl Magnitude {
-    pub fn rank(&self) -> u64 {
-        match self {
-            Self::Zero => 0,
-            Self::Minimum => 1,
-            Self::VeryLow => 2,
-            Self::Low => 3,
-            Self::Medium => 4,
-            Self::High => 5,
-            Self::VeryHigh => 6,
-            Self::Maximum => 7,
-        }
-    }
-
-    pub fn next(&self) -> Self {
-        match self {
-            Self::Zero => Self::Minimum,
-            Self::Minimum => Self::VeryLow,
-            Self::VeryLow => Self::Low,
-            Self::Low => Self::Medium,
-            Self::Medium => Self::High,
-            Self::High => Self::VeryHigh,
-            Self::VeryHigh | Self::Maximum => Self::Maximum,
-        }
-    }
 }

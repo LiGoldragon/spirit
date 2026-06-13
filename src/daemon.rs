@@ -22,10 +22,8 @@ use crate::{
     Configuration, ConfigurationError, Engine, StoreError,
     meta_transport::{MetaFrameError, MetaInput, MetaTransportError},
     schema::daemon::{ComponentDaemon, DaemonBinder, DaemonError},
-    schema::signal::{
-        EngineStartFailure, EngineStopFailure, Input, IntentEvent, Output, Query, SignalFrameError,
-        short_header,
-    },
+    schema::nexus::{EngineStartFailure, EngineStopFailure},
+    schema::signal::{Input, IntentEvent, Output, Query, SignalFrameError, short_header},
     store::Store,
     subscription::IntentSubscriptionToken,
     transport::TransportError,
@@ -268,20 +266,5 @@ impl Daemon {
                     .await
                     .map_err(DaemonError::from)
             })
-    }
-}
-
-impl Query {
-    pub fn matches_intent_event(&self, event: &IntentEvent) -> bool {
-        match event {
-            IntentEvent::IntentRecorded(recorded) => recorded.entry.matches(self),
-            IntentEvent::IntentClarified(clarified) => clarified.entry.matches(self),
-            IntentEvent::IntentSuperseded(superseded) => superseded
-                .replacements
-                .payload()
-                .iter()
-                .any(|entry| entry.matches(self)),
-            IntentEvent::IntentRetired(_retired) => false,
-        }
     }
 }

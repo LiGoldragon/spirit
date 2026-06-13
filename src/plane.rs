@@ -1,12 +1,15 @@
-use crate::schema::{nexus, sema, signal};
+use crate::{
+    engine::OriginRoute,
+    schema::{nexus, sema},
+};
 
-impl From<signal::OriginRoute> for nexus::OriginRoute {
-    fn from(origin_route: signal::OriginRoute) -> Self {
+impl From<OriginRoute> for nexus::OriginRoute {
+    fn from(origin_route: OriginRoute) -> Self {
         Self::new(origin_route.payload())
     }
 }
 
-impl From<nexus::OriginRoute> for signal::OriginRoute {
+impl From<nexus::OriginRoute> for OriginRoute {
     fn from(origin_route: nexus::OriginRoute) -> Self {
         Self::new(origin_route.payload())
     }
@@ -18,13 +21,13 @@ impl From<nexus::OriginRoute> for sema::OriginRoute {
     }
 }
 
-impl From<signal::OriginRoute> for sema::OriginRoute {
-    fn from(origin_route: signal::OriginRoute) -> Self {
+impl From<OriginRoute> for sema::OriginRoute {
+    fn from(origin_route: OriginRoute) -> Self {
         Self::new(origin_route.payload())
     }
 }
 
-impl From<sema::OriginRoute> for signal::OriginRoute {
+impl From<sema::OriginRoute> for OriginRoute {
     fn from(origin_route: sema::OriginRoute) -> Self {
         Self::new(origin_route.payload())
     }
@@ -33,26 +36,6 @@ impl From<sema::OriginRoute> for signal::OriginRoute {
 impl From<sema::OriginRoute> for nexus::OriginRoute {
     fn from(origin_route: sema::OriginRoute) -> Self {
         Self::new(origin_route.payload())
-    }
-}
-
-impl From<nexus::EngineStartFailure> for signal::EngineStartFailure {
-    fn from(error: nexus::EngineStartFailure) -> Self {
-        match error {
-            nexus::EngineStartFailure::ResourceBusy(value) => Self::ResourceBusy(value),
-            nexus::EngineStartFailure::ConfigurationInvalid(value) => {
-                Self::ConfigurationInvalid(value)
-            }
-        }
-    }
-}
-
-impl From<nexus::EngineStopFailure> for signal::EngineStopFailure {
-    fn from(error: nexus::EngineStopFailure) -> Self {
-        match error {
-            nexus::EngineStopFailure::ResourceLocked(value) => Self::ResourceLocked(value),
-            nexus::EngineStopFailure::ChildStillRunning(value) => Self::ChildStillRunning(value),
-        }
     }
 }
 

@@ -1,47 +1,47 @@
 {
-  SignalInput spirit:signal:Input
-  SignalOutput spirit:signal:Output
+  SignalInput signal-spirit:signal:Input
+  SignalOutput signal-spirit:signal:Output
   SemaReadInput spirit:sema:ReadInput
   SemaReadOutput spirit:sema:ReadOutput
   SemaWriteOutput spirit:sema:WriteOutput
-  Records spirit:signal:Records
-  RecordCount spirit:signal:RecordCount
-  StashHandle spirit:signal:StashHandle
-  DatabaseMarker spirit:signal:DatabaseMarker
-  Statement spirit:signal:Statement
-  RecordRequest spirit:signal:RecordRequest
-  Proposal spirit:signal:Proposal
-  Entry spirit:signal:Entry
-  Clarification spirit:signal:Clarification
-  Supersession spirit:signal:Supersession
-  Retirement spirit:signal:Retirement
-  SemaReceipt spirit:signal:SemaReceipt
-  ClarificationReceipt spirit:signal:ClarificationReceipt
-  SupersessionReceipt spirit:signal:SupersessionReceipt
-  RetirementReceipt spirit:signal:RetirementReceipt
-  RemoveReceipt spirit:signal:RemoveReceipt
-  RecordChangeReceipt spirit:signal:RecordChangeReceipt
-  GuardianRejection spirit:signal:GuardianRejection
-  GuardianRejectionReason spirit:signal:GuardianRejectionReason
-  ReferentGuardianRejection spirit:signal:ReferentGuardianRejection
-  ReferentGuardianRejectionReason spirit:signal:ReferentGuardianRejectionReason
-  Explanation spirit:signal:Explanation
-  ErrorReport spirit:signal:ErrorReport
-  Query spirit:signal:Query
-  SubscriptionToken spirit:signal:SubscriptionToken
-  IntentSubscription spirit:signal:IntentSubscription
-  RecordIdentifier spirit:signal:RecordIdentifier
-  Removal spirit:signal:Removal
-  CertaintyChange spirit:signal:CertaintyChange
-  ImportanceBump spirit:signal:ImportanceBump
-  RecordChange spirit:signal:RecordChange
-  ReferentRegistration spirit:signal:ReferentRegistration
-  ReferentRegistrationReceipt spirit:signal:ReferentRegistrationReceipt
-  RemovalCandidateCollection spirit:signal:RemovalCandidateCollection
-  RemovalCandidatesCollection spirit:signal:RemovalCandidatesCollection
-  ObserverFilter spirit:signal:ObserverFilter
-  ObserverSubscription spirit:signal:ObserverSubscription
-  ObserverRetraction spirit:signal:ObserverRetraction
+  Records signal-spirit:signal:Records
+  RecordCount signal-spirit:signal:RecordCount
+  StashHandle signal-spirit:signal:StashHandle
+  DatabaseMarker signal-spirit:signal:DatabaseMarker
+  Statement signal-spirit:signal:Statement
+  RecordRequest signal-spirit:signal:RecordRequest
+  Proposal signal-spirit:signal:Proposal
+  Entry signal-spirit:signal:Entry
+  Clarification signal-spirit:signal:Clarification
+  Supersession signal-spirit:signal:Supersession
+  Retirement signal-spirit:signal:Retirement
+  SemaReceipt signal-spirit:signal:SemaReceipt
+  ClarificationReceipt signal-spirit:signal:ClarificationReceipt
+  SupersessionReceipt signal-spirit:signal:SupersessionReceipt
+  RetirementReceipt signal-spirit:signal:RetirementReceipt
+  RemoveReceipt signal-spirit:signal:RemoveReceipt
+  RecordChangeReceipt signal-spirit:signal:RecordChangeReceipt
+  GuardianRejection signal-spirit:signal:GuardianRejection
+  GuardianRejectionReason signal-spirit:signal:GuardianRejectionReason
+  ReferentGuardianRejection signal-spirit:signal:ReferentGuardianRejection
+  ReferentGuardianRejectionReason signal-spirit:signal:ReferentGuardianRejectionReason
+  Explanation signal-spirit:signal:Explanation
+  ErrorReport signal-spirit:signal:ErrorReport
+  Query signal-spirit:signal:Query
+  SubscriptionToken signal-spirit:signal:SubscriptionToken
+  IntentSubscription signal-spirit:signal:IntentSubscription
+  RecordIdentifier signal-spirit:signal:RecordIdentifier
+  Removal signal-spirit:signal:Removal
+  CertaintyChange signal-spirit:signal:CertaintyChange
+  ImportanceBump signal-spirit:signal:ImportanceBump
+  RecordChange signal-spirit:signal:RecordChange
+  ReferentRegistration signal-spirit:signal:ReferentRegistration
+  ReferentRegistrationReceipt signal-spirit:signal:ReferentRegistrationReceipt
+  RemovalCandidateCollection signal-spirit:signal:RemovalCandidateCollection
+  RemovalCandidatesCollection signal-spirit:signal:RemovalCandidatesCollection
+  ObserverFilter signal-spirit:signal:ObserverFilter
+  ObserverSubscription signal-spirit:signal:ObserverSubscription
+  ObserverRetraction signal-spirit:signal:ObserverRetraction
 }
 [SignalArrived SemaWriteCompleted SemaReadCompleted EffectCompleted]
 [CommandSemaWrite CommandSemaRead ReplyToSignal CommandEffect Continue]

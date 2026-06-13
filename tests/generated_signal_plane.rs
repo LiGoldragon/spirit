@@ -5,11 +5,12 @@ use signal_frame::{
 use spirit::schema::signal::{
     Certainty, CertaintyChange, CertaintyChangeReceipt, DatabaseMarker, Description, DomainMatch,
     DomainScopes, Domains, Entry, Input, InputRoute, IntentEvent, IntentRecorded, Justification,
-    Kind, Magnitude, MessageIdentifier, MessageRoot, OriginRoute, Output, OutputRoute, Privacy,
-    QuoteText, Reasoning, Record, RecordChange, RecordChangeReceipt, RecordIdentifier,
-    RecordRequest, RecordSelection, Rejected, SignalFrameError, SignalRejection, Statement,
-    StatementText, Testimony, ValidationError, VerbatimQuote, VersionReport, VersionText,
+    Kind, Magnitude, Output, OutputRoute, Privacy, QuoteText, Reasoning, Record, RecordChange,
+    RecordChangeReceipt, RecordIdentifier, RecordRequest, RecordSelection, Rejected,
+    SignalFrameError, SignalRejection, Statement, StatementText, Testimony, ValidationError,
+    VerbatimQuote, VersionReport, VersionText,
 };
+use spirit::{OriginRoute, SignalAdmission};
 
 fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
     DatabaseMarker {
@@ -547,27 +548,29 @@ fn generated_signal_surface_rejects_unknown_header_before_body_decode() {
 }
 
 #[test]
-fn generated_signal_surface_emits_mail_sent_event() {
+fn signal_admission_emits_mail_sent_event() {
     let entry = Entry {
         domains: Domains::from_strings(vec![String::from("schema")]),
         kind: Kind::Constraint,
-        description: Description::new("schema emits mail events"),
+        description: Description::new("signal admission emits mail events"),
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
         referents: spirit::schema::signal::Referents::new(Vec::new()),
     };
-    let input = Input::record(record_request(entry, "schema emits mail events"));
+    let input = Input::record(record_request(entry, "signal admission emits mail events"));
+    let short_header = input.short_header();
 
-    let message = input.with_origin_route(OriginRoute::new(91));
-    let event = message.message_sent(MessageIdentifier::new(9));
+    let accepted = SignalAdmission::default()
+        .admit(input)
+        .expect("valid input admits");
+    let event = accepted.message_sent();
 
-    assert_eq!(event.identifier, MessageIdentifier::new(9));
-    assert_eq!(event.origin_route(), OriginRoute::new(91));
+    assert_eq!(event.identifier.payload(), 1);
+    assert_eq!(event.origin_route(), OriginRoute::new(1_000_001));
     assert_ne!(
         event.origin_route(),
         OriginRoute::new(event.identifier.payload())
     );
-    assert_eq!(event.root, MessageRoot::Input);
-    assert_eq!(event.short_header, message.root().short_header());
+    assert_eq!(event.short_header, short_header);
 }

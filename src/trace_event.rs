@@ -1,4 +1,7 @@
-use crate::schema::{nexus::NexusObjectName, sema::SemaObjectName, signal::SignalObjectName};
+use crate::{
+    engine::SignalObjectName,
+    schema::{nexus::NexusObjectName, sema::SemaObjectName},
+};
 
 #[cfg_attr(
     feature = "nota-text",

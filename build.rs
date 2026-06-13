@@ -2,7 +2,7 @@ use std::{env, path::PathBuf};
 
 use schema_rust_next::{
     MetaListenerTier, NexusDaemonShape, SocketModeBits, WorkingListenerTier,
-    build::{GenerationDriver, GenerationPlan, ModuleEmission},
+    build::{DependencySchema, GenerationDriver, GenerationPlan, ModuleEmission},
 };
 
 /// The owner-only meta socket file mode: readable and writable by the owner
@@ -26,10 +26,6 @@ impl SchemaBuild {
     }
 
     fn run(&self) {
-        println!("cargo:rerun-if-changed=schema/signal.schema");
-        println!("cargo:rerun-if-changed=src/schema/signal.rs");
-        println!("cargo:rerun-if-changed=schema/domain.schema");
-        println!("cargo:rerun-if-changed=src/schema/domain.rs");
         println!("cargo:rerun-if-changed=schema/nexus.schema");
         println!("cargo:rerun-if-changed=src/schema/nexus.rs");
         println!("cargo:rerun-if-changed=schema/sema.schema");
@@ -37,14 +33,21 @@ impl SchemaBuild {
         println!("cargo:rerun-if-changed=schema/meta-signal.schema");
         println!("cargo:rerun-if-changed=src/schema/meta_signal.rs");
         println!("cargo:rerun-if-changed=src/schema/daemon.rs");
+        println!("cargo:rerun-if-env-changed=DEP_SIGNAL_SPIRIT_SCHEMA_DIR");
+
+        let Some(signal_spirit) =
+            DependencySchema::from_cargo_metadata("signal-spirit", "signal-spirit", "0.6.0")
+                .expect("read signal-spirit schema metadata")
+        else {
+            return;
+        };
 
         let plan = GenerationPlan::new(&self.crate_root, "spirit", "0.3.0")
-            .with_module(ModuleEmission::declaration_module("domain"))
-            .with_module(ModuleEmission::signal_runtime_module("signal"))
+            .with_dependency_schema(signal_spirit)
             .with_module(ModuleEmission::nexus_runtime())
             .with_module(ModuleEmission::sema_runtime())
             .with_module(ModuleEmission::wire_contract_module("meta-signal"))
-            .with_module(ModuleEmission::daemon_module("signal", self.daemon_shape()));
+            .with_module(ModuleEmission::daemon_module("nexus", self.daemon_shape()));
         GenerationDriver::new(plan)
             .generate()
             .expect("generate spirit schema artifacts")
@@ -52,10 +55,9 @@ impl SchemaBuild {
             .expect("checked-in spirit schema artifacts are fresh");
     }
 
-    /// Spirit's daemon shape: the `spirit-daemon` process, a working signal
-    /// listener (`schema/signal.schema`), and an owner-only meta listener
-    /// (`schema/meta-signal.schema`) at mode `0o600`. The stream wiring is
-    /// derived from the signal schema's `IntentEventStream` declaration.
+    /// Spirit's daemon shape: the `spirit-daemon` process, a working listener
+    /// whose wire contract is imported from `signal-spirit`, and an owner-only
+    /// meta listener (`schema/meta-signal.schema`) at mode `0o600`.
     fn daemon_shape(&self) -> NexusDaemonShape {
         NexusDaemonShape::new("spirit-daemon", WorkingListenerTier::new("signal")).with_meta_tier(
             MetaListenerTier::new(SocketModeBits::new(OWNER_ONLY_SOCKET_MODE)),

@@ -2,7 +2,7 @@
 name         = "spirit"
 version      = "0.12.1"
 edition      = "2024"
-rust-version = "1.88"
+rust-version = "1.89"
 license      = "MIT OR Apache-2.0"
 repository   = "https://github.com/LiGoldragon/spirit"
 description  = "Runnable schema-derived Spirit pilot: NOTA CLI, rkyv socket, generated schema types."
@@ -48,7 +48,7 @@ required-features = ["nota-text"]
 
 [features]
 default = []
-nota-text = ["dep:nota-next"]
+nota-text = ["dep:nota-next", "signal-spirit/nota-text"]
 agent-guardian = ["nota-text", "dep:signal-agent"]
 production-migration = ["nota-text", "dep:sema-engine-previous"]
 testing-trace = []

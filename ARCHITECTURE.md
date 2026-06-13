@@ -7,25 +7,28 @@ a real CLI and daemon pair.
 
 It is also the current copyable exemplar for the schema-derived triad engine
 stack. The repo is intentionally one daemon crate, but it is not an all-in-one
-schema shape: the runtime planes are split into `schema/signal.schema`,
-`schema/nexus.schema`, and `schema/sema.schema`, generated through the shared
-driver into `src/schema/{signal,nexus,sema}.rs`, and consumed through
-`triad-runtime` plus `sema-engine`. Future component daemon repos should copy
-this plane/runtime shape while placing their external ordinary/meta signal
-contracts in separate contract repos where rebuild and policy boundaries
-require it.
+schema shape: the ordinary public signal/domain contract is generated in the
+`signal-spirit` contract crate, while Spirit generates daemon-local Nexus,
+SEMA, meta-signal, and daemon runtime modules through the shared driver and
+consumes them through `triad-runtime` plus `sema-engine`. Future component
+daemon repos should copy this plane/runtime shape while placing their external
+ordinary/meta signal contracts in separate contract repos where rebuild and
+policy boundaries require it.
 
 ## Layers
 
 ```text
-schema/{signal,nexus,sema}.schema
+signal-spirit/schema/{domain,signal}.schema
+  -> signal-spirit/src/schema/{domain,signal}.rs
+  -> Spirit dependency schema
+schema/{nexus,sema,meta-signal}.schema
   -> build.rs
-  -> schema_rust_next::build::GenerationPlan with three ModuleEmission targets
+  -> schema_rust_next::build::GenerationPlan with dependency schema + daemon-local targets
   -> schema_rust_next::build::GenerationDriver
   -> schema-next::SchemaSource typed source objects inside the shared driver
   -> rkyv-serializable schema-in-Rust values checked by the shared driver
   -> schema-rust-next::RustEmitter with opt-in NOTA surface inside the driver
-  -> checked-in generated modules at src/schema/{signal,nexus,sema}.rs
+  -> checked-in generated modules at src/schema/{nexus,sema,meta_signal,daemon}.rs
   -> engine composer + nexus mail keeper + sema-engine backed store + transport
 ```
 
@@ -81,7 +84,7 @@ same-named payload variants use the compact `(Record)` form, while explicit
 `(Variant Payload)` is reserved for different names. The vector does not
 contain pseudo key-value pairs.
 
-The three runtime centers are concrete objects: `SignalActor` (admission),
+The three runtime centers are concrete objects: `SignalAdmission` (admission),
 `Nexus` (mail keeper + translator, owns the store + ledger), and `Store` (the
 durable SEMA plane over `sema-engine`). `Engine` composes them and owns no
 SEMA state of its own.
@@ -263,13 +266,13 @@ event construction, and event short-header policy hooks.
 
 ### Nexus
 
-`SignalActor::admit` is the Signal validation/admission point. It mints the
-origin route, issues the generated `MessageSent` event, validates generated
+`SignalAdmission::admit` is the Signal validation/admission point. It mints the
+origin route, issues the Spirit runtime `MessageSent` event, validates generated
 `Input`, and produces `SignalAccepted`. `SignalAccepted::process_with` is the
-flat composition point: it emits the sent event, asks `SignalEngine::triage` for
-a generated `nexus::Nexus<nexus::Work>`, runs `NexusEngine::execute`, emits
-`MessageProcessed<Output>`, and asks `SignalEngine::reply` for the generated
-Signal output.
+flat composition point: it emits the sent event, asks `SignalAdmission::triage`
+for a generated `nexus::Nexus<nexus::Work>`, runs `NexusEngine::execute`, emits
+the Spirit runtime `MessageProcessed<Output>`, and asks
+`SignalAdmission::reply` for the Signal output.
 
 `Nexus` is a real runtime object over schema-emitted roots. It owns the durable
 SEMA `Store` handle, the `MailLedger`, the `StashTable`, and the
@@ -584,11 +587,11 @@ Signal, Nexus, and SEMA envelopes.
 Schema-generated types are the implementation nouns. Hand-written runtime code
 attaches behavior to those nouns or to state-owning runtime objects:
 
-- `Input` is admitted by `SignalActor::admit`, producing `SignalAccepted`.
+- `Input` is admitted by `SignalAdmission::admit`, producing `SignalAccepted`.
 - invalid `Input` is rejected as generated `Output::Rejected(SignalRejection)`
   before mail is sent or SEMA is touched.
 - `SignalAccepted` emits `MessageSent` through a hook at the Signal→Nexus
-  handoff and asks `SignalEngine::triage` for generated
+  handoff and asks `SignalAdmission::triage` for generated
   `nexus::Nexus<nexus::Work>`.
 - `NexusEngine::execute(&mut Nexus, nexus::Nexus<nexus::Work>)` is the Nexus
   decision boundary. Its mutable borrow enforces one execution at a time on
@@ -616,7 +619,7 @@ original production-like database unchanged when it is reopened.
 
 - `Input` and `Output` frame themselves at the Signal boundary.
 
-This is the local version of the async mail keeper pattern. `SignalActor` is
+This is the local version of the async mail keeper pattern. `SignalAdmission` is
 the Signal admission object, `Nexus` is the data-bearing decision object that
 owns the store + ledger, `MailLedger` is the hookable lifecycle sink, and
 `Store` is the data-bearing durable SEMA writer/reader. `Engine` composes them.
@@ -624,17 +627,14 @@ The generated plane envelopes move between those objects; the code must not
 replace that movement with module-level routing helpers or old convenience
 wrappers.
 
-Testing trace follows the same ownership rule. The generated `SignalEngine`,
-`NexusEngine`, and `SemaEngine` traits own default no-op trace hooks and
-default wrapper methods around their inner behavior methods. `SignalActor`,
-`Nexus`, and `Store` override those hooks in `testing-trace` builds and write
-events into `TraceLog`. Signal emits started/stopped plus
-admitted/rejected/triaged/replied, Nexus emits started/stopped plus
-entered/decided, and SEMA emits started/stopped plus
-write-applied/read-observed. The local
-trace module only implements `triad_runtime::trace::TraceEventFrame` for the
-generated `TraceEvent`, renders `TraceEvent` as generated NOTA in text-client
-builds, and re-exports the generic runtime objects.
+Testing trace follows the same ownership rule. `SignalAdmission`, `Nexus`, and
+`Store` write typed events into `TraceLog` in `testing-trace` builds. Signal
+emits started/stopped plus admitted/triaged/replied, Nexus emits
+started/stopped plus entered/decided, and SEMA emits started/stopped plus
+write-applied/read-observed. The local trace module implements
+`triad_runtime::trace::TraceEventFrame` for `TraceEvent`, renders `TraceEvent`
+as generated NOTA in text-client builds, and re-exports the generic runtime
+objects.
 `triad-runtime` decides whether to record in memory, write a rkyv frame to the
 trace socket, or stay disabled when explicitly requested.
 
@@ -670,16 +670,18 @@ triad runtime: edit a substrate repo, run the consumer check here, and prove
 the generated Rust still compiles and crosses the CLI/daemon rkyv boundary.
 
 `build.rs` delegates the build-time schema pipeline to
-`schema_rust_next::build`. The plan emits three modules:
-`schema/signal.schema` with `SignalRuntime`, `schema/nexus.schema` with
-`NexusRuntime`, and `schema/sema.schema` with `SemaRuntime`. The shared driver
-reads each authored schema into `SchemaSource`, round-trips it through
+`schema_rust_next::build`. The plan imports the dependency schema exposed by
+`signal-spirit` for the ordinary signal/domain contract, then emits the
+daemon-local modules: `schema/nexus.schema` with `NexusRuntime`,
+`schema/sema.schema` with `SemaRuntime`, `schema/meta-signal.schema` with the
+meta wire contract, and the generated daemon runtime. The shared driver reads
+each authored daemon-local schema into `SchemaSource`, round-trips it through
 `SchemaSourceArtifact` as text and rkyv internal codec witnesses, lowers from
 that typed source value, and emits Rust with the opt-in `nota-text` surface. It
-compares generated Rust output against `src/schema/{signal,nexus,sema}.rs`, or
-rewrites those files when `SPIRIT_UPDATE_SCHEMA_ARTIFACTS` is set. Runtime code
-imports the checked-in plane modules directly; it does not include generated
-Rust from `OUT_DIR`.
+compares generated Rust output against `src/schema/{nexus,sema,meta_signal,daemon}.rs`,
+or rewrites those files when `SPIRIT_UPDATE_SCHEMA_ARTIFACTS` is set. Runtime
+code imports the checked-in plane modules directly; it does not include
+generated Rust from `OUT_DIR`.
 
 The same schema-emitted data types can therefore be compiled as binary-only
 daemon nouns or as dual NOTA+rkyv CLI nouns without hand-written parallel
@@ -688,14 +690,14 @@ prove "CLI has NOTA, daemon lacks NOTA"; Nix builds the daemon and CLI as
 separate package derivations and joins their binaries for integration tests.
 
 The schema-rust output paths are already crate-relative
-(`src/schema/signal.rs`, `src/schema/nexus.rs`, and `src/schema/sema.rs`).
-`build.rs` uses those paths directly; it does not reinterpret generated paths
-relative to `src/`.
+(`src/schema/nexus.rs`, `src/schema/sema.rs`, `src/schema/meta_signal.rs`, and
+`src/schema/daemon.rs`). `build.rs` uses those paths directly; it does not
+reinterpret generated paths relative to `src/`.
 
 Runtime-chain tests assert on schema-emitted objects, not test-local shadow
-languages. Pattern A uses generated `MailLedgerEvent`, `NexusWork`,
-`NexusAction`, `SemaWriteInput`, `SemaWriteOutput`, `SemaReadInput`, and
-`SemaReadOutput` as witnesses. The SEMA engine tests call generated
+languages. Pattern A uses Spirit runtime `MailLedgerEvent` plus generated
+`NexusWork`, `NexusAction`, `SemaWriteInput`, `SemaWriteOutput`,
+`SemaReadInput`, and `SemaReadOutput` as witnesses. The SEMA engine tests call generated
 `SemaEngine::apply(sema::Sema<sema::WriteInput>) ->
 sema::Sema<sema::WriteOutput>` and
 `SemaEngine::observe(sema::Sema<sema::ReadInput>) ->
@@ -733,13 +735,13 @@ socket rejection tests.
 - Schema diff/upgrade is absent (the generated `UpgradeFrom`/`AcceptPrevious`
   traits exist but nothing implements them yet).
 - The repo-triad split (`spirit`, `signal-spirit`, `meta-signal-spirit`) is
-  only partially represented here: the daemon imports the contract-owned
-  `SpiritDaemonConfiguration` from `signal-spirit`, while the working signal
-  runtime schema and the current meta signal wire schema still emit locally.
-- `MessageSent` and `MessageProcessed` are generated by the Rust emitter's
-  support surface rather than authored in a shared core schema. The `Nexus`
-  decision object and SEMA `Store` are hand-written runtime behaviour over the
-  schema-emitted nouns; they are not boundary types and stay hand-written.
+  still incomplete only on the meta side: the daemon imports the ordinary
+  signal/domain contract and `SpiritDaemonConfiguration` from `signal-spirit`,
+  while the current meta signal wire schema still emits locally.
+- `MessageSent` and `MessageProcessed` are Spirit runtime mail-ledger types,
+  not ordinary signal contract nouns. The `Nexus` decision object and SEMA
+  `Store` are hand-written runtime behaviour over the schema-emitted nouns;
+  they are not boundary types and stay hand-written.
 - `Store` still lives inside the `Nexus` mutex rather than a kameo
   single-writer actor. The database boundary is now sema-engine; the remaining
   question is runner/actor ownership, not raw storage access.
