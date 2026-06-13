@@ -1,3 +1,10 @@
+mod archive;
+mod error;
+mod family_directory;
+#[cfg(feature = "agent-guardian")]
+mod guardian_bundle;
+mod record_identifier;
+
 use std::{
     collections::BTreeSet,
     fmt,
@@ -7,10 +14,16 @@ use std::{
 
 use sema_engine::{
     Assertion, Checkpoint, CheckpointReceipt, CommitSequence, Engine as SemaDatabase, EngineOpen,
-    EngineRecord, FamilyDirectory, Mutation, QueryPlan, RecordKey, Retraction, RowMaterializer,
-    SchemaHash, SchemaVersion, TableReference, VersionedCommitLogEntry,
+    EngineRecord, Mutation, QueryPlan, RecordKey, Retraction, SchemaVersion, TableReference,
+    VersionedCommitLogEntry,
 };
-use thiserror::Error;
+
+pub(crate) use archive::ArchiveDatabase;
+pub use error::StoreError;
+pub use family_directory::StoreFamilyDirectory;
+#[cfg(feature = "agent-guardian")]
+use guardian_bundle::GuardianRecordBundle;
+use record_identifier::RecordIdentifierMint;
 
 #[cfg(feature = "agent-guardian")]
 use crate::guardian_journal::{GuardianDecision, GuardianJournal, GuardianOperation};
@@ -20,7 +33,7 @@ use crate::schema::{
         self as sema_schema, EngineStartFailure as SemaEngineStartFailure,
         EngineStopFailure as SemaEngineStopFailure, Migration, ReadInput as SemaReadInput,
         ReadOutput as SemaReadOutput, RecordFamily, SemaEngine, StoredRecord, StoredReferent,
-        WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput, family_identity,
+        WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
     },
     signal::{
         Certainty, CertaintyChange, CertaintyChangeReceipt, CertaintySelection, Clarification,
@@ -51,11 +64,7 @@ use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
 // descriptors and versioning policy, so every durable write from this version
 // on is replayable history. Version 8 and earlier are pre-versioning stores
 // readable only through `sema-engine-previous` in `production_migration`.
-const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(9);
-const RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH: usize = 4;
-const RECORD_IDENTIFIER_MAXIMUM_CODE_LENGTH: usize = 7;
-const RECORD_IDENTIFIER_CODE_RADIX: u64 = 36;
-const RANDOM_IDENTIFIER_ATTEMPTS_PER_LENGTH: usize = 128;
+pub(super) const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(9);
 
 /// The SEMA durable store: a sema-engine keyed table written to a `*.sema`
 /// file.
@@ -82,28 +91,6 @@ pub struct Store {
     mirror_target: Option<MirrorTarget>,
     #[cfg(feature = "testing-trace")]
     trace_log: TraceLog,
-}
-
-/// The component's typed knowledge of where each schema-declared record
-/// family materializes: the fold/import surface hands this directory one
-/// canonical-view row at a time and it lands the row in the right typed
-/// table. Dispatch is on the generated per-family schema hash, so no family
-/// name is ever hand-typed here.
-pub struct StoreFamilyDirectory {
-    entries: TableReference<StoredRecord>,
-    referents: TableReference<StoredReferent>,
-    migrations: TableReference<Migration>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct RecordIdentifierMint {
-    used_identifiers: BTreeSet<String>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct RecordIdentifierCodeRange {
-    first_value: u64,
-    value_count: u64,
 }
 
 impl fmt::Debug for Store {
@@ -1183,7 +1170,7 @@ impl Store {
 }
 
 impl StoredRecord {
-    fn new(record_identifier: String, entry: Entry) -> Self {
+    pub(super) fn new(record_identifier: String, entry: Entry) -> Self {
         Self {
             record_identifier: RecordIdentifier::new(record_identifier),
             entry,
@@ -1205,54 +1192,6 @@ impl StoredRecord {
 impl EngineRecord for StoredRecord {
     fn record_key(&self) -> RecordKey {
         RecordKey::new(self.record_identifier.payload().clone())
-    }
-}
-
-impl Migration {
-    /// The marker row's stable key in the migrations family, derived from
-    /// the typed source schema version — one row per migrated-from version,
-    /// so a repeated fold from the same source lands on the same key. The
-    /// single named home of the marker-key format: typed in, string out.
-    fn marker_key(&self) -> RecordKey {
-        RecordKey::new(format!(
-            "from-schema-{}",
-            self.source_schema_version.payload()
-        ))
-    }
-}
-
-impl EngineRecord for Migration {
-    fn record_key(&self) -> RecordKey {
-        self.marker_key()
-    }
-}
-
-impl StoreFamilyDirectory {
-    /// The directory derived purely from the generated descriptors, for
-    /// import into a virgin store whose tables are not yet registered.
-    fn from_generated_families() -> Self {
-        Self {
-            entries: TableReference::new(*RecordFamily::records_family().name()),
-            referents: TableReference::new(*RecordFamily::referents_family().name()),
-            migrations: TableReference::new(*RecordFamily::migrations_family().name()),
-        }
-    }
-}
-
-impl FamilyDirectory for StoreFamilyDirectory {
-    fn materialize(&self, row: RowMaterializer<'_>) -> sema_engine::Result<()> {
-        let schema_hash = row.family().schema_hash();
-        if schema_hash == SchemaHash::new(family_identity::RECORDS_FAMILY) {
-            row.apply(self.entries)
-        } else if schema_hash == SchemaHash::new(family_identity::REFERENTS_FAMILY) {
-            row.apply(self.referents)
-        } else if schema_hash == SchemaHash::new(family_identity::MIGRATIONS_FAMILY) {
-            row.apply(self.migrations)
-        } else {
-            Err(sema_engine::Error::FamilyUnknown {
-                family: row.family().family().as_str().to_owned(),
-            })
-        }
     }
 }
 
@@ -1309,42 +1248,6 @@ impl EngineRecord for StoredReferent {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg(feature = "agent-guardian")]
-struct GuardianRecordBundle {
-    seen_identifiers: BTreeSet<String>,
-    records: Vec<ObservedRecord>,
-}
-
-#[cfg(feature = "agent-guardian")]
-impl GuardianRecordBundle {
-    fn new() -> Self {
-        Self {
-            seen_identifiers: BTreeSet::new(),
-            records: Vec::new(),
-        }
-    }
-
-    fn insert(&mut self, record: ObservedRecord) {
-        if self
-            .seen_identifiers
-            .insert(record.record_identifier.payload().clone())
-        {
-            self.records.push(record);
-        }
-    }
-
-    fn extend(&mut self, record_set: RecordSet) {
-        for record in record_set.into_payload() {
-            self.insert(record);
-        }
-    }
-
-    fn into_record_set(self) -> RecordSet {
-        RecordSet::new(self.records)
-    }
-}
-
 #[cfg(feature = "agent-guardian")]
 impl Entry {
     fn guardian_domain_scopes(&self) -> DomainScopes {
@@ -1375,196 +1278,6 @@ impl Query {
             privacy_selection: PrivacySelection::Any,
             certainty_selection: CertaintySelection::default_observation_certainty(),
             importance_selection: ImportanceSelection::default_observation_importance(),
-        }
-    }
-}
-
-impl RecordIdentifierMint {
-    fn from_records(records: &[StoredRecord]) -> Self {
-        Self {
-            used_identifiers: records
-                .iter()
-                .map(|record| record.record_identifier.payload().clone())
-                .collect(),
-        }
-    }
-
-    fn next_identifier(&self) -> Result<String, StoreError> {
-        for code_length in
-            RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH..=RECORD_IDENTIFIER_MAXIMUM_CODE_LENGTH
-        {
-            if let Some(identifier) = self.identifier_for_code_length(code_length)? {
-                return Ok(identifier);
-            }
-        }
-        Err(StoreError::IdentifierMint(format!(
-            "no available record identifier code between {RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH} and {RECORD_IDENTIFIER_MAXIMUM_CODE_LENGTH} characters"
-        )))
-    }
-
-    fn identifier_for_code_length(&self, code_length: usize) -> Result<Option<String>, StoreError> {
-        let range = RecordIdentifierCodeRange::new(code_length);
-        for _ in 0..RANDOM_IDENTIFIER_ATTEMPTS_PER_LENGTH {
-            let identifier = range.random_identifier()?;
-            if !self.used_identifiers.contains(&identifier) {
-                return Ok(Some(identifier));
-            }
-        }
-        Ok(range.first_available_identifier(&self.used_identifiers))
-    }
-}
-
-impl RecordIdentifierCodeRange {
-    fn new(code_length: usize) -> Self {
-        let first_value = if code_length == RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH {
-            0
-        } else {
-            Self::radix_power(code_length - 1)
-        };
-        let next_length_first_value = Self::radix_power(code_length);
-        Self {
-            first_value,
-            value_count: next_length_first_value - first_value,
-        }
-    }
-
-    fn random_identifier(self) -> Result<String, StoreError> {
-        let mut bytes = [0_u8; 8];
-        getrandom::fill(&mut bytes)
-            .map_err(|error| StoreError::IdentifierMint(error.to_string()))?;
-        let offset = u64::from_be_bytes(bytes) % self.value_count;
-        Ok(Self::code_from_value(self.first_value + offset))
-    }
-
-    fn first_available_identifier(self, used_identifiers: &BTreeSet<String>) -> Option<String> {
-        let last_value = self.first_value + self.value_count;
-        (self.first_value..last_value)
-            .map(Self::code_from_value)
-            .find(|identifier| !used_identifiers.contains(identifier))
-    }
-
-    fn code_from_value(mut value: u64) -> String {
-        let mut digits = Vec::new();
-        while value > 0 {
-            let digit = (value % RECORD_IDENTIFIER_CODE_RADIX) as u8;
-            digits.push(Self::digit_character(digit));
-            value /= RECORD_IDENTIFIER_CODE_RADIX;
-        }
-        while digits.len() < RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH {
-            digits.push('0');
-        }
-        digits.iter().rev().collect()
-    }
-
-    fn digit_character(digit: u8) -> char {
-        match digit {
-            0..=9 => char::from(b'0' + digit),
-            10..=35 => char::from(b'a' + digit - 10),
-            _ => unreachable!("base36 digit is constrained by modulo"),
-        }
-    }
-
-    fn radix_power(exponent: usize) -> u64 {
-        (0..exponent).fold(1, |value, _| value * RECORD_IDENTIFIER_CODE_RADIX)
-    }
-}
-
-/// The SEPARATE archive database: a sema-engine keyed table over its own
-/// `*.sema` file, distinct from the live intent log.
-///
-/// `CollectRemovalCandidates` opens one of these on demand at the
-/// owner-configured [`ArchiveDatabaseTarget`], asserts each removal-candidate
-/// `Entry` into it, and drops the handle when the collection completes. The
-/// archive owns no relationship to the live `Store` database beyond holding the
-/// records the live log let go.
-pub(crate) struct ArchiveDatabase {
-    database: SemaDatabase,
-    entries: TableReference<StoredRecord>,
-}
-
-impl ArchiveDatabase {
-    /// Open the archive at the same schema version as the live store,
-    /// registered through the same generated records-family descriptor. The
-    /// archive stays unversioned (no `VersioningPolicy`): it is a derived
-    /// holding pen for records the live log let go, not an authoritative
-    /// history of its own.
-    pub(crate) fn open(path: impl Into<PathBuf>) -> Result<Self, StoreError> {
-        let mut database = SemaDatabase::open(EngineOpen::new(path.into(), SPIRIT_SCHEMA_VERSION))?;
-        let entries = database.register_table(RecordFamily::records_family())?;
-        Ok(Self { database, entries })
-    }
-
-    /// Durably assert an archived copy of one live `Entry` into the separate
-    /// archive database under a versioned archive key, so repeated clarification
-    /// and retirement of the same live identifier preserve every prior state.
-    fn archive_record(
-        &mut self,
-        record: StoredRecord,
-        archive_identifier: String,
-    ) -> Result<(), StoreError> {
-        self.database.assert(Assertion::new(
-            self.entries,
-            StoredRecord::new(archive_identifier, record.entry),
-        ))?;
-        Ok(())
-    }
-
-    /// Durably import one already-keyed archived record verbatim — the
-    /// archive-migration path. Live archiving re-keys through
-    /// [`Self::archive_record`].
-    #[cfg(feature = "production-migration")]
-    pub(crate) fn import_archived_record(
-        &mut self,
-        record: StoredRecord,
-    ) -> Result<(), StoreError> {
-        self.database.assert(Assertion::new(self.entries, record))?;
-        Ok(())
-    }
-}
-
-#[derive(Debug, Error)]
-pub enum StoreError {
-    #[error(
-        "sema database engine error: {engine_error}{}",
-        DatabaseRemediation(engine_error)
-    )]
-    Database {
-        #[from]
-        engine_error: sema_engine::Error,
-    },
-
-    #[error("failed to encode record rkyv archive")]
-    ArchiveEncode,
-
-    #[error("failed to mint record identifier: {0}")]
-    IdentifierMint(String),
-
-    #[error("unregistered referent: {0}")]
-    UnregisteredReferent(String),
-
-    #[error("referent name already registered under another canonical referent: {0}")]
-    ReferentNameConflict(String),
-
-    #[error("duplicate record vanished during guardian proposal handling: {0}")]
-    DuplicateRecordVanished(String),
-}
-
-/// The spirit-specific remediation tail appended to a wrapped engine error's
-/// message. The engine reports a storage-layout mismatch in its own generic
-/// terms ("rebuilt through checkpoint import or versioned replay"); spirit
-/// names the concrete tool — `spirit-migrate-store` — that folds a previous
-/// store forward. The layout numbers stay the engine's own runtime-rendered
-/// `{stored}`/`{expected}` values, so this tail carries no literal layout
-/// number that could drift on the next engine layout bump.
-struct DatabaseRemediation<'engine_error>(&'engine_error sema_engine::Error);
-
-impl fmt::Display for DatabaseRemediation<'_> {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.0 {
-            sema_engine::Error::StorageLayoutMismatch { .. } => {
-                formatter.write_str("; run spirit-migrate-store to fold this store forward")
-            }
-            _ => Ok(()),
         }
     }
 }
@@ -1794,49 +1507,5 @@ impl Magnitude {
             Self::High => Self::VeryHigh,
             Self::VeryHigh | Self::Maximum => Self::Maximum,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::StoreError;
-
-    /// A storage-layout mismatch surfaced as a `StoreError::Database` names the
-    /// concrete spirit remediation tool, and the layout numbers in the message
-    /// are the engine's own runtime values rather than a spirit literal.
-    #[test]
-    fn layout_mismatch_database_error_names_the_migration_tool() {
-        let error = StoreError::Database {
-            engine_error: sema_engine::Error::StorageLayoutMismatch {
-                stored: 4,
-                expected: 5,
-            },
-        };
-        let message = error.to_string();
-        assert!(
-            message.contains("run spirit-migrate-store"),
-            "layout-mismatch message must name the remediation tool, got: {message}",
-        );
-        assert!(
-            message.contains("layout 4") && message.contains("layout 5"),
-            "layout numbers come from the engine's own stored/expected values, got: {message}",
-        );
-    }
-
-    /// A non-layout database error carries no remediation tail: the tool only
-    /// helps with a layout mismatch.
-    #[test]
-    fn non_layout_database_error_has_no_remediation_tail() {
-        let error = StoreError::Database {
-            engine_error: sema_engine::Error::RecordNotFound {
-                table: String::from("records"),
-                key: String::from("missing"),
-            },
-        };
-        let message = error.to_string();
-        assert!(
-            !message.contains("spirit-migrate-store"),
-            "only a layout mismatch earns the remediation tail, got: {message}",
-        );
     }
 }
