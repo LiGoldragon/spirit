@@ -881,10 +881,12 @@ impl StoreMigration {
             }
             _ => unreachable!("migration is only called for known previous schema versions"),
         };
+        // Sweep every stale `*.schema-9-migrating-*.sema` temporary, not just
+        // this process's: a crash under a different PID leaves a temporary
+        // whose suffix this run would otherwise never touch, and the module
+        // documentation promises a re-run clears the stale temporary.
+        Self::sweep_stale_temporaries(&database_path)?;
         let temporary_path = Self::temporary_path(&database_path);
-        if temporary_path.exists() {
-            fs::remove_file(&temporary_path)?;
-        }
         let target_store = Store::open(&temporary_path)?;
         let record_count = source.records.len() as u64;
         let referent_count = source.referents.len() as u64;
@@ -939,10 +941,8 @@ impl StoreMigration {
             return Ok(());
         }
         let archive_records = SpiritStoreV8ArchiveDatabase::open(&archive_path)?.records()?;
+        Self::sweep_stale_temporaries(&archive_path)?;
         let temporary_path = Self::temporary_path(&archive_path);
-        if temporary_path.exists() {
-            fs::remove_file(&temporary_path)?;
-        }
         let mut fresh_archive = ArchiveDatabase::open(&temporary_path)?;
         for record in archive_records {
             fresh_archive.import_archived_record(StoredRecord {
@@ -969,6 +969,42 @@ impl StoreMigration {
 
     fn temporary_path(database_path: &Path) -> PathBuf {
         database_path.with_extension(format!("schema-9-migrating-{}.sema", std::process::id()))
+    }
+
+    /// The shared prefix of every migration temporary for `database_path`:
+    /// `temporary_path` replaces the `.sema` extension with
+    /// `schema-9-migrating-<pid>.sema`, so each temporary's file name begins
+    /// `<file-stem>.schema-9-migrating-`.
+    fn temporary_name_prefix(database_path: &Path) -> String {
+        let stem = database_path
+            .file_stem()
+            .map(|stem| stem.to_string_lossy().into_owned())
+            .unwrap_or_else(|| String::from("spirit"));
+        format!("{stem}.schema-9-migrating-")
+    }
+
+    /// Remove every stale migration temporary beside `database_path`, matched
+    /// by glob over the directory rather than only this process's PID-suffixed
+    /// path. A crash under a different PID would otherwise strand a temporary
+    /// this run never names; the swap is then guarded by the surviving live
+    /// store, so clearing the stale temporary on re-run is safe.
+    fn sweep_stale_temporaries(database_path: &Path) -> Result<(), StoreMigrationError> {
+        let directory = database_path.parent().unwrap_or_else(|| Path::new("."));
+        let prefix = Self::temporary_name_prefix(database_path);
+        let entries = match fs::read_dir(directory) {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(error) => return Err(error.into()),
+        };
+        for entry in entries {
+            let entry = entry?;
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if name.starts_with(&prefix) && name.ends_with(".sema") {
+                fs::remove_file(entry.path())?;
+            }
+        }
+        Ok(())
     }
 
     fn backup_path(database_path: &Path) -> PathBuf {
@@ -1478,6 +1514,45 @@ mod tests {
             panic!("already-migrated store must report Current, got {second:?}");
         };
         assert_eq!(completed.record_count(), 2);
+    }
+
+    /// The 12r5 witness: a migration run sweeps EVERY stale
+    /// `*.schema-9-migrating-*.sema` temporary beside the live store, not just
+    /// this process's PID-suffixed one. A temporary left by a crash under a
+    /// different PID would otherwise linger forever.
+    #[test]
+    fn migration_run_sweeps_a_foreign_pid_stale_temporary() {
+        let temporary = tempfile::tempdir().expect("create migration sandbox");
+        let database_path = temporary.path().join("store.sema");
+        let archive_path = temporary.path().join("store.archive.sema");
+        seed_version_eight_store(&database_path, &archive_path);
+
+        // A stale temporary from a crashed run under a different PID, plus a
+        // matching archive temporary; their suffixes are not this process's.
+        let stale_live = temporary
+            .path()
+            .join("store.schema-9-migrating-424242.sema");
+        let stale_archive = temporary
+            .path()
+            .join("store.archive.schema-9-migrating-424242.sema");
+        std::fs::write(&stale_live, b"stale live temporary").expect("seed stale live temporary");
+        std::fs::write(&stale_archive, b"stale archive temporary")
+            .expect("seed stale archive temporary");
+
+        let output = StoreMigration::new(StoreMigrationRequest::new(
+            database_path.display().to_string(),
+        ))
+        .run()
+        .expect("run store migration over a foreign-PID stale temporary");
+        assert!(matches!(output, StoreMigrationOutput::Migrated(_)));
+        assert!(
+            !stale_live.exists(),
+            "foreign-PID stale live temporary must be swept on re-run",
+        );
+        assert!(
+            !stale_archive.exists(),
+            "foreign-PID stale archive temporary must be swept on re-run",
+        );
     }
 
     #[test]
