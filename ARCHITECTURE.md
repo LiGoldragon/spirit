@@ -453,11 +453,13 @@ uses `sema-engine` over a `*.sema` file:
   policy): both are derived/audit state, not the authoritative intent log.
 - `StoreMigration` (feature `production-migration`, binary
   `spirit-migrate-store`) is the schema-version bump path: pre-versioning
-  stores (schema versions 1–8, unreadable by the current engine's storage
+  stores (schema versions 7 and 8, unreadable by the current engine's storage
   layout) are read with the renamed `sema-engine-previous` dependency,
   converted through the historical `From`-chain, and written into a fresh
   version-9 store through the logged choke points, closing with the typed
   `Migration` marker — migration as a logged fold, not an unlogged rewrite.
+  No pre-version-7 store exists anywhere, so a probed version below 7 is
+  rejected as `UnknownSchemaVersion` rather than folded forward.
   The default archive sibling is rebuilt alongside; the v2 guardian journal
   file stays on disk and a fresh v3 journal file starts.
 - The migration swap is crash-safe with single-rename exposure. The fold
@@ -466,8 +468,9 @@ uses `sema-engine` over a `*.sema` file:
   previous store to the backup path (`<stem>.schema-old-backup-<N>.sema`,
   first free `N`), then ONE atomic rename moves the fresh store over the
   live path — the live path is never absent. A crash before the rename
-  leaves the previous store live (re-run `spirit-migrate-store`; it removes
-  the stale temporary and redoes the fold); a crash after it leaves the
+  leaves the previous store live (re-run `spirit-migrate-store`; it sweeps
+  every stale `*.schema-9-migrating-*.sema` temporary by glob — not only
+  this process's PID — and redoes the fold); a crash after it leaves the
   migrated store live and a re-run reports `Current`. The previous store's
   bytes always survive at the backup path; rollback is stop the daemon and
   copy the newest backup over the live path
