@@ -693,10 +693,10 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let version = run_cli_for_output(&binaries, daemon.socket(), "Version");
     match &version {
         Output::VersionReported(report) => {
-            assert_eq!(
-                report.payload().payload().payload(),
-                env!("CARGO_PKG_VERSION")
-            );
+            let report = report.payload();
+            assert_eq!(report.version_text.payload(), env!("CARGO_PKG_VERSION"));
+            assert_eq!(*report.store_schema_version.payload(), 9);
+            assert_eq!(report.store_schema_hash.payload().len(), 64);
         }
         other => panic!("expected VersionReported, got {other:?}"),
     }

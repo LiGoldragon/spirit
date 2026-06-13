@@ -68,13 +68,35 @@ pub enum ArchiveDatabaseTarget {
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ConfigureRequest(ArchiveDatabaseTarget);
+pub struct MirrorAddressText(String);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct MirrorAddress(MirrorAddressText);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum MirrorTarget {
+    Default,
+    Address(MirrorAddress),
+}
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ConfigureRequest {
+    pub archive_database_target: ArchiveDatabaseTarget,
+    pub mirror_target: Option<MirrorTarget>,
+}
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ConfigureReceipt {
     pub archive_database_target: ArchiveDatabaseTarget,
+    pub mirror_target: Option<MirrorTarget>,
     pub database_marker: DatabaseMarker,
 }
 
@@ -280,20 +302,39 @@ impl From<ArchivePathText> for ArchivePath {
 }
 
 #[rustfmt::skip]
-impl ConfigureRequest {
-    pub fn new(payload: ArchiveDatabaseTarget) -> Self {
-        Self(payload)
+impl MirrorAddressText {
+    pub fn new(payload: impl Into<String>) -> Self {
+        Self(payload.into())
     }
-    pub fn payload(&self) -> &ArchiveDatabaseTarget {
+    pub fn payload(&self) -> &String {
         &self.0
     }
-    pub fn into_payload(self) -> ArchiveDatabaseTarget {
+    pub fn into_payload(self) -> String {
         self.0
     }
 }
 #[rustfmt::skip]
-impl From<ArchiveDatabaseTarget> for ConfigureRequest {
-    fn from(payload: ArchiveDatabaseTarget) -> Self {
+impl From<String> for MirrorAddressText {
+    fn from(payload: String) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl MirrorAddress {
+    pub fn new(payload: MirrorAddressText) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &MirrorAddressText {
+        &self.0
+    }
+    pub fn into_payload(self) -> MirrorAddressText {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<MirrorAddressText> for MirrorAddress {
+    fn from(payload: MirrorAddressText) -> Self {
         Self::new(payload)
     }
 }
@@ -344,6 +385,13 @@ impl ArchiveDatabaseTarget {
 }
 
 #[rustfmt::skip]
+impl MirrorTarget {
+    pub fn address(payload: MirrorAddressText) -> Self {
+        Self::Address(MirrorAddress::new(payload))
+    }
+}
+
+#[rustfmt::skip]
 impl Input {
     pub fn configure(payload: ConfigureRequest) -> Self {
         Self::Configure(Configure::new(payload))
@@ -370,6 +418,13 @@ impl Output {
 impl From<ArchivePath> for ArchiveDatabaseTarget {
     fn from(payload: ArchivePath) -> Self {
         Self::Path(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<MirrorAddress> for MirrorTarget {
+    fn from(payload: MirrorAddress) -> Self {
+        Self::Address(payload)
     }
 }
 

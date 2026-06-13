@@ -2,6 +2,7 @@ use std::{
     collections::BTreeSet,
     fmt,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use sema_engine::{
@@ -14,7 +15,7 @@ use thiserror::Error;
 #[cfg(feature = "agent-guardian")]
 use crate::guardian_journal::{GuardianDecision, GuardianJournal, GuardianOperation};
 use crate::schema::{
-    meta_signal::ArchiveDatabaseTarget,
+    meta_signal::{ArchiveDatabaseTarget, MirrorTarget},
     sema::{
         self as sema_schema, EngineStartFailure as SemaEngineStartFailure,
         EngineStopFailure as SemaEngineStopFailure, Migration, ReadInput as SemaReadInput,
@@ -66,12 +67,19 @@ const RANDOM_IDENTIFIER_ATTEMPTS_PER_LENGTH: usize = 128;
 /// preserve them as stable keys. Query predicate semantics stay here because
 /// they are Spirit-specific SEMA behavior, not generic daemon plumbing.
 pub struct Store {
-    database: SemaDatabase,
+    // The engine is held behind an `Arc` so the mirror shipper can share the
+    // exact same engine instance: all working mutators are `&self` (the engine
+    // takes its own internal write lock), so a cloned `Arc<Engine>` handed to
+    // the shipper reads the same durable outbox the store writes. The `&mut
+    // Engine` setup calls (`register_table`, `begin_import`) all run before the
+    // engine is wrapped, so no `&mut` access is needed once shared.
+    database: Arc<SemaDatabase>,
     entries: TableReference<StoredRecord>,
     referents: TableReference<StoredReferent>,
     migrations: TableReference<Migration>,
     path: PathBuf,
     archive_target: ArchiveDatabaseTarget,
+    mirror_target: Option<MirrorTarget>,
     #[cfg(feature = "testing-trace")]
     trace_log: TraceLog,
 }
@@ -260,12 +268,13 @@ impl Store {
         let referents = database.register_table(RecordFamily::referents_family())?;
         let migrations = database.register_table(RecordFamily::migrations_family())?;
         Ok(Self {
-            database,
+            database: Arc::new(database),
             entries,
             referents,
             migrations,
             path,
             archive_target: ArchiveDatabaseTarget::Default,
+            mirror_target: None,
             #[cfg(feature = "testing-trace")]
             trace_log: TraceLog::default(),
         })
@@ -287,6 +296,16 @@ impl Store {
 
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    /// A shared handle to the underlying versioned engine, for the mirror
+    /// shipper. The returned `Arc` clones the SAME engine instance the store
+    /// writes through, so the shipper reads the durable outbox the store's
+    /// working writes append to and records the server-confirmed head back
+    /// into it. Sharing is safe because every working mutator is `&self`
+    /// (the engine holds its own internal write lock).
+    pub fn engine_handle(&self) -> Arc<SemaDatabase> {
+        Arc::clone(&self.database)
     }
 
     /// Store the owner-configured archive target (the owner-only meta
@@ -311,6 +330,41 @@ impl Store {
     /// `Configure` sets it.
     pub fn archive_target(&self) -> &ArchiveDatabaseTarget {
         &self.archive_target
+    }
+
+    /// Store the owner-configured mirror target (the owner-only meta
+    /// `Configure` effect), the tailnet address of the sema version-control
+    /// mirror this store ships its versioned log to.
+    ///
+    /// Like [`Self::set_archive_target`] this only RECORDS owner config; it
+    /// opens no connection and touches no database. The mirror shipper is
+    /// gated on this target: unset (`None`) means no mirroring, so a store
+    /// that never receives a mirror target behaves exactly as a store with no
+    /// shipper at all. Setting the target is what arms the shipper.
+    pub fn set_mirror_target(&mut self, mirror_target: Option<MirrorTarget>) {
+        self.mirror_target = mirror_target;
+    }
+
+    /// The owner-configured mirror target: WHERE the sema version-control
+    /// mirror lives, or `None` when no mirror is configured (the default;
+    /// mirroring stays off).
+    pub fn mirror_target(&self) -> Option<&MirrorTarget> {
+        self.mirror_target.as_ref()
+    }
+
+    /// The store-schema version this build writes: the major store-format
+    /// generation, bumped only on a breaking store change. Surfaced on the
+    /// version report so a caller can see which store generation a running
+    /// daemon serves without opening its `*.sema` file.
+    pub fn store_schema_version(&self) -> u32 {
+        SPIRIT_SCHEMA_VERSION.value()
+    }
+
+    /// The engine's content-addressed store-schema hash: the identity of the
+    /// registered family set (family names plus per-family schema hashes).
+    /// Rendered as lowercase hex so it travels as version-report text.
+    pub fn store_schema_hash(&self) -> String {
+        self.database.store_schema_hash().to_string()
     }
 
     /// Write a checkpoint of the versioned log: the portable restore
@@ -363,12 +417,13 @@ impl Store {
         let referents = database.register_table(RecordFamily::referents_family())?;
         let migrations = database.register_table(RecordFamily::migrations_family())?;
         Ok(Self {
-            database,
+            database: Arc::new(database),
             entries,
             referents,
             migrations,
             path,
             archive_target: ArchiveDatabaseTarget::Default,
+            mirror_target: None,
             #[cfg(feature = "testing-trace")]
             trace_log: TraceLog::default(),
         })

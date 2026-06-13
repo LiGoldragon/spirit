@@ -213,11 +213,16 @@ impl Engine {
     /// `Configured`. The `ConfigureRejection` / `ArchiveTargetUnwritable` arm of
     /// the contract is reserved for a future eager-validation policy.
     pub fn configure(&mut self, request: ConfigureRequest) -> MetaOutput {
-        let archive_database_target = request.into_payload();
+        let ConfigureRequest {
+            archive_database_target,
+            mirror_target,
+        } = request;
         self.nexus
             .set_archive_target(archive_database_target.clone());
+        self.nexus.set_mirror_target(mirror_target.clone());
         MetaOutput::configured(ConfigureReceipt {
             archive_database_target,
+            mirror_target,
             database_marker: self.nexus.database_marker(),
         })
     }

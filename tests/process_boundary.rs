@@ -628,9 +628,19 @@ fn cli_and_daemon_report_version_from_bare_nota_atom() {
     let version = run_cli(&socket_path, "Version");
     match version {
         Output::VersionReported(report) => {
-            assert_eq!(
-                report.payload().payload().payload(),
-                env!("CARGO_PKG_VERSION")
+            let report = report.payload();
+            assert_eq!(report.version_text.payload(), env!("CARGO_PKG_VERSION"));
+            // The store generation this daemon writes (the breaking
+            // store-format version), surfaced beside the package version.
+            assert_eq!(*report.store_schema_version.payload(), 9);
+            // A 32-byte content hash rendered as 64 lowercase hex chars.
+            let store_schema_hash = report.store_schema_hash.payload();
+            assert_eq!(store_schema_hash.len(), 64);
+            assert!(
+                store_schema_hash
+                    .bytes()
+                    .all(|byte| byte.is_ascii_hexdigit()),
+                "store schema hash is lowercase hex, got {store_schema_hash}"
             );
         }
         other => panic!("expected VersionReported from bare Version input, got {other:?}"),

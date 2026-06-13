@@ -6,7 +6,7 @@ use crate::guardian_journal::GuardianOperation;
 use crate::{
     MailLedger,
     schema::{
-        meta_signal::ArchiveDatabaseTarget,
+        meta_signal::{ArchiveDatabaseTarget, MirrorTarget},
         nexus::{
             self as nexus_schema, CommandSemaWrite, EngineStartFailure as NexusEngineStartFailure,
             EngineStopFailure as NexusEngineStopFailure, NexusAction, NexusEffectCommand,
@@ -29,7 +29,7 @@ use crate::{
             RemovedIdentifiers, Replacements, Retirement, RetirementReceipt, SemaReceipt,
             SignalRejection, SkippedRemovalCandidates, StashHandle, StashedObservation, Statement,
             SubscriptionToken, Supersession, SupersessionReceipt, Testimony, ValidationError,
-            VerbatimQuote, VersionReport, VersionText,
+            StoreSchemaHash, StoreSchemaVersion, VerbatimQuote, VersionReport, VersionText,
         },
     },
     store::{Store, StoreError},
@@ -359,6 +359,17 @@ impl Nexus {
 
     pub fn archive_target(&self) -> &ArchiveDatabaseTarget {
         self.store.archive_target()
+    }
+
+    /// Store the owner-configured mirror target on the SEMA store, through the
+    /// same single-flight `&mut Nexus` borrow as [`Self::set_archive_target`].
+    /// `None` clears the target and leaves mirroring off.
+    pub fn set_mirror_target(&mut self, mirror_target: Option<MirrorTarget>) {
+        self.store.set_mirror_target(mirror_target);
+    }
+
+    pub fn mirror_target(&self) -> Option<&MirrorTarget> {
+        self.store.mirror_target()
     }
 
     pub fn stash_table(&self) -> &StashTable {
@@ -1194,7 +1205,13 @@ impl Nexus {
                 NexusEffectCommand::open_intent_subscription(query.into_payload()),
             ),
             Input::Version => NexusAction::reply_to_signal(Output::version_reported(
-                VersionReport::new(VersionText::new(env!("CARGO_PKG_VERSION"))),
+                VersionReport {
+                    version_text: VersionText::new(env!("CARGO_PKG_VERSION")),
+                    store_schema_version: StoreSchemaVersion::new(
+                        self.store.store_schema_version().into(),
+                    ),
+                    store_schema_hash: StoreSchemaHash::new(self.store.store_schema_hash()),
+                },
             )),
             Input::Marker => {
                 NexusAction::reply_to_signal(Output::marker_reported(self.database_marker()))

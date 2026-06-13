@@ -8,7 +8,8 @@ use spirit::schema::signal::{
     Kind, Magnitude, MessageIdentifier, MessageRoot, OriginRoute, Output, OutputRoute, Privacy,
     QuoteText, Reasoning, Record, RecordChange, RecordChangeReceipt, RecordIdentifier,
     RecordRequest, RecordSelection, Rejected, SignalFrameError, SignalRejection, Statement,
-    StatementText, Testimony, ValidationError, VerbatimQuote, VersionReport, VersionText,
+    StatementText, StoreSchemaHash, StoreSchemaVersion, Testimony, ValidationError, VerbatimQuote,
+    VersionReport, VersionText,
 };
 
 fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
@@ -79,9 +80,13 @@ fn generated_output_surface_owns_route_header_and_rkyv_frame() {
 #[test]
 fn generated_version_surface_owns_route_header_and_rkyv_frame() {
     let input = Input::Version;
-    let output = Output::version_reported(VersionReport::new(VersionText::new(env!(
-        "CARGO_PKG_VERSION"
-    ))));
+    let output = Output::version_reported(VersionReport {
+        version_text: VersionText::new(env!("CARGO_PKG_VERSION")),
+        store_schema_version: StoreSchemaVersion::new(9),
+        store_schema_hash: StoreSchemaHash::new(
+            "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+        ),
+    });
 
     assert_eq!(input.route(), InputRoute::Version);
     assert_eq!(output.route(), OutputRoute::VersionReported);
@@ -292,15 +297,20 @@ fn generated_state_input_round_trips_the_canonical_newtype_shape() {
 #[test]
 fn generated_version_round_trips_the_canonical_atom_shape() {
     let input = "Version".parse::<Input>().expect("parse version input");
-    let output = Output::version_reported(VersionReport::new(VersionText::new(env!(
-        "CARGO_PKG_VERSION"
-    ))));
+    let hash = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
+    let output = Output::version_reported(VersionReport {
+        version_text: VersionText::new(env!("CARGO_PKG_VERSION")),
+        store_schema_version: StoreSchemaVersion::new(9),
+        store_schema_hash: StoreSchemaHash::new(hash),
+    });
 
     assert_eq!(input, Input::Version);
     assert_eq!(input.to_string(), "Version");
+    // Positional NOTA: the three axes render in declared order —
+    // package version, store-schema version, store-schema hash.
     assert_eq!(
         output.to_string(),
-        format!("(VersionReported {})", env!("CARGO_PKG_VERSION"))
+        format!("(VersionReported ({} 9 {hash}))", env!("CARGO_PKG_VERSION"))
     );
     assert_eq!(
         output

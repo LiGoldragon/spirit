@@ -119,7 +119,10 @@ fn collect_removal_candidates_archives_to_separate_db_and_removes_from_live() {
     // OWNER configures WHERE the separate archive database lives.
     let archive_target =
         ArchiveDatabaseTarget::path(archive_database.to_string_lossy().into_owned().into());
-    let configure = engine.configure(ConfigureRequest::new(archive_target));
+    let configure = engine.configure(ConfigureRequest {
+        archive_database_target: archive_target,
+        mirror_target: None,
+    });
     assert!(
         matches!(
             configure,
@@ -226,7 +229,10 @@ fn collect_removal_candidates_with_no_matches_archives_nothing() {
     engine.start().expect("engine start");
     let archive_target =
         ArchiveDatabaseTarget::path(archive_database.to_string_lossy().into_owned().into());
-    engine.configure(ConfigureRequest::new(archive_target));
+    engine.configure(ConfigureRequest {
+        archive_database_target: archive_target,
+        mirror_target: None,
+    });
 
     record(
         &mut engine,
@@ -275,7 +281,10 @@ fn collect_removal_candidates_requires_zero_certainty() {
     engine.start().expect("engine start");
     let archive_target =
         ArchiveDatabaseTarget::path(archive_database.to_string_lossy().into_owned().into());
-    engine.configure(ConfigureRequest::new(archive_target));
+    engine.configure(ConfigureRequest {
+        archive_database_target: archive_target,
+        mirror_target: None,
+    });
 
     record(
         &mut engine,

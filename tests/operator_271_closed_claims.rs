@@ -182,7 +182,10 @@ fn signal_schema_output_uses_exported_object_variant_names() {
     witness.must_contain("SubscriptionStarted IntentSubscription", "4");
     witness.must_contain("VersionReported VersionReport", "4");
     witness.must_contain("MarkerReported DatabaseMarker", "4");
-    witness.must_contain("VersionReport { VersionText * }", "4");
+    witness.must_contain(
+        "VersionReport { VersionText * StoreSchemaVersion * StoreSchemaHash * }",
+        "4",
+    );
     witness.must_contain(
         "IntentEvent [(IntentRecorded IntentRecorded belongs IntentEventStream) (IntentClarified IntentClarified belongs IntentEventStream) (IntentSuperseded IntentSuperseded belongs IntentEventStream) (IntentRetired IntentRetired belongs IntentEventStream)]",
         "4",

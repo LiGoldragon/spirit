@@ -450,6 +450,16 @@ pub struct VersionText(String);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct StoreSchemaVersion(Integer);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct StoreSchemaHash(String);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Explanation(String);
 
 #[rustfmt::skip]
@@ -609,7 +619,11 @@ pub struct VersionReported(VersionReport);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct VersionReport(VersionText);
+pub struct VersionReport {
+    pub version_text: VersionText,
+    pub store_schema_version: StoreSchemaVersion,
+    pub store_schema_hash: StoreSchemaHash,
+}
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -2607,6 +2621,44 @@ impl From<String> for VersionText {
 }
 
 #[rustfmt::skip]
+impl StoreSchemaVersion {
+    pub fn new(payload: Integer) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &Integer {
+        &self.0
+    }
+    pub fn into_payload(self) -> Integer {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<Integer> for StoreSchemaVersion {
+    fn from(payload: Integer) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl StoreSchemaHash {
+    pub fn new(payload: impl Into<String>) -> Self {
+        Self(payload.into())
+    }
+    pub fn payload(&self) -> &String {
+        &self.0
+    }
+    pub fn into_payload(self) -> String {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<String> for StoreSchemaHash {
+    fn from(payload: String) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl Explanation {
     pub fn new(payload: impl Into<String>) -> Self {
         Self(payload.into())
@@ -2868,25 +2920,6 @@ impl VersionReported {
 #[rustfmt::skip]
 impl From<VersionReport> for VersionReported {
     fn from(payload: VersionReport) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl VersionReport {
-    pub fn new(payload: VersionText) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &VersionText {
-        &self.0
-    }
-    pub fn into_payload(self) -> VersionText {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<VersionText> for VersionReport {
-    fn from(payload: VersionText) -> Self {
         Self::new(payload)
     }
 }

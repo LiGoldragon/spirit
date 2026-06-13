@@ -127,7 +127,13 @@ fn configure_sets_archive_target_and_leaves_live_database_unchanged() {
     let mut meta_transport =
         MetaSignalTransport::connect(&meta_socket).expect("connect meta socket");
     let (_route, reply) = meta_transport
-        .configure(ConfigureRequest::new(archive_target.clone()).into())
+        .configure(
+            ConfigureRequest {
+                archive_database_target: archive_target.clone(),
+                mirror_target: None,
+            }
+            .into(),
+        )
         .expect("exchange configure");
     match reply {
         MetaOutput::Configured(receipt) => {
@@ -252,7 +258,13 @@ fn working_socket_rejects_a_meta_configure_frame() {
     let target = ArchiveDatabaseTarget::path(database.to_string_lossy().into_owned().into());
     let mut meta_on_working = MetaSignalTransport::connect(&working_socket)
         .expect("connect meta transport to working socket");
-    let result = meta_on_working.configure(ConfigureRequest::new(target).into());
+    let result = meta_on_working.configure(
+        ConfigureRequest {
+            archive_database_target: target,
+            mirror_target: None,
+        }
+        .into(),
+    );
     assert!(
         result.is_err(),
         "the working socket must not answer a meta Configure as a meta reply"

@@ -17,8 +17,12 @@
   ArchivePath { ArchivePathText * }
   ArchiveDatabaseTarget [Default (Path ArchivePath)]
 
-  ConfigureRequest { ArchiveDatabaseTarget * }
-  ConfigureReceipt { ArchiveDatabaseTarget * DatabaseMarker * }
+  MirrorAddressText String
+  MirrorAddress { MirrorAddressText * }
+  MirrorTarget [Default (Address MirrorAddress)]
+
+  ConfigureRequest { ArchiveDatabaseTarget * mirror_target (Optional MirrorTarget) }
+  ConfigureReceipt { ArchiveDatabaseTarget * mirror_target (Optional MirrorTarget) DatabaseMarker * }
   ConfigureRejection { ConfigureRejectionReason * DatabaseMarker * }
   ConfigureRejectionReason [ArchiveTargetUnwritable InternalError]
 
