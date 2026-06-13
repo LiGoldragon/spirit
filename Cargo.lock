@@ -1140,8 +1140,8 @@ dependencies = [
 
 [[package]]
 name = "sema-engine"
-version = "0.4.0"
-source = "git+https://github.com/LiGoldragon/sema-engine.git?branch=main#dbe29427d9a2c6c194909385485ad42b008048b8"
+version = "0.6.1"
+source = "git+https://github.com/LiGoldragon/sema-engine.git?branch=record-key-sum#65a6126a3eeb9e1741878f8c39eb12864541c36e"
 dependencies = [
  "blake3",
  "rkyv",
@@ -1322,7 +1322,7 @@ dependencies = [
  "schema-next",
  "schema-rust-next",
  "sema-engine 0.2.3",
- "sema-engine 0.4.0",
+ "sema-engine 0.6.1",
  "signal-agent",
  "signal-frame",
  "signal-sema",

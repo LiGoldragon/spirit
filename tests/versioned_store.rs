@@ -215,8 +215,8 @@ fn versioned_log_witnesses_mutation_payloads() {
                 assert_eq!(&record.record_identifier, &receipt.record_identifier);
                 assert_eq!(record.entry.certainty, Certainty::new(Magnitude::Zero));
                 assert_eq!(
-                    mutation.key().map(|key| key.as_str()),
-                    Some(receipt.record_identifier.payload().as_str()),
+                    mutation.key().map(|key| key.to_owned_string()),
+                    Some(receipt.record_identifier.payload().clone()),
                     "mutation is keyed to the mutated record",
                 );
             }
@@ -286,8 +286,8 @@ fn versioned_log_witnesses_retraction_tombstones() {
     );
     assert_eq!(retraction.payload().bytes(), None);
     assert_eq!(
-        retraction.key().map(|key| key.as_str()),
-        Some(removed.record_identifier.payload().as_str()),
+        retraction.key().map(|key| key.to_owned_string()),
+        Some(removed.record_identifier.payload().clone()),
         "tombstone is keyed to the removed record",
     );
     assert_eq!(
