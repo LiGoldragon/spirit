@@ -451,6 +451,16 @@ uses `sema-engine` over a `*.sema` file:
   an identical query surface. The separate archive database and the guardian
   decision journal register family identities but stay UNVERSIONED (no
   policy): both are derived/audit state, not the authoritative intent log.
+  **Intent is intent — the guardian is a function that keeps intent clean, not a
+  source of it — so `GuardianDecision` is deliberately kept OUT of the versioned
+  intent log: its accept/reject verdicts are *about* intent, not intent.** The
+  guardian journal is the single sanctioned place a family identity is
+  hand-labeled (`SchemaHash::for_label`) instead of schema-derived — a separate
+  non-schema audit family legitimately needs a label, and schema-declaring
+  `GuardianDecision` would fold the LLM verdict/reasoning types onto the schema
+  plane and put non-intent into the intent corpus. Keeping the journal separate
+  lets it evolve and be pruned on its own schedule without touching intent
+  history.
 - `StoreMigration` (feature `production-migration`, binary
   `spirit-migrate-store`) is the schema-version bump path: pre-versioning
   stores (schema versions 7 and 8, unreadable by the current engine's storage
