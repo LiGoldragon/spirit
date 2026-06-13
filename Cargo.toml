@@ -63,7 +63,7 @@ nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "ma
 rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
 blake3 = "1"
 getrandom = "0.3"
-sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main" }
+sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "single-writer-internal-lock" }
 # The previous engine generation, used only by the production-migration
 # bootstrap: it reads pre-versioning stores the current engine refuses to open.
 sema-engine-previous = { git = "https://github.com/LiGoldragon/sema-engine.git", rev = "ebee6e44ba6ee4afcb26998007bcfd128641b54c", package = "sema-engine", optional = true }
