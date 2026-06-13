@@ -37,6 +37,8 @@ mod guardian_prompt;
 pub mod meta_transport;
 pub mod nexus;
 mod plane;
+#[cfg(feature = "mirror-shipper")]
+pub mod shipper;
 #[cfg(feature = "production-migration")]
 pub mod production_migration;
 pub mod store;
@@ -78,6 +80,8 @@ pub use production_migration::{
     StoreMigrationRequest,
 };
 pub use schema::daemon::{ComponentDaemon, DaemonCommand, DaemonEntry, DaemonError, ListenerTier};
+#[cfg(feature = "mirror-shipper")]
+pub use shipper::{MirrorShipper, MirrorShipperError};
 pub use store::{Store, StoreError, StoreFamilyDirectory};
 #[cfg(feature = "testing-trace")]
 pub use trace::{TraceClient, TraceError, TraceLog, TraceSocketListener, TraceSocketPath};
