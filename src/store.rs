@@ -38,7 +38,9 @@ use crate::schema::{
 };
 
 #[cfg(feature = "agent-guardian")]
-use crate::schema::signal::{DomainScope, RegisteredReferent, RegisteredReferents};
+use crate::schema::signal::{
+    DomainMatch, DomainScope, DomainScopes, RegisteredReferent, RegisteredReferents,
+};
 
 #[cfg(feature = "testing-trace")]
 use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
@@ -718,18 +720,18 @@ impl Store {
     #[cfg(feature = "agent-guardian")]
     fn guardian_records_for_entry(&self, proposed: &Entry) -> Result<RecordSet, StoreError> {
         let proposed = self.canonicalized_entry(proposed.clone())?;
-        let mut records = self
-            .records()?
-            .into_iter()
-            .filter_map(|record| GuardianRecordCandidate::new(record, &proposed))
-            .collect::<Vec<_>>();
-        records.sort_by_key(GuardianRecordCandidate::sort_key);
-        Ok(RecordSet::new(
-            records
-                .into_iter()
-                .map(GuardianRecordCandidate::into_observed_record)
-                .collect(),
-        ))
+        let mut bundle = GuardianRecordBundle::new();
+        for scope in proposed.guardian_domain_scopes().into_payload() {
+            bundle.extend(RecordSet::new(
+                self.observe(&Query::guardian_domain_scope(scope))?,
+            ));
+        }
+        if !proposed.referents.payload().is_empty() {
+            bundle.extend(RecordSet::new(
+                self.observe(&Query::guardian_referents(proposed.referents.clone()))?,
+            ));
+        }
+        Ok(bundle.into_record_set())
     }
 
     #[cfg(feature = "agent-guardian")]
@@ -1259,14 +1261,6 @@ struct GuardianRecordBundle {
     records: Vec<ObservedRecord>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg(feature = "agent-guardian")]
-struct GuardianRecordCandidate {
-    score: u64,
-    record_identifier: String,
-    observed_record: ObservedRecord,
-}
-
 #[cfg(feature = "agent-guardian")]
 impl GuardianRecordBundle {
     fn new() -> Self {
@@ -1297,38 +1291,36 @@ impl GuardianRecordBundle {
 }
 
 #[cfg(feature = "agent-guardian")]
-impl GuardianRecordCandidate {
-    fn new(record: StoredRecord, proposed: &Entry) -> Option<Self> {
-        if !record.entry.belongs_in_guardian_context() {
-            return None;
-        }
-        let score = record.entry.guardian_relevance_score(proposed);
-        let record_identifier = record.record_identifier.payload().clone();
-        Some(Self {
-            score,
-            record_identifier,
-            observed_record: record.into_observed_record(),
-        })
+impl Entry {
+    fn guardian_domain_scopes(&self) -> DomainScopes {
+        DomainScopes::from_domains(&self.domains)
     }
+}
 
-    fn sort_key(
-        &self,
-    ) -> (
-        std::cmp::Reverse<u64>,
-        std::cmp::Reverse<u64>,
-        std::cmp::Reverse<u64>,
-        String,
-    ) {
-        (
-            std::cmp::Reverse(self.score),
-            std::cmp::Reverse(self.observed_record.entry.certainty_rank()),
-            std::cmp::Reverse(self.observed_record.entry.importance_rank()),
-            self.record_identifier.clone(),
+#[cfg(feature = "agent-guardian")]
+impl Query {
+    fn guardian_domain_scope(scope: DomainScope) -> Self {
+        Self::guardian_context(
+            DomainMatch::full(DomainScopes::new(vec![scope])),
+            ReferentSelection::Any,
         )
     }
 
-    fn into_observed_record(self) -> ObservedRecord {
-        self.observed_record
+    fn guardian_referents(referents: Referents) -> Self {
+        Self::guardian_context(DomainMatch::Any, ReferentSelection::any_referent(referents))
+    }
+
+    fn guardian_context(domain_match: DomainMatch, referent_selection: ReferentSelection) -> Self {
+        Self {
+            domain_match,
+            keyword_match: KeywordMatch::Any,
+            text_match: TextMatch::Any,
+            referent_selection,
+            kind: None,
+            privacy_selection: PrivacySelection::Any,
+            certainty_selection: CertaintySelection::default_observation_certainty(),
+            importance_selection: ImportanceSelection::default_observation_importance(),
+        }
     }
 }
 
@@ -1507,79 +1499,6 @@ impl Entry {
 
     pub fn importance_rank(&self) -> u64 {
         self.importance.payload().rank()
-    }
-
-    #[cfg(feature = "agent-guardian")]
-    fn guardian_relevance_score(&self, proposed: &Entry) -> u64 {
-        let mut score = 0;
-        if self.duplicates(proposed) {
-            score += 100;
-        }
-        if self.shares_domain(proposed) {
-            score += 30;
-        }
-        if self.shares_referent(proposed) {
-            score += 30;
-        }
-        if self.shares_keyword(proposed) {
-            score += 20;
-        }
-        if self.shares_text(proposed) {
-            score += 10;
-        }
-        score
-    }
-
-    #[cfg(feature = "agent-guardian")]
-    fn belongs_in_guardian_context(&self) -> bool {
-        CertaintySelection::default_observation_certainty().matches(&self.certainty)
-    }
-
-    #[cfg(feature = "agent-guardian")]
-    fn duplicates(&self, proposed: &Entry) -> bool {
-        self.kind == proposed.kind
-            && self.domains == proposed.domains
-            && self
-                .description
-                .payload()
-                .trim()
-                .eq_ignore_ascii_case(proposed.description.payload().trim())
-    }
-
-    #[cfg(feature = "agent-guardian")]
-    fn shares_domain(&self, proposed: &Entry) -> bool {
-        proposed
-            .domains
-            .payload()
-            .iter()
-            .map(|domain| DomainScope::from(domain.clone()).expand())
-            .any(|scope_set| scope_set.matches_any_domain(&self.domains))
-    }
-
-    #[cfg(feature = "agent-guardian")]
-    fn shares_referent(&self, proposed: &Entry) -> bool {
-        !self.referents.payload().is_empty()
-            && self
-                .referents
-                .payload()
-                .iter()
-                .any(|referent| proposed.referents.payload().contains(referent))
-    }
-
-    #[cfg(feature = "agent-guardian")]
-    fn shares_keyword(&self, proposed: &Entry) -> bool {
-        self.description
-            .keywords()
-            .contains_any(&proposed.description.keywords())
-    }
-
-    #[cfg(feature = "agent-guardian")]
-    fn shares_text(&self, proposed: &Entry) -> bool {
-        self.description
-            .contains_description_text(&proposed.description)
-            || proposed
-                .description
-                .contains_description_text(&self.description)
     }
 }
 

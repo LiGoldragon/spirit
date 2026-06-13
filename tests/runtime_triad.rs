@@ -1362,7 +1362,7 @@ fn agent_guardian_prompt_bundle_includes_equivalent_domain_records() {
 
 #[cfg(feature = "agent-guardian")]
 #[test]
-fn agent_guardian_prompt_bundle_includes_unmatched_live_records_after_relevant_records() {
+fn agent_guardian_prompt_bundle_excludes_unmatched_live_records() {
     let sema = SemaFile::new();
     let mut setup_engine = sema.engine();
     assert!(matches!(
@@ -1405,19 +1405,8 @@ fn agent_guardian_prompt_bundle_includes_unmatched_live_records_after_relevant_r
         prompts[0]
     );
     assert!(
-        prompts[0].contains("same-kind-only-live"),
-        "guardian prompt should include live records even when migrated domains do not overlap: {}",
-        prompts[0]
-    );
-    let relevant_index = prompts[0]
-        .find("admission-control-live")
-        .expect("relevant record in prompt");
-    let unmatched_index = prompts[0]
-        .find("same-kind-only-live")
-        .expect("unmatched record in prompt");
-    assert!(
-        relevant_index < unmatched_index,
-        "guardian prompt should order stronger matches before unmatched live records: {}",
+        !prompts[0].contains("same-kind-only-live"),
+        "guardian prompt should exclude records outside the domain/referent neighborhood: {}",
         prompts[0]
     );
     fake_agent.join();
@@ -1425,11 +1414,17 @@ fn agent_guardian_prompt_bundle_includes_unmatched_live_records_after_relevant_r
 
 #[cfg(feature = "agent-guardian")]
 #[test]
-fn agent_guardian_prompt_bundle_includes_all_relevant_entry_records() {
+fn agent_guardian_prompt_bundle_stays_bounded_as_corpus_grows() {
     let sema = SemaFile::new();
     let mut setup_engine = sema.engine();
+    assert!(matches!(
+        setup_engine
+            .handle(input_register_referent("schemaNext", &["schema-next"]))
+            .root(),
+        Output::ReferentRegistered(_)
+    ));
     for offset in 0..70 {
-        let description = format!("guardian-complete-relevant-{offset:02} *guardianComplete*");
+        let description = format!("guardian-unrelated-live-{offset:02}");
         assert!(matches!(
             setup_engine
                 .handle(input_record(entry_with_domain(
@@ -1440,24 +1435,58 @@ fn agent_guardian_prompt_bundle_includes_all_relevant_entry_records() {
             Output::RecordAccepted(_)
         ));
     }
+    assert!(matches!(
+        setup_engine
+            .handle(input_record(entry_with_domain(
+                Domain::Technology(Technology::Software(Software::Security(
+                    spirit::schema::signal::Security::AdmissionControl,
+                ))),
+                "guardian-domain-neighbor-live",
+            )))
+            .root(),
+        Output::RecordAccepted(_)
+    ));
+    assert!(matches!(
+        setup_engine
+            .handle(input_record(Entry {
+                domains: Domains::new(vec![Domain::Health(
+                    spirit::schema::signal::Health::Medicine,
+                )]),
+                referents: referents_from_slice(&["schemaNext"]),
+                ..entry("guardian-referent-neighbor-live")
+            }))
+            .root(),
+        Output::RecordAccepted(_)
+    ));
     drop(setup_engine);
 
     let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::Accept);
     let mut engine = sema.engine_with_guardian(fake_agent.guardian());
-    let output = engine.handle(input_propose(entry_with_domain(
-        Domain::Technology(Technology::Software(Software::Security(
-            spirit::schema::signal::Security::AdmissionControl,
-        ))),
-        "candidate *guardianComplete*",
-    )));
+    let output = engine.handle(input_propose(Entry {
+        domains: Domains::new(vec![Domain::Technology(Technology::Software(
+            Software::Security(spirit::schema::signal::Security::AdmissionControl),
+        ))]),
+        referents: referents_from_slice(&["schemaNext"]),
+        ..entry("guardian bounded candidate")
+    }));
 
     assert!(matches!(output.root(), Output::Proposed(_)));
     let prompts = fake_agent.captured_prompts();
     assert_eq!(prompts.len(), 1);
     assert_eq!(
-        prompts[0].matches("guardian-complete-relevant-").count(),
-        70,
-        "guardian prompt should include every relevant record, not a capped subset: {}",
+        prompts[0].matches("guardian-unrelated-live-").count(),
+        0,
+        "guardian prompt should not scale with unrelated corpus size: {}",
+        prompts[0]
+    );
+    assert!(
+        prompts[0].contains("guardian-domain-neighbor-live"),
+        "guardian prompt should include exact-domain neighbors: {}",
+        prompts[0]
+    );
+    assert!(
+        prompts[0].contains("guardian-referent-neighbor-live"),
+        "guardian prompt should include shared-referent neighbors: {}",
         prompts[0]
     );
     fake_agent.join();

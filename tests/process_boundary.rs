@@ -1229,6 +1229,8 @@ fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
         "SignalTriaged",
         "NexusEntered",
         "NexusDecided",
+        "NexusEntered",
+        "NexusDecided",
         "SemaWriteApplied",
         "NexusEntered",
         "NexusDecided",
