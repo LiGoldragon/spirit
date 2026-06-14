@@ -32,7 +32,7 @@ schema/{nexus,sema}.schema
   -> schema-next::SchemaSource typed source objects inside the shared driver
   -> rkyv-serializable schema-in-Rust values checked by the shared driver
   -> schema-rust-next::RustEmitter with opt-in NOTA surface inside the driver
-  -> checked-in generated modules at src/schema/{nexus,sema,meta_signal,daemon}.rs
+  -> checked-in generated daemon-local modules at src/schema/{nexus,sema,daemon}.rs
   -> engine composer + nexus mail keeper + sema-engine backed store + transport
 ```
 
