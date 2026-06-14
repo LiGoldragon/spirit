@@ -54,6 +54,12 @@ use std::{
 };
 
 use nota_next::{NotaDecode, NotaDecodeError, NotaEncode, NotaSource};
+use sema_engine_layout3::{
+    Engine as Layout3SemaDatabase, EngineOpen as Layout3EngineOpen,
+    EngineRecord as Layout3EngineRecord, QueryPlan as Layout3QueryPlan,
+    RecordKey as Layout3RecordKey, TableDescriptor as Layout3TableDescriptor,
+    TableName as Layout3TableName, TableReference as Layout3TableReference,
+};
 use sema_engine_previous::{
     Engine as PreviousSemaDatabase, EngineOpen as PreviousEngineOpen,
     EngineRecord as PreviousEngineRecord, QueryPlan as PreviousQueryPlan,
@@ -83,6 +89,8 @@ const SPIRIT_STORE_V8_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(8);
 const SPIRIT_STORE_CURRENT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(9);
 const RECORDS_TABLE: TableName = TableName::new("records");
 const REFERENTS_TABLE: TableName = TableName::new("referents");
+const LAYOUT3_RECORDS_TABLE: Layout3TableName = Layout3TableName::new("records");
+const LAYOUT3_REFERENTS_TABLE: Layout3TableName = Layout3TableName::new("referents");
 
 #[derive(Debug, Clone, PartialEq, Eq, NotaDecode, NotaEncode)]
 pub struct StoreMigrationRequest {
@@ -103,6 +111,8 @@ pub enum StoreMigrationOutput {
 
 #[derive(Debug, Error)]
 pub enum StoreMigrationError {
+    #[error("layout-3 spirit store: {0}")]
+    Layout3Store(#[from] sema_engine_layout3::Error),
     #[error("previous spirit store: {0}")]
     PreviousStore(#[from] sema_engine_previous::Error),
     #[error("migrated spirit store: {0}")]
@@ -126,6 +136,7 @@ pub struct StoreMigration {
 /// already current, or a previous generation the migration folds forward.
 enum SourceStoreVersion {
     Current,
+    CurrentLayout3,
     Previous(SchemaVersion),
 }
 
@@ -148,6 +159,16 @@ struct SpiritStoreV8LiveDatabase {
 struct SpiritStoreV8ArchiveDatabase {
     database: PreviousSemaDatabase,
     records: PreviousTableReference<SpiritStoreV8Record>,
+}
+
+/// A version-9 store written by deployed spirit 0.12.1: materialized records
+/// and referents are current, but the old layout-3 versioned log is not
+/// decodable by the layout-5 engine. This reader folds the materialized state
+/// into a fresh current store through the normal logged import choke points.
+struct SpiritStoreV9Layout3LiveDatabase {
+    database: Layout3SemaDatabase,
+    records: Layout3TableReference<StoredRecord>,
+    referents: Layout3TableReference<StoredReferent>,
 }
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -816,13 +837,17 @@ impl StoreMigration {
             }));
         }
         match self.source_store_version(&database_path)? {
-            SourceStoreVersion::Current => {
-                let store = Store::open(&database_path)?;
-                Ok(StoreMigrationOutput::current(StoreMigrationCompleted {
+            SourceStoreVersion::Current => match Store::open(&database_path) {
+                Ok(store) => Ok(StoreMigrationOutput::current(StoreMigrationCompleted {
                     record_count: store.len() as u64,
                     referent_count: 0,
-                }))
-            }
+                })),
+                Err(StoreError::Database { .. }) => {
+                    self.migrate_current_layout3_store(database_path)
+                }
+                Err(error) => Err(error.into()),
+            },
+            SourceStoreVersion::CurrentLayout3 => self.migrate_current_layout3_store(database_path),
             SourceStoreVersion::Previous(previous_schema_version) => {
                 self.migrate_previous_store(database_path, previous_schema_version)
             }
@@ -848,7 +873,11 @@ impl StoreMigration {
                 ..
             })) => {
                 if found == SPIRIT_STORE_CURRENT_SCHEMA_VERSION {
-                    Ok(SourceStoreVersion::Current)
+                    match Store::open(database_path) {
+                        Ok(_) => Ok(SourceStoreVersion::Current),
+                        Err(StoreError::Database { .. }) => Ok(SourceStoreVersion::CurrentLayout3),
+                        Err(error) => Err(error.into()),
+                    }
                 } else if found == SPIRIT_STORE_V7_SCHEMA_VERSION {
                     Ok(SourceStoreVersion::Previous(found))
                 } else {
@@ -860,6 +889,21 @@ impl StoreMigration {
             }
             Err(error) => Err(error.into()),
         }
+    }
+
+    /// The deployed 0.12.1 v9 store is already on the current schema version,
+    /// but its layout-3 versioned log cannot be decoded by the layout-5
+    /// engine. Fold the materialized current rows through the deployed
+    /// layout-3 engine into a fresh layout-5 store, producing a new complete
+    /// versioned log from the preserved records and referents.
+    fn migrate_current_layout3_store(
+        &self,
+        database_path: PathBuf,
+    ) -> Result<StoreMigrationOutput, StoreMigrationError> {
+        let source = SpiritPreviousStore::from_v9_layout3(SpiritStoreV9Layout3LiveDatabase::open(
+            &database_path,
+        )?)?;
+        self.fold_previous_rows(database_path, source, SPIRIT_STORE_CURRENT_SCHEMA_VERSION)
     }
 
     /// The logged fold: read every previous row with the previous engine,
@@ -881,6 +925,15 @@ impl StoreMigration {
             }
             _ => unreachable!("migration is only called for known previous schema versions"),
         };
+        self.fold_previous_rows(database_path, source, previous_schema_version)
+    }
+
+    fn fold_previous_rows(
+        &self,
+        database_path: PathBuf,
+        source: SpiritPreviousStore,
+        source_schema_version: SchemaVersion,
+    ) -> Result<StoreMigrationOutput, StoreMigrationError> {
         // Sweep every stale `*.schema-9-migrating-*.sema` temporary, not just
         // this process's: a crash under a different PID leaves a temporary
         // whose suffix this run would otherwise never touch, and the module
@@ -900,13 +953,13 @@ impl StoreMigration {
         }
         target_store.record_migration(Migration {
             source_schema_version: SourceSchemaVersion::new(u64::from(
-                previous_schema_version.value(),
+                source_schema_version.value(),
             )),
             migrated_record_count: MigratedRecordCount::new(record_count),
             migrated_referent_count: MigratedReferentCount::new(referent_count),
         })?;
         drop(target_store);
-        self.migrate_archive_sibling(&database_path, previous_schema_version)?;
+        self.migrate_archive_sibling(&database_path, source_schema_version)?;
         // Swap with single-rename exposure: first give the previous store a
         // second name (the backup hard link), then atomically rename the
         // fresh store over the live path. The live path is never absent — a
@@ -1106,6 +1159,53 @@ impl SpiritStoreV8ArchiveDatabase {
     }
 }
 
+impl SpiritStoreV9Layout3LiveDatabase {
+    fn open(path: &Path) -> Result<Self, StoreMigrationError> {
+        let mut database = Layout3SemaDatabase::open(
+            Layout3EngineOpen::new(path, SPIRIT_STORE_CURRENT_SCHEMA_VERSION).with_versioning(
+                sema_engine_layout3::VersioningPolicy::new(
+                    sema_engine_layout3::VersionedStoreName::new("spirit:sema"),
+                ),
+            ),
+        )?;
+        let records = database.register_table(Layout3TableDescriptor::new(
+            LAYOUT3_RECORDS_TABLE,
+            sema_engine_layout3::FamilyName::new("RecordsFamily"),
+            sema_engine_layout3::SchemaHash::new(
+                crate::schema::sema::family_identity::RECORDS_FAMILY,
+            ),
+        ))?;
+        let referents = database.register_table(Layout3TableDescriptor::new(
+            LAYOUT3_REFERENTS_TABLE,
+            sema_engine_layout3::FamilyName::new("ReferentsFamily"),
+            sema_engine_layout3::SchemaHash::new(
+                crate::schema::sema::family_identity::REFERENTS_FAMILY,
+            ),
+        ))?;
+        Ok(Self {
+            database,
+            records,
+            referents,
+        })
+    }
+
+    fn records(&self) -> Result<Vec<StoredRecord>, StoreMigrationError> {
+        Ok(self
+            .database
+            .match_records(Layout3QueryPlan::all(self.records))?
+            .records()
+            .to_vec())
+    }
+
+    fn referents(&self) -> Result<Vec<StoredReferent>, StoreMigrationError> {
+        Ok(self
+            .database
+            .match_records(Layout3QueryPlan::all(self.referents))?
+            .records()
+            .to_vec())
+    }
+}
+
 /// The previous store's rows after conversion through the historical
 /// `From`-chain: current-shape records plus the registered referents, ready
 /// for the logged fold into a fresh store.
@@ -1149,6 +1249,19 @@ impl SpiritPreviousStore {
                 .collect(),
         })
     }
+
+    fn from_v9_layout3(
+        database: SpiritStoreV9Layout3LiveDatabase,
+    ) -> Result<Self, StoreMigrationError> {
+        Ok(Self {
+            records: database
+                .records()?
+                .into_iter()
+                .map(SpiritPreviousRecord::from_v9)
+                .collect(),
+            referents: database.referents()?,
+        })
+    }
 }
 
 impl SpiritPreviousRecord {
@@ -1162,6 +1275,13 @@ impl SpiritPreviousRecord {
     fn from_v8(record: SpiritStoreV8Record) -> Self {
         Self {
             record_identifier: record.record_identifier,
+            entry: record.entry,
+        }
+    }
+
+    fn from_v9(record: StoredRecord) -> Self {
+        Self {
+            record_identifier: record.record_identifier.payload().clone(),
             entry: record.entry,
         }
     }
@@ -1206,6 +1326,18 @@ impl PreviousEngineRecord for SpiritStoreV8Record {
 impl PreviousEngineRecord for SpiritStoreV8Referent {
     fn record_key(&self) -> PreviousRecordKey {
         PreviousRecordKey::new(self.referent.payload().clone())
+    }
+}
+
+impl Layout3EngineRecord for StoredRecord {
+    fn record_key(&self) -> Layout3RecordKey {
+        Layout3RecordKey::new(self.record_identifier.payload().clone())
+    }
+}
+
+impl Layout3EngineRecord for StoredReferent {
+    fn record_key(&self) -> Layout3RecordKey {
+        Layout3RecordKey::new(self.referent.payload().clone())
     }
 }
 

@@ -148,6 +148,7 @@
         "nota-next-source": "nota-next-source",
         "schema-next-source": "schema-next-source",
         "schema-rust-next-source": "schema-rust-next-source",
+        "sema-engine-layout3-source": "sema-engine-layout3-source",
         "sema-engine-previous-source": "sema-engine-previous-source",
         "sema-engine-source": "sema-engine-source",
         "sema-source": "sema-source",
@@ -207,6 +208,23 @@
         "owner": "LiGoldragon",
         "ref": "structural-forms-integration",
         "repo": "schema-rust-next",
+        "type": "github"
+      }
+    },
+    "sema-engine-layout3-source": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1781293993,
+        "narHash": "sha256-XSNblN9X6bbXw38dIMl7TzZ/U7PGGW+WfK/oY+XiWig=",
+        "owner": "LiGoldragon",
+        "repo": "sema-engine",
+        "rev": "dbe29427d9a2c6c194909385485ad42b008048b8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "LiGoldragon",
+        "repo": "sema-engine",
+        "rev": "dbe29427d9a2c6c194909385485ad42b008048b8",
         "type": "github"
       }
     },

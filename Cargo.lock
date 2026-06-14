@@ -1194,6 +1194,19 @@ dependencies = [
 
 [[package]]
 name = "sema-engine"
+version = "0.4.0"
+source = "git+https://github.com/LiGoldragon/sema-engine.git?rev=dbe29427d9a2c6c194909385485ad42b008048b8#dbe29427d9a2c6c194909385485ad42b008048b8"
+dependencies = [
+ "blake3",
+ "rkyv",
+ "sema",
+ "signal-frame",
+ "signal-sema",
+ "thiserror",
+]
+
+[[package]]
+name = "sema-engine"
 version = "0.6.2"
 source = "git+https://github.com/LiGoldragon/sema-engine.git?branch=structural-forms-integration#73a59f0be089c3859869d58a58a98f6e285593ab"
 dependencies = [
@@ -1379,6 +1392,7 @@ dependencies = [
  "schema-next 0.2.0 (git+https://github.com/LiGoldragon/schema-next.git?branch=structural-forms-integration)",
  "schema-rust-next 0.5.3 (git+https://github.com/LiGoldragon/schema-rust-next.git?branch=structural-forms-integration)",
  "sema-engine 0.2.3",
+ "sema-engine 0.4.0",
  "sema-engine 0.6.2",
  "signal-agent",
  "signal-frame",

@@ -99,9 +99,12 @@ use std::{
 };
 
 use spirit::Configuration;
+use spirit::schema::meta_signal::{
+    ImportedRecord, ImportedRecords, Input as MetaInput, Output as MetaOutput,
+};
 use spirit::schema::signal::{
-    Description, Domains, Entry, Kind, Magnitude, Output, OutputRoute, Privacy, RecordIdentifier,
-    SignalRejection, ValidationError,
+    Description, Domains, Entry, GuardianRejectionReason, Kind, Magnitude, Output, OutputRoute,
+    Privacy, RecordIdentifier, SignalRejection, ValidationError,
 };
 use tempfile::TempDir;
 
@@ -125,16 +128,20 @@ fn record_identifier_argument(identifier: &RecordIdentifier) -> String {
     identifier.payload().to_owned()
 }
 
-fn record_nota(domains: &str, kind: &str, description: &str) -> String {
-    format!(
-        "(Record (({domains} {kind} [{description}] Maximum Minimum Zero []) ([{description}] None)))"
-    )
+fn nota_text(value: &str) -> String {
+    if value.chars().all(|character| {
+        character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | ':' | '/' | '.')
+    }) {
+        value.to_owned()
+    } else {
+        format!("[{value}]")
+    }
 }
 
-fn remove_nota(identifier: &RecordIdentifier) -> String {
+fn record_nota(domains: &str, kind: &str, description: &str) -> String {
+    let description = nota_text(description);
     format!(
-        "(Remove ({} ([remove record] None)))",
-        record_identifier_argument(identifier)
+        "(Record (({domains} {kind} {description} Maximum Minimum Zero []) ([({description} None)] {description})))"
     )
 }
 
@@ -152,6 +159,7 @@ fn remove_nota(identifier: &RecordIdentifier) -> String {
 #[derive(Debug, Clone)]
 struct NixBuiltBinaries {
     spirit_cli: PathBuf,
+    meta_spirit_cli: PathBuf,
     spirit_daemon: PathBuf,
 }
 
@@ -177,11 +185,17 @@ impl NixBuiltBinaries {
 
     fn from_directory(directory: &Path) -> Self {
         let spirit_cli = directory.join("bin").join("spirit");
+        let meta_spirit_cli = directory.join("bin").join("meta-spirit");
         let spirit_daemon = directory.join("bin").join("spirit-daemon");
         assert!(
             spirit_cli.exists(),
             "expected Nix-built CLI binary at {}",
             spirit_cli.display()
+        );
+        assert!(
+            meta_spirit_cli.exists(),
+            "expected Nix-built meta CLI binary at {}",
+            meta_spirit_cli.display()
         );
         assert!(
             spirit_daemon.exists(),
@@ -190,6 +204,7 @@ impl NixBuiltBinaries {
         );
         Self {
             spirit_cli,
+            meta_spirit_cli,
             spirit_daemon,
         }
     }
@@ -305,6 +320,7 @@ fn nix_input_overrides() -> Vec<(&'static str, String)> {
 struct DaemonProcess {
     child: Child,
     socket_path: PathBuf,
+    meta_socket_path: PathBuf,
     #[allow(dead_code)]
     temp_directory: TempDir,
 }
@@ -313,9 +329,11 @@ impl DaemonProcess {
     fn spawn(binaries: &NixBuiltBinaries) -> Self {
         let temp_directory = TempDir::new().expect("create tempdir");
         let socket_path = temp_directory.path().join("spirit.sock");
+        let meta_socket_path = temp_directory.path().join("spirit-meta.sock");
         let database_path = temp_directory.path().join("spirit.sema");
         let configuration_path = temp_directory.path().join("spirit.config.rkyv");
         Configuration::new(&socket_path, &database_path)
+            .with_meta_socket_path(&meta_socket_path)
             .write_binary_file(&configuration_path)
             .expect("write binary daemon configuration");
 
@@ -329,6 +347,7 @@ impl DaemonProcess {
         let process = Self {
             child,
             socket_path,
+            meta_socket_path,
             temp_directory,
         };
         process.wait_for_socket();
@@ -351,6 +370,10 @@ impl DaemonProcess {
 
     fn socket(&self) -> &Path {
         &self.socket_path
+    }
+
+    fn meta_socket(&self) -> &Path {
+        &self.meta_socket_path
     }
 }
 
@@ -384,6 +407,30 @@ fn run_cli_for_output(binaries: &NixBuiltBinaries, socket: &Path, nota_argument:
     })
 }
 
+fn run_meta_cli_for_output(
+    binaries: &NixBuiltBinaries,
+    meta_socket: &Path,
+    nota_argument: &str,
+) -> MetaOutput {
+    let output = Command::new(&binaries.meta_spirit_cli)
+        .arg(nota_argument)
+        .env("SPIRIT_META_SOCKET", meta_socket)
+        .output()
+        .expect("run meta CLI");
+    assert!(
+        output.status.success(),
+        "meta-spirit CLI failed (status {}): stderr={}; stdout={}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr),
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("meta CLI stdout is UTF-8");
+    let trimmed = stdout.trim_end();
+    MetaOutput::from_str(trimmed).unwrap_or_else(|error| {
+        panic!("schema-emitted MetaOutput::FromStr on CLI stdout {trimmed:?}: {error}")
+    })
+}
+
 // ---------------------------------------------------------------------------
 // Schema-emitted fixture constructors — never strings as state.
 // ---------------------------------------------------------------------------
@@ -397,6 +444,30 @@ fn entry(description: &str) -> Entry {
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
         referents: spirit::schema::signal::Referents::new(Vec::new()),
+    }
+}
+
+fn import_record(
+    binaries: &NixBuiltBinaries,
+    daemon: &DaemonProcess,
+    identifier: &str,
+    description: &str,
+) -> RecordIdentifier {
+    let record_identifier = RecordIdentifier::new(identifier.to_owned());
+    let input = MetaInput::import(
+        ImportedRecords::new(vec![ImportedRecord {
+            record_identifier: record_identifier.clone(),
+            entry: entry(description),
+        }])
+        .into(),
+    );
+    let output = run_meta_cli_for_output(binaries, daemon.meta_socket(), &input.to_string());
+    match output {
+        MetaOutput::Imported(receipt) => {
+            assert_eq!(*receipt.payload().record_count.payload(), 1);
+            record_identifier
+        }
+        other => panic!("expected schema-emitted meta Imported, got {other:?}"),
     }
 }
 
@@ -450,12 +521,17 @@ fn nix_built_spirit_cli_records_through_real_socket_to_nix_built_daemon() {
     );
     let output = run_cli_for_output(&binaries, daemon.socket(), &nota_input);
 
-    // SCHEMA-TYPED ASSERTION: not on the string, on the parsed schema-emitted variant.
+    // SCHEMA-TYPED ASSERTION: the production daemon build requires a guardian.
+    // With no guardian agent configured in this sandbox, working writes fail
+    // closed; privileged test seeding goes through owner-only meta Import below.
     match output {
-        Output::RecordAccepted(receipt) => {
-            assert_short_record_identifier(receipt.payload());
+        Output::GuardianRejected(rejection) => {
+            assert_eq!(
+                rejection.payload().guardian_rejection_reason,
+                GuardianRejectionReason::HarnessUnavailable
+            );
         }
-        other => panic!("expected schema-emitted RecordAccepted, got {other:?}"),
+        other => panic!("expected schema-emitted GuardianRejected, got {other:?}"),
     }
 }
 
@@ -494,37 +570,15 @@ fn nix_built_daemon_persists_state_across_two_cli_invocations() {
     let binaries = NixBuiltBinaries::ensure();
     let daemon = DaemonProcess::spawn(&binaries);
 
-    let first = run_cli_for_output(
-        &binaries,
-        daemon.socket(),
-        &record_nota(
-            "[(Technology (Software (Operations InfrastructureAsCode)))]",
-            "Decision",
-            "first commit",
-        ),
-    );
-    match first {
-        Output::RecordAccepted(receipt) => assert_short_record_identifier(receipt.payload()),
-        other => panic!("expected RecordAccepted, got {other:?}"),
-    };
+    let first_identifier = import_record(&binaries, &daemon, "nixa1", "first commit");
+    assert_short_record_identifier(&first_identifier);
     let first_marker = match run_cli_for_output(&binaries, daemon.socket(), "Marker") {
         Output::MarkerReported(marker) => marker.into_payload(),
         other => panic!("expected MarkerReported after first record, got {other:?}"),
     };
 
-    let second = run_cli_for_output(
-        &binaries,
-        daemon.socket(),
-        &record_nota(
-            "[(Technology (Software (Operations InfrastructureAsCode)))]",
-            "Decision",
-            "second commit",
-        ),
-    );
-    match second {
-        Output::RecordAccepted(receipt) => assert_short_record_identifier(receipt.payload()),
-        other => panic!("expected RecordAccepted, got {other:?}"),
-    };
+    let second_identifier = import_record(&binaries, &daemon, "nixa2", "second commit");
+    assert_short_record_identifier(&second_identifier);
     let second_marker = match run_cli_for_output(&binaries, daemon.socket(), "Marker") {
         Output::MarkerReported(marker) => marker.into_payload(),
         other => panic!("expected MarkerReported after second record, got {other:?}"),
@@ -555,15 +609,8 @@ fn nix_built_daemon_observes_recorded_entries_back_through_query() {
     let binaries = NixBuiltBinaries::ensure();
     let daemon = DaemonProcess::spawn(&binaries);
 
-    let _recorded = run_cli_for_output(
-        &binaries,
-        daemon.socket(),
-        &record_nota(
-            "[(Technology (Software (Operations InfrastructureAsCode)))]",
-            "Decision",
-            "observe round trip",
-        ),
-    );
+    let record_identifier = import_record(&binaries, &daemon, "nixo1", "observe round trip");
+    assert_short_record_identifier(&record_identifier);
 
     let observed = run_cli_for_output(
         &binaries,
@@ -635,40 +682,25 @@ fn nix_built_daemon_handles_back_to_back_inputs_through_one_socket() {
     let binaries = NixBuiltBinaries::ensure();
     let daemon = DaemonProcess::spawn(&binaries);
 
-    let descriptions = ["alpha", "beta", "gamma"];
-    let mut markers = Vec::new();
+    import_record(&binaries, &daemon, "nixb1", "alpha");
+    import_record(&binaries, &daemon, "nixb2", "beta");
+    import_record(&binaries, &daemon, "nixb3", "gamma");
 
-    for description in descriptions {
-        let nota_input = record_nota(
-            "[(Technology (Software (Operations InfrastructureAsCode)))]",
-            "Decision",
-            description,
-        );
-        let output = run_cli_for_output(&binaries, daemon.socket(), &nota_input);
-        match output {
-            Output::RecordAccepted(receipt) => assert_short_record_identifier(receipt.payload()),
-            other => panic!("expected RecordAccepted for {description}, got {other:?}"),
-        }
-        match run_cli_for_output(&binaries, daemon.socket(), "Marker") {
-            Output::MarkerReported(marker) => markers.push(marker.into_payload()),
-            other => panic!("expected MarkerReported for {description}, got {other:?}"),
-        }
-    }
+    let version = run_cli_for_output(&binaries, daemon.socket(), "Version");
+    assert!(matches!(version, Output::VersionReported(_)));
 
-    assert_eq!(markers.len(), 3);
-    assert_eq!(markers[0].commit_sequence, 1);
-    assert_eq!(markers[1].commit_sequence, 2);
-    assert_eq!(markers[2].commit_sequence, 3);
-    // Each digest distinct — proving Record actually changed state, not just the counter.
-    let digests: Vec<_> = markers.iter().map(|m| m.state_digest.clone()).collect();
-    let mut sorted = digests.clone();
-    sorted.sort();
-    sorted.dedup();
-    assert_eq!(
-        sorted.len(),
-        3,
-        "schema-emitted StateDigest changes per record"
+    let marker = run_cli_for_output(&binaries, daemon.socket(), "Marker");
+    assert!(matches!(marker, Output::MarkerReported(_)));
+
+    let counted = run_cli_for_output(
+        &binaries,
+        daemon.socket(),
+        "(Count ((Full [(Technology (Software (Operations InfrastructureAsCode)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
+    match counted {
+        Output::RecordsCounted(counted) => assert_eq!(*counted.payload().payload().payload(), 3),
+        other => panic!("expected RecordsCounted after back-to-back reads, got {other:?}"),
+    }
 }
 
 #[test]
@@ -682,10 +714,10 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     // itself cannot parse, which would silently break tooling.
     //
     // Variants exercised: VersionReported (component version),
-    // RecordAccepted (happy Record), RecordRemoved (SEMA remove),
-    // CertaintyChanged (SEMA mutate), Rejected (Signal validation), Error
-    // (SEMA missed), RecordsStashed (after Record + Observe). Seven typed
-    // assertions, all parsed through `Output::from_str`.
+    // GuardianRejected (fail-closed write without configured guardian),
+    // CertaintyChanged (SEMA mutate on an imported record), Rejected (Signal
+    // validation), Error (SEMA missed), RecordsStashed (after Import +
+    // Observe). Six typed assertions, all parsed through `Output::from_str`.
     let binaries = NixBuiltBinaries::ensure();
     let daemon = DaemonProcess::spawn(&binaries);
 
@@ -702,8 +734,8 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     }
     assert_eq!(version.route(), OutputRoute::VersionReported);
 
-    // Variant 2: RecordAccepted.
-    let recorded = run_cli_for_output(
+    // Variant 2: GuardianRejected.
+    let guarded = run_cli_for_output(
         &binaries,
         daemon.socket(),
         &record_nota(
@@ -712,42 +744,23 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
             "variant tour",
         ),
     );
-    let recorded_identifier = match &recorded {
-        Output::RecordAccepted(receipt) => receipt.payload().clone(),
-        other => panic!("expected RecordAccepted, got {other:?}"),
+    match &guarded {
+        Output::GuardianRejected(rejection) => assert_eq!(
+            rejection.payload().guardian_rejection_reason,
+            GuardianRejectionReason::HarnessUnavailable
+        ),
+        other => panic!("expected GuardianRejected, got {other:?}"),
     };
-    assert_short_record_identifier(&recorded_identifier);
     assert_eq!(
-        recorded.route(),
-        OutputRoute::RecordAccepted,
+        guarded.route(),
+        OutputRoute::GuardianRejected,
         "schema-emitted OutputRoute round-trips through CLI stdout"
     );
 
-    // Variant 3: RecordRemoved.
-    let removed = run_cli_for_output(
-        &binaries,
-        daemon.socket(),
-        &remove_nota(&recorded_identifier),
-    );
-    assert!(matches!(removed, Output::RecordRemoved(_)));
-    assert_eq!(removed.route(), OutputRoute::RecordRemoved);
-
-    let rerecorded = run_cli_for_output(
-        &binaries,
-        daemon.socket(),
-        &record_nota(
-            "[(Technology (Software (Operations InfrastructureAsCode)))]",
-            "Decision",
-            "variant tour",
-        ),
-    );
-    let rerecorded_identifier = match &rerecorded {
-        Output::RecordAccepted(receipt) => receipt.payload().clone(),
-        other => panic!("expected second RecordAccepted, got {other:?}"),
-    };
+    let rerecorded_identifier = import_record(&binaries, &daemon, "nixt1", "variant tour");
     assert_short_record_identifier(&rerecorded_identifier);
 
-    // Variant 4: CertaintyChanged.
+    // Variant 3: CertaintyChanged.
     let changed = run_cli_for_output(
         &binaries,
         daemon.socket(),
@@ -759,7 +772,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     assert!(matches!(changed, Output::CertaintyChanged(_)));
     assert_eq!(changed.route(), OutputRoute::CertaintyChanged);
 
-    // Variant 5: Rejected (Signal validation).
+    // Variant 4: Rejected (Signal validation).
     let rejected = run_cli_for_output(
         &binaries,
         daemon.socket(),
@@ -768,7 +781,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     assert!(matches!(rejected, Output::Rejected(_)));
     assert_eq!(rejected.route(), OutputRoute::Rejected);
 
-    // Variant 6: Error (SEMA missed).
+    // Variant 5: Error (SEMA missed).
     let errored = run_cli_for_output(
         &binaries,
         daemon.socket(),
@@ -777,7 +790,9 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     assert!(matches!(errored, Output::Error(_)));
     assert_eq!(errored.route(), OutputRoute::Error);
 
-    // Variant 7: RecordsStashed.
+    // Variant 6: RecordsStashed.
+    let observed_identifier = import_record(&binaries, &daemon, "nixt2", "variant tour visible");
+    assert_short_record_identifier(&observed_identifier);
     let observed = run_cli_for_output(
         &binaries,
         daemon.socket(),
@@ -805,13 +820,12 @@ fn nix_built_daemon_alias_state_across_separate_cli_processes() {
     let binaries = NixBuiltBinaries::ensure();
     let daemon = DaemonProcess::spawn(&binaries);
 
-    // Independent processes — exec a fresh CLI binary each time.
+    let record_identifier = import_record(&binaries, &daemon, "nixp1", "process a record");
+    assert_short_record_identifier(&record_identifier);
+
+    // Independent process — exec a fresh CLI binary for the read.
     let mut child_a = Command::new(&binaries.spirit_cli)
-        .arg(record_nota(
-            "[(Technology (Software (Operations InfrastructureAsCode)))]",
-            "Decision",
-            "process a record",
-        ))
+        .arg("(Observe ((Full [(Technology (Software (Operations InfrastructureAsCode)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))")
         .env("SPIRIT_SOCKET", daemon.socket())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -826,12 +840,9 @@ fn nix_built_daemon_alias_state_across_separate_cli_processes() {
         .expect("CLI a stdout")
         .read_to_string(&mut stdout_a)
         .expect("read CLI a stdout");
-
-    let observed = run_cli_for_output(
-        &binaries,
-        daemon.socket(),
-        "(Observe ((Full [(Technology (Software (Operations InfrastructureAsCode)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
-    );
+    let observed = Output::from_str(stdout_a.trim_end()).unwrap_or_else(|error| {
+        panic!("schema-emitted Output::FromStr on CLI process stdout {stdout_a:?}: {error}")
+    });
     let stash_handle = match observed {
         Output::RecordsStashed(stashed) => {
             assert_eq!(stashed.record_count, 1);

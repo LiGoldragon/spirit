@@ -35,6 +35,12 @@
       url = "github:LiGoldragon/sema-engine/ebee6e44ba6ee4afcb26998007bcfd128641b54c";
       flake = false;
     };
+    # The deployed v9/layout-3 engine generation: reads materialized rows
+    # from the live 0.12.1 store for the production-migration bootstrap.
+    sema-engine-layout3-source = {
+      url = "github:LiGoldragon/sema-engine/dbe29427d9a2c6c194909385485ad42b008048b8";
+      flake = false;
+    };
     signal-frame-source = {
       url = "github:LiGoldragon/signal-frame";
       flake = false;
@@ -86,6 +92,7 @@
       sema-source,
       sema-engine-source,
       sema-engine-previous-source,
+      sema-engine-layout3-source,
       signal-frame-source,
       signal-sema-source,
       triad-runtime-source,
@@ -144,6 +151,7 @@
               semaSource = sema-source;
               semaEngineSource = sema-engine-source;
               semaEnginePreviousSource = sema-engine-previous-source;
+              semaEngineLayout3Source = sema-engine-layout3-source;
               signalFrameSource = signal-frame-source;
               signalSemaSource = signal-sema-source;
               triadRuntimeSource = triad-runtime-source;
@@ -164,6 +172,7 @@
               cp -R "$semaSource" $out/vendor-sources/sema
               cp -R "$semaEngineSource" $out/vendor-sources/sema-engine
               cp -R "$semaEnginePreviousSource" $out/vendor-sources/sema-engine-previous
+              cp -R "$semaEngineLayout3Source" $out/vendor-sources/sema-engine-layout3
               cp -R "$signalFrameSource" $out/vendor-sources/signal-frame
               cp -R "$signalSemaSource" $out/vendor-sources/signal-sema
               cp -R "$triadRuntimeSource" $out/vendor-sources/triad-runtime
@@ -178,6 +187,7 @@
                 --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "structural-forms-integration", optional = true }' 'nota-next = { path = "vendor-sources/nota-next", optional = true }' \
                 --replace-fail 'sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "structural-forms-integration" }' 'sema-engine = { path = "vendor-sources/sema-engine" }' \
                 --replace-fail 'sema-engine-previous = { git = "https://github.com/LiGoldragon/sema-engine.git", rev = "ebee6e44ba6ee4afcb26998007bcfd128641b54c", package = "sema-engine", optional = true }' 'sema-engine-previous = { path = "vendor-sources/sema-engine-previous", package = "sema-engine", optional = true }' \
+                --replace-fail 'sema-engine-layout3 = { git = "https://github.com/LiGoldragon/sema-engine.git", rev = "dbe29427d9a2c6c194909385485ad42b008048b8", package = "sema-engine", optional = true }' 'sema-engine-layout3 = { path = "vendor-sources/sema-engine-layout3", package = "sema-engine", optional = true }' \
                 --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }' 'signal-frame = { path = "vendor-sources/signal-frame" }' \
                 --replace-fail 'signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main", optional = true }' 'signal-agent = { path = "vendor-sources/signal-agent", optional = true }' \
                 --replace-fail 'signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main" }' 'signal-sema = { path = "vendor-sources/signal-sema" }' \
@@ -203,6 +213,11 @@
                 --replace-fail 'signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main", default-features = false }' 'signal-sema = { path = "../signal-sema", default-features = false }'
 
               substituteInPlace $out/vendor-sources/sema-engine-previous/Cargo.toml \
+                --replace-fail 'sema = { git = "https://github.com/LiGoldragon/sema.git", branch = "main" }' 'sema = { path = "../sema" }' \
+                --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main", default-features = false }' 'signal-frame = { path = "../signal-frame", default-features = false }' \
+                --replace-fail 'signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main", default-features = false }' 'signal-sema = { path = "../signal-sema", default-features = false }'
+
+              substituteInPlace $out/vendor-sources/sema-engine-layout3/Cargo.toml \
                 --replace-fail 'sema = { git = "https://github.com/LiGoldragon/sema.git", branch = "main" }' 'sema = { path = "../sema" }' \
                 --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main", default-features = false }' 'signal-frame = { path = "../signal-frame", default-features = false }' \
                 --replace-fail 'signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main", default-features = false }' 'signal-sema = { path = "../signal-sema", default-features = false }'
@@ -270,6 +285,7 @@
 
               [patch."https://github.com/LiGoldragon/sema-engine.git"]
               sema-engine = { path = "vendor-sources/sema-engine" }
+              sema-engine-layout3 = { path = "vendor-sources/sema-engine-layout3", package = "sema-engine" }
               sema-engine-previous = { path = "vendor-sources/sema-engine-previous", package = "sema-engine" }
 
               [patch."https://github.com/LiGoldragon/signal-frame.git"]
@@ -328,9 +344,12 @@
               "nota-next-derive",
               "schema-next",
               "schema-rust-next",
+              "agent",
+              "sema",
               "signal-agent",
               "signal-frame",
               "signal-frame-macros",
+              "signal-sema",
               "signal-spirit",
               "triad-runtime",
               "version-projection",
