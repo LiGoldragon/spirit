@@ -10,15 +10,15 @@
     };
     crane.url = "github:ipetkov/crane";
     nota-next-source = {
-      url = "github:LiGoldragon/nota-next";
+      url = "github:LiGoldragon/nota-next/structural-forms-integration";
       flake = false;
     };
     schema-next-source = {
-      url = "github:LiGoldragon/schema-next";
+      url = "github:LiGoldragon/schema-next/structural-forms-integration";
       flake = false;
     };
     schema-rust-next-source = {
-      url = "github:LiGoldragon/schema-rust-next";
+      url = "github:LiGoldragon/schema-rust-next/structural-forms-integration";
       flake = false;
     };
     sema-source = {
@@ -26,7 +26,7 @@
       flake = false;
     };
     sema-engine-source = {
-      url = "github:LiGoldragon/sema-engine";
+      url = "github:LiGoldragon/sema-engine/structural-forms-integration";
       flake = false;
     };
     # The previous engine generation: reads pre-versioning stores for the
@@ -44,11 +44,15 @@
       flake = false;
     };
     triad-runtime-source = {
-      url = "github:LiGoldragon/triad-runtime";
+      url = "github:LiGoldragon/triad-runtime/structural-forms-integration";
       flake = false;
     };
     signal-spirit-source = {
-      url = "github:LiGoldragon/signal-spirit";
+      url = "github:LiGoldragon/signal-spirit/structural-forms-integration";
+      flake = false;
+    };
+    meta-signal-spirit-source = {
+      url = "github:LiGoldragon/meta-signal-spirit/structural-forms-integration";
       flake = false;
     };
     signal-agent-source = {
@@ -86,6 +90,7 @@
       signal-sema-source,
       triad-runtime-source,
       signal-spirit-source,
+      meta-signal-spirit-source,
       signal-agent-source,
       meta-signal-agent-source,
       agent-source,
@@ -143,6 +148,7 @@
               signalSemaSource = signal-sema-source;
               triadRuntimeSource = triad-runtime-source;
               signalSpiritSource = signal-spirit-source;
+              metaSignalSpiritSource = meta-signal-spirit-source;
               signalAgentSource = signal-agent-source;
               metaSignalAgentSource = meta-signal-agent-source;
               agentSource = agent-source;
@@ -162,31 +168,34 @@
               cp -R "$signalSemaSource" $out/vendor-sources/signal-sema
               cp -R "$triadRuntimeSource" $out/vendor-sources/triad-runtime
               cp -R "$signalSpiritSource" $out/vendor-sources/signal-spirit
+              cp -R "$metaSignalSpiritSource" $out/vendor-sources/meta-signal-spirit
               cp -R "$signalAgentSource" $out/vendor-sources/signal-agent
               cp -R "$metaSignalAgentSource" $out/vendor-sources/meta-signal-agent
               cp -R "$agentSource" $out/vendor-sources/agent
               cp -R "$versionProjectionSource" $out/vendor-sources/version-projection
 
               substituteInPlace $out/Cargo.toml \
-                --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota-next = { path = "vendor-sources/nota-next", optional = true }' \
-                --replace-fail 'sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main" }' 'sema-engine = { path = "vendor-sources/sema-engine" }' \
+                --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "structural-forms-integration", optional = true }' 'nota-next = { path = "vendor-sources/nota-next", optional = true }' \
+                --replace-fail 'sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "structural-forms-integration" }' 'sema-engine = { path = "vendor-sources/sema-engine" }' \
                 --replace-fail 'sema-engine-previous = { git = "https://github.com/LiGoldragon/sema-engine.git", rev = "ebee6e44ba6ee4afcb26998007bcfd128641b54c", package = "sema-engine", optional = true }' 'sema-engine-previous = { path = "vendor-sources/sema-engine-previous", package = "sema-engine", optional = true }' \
                 --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }' 'signal-frame = { path = "vendor-sources/signal-frame" }' \
                 --replace-fail 'signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main", optional = true }' 'signal-agent = { path = "vendor-sources/signal-agent", optional = true }' \
-                --replace-fail 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main" }' 'signal-spirit = { path = "vendor-sources/signal-spirit" }' \
-                --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "vendor-sources/triad-runtime" }' \
-                --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust-next = { path = "vendor-sources/schema-rust-next" }' \
+                --replace-fail 'signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main" }' 'signal-sema = { path = "vendor-sources/signal-sema" }' \
+                --replace-fail 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "structural-forms-integration" }' 'signal-spirit = { path = "vendor-sources/signal-spirit" }' \
+                --replace-fail 'meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", branch = "structural-forms-integration" }' 'meta-signal-spirit = { path = "vendor-sources/meta-signal-spirit" }' \
+                --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "structural-forms-integration" }' 'triad-runtime = { path = "vendor-sources/triad-runtime" }' \
+                --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "structural-forms-integration" }' 'schema-rust-next = { path = "vendor-sources/schema-rust-next" }' \
                 --replace-fail 'agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", features = ["live-provider"] }' 'agent = { path = "vendor-sources/agent", features = ["live-provider"] }' \
-                --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "vendor-sources/schema-next" }'
+                --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "structural-forms-integration" }' 'schema-next = { path = "vendor-sources/schema-next" }'
 
               substituteInPlace $out/vendor-sources/schema-rust-next/Cargo.toml \
-                --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "../schema-next" }' \
-                --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next = { path = "../nota-next" }' \
+                --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "structural-forms-integration" }' 'schema-next = { path = "../schema-next" }' \
+                --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "structural-forms-integration" }' 'nota-next = { path = "../nota-next" }' \
                 --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }' 'signal-frame = { path = "../signal-frame" }' \
-                --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "../triad-runtime" }'
+                --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "structural-forms-integration" }' 'triad-runtime = { path = "../triad-runtime" }'
 
               substituteInPlace $out/vendor-sources/schema-next/Cargo.toml \
-                --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next = { path = "../nota-next" }'
+                --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "structural-forms-integration" }' 'nota-next = { path = "../nota-next" }'
 
               substituteInPlace $out/vendor-sources/sema-engine/Cargo.toml \
                 --replace-fail 'sema = { git = "https://github.com/LiGoldragon/sema.git", branch = "main" }' 'sema = { path = "../sema" }' \
@@ -211,9 +220,17 @@
 
               substituteInPlace $out/vendor-sources/signal-spirit/Cargo.toml \
                 --replace-fail '{ git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main", default-features = false }' '{ path = "../signal-frame", default-features = false }' \
-                --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' '{ path = "../nota-next", optional = true }' \
+                --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "structural-forms-integration", optional = true }' '{ path = "../nota-next", optional = true }' \
                 --replace-fail '{ git = "https://github.com/LiGoldragon/version-projection.git", branch = "main", default-features = false }' '{ path = "../version-projection", default-features = false }' \
-                --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' '{ path = "../nota-next" }'
+                --replace-fail '{ git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "structural-forms-integration" }' '{ path = "../schema-rust-next" }' \
+                --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "structural-forms-integration" }' '{ path = "../nota-next" }'
+
+              substituteInPlace $out/vendor-sources/meta-signal-spirit/Cargo.toml \
+                --replace-fail '{ git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main", default-features = false }' '{ path = "../signal-frame", default-features = false }' \
+                --replace-fail '{ git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "structural-forms-integration", default-features = false }' '{ path = "../signal-spirit", default-features = false }' \
+                --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "structural-forms-integration", optional = true }' '{ path = "../nota-next", optional = true }' \
+                --replace-fail '{ git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "structural-forms-integration" }' '{ path = "../schema-rust-next" }' \
+                --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "structural-forms-integration" }' '{ path = "../nota-next" }'
 
               substituteInPlace $out/vendor-sources/signal-agent/Cargo.toml \
                 --replace-fail '{ git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main", default-features = false }' '{ path = "../signal-frame", default-features = false }' \
@@ -268,6 +285,9 @@
               [patch."https://github.com/LiGoldragon/signal-spirit.git"]
               signal-spirit = { path = "vendor-sources/signal-spirit" }
 
+              [patch."https://github.com/LiGoldragon/meta-signal-spirit.git"]
+              meta-signal-spirit = { path = "vendor-sources/meta-signal-spirit" }
+
               [patch."https://github.com/LiGoldragon/signal-agent.git"]
               signal-agent = { path = "vendor-sources/signal-agent" }
 
@@ -293,10 +313,28 @@
           import re, sys
 
           preferred_reference = {
-              "schema-next": "main",
-              "schema-rust-next": "main",
-              "triad-runtime": "main",
+              "schema-next": "structural-forms-integration",
+              "schema-rust-next": "structural-forms-integration",
+              "triad-runtime": "structural-forms-integration",
           }
+          preferred_version = {
+              "nota-next": "0.5.0",
+              "nota-next-derive": "0.3.0",
+          }
+          path_dependency_names = (
+              "meta-signal-agent",
+              "meta-signal-spirit",
+              "nota-next",
+              "nota-next-derive",
+              "schema-next",
+              "schema-rust-next",
+              "signal-agent",
+              "signal-frame",
+              "signal-frame-macros",
+              "signal-spirit",
+              "triad-runtime",
+              "version-projection",
+          )
 
           source_text = open(sys.argv[1]).read()
           blocks = source_text.split("[[package]]")
@@ -308,7 +346,12 @@
 
           kept, seen = [], {}
           for entry in entries:
-              key = (field(entry, "name"), field(entry, "version"))
+              name = field(entry, "name")
+              version = field(entry, "version")
+              preferred = preferred_version.get(name)
+              if preferred and preferred != version:
+                  continue
+              key = (name, version)
               source = field(entry, "source")
               if key in seen:
                   wanted = preferred_reference.get(key[0])
@@ -318,13 +361,24 @@
               seen[key] = len(kept)
               kept.append(entry)
 
-          stripped = [
-              "\n".join(
+          stripped = []
+          for entry in kept:
+              entry = "\n".join(
                   line for line in entry.split("\n")
                   if not line.startswith('source = "git+https://github.com/LiGoldragon/')
               )
-              for entry in kept
-          ]
+              entry = re.sub(
+                  r' \((git\+https://github\.com/LiGoldragon/[^)]+)\)',
+                  "",
+                  entry,
+              )
+              for dependency_name in path_dependency_names:
+                  entry = re.sub(
+                      r'"' + re.escape(dependency_name) + r'(?: [^"]+)?",',
+                      '"' + dependency_name + '",',
+                      entry,
+                  )
+              stripped.append(entry)
           open(sys.argv[2], "w").write(header + "".join("[[package]]" + entry for entry in stripped))
           PYEOF
         '';
