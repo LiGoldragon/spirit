@@ -8,20 +8,24 @@ a real CLI and daemon pair.
 It is also the current copyable exemplar for the schema-derived triad engine
 stack. The repo is intentionally one daemon crate, but it is not an all-in-one
 schema shape: the ordinary public signal/domain contract is generated in the
-`signal-spirit` contract crate, while Spirit generates daemon-local Nexus,
-SEMA, meta-signal, and daemon runtime modules through the shared driver and
-consumes them through `triad-runtime` plus `sema-engine`. Future component
-daemon repos should copy this plane/runtime shape while placing their external
-ordinary/meta signal contracts in separate contract repos where rebuild and
-policy boundaries require it.
+`signal-spirit` contract crate, the owner-only meta-policy signal contract is
+generated in the `meta-signal-spirit` contract crate, and Spirit generates only
+daemon-local Nexus, SEMA, and daemon runtime modules through the shared driver.
+It consumes those contracts and daemon-local modules through `triad-runtime`
+plus `sema-engine`. Future component daemon repos should copy this
+plane/runtime shape while placing their external ordinary/meta signal contracts
+in separate contract repos where rebuild and policy boundaries require it.
 
 ## Layers
 
 ```text
 signal-spirit/schema/{domain,signal}.schema
   -> signal-spirit/src/schema/{domain,signal}.rs
-  -> Spirit dependency schema
-schema/{nexus,sema,meta-signal}.schema
+  -> Spirit ordinary dependency schema
+meta-signal-spirit/schema/meta-signal.schema
+  -> meta-signal-spirit/src/schema/meta_signal.rs
+  -> Spirit meta dependency schema
+schema/{nexus,sema}.schema
   -> build.rs
   -> schema_rust_next::build::GenerationPlan with dependency schema + daemon-local targets
   -> schema_rust_next::build::GenerationDriver
@@ -178,12 +182,12 @@ as a startup error (`MissingMetaSocket`) and binds no working listener without
 it. When the path is present, the daemon binds a SECOND listener on it — the
 owner-only meta-signal surface — distinct from the ordinary working socket, so
 policy and configuration authority have a component-owned home apart from the
-peer-callable working signal. The meta contract is the crate-local
-`schema/meta-signal.schema` wire-only module (a fourth schema module emitted via
-`RustEmissionTarget::WireContract` into `src/schema/meta_signal.rs`): it carries
-the `Configure` and `Import` `Input` roots, the `Configured`/`Imported`/`Rejected`
-`Output` roots, their records, and the rkyv derives — no Nexus/SEMA planes and no
-engine traits. The first owner-only operation is
+peer-callable working signal. The meta contract is imported from the
+`meta-signal-spirit` contract crate, generated from
+`meta-signal-spirit/schema/meta-signal.schema`: it carries the `Configure` and
+`Import` `Input` roots, the `Configured`/`Imported`/`Rejected` `Output` roots,
+their records, and the rkyv derives — no Nexus/SEMA planes and no engine
+traits. The first owner-only operation is
 `Configure(ConfigureRequest { ArchiveDatabaseTarget })`, where
 `ArchiveDatabaseTarget` is the ported `[Default | Path(ArchivePath)]` enum. It
 sets WHERE the SEPARATE archive database lives — the destination the
@@ -671,17 +675,17 @@ the generated Rust still compiles and crosses the CLI/daemon rkyv boundary.
 
 `build.rs` delegates the build-time schema pipeline to
 `schema_rust_next::build`. The plan imports the dependency schema exposed by
-`signal-spirit` for the ordinary signal/domain contract, then emits the
-daemon-local modules: `schema/nexus.schema` with `NexusRuntime`,
-`schema/sema.schema` with `SemaRuntime`, `schema/meta-signal.schema` with the
-meta wire contract, and the generated daemon runtime. The shared driver reads
-each authored daemon-local schema into `SchemaSource`, round-trips it through
-`SchemaSourceArtifact` as text and rkyv internal codec witnesses, lowers from
-that typed source value, and emits Rust with the opt-in `nota-text` surface. It
-compares generated Rust output against `src/schema/{nexus,sema,meta_signal,daemon}.rs`,
-or rewrites those files when `SPIRIT_UPDATE_SCHEMA_ARTIFACTS` is set. Runtime
-code imports the checked-in plane modules directly; it does not include
-generated Rust from `OUT_DIR`.
+`signal-spirit` for the ordinary signal/domain contract and the dependency
+schema exposed by `meta-signal-spirit` for the owner-only meta policy contract,
+then emits the daemon-local modules: `schema/nexus.schema` with `NexusRuntime`,
+`schema/sema.schema` with `SemaRuntime`, and the generated daemon runtime. The
+shared driver reads each authored daemon-local schema into `SchemaSource`,
+round-trips it through `SchemaSourceArtifact` as text and rkyv internal codec
+witnesses, lowers from that typed source value, and emits Rust with the opt-in
+`nota-text` surface. It compares generated Rust output against
+`src/schema/{nexus,sema,daemon}.rs`, or rewrites those files when
+`SPIRIT_UPDATE_SCHEMA_ARTIFACTS` is set. Runtime code imports the checked-in
+plane modules directly; it does not include generated Rust from `OUT_DIR`.
 
 The same schema-emitted data types can therefore be compiled as binary-only
 daemon nouns or as dual NOTA+rkyv CLI nouns without hand-written parallel
@@ -690,9 +694,9 @@ prove "CLI has NOTA, daemon lacks NOTA"; Nix builds the daemon and CLI as
 separate package derivations and joins their binaries for integration tests.
 
 The schema-rust output paths are already crate-relative
-(`src/schema/nexus.rs`, `src/schema/sema.rs`, `src/schema/meta_signal.rs`, and
-`src/schema/daemon.rs`). `build.rs` uses those paths directly; it does not
-reinterpret generated paths relative to `src/`.
+(`src/schema/nexus.rs`, `src/schema/sema.rs`, and `src/schema/daemon.rs`).
+`build.rs` uses those paths directly; it does not reinterpret generated paths
+relative to `src/`.
 
 Runtime-chain tests assert on schema-emitted objects, not test-local shadow
 languages. Pattern A uses Spirit runtime `MailLedgerEvent` plus generated
@@ -734,10 +738,10 @@ socket rejection tests.
   and commit ledger are durable.
 - Schema diff/upgrade is absent (the generated `UpgradeFrom`/`AcceptPrevious`
   traits exist but nothing implements them yet).
-- The repo-triad split (`spirit`, `signal-spirit`, `meta-signal-spirit`) is
-  still incomplete only on the meta side: the daemon imports the ordinary
-  signal/domain contract and `SpiritDaemonConfiguration` from `signal-spirit`,
-  while the current meta signal wire schema still emits locally.
+- The repo-triad split (`spirit`, `signal-spirit`, `meta-signal-spirit`) is now
+  present for both external contracts: the daemon imports the ordinary
+  signal/domain contract and `SpiritDaemonConfiguration` from `signal-spirit`
+  and imports owner-only meta-policy wire nouns from `meta-signal-spirit`.
 - `MessageSent` and `MessageProcessed` are Spirit runtime mail-ledger types,
   not ordinary signal contract nouns. The `Nexus` decision object and SEMA
   `Store` are hand-written runtime behaviour over the schema-emitted nouns;

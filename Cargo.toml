@@ -48,7 +48,7 @@ required-features = ["nota-text"]
 
 [features]
 default = []
-nota-text = ["dep:nota-next", "signal-spirit/nota-text"]
+nota-text = ["dep:nota-next", "signal-spirit/nota-text", "meta-signal-spirit/nota-text"]
 agent-guardian = ["nota-text", "dep:signal-agent"]
 production-migration = ["nota-text", "dep:sema-engine-previous"]
 testing-trace = []
@@ -70,6 +70,7 @@ sema-engine-previous = { git = "https://github.com/LiGoldragon/sema-engine.git",
 signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }
 signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main", optional = true }
 signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main" }
+meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", branch = "main" }
 thiserror = "2"
 tokio = { version = "1.47", features = ["io-util", "net", "rt-multi-thread", "sync"] }
 triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }

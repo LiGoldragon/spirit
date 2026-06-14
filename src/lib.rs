@@ -1,10 +1,11 @@
 //! `spirit` runtime.
 //!
 //! This crate is a running schema-derived Spirit pilot. The public wire
-//! types come from the generated `signal-spirit` contract; the daemon-local
-//! Nexus, SEMA, meta-signal, and daemon modules are checked-in generated source
-//! through `schema-next` and `schema-rust-next`. The hand-written code here is
-//! the runtime shim around those generated interfaces. `build.rs` verifies the
+//! types come from the generated `signal-spirit` contract, and owner-only meta
+//! types come from the generated `meta-signal-spirit` contract. The daemon-local
+//! Nexus, SEMA, and daemon modules are checked-in generated source through
+//! `schema-next` and `schema-rust-next`. The hand-written code here is the
+//! runtime shim around those generated interfaces. `build.rs` verifies the
 //! generated modules are fresh.
 //!
 //! Plane envelopes make cross-plane mis-wiring a type error. A SEMA store
@@ -60,7 +61,13 @@ pub mod schema {
     #[rustfmt::skip]
     pub mod sema;
     #[rustfmt::skip]
-    pub mod meta_signal;
+    pub mod meta_signal {
+        pub use meta_signal_spirit::schema::meta_signal::*;
+    }
+    #[rustfmt::skip]
+    pub mod meta_signal_contract {
+        pub use meta_signal_spirit::*;
+    }
     #[rustfmt::skip]
     pub mod daemon;
 }

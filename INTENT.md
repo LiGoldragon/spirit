@@ -3,11 +3,12 @@
 `spirit` is the production Spirit daemon and proves a running component can be
 built from schema-derived interfaces. It is the current copyable triad runtime
 exemplar for the next Spirit engine stack: the ordinary public signal/domain
-contract lives in the `signal-spirit` contract crate, while this daemon crate
-keeps crate-local `schema/nexus.schema`, `schema/sema.schema`, and
-`schema/meta-signal.schema`, shared build-driver generation, generated daemon
-runtime modules under `spirit::schema`, `sema-engine` storage, and
-`triad-runtime` runner/listener/runtime support. It must not be
+contract lives in the `signal-spirit` contract crate, the owner-only
+meta-policy signal contract lives in the `meta-signal-spirit` contract crate,
+while this daemon crate keeps crate-local `schema/nexus.schema` and
+`schema/sema.schema`, shared build-driver generation, generated daemon runtime
+modules under `spirit::schema`, `sema-engine` storage, and `triad-runtime`
+runner/listener/runtime support. It must not be
 described as an all-in-one pilot whose shape future components should avoid.
 (Spirit record `y88n`, High certainty.)
 
@@ -193,9 +194,9 @@ entry point. From version 9 onward the previous store's LOG is the fold input.
 policy authority must not live on the ordinary working signal. Spirit's
 `Configuration` stores `meta_socket_path` as an `Option` because the shared
 `BindingSurface` trait uses that shape, but the generated Spirit daemon
-rejects `None` with `MissingMetaSocket` before serving either socket. If no
-separate `meta-signal-spirit` repo exists for a later slice, the meta signal
-surface belongs inside this daemon repo instead of being omitted.
+rejects `None` with `MissingMetaSocket` before serving either socket. The
+meta signal wire vocabulary is imported from `meta-signal-spirit`, parallel to
+the ordinary working signal vocabulary imported from `signal-spirit`.
 
 *Trace is optional runtime instrumentation.* The `testing-trace` surface observes Signal/Nexus/SEMA calls through generated trait hooks without affecting production binary behavior. Trace events carry schema-generated typed `ObjectName`, not free strings. Spirit owns the typed `TraceEvent` over plane-local object names; `triad-runtime` owns the reusable log, frame mechanics, and client-side collection.
 

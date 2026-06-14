@@ -683,6 +683,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "meta-signal-spirit"
+version = "0.1.0"
+source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=main#d5b5dde9fa2857cfdfa3c2d44ce13b7e5925d69e"
+dependencies = [
+ "nota-next",
+ "rkyv",
+ "schema-rust-next",
+ "signal-frame",
+ "signal-spirit",
+ "thiserror",
+]
+
+[[package]]
 name = "mio"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1319,6 +1332,7 @@ dependencies = [
  "agent",
  "blake3",
  "getrandom 0.3.4",
+ "meta-signal-spirit",
  "nota-next",
  "rkyv",
  "schema-next",

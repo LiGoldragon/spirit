@@ -1,7 +1,7 @@
 //! Owner-only meta-signal wire transport.
 //!
-//! The meta-signal contract (`schema/meta-signal.schema`) is emitted as a
-//! signal-frame wire contract: this `schema-rust-next` pin emits the
+//! The meta-signal contract (`meta-signal-spirit/schema/meta-signal.schema`) is
+//! emitted as a signal-frame wire contract: this `schema-rust-next` pin emits the
 //! `encode_signal_frame` / `decode_signal_frame` short-header frame codec on
 //! the meta `Input` / `Output` roots, identical to the working signal plane.
 //! So `MetaSignalTransport` reuses the schema-emitted codec directly (the
