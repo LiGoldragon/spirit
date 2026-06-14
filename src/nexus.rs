@@ -414,7 +414,11 @@ impl Nexus {
             }
             NexusEffectCommand::GuardRecord(record) => {
                 match self.guard_record(record.into_payload()) {
-                    Ok(Ok(receipt)) => NexusEffectResult::recorded(receipt),
+                    Ok(Ok(receipt)) => {
+                        #[cfg(feature = "testing-trace")]
+                        self.trace_direct_sema_write();
+                        NexusEffectResult::recorded(receipt)
+                    }
                     Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
                     Err(error) => self.operation_failed(error.to_string()),
                 }
@@ -424,14 +428,22 @@ impl Nexus {
             }
             NexusEffectCommand::Propose(propose) => {
                 match self.guard_propose(propose.into_payload()) {
-                    Ok(Ok(receipt)) => NexusEffectResult::proposed(receipt),
+                    Ok(Ok(receipt)) => {
+                        #[cfg(feature = "testing-trace")]
+                        self.trace_direct_sema_write();
+                        NexusEffectResult::proposed(receipt)
+                    }
                     Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
                     Err(error) => self.operation_failed(error.to_string()),
                 }
             }
             NexusEffectCommand::Clarify(clarify) => {
                 match self.guard_clarify(clarify.into_payload()) {
-                    Ok(Ok(Some(receipt))) => NexusEffectResult::clarified(receipt),
+                    Ok(Ok(Some(receipt))) => {
+                        #[cfg(feature = "testing-trace")]
+                        self.trace_direct_sema_write();
+                        NexusEffectResult::clarified(receipt)
+                    }
                     Ok(Ok(None)) => self.operation_failed("record not found"),
                     Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
                     Err(error) => self.operation_failed(error.to_string()),
@@ -442,21 +454,33 @@ impl Nexus {
             }
             NexusEffectCommand::Supersede(supersede) => {
                 match self.guard_supersede(supersede.into_payload()) {
-                    Ok(Ok(Some(receipt))) => NexusEffectResult::superseded(receipt),
+                    Ok(Ok(Some(receipt))) => {
+                        #[cfg(feature = "testing-trace")]
+                        self.trace_direct_sema_write();
+                        NexusEffectResult::superseded(receipt)
+                    }
                     Ok(Ok(None)) => self.operation_failed("supersede target not found"),
                     Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
                     Err(error) => self.operation_failed(error.to_string()),
                 }
             }
             NexusEffectCommand::Retire(retire) => match self.guard_retire(retire.into_payload()) {
-                Ok(Ok(Some(receipt))) => NexusEffectResult::retired(receipt),
+                Ok(Ok(Some(receipt))) => {
+                    #[cfg(feature = "testing-trace")]
+                    self.trace_direct_sema_write();
+                    NexusEffectResult::retired(receipt)
+                }
                 Ok(Ok(None)) => self.operation_failed("record not found"),
                 Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
                 Err(error) => self.operation_failed(error.to_string()),
             },
             NexusEffectCommand::GuardRemove(remove) => {
                 match self.guard_remove(remove.into_payload()) {
-                    Ok(Ok(Some(receipt))) => NexusEffectResult::removed(receipt),
+                    Ok(Ok(Some(receipt))) => {
+                        #[cfg(feature = "testing-trace")]
+                        self.trace_direct_sema_write();
+                        NexusEffectResult::removed(receipt)
+                    }
                     Ok(Ok(None)) => self.operation_failed("record not found"),
                     Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
                     Err(error) => self.operation_failed(error.to_string()),
@@ -467,7 +491,11 @@ impl Nexus {
             }
             NexusEffectCommand::GuardChangeRecord(change) => {
                 match self.guard_change_record(change.into_payload()) {
-                    Ok(Ok(Some(receipt))) => NexusEffectResult::record_changed(receipt),
+                    Ok(Ok(Some(receipt))) => {
+                        #[cfg(feature = "testing-trace")]
+                        self.trace_direct_sema_write();
+                        NexusEffectResult::record_changed(receipt)
+                    }
                     Ok(Ok(None)) => self.operation_failed("record not found"),
                     Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
                     Err(error) => self.operation_failed(error.to_string()),
@@ -880,6 +908,13 @@ impl Nexus {
 
     fn operation_failed(&self, message: impl Into<String>) -> NexusEffectResult {
         NexusEffectResult::operation_failed(ErrorReport::new(ErrorMessage::new(message.into())))
+    }
+
+    #[cfg(feature = "testing-trace")]
+    fn trace_direct_sema_write(&self) {
+        self.trace_log.record(TraceEvent::new(ObjectName::Sema(
+            crate::schema::sema::SemaObjectName::WriteApplied,
+        )));
     }
 
     /// Run a SEMA write without pinning synchronous database work onto a
