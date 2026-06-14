@@ -684,7 +684,7 @@ dependencies = [
 [[package]]
 name = "meta-signal-spirit"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=structural-forms-integration#cc576705efc7298ca45e0410de546b8612278941"
+source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=structural-forms-integration#2c34eef1b7cbd588f2823f52f9ae32668f654b84"
 dependencies = [
  "nota-next 0.5.0",
  "rkyv",
@@ -1195,7 +1195,7 @@ dependencies = [
 [[package]]
 name = "sema-engine"
 version = "0.6.2"
-source = "git+https://github.com/LiGoldragon/sema-engine.git?branch=structural-forms-integration#1afcd012baad5f64911e758e554651f188e78d94"
+source = "git+https://github.com/LiGoldragon/sema-engine.git?branch=structural-forms-integration#73a59f0be089c3859869d58a58a98f6e285593ab"
 dependencies = [
  "blake3",
  "rkyv",
@@ -1368,7 +1368,7 @@ dependencies = [
 
 [[package]]
 name = "spirit"
-version = "0.12.1"
+version = "0.13.0"
 dependencies = [
  "agent",
  "blake3",
