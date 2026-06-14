@@ -178,12 +178,14 @@ operation log through the version From-chain into a store at the next schema,
 recording a typed migration entry. The copy-everything migration binaries
 retire; migration becomes a fold the version-control system records rather
 than an unlogged database rewrite.] Schema version 9 is that pilot's bootstrap
-case: versions 1 through 8 carry no versioned log, so `StoreMigration` reads
+case: versions 7 and 8 carry no versioned log, so `StoreMigration` reads
 them with `sema-engine-previous` (the generation that wrote them), converts
 through the historical `From`-chain, and writes every record, referent, and
 the typed `Migration` marker into the fresh version-9 store through the
 ordinary logged choke points — the migrated store's log is the first complete
-history a spirit store has carried. `spirit-migrate-production` and
+history a spirit store has carried. No pre-version-7 store exists anywhere
+(psyche decision), so a probed version below 7 is rejected outright rather
+than folded forward. `spirit-migrate-production` and
 `spirit-upgrade-store` retired; `spirit-migrate-store` is the one migration
 entry point. From version 9 onward the previous store's LOG is the fold input.
 

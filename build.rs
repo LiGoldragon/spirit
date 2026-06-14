@@ -46,8 +46,7 @@ impl SchemaBuild {
             "meta-signal-spirit",
             "0.1.0",
         )
-        .expect("read meta-signal-spirit schema metadata")
-        else {
+        .expect("read meta-signal-spirit schema metadata") else {
             return;
         };
 

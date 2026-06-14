@@ -1,15 +1,29 @@
+mod archive;
+mod error;
+mod family_directory;
+#[cfg(feature = "agent-guardian")]
+mod guardian_bundle;
+mod record_identifier;
+
 use std::{
     collections::BTreeSet,
     fmt,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use sema_engine::{
     Assertion, Checkpoint, CheckpointReceipt, CommitSequence, Engine as SemaDatabase, EngineOpen,
-    EngineRecord, FamilyDirectory, Mutation, QueryPlan, RecordKey, Retraction, RowMaterializer,
-    SchemaHash, SchemaVersion, TableReference, VersionedCommitLogEntry,
+    EngineRecord, Mutation, QueryPlan, RecordKey, Retraction, SchemaVersion, TableReference,
+    VersionedCommitLogEntry,
 };
-use thiserror::Error;
+
+pub(crate) use archive::ArchiveDatabase;
+pub use error::StoreError;
+pub use family_directory::StoreFamilyDirectory;
+#[cfg(feature = "agent-guardian")]
+use guardian_bundle::GuardianRecordBundle;
+use record_identifier::RecordIdentifierMint;
 
 #[cfg(feature = "agent-guardian")]
 use crate::guardian_journal::{GuardianDecision, GuardianJournal, GuardianOperation};
@@ -19,26 +33,27 @@ use crate::schema::{
         self as sema_schema, EngineStartFailure as SemaEngineStartFailure,
         EngineStopFailure as SemaEngineStopFailure, Migration, ReadInput as SemaReadInput,
         ReadOutput as SemaReadOutput, RecordFamily, SemaEngine, StoredRecord, StoredReferent,
-        WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput, family_identity,
+        WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
     },
     signal::{
-        CertaintyChange, CertaintyChangeReceipt, Clarification, ClarificationReceipt,
-        CountedRecords, DatabaseMarker, Entry, ErrorMessage, ErrorReport, Explanation, FoundRecord,
-        GuardianRejection, GuardianRejectionReason, ImportanceBump, ImportanceBumpReceipt,
-        ObservedRecord, ObservedRecords, Query, RecordChange, RecordChangeReceipt, RecordCount,
-        RecordIdentifier, RecordIdentifiers, RecordSet, Referent, ReferentRegistration,
-        ReferentRegistrationReceipt, ReferentSelection, Referents, Removal, RemovalArchiveRecord,
-        RemovalArchiveRecords, RemovalCandidateCollection, RemovalCandidatesCollection,
-        RemoveReceipt, RemovedIdentifier, RemovedIdentifiers, Retirement, RetirementReceipt,
-        SemaReceipt, SkippedRemovalCandidate, SkippedRemovalCandidates, Supersession,
-        SupersessionReceipt,
+        Certainty, CertaintyChange, CertaintyChangeReceipt, CertaintySelection, Clarification,
+        ClarificationReceipt, CountedRecords, DatabaseMarker, Description, Entry, ErrorMessage,
+        ErrorReport, Explanation, FoundRecord, GuardianRejection, GuardianRejectionReason,
+        Importance, ImportanceBump, ImportanceBumpReceipt, ImportanceSelection, Keyword,
+        KeywordMatch, Keywords, Magnitude, ObservedRecord, ObservedRecords, Privacy,
+        PrivacySelection, Query, RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier,
+        RecordIdentifiers, RecordSet, Referent, ReferentRegistration, ReferentRegistrationReceipt,
+        ReferentSelection, Referents, Removal, RemovalArchiveRecord, RemovalArchiveRecords,
+        RemovalCandidateCollection, RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifier,
+        RemovedIdentifiers, Retirement, RetirementReceipt, SearchText, SemaReceipt,
+        SkippedRemovalCandidate, SkippedRemovalCandidates, Supersession, SupersessionReceipt,
+        TextMatch,
     },
 };
 
 #[cfg(feature = "agent-guardian")]
 use crate::schema::signal::{
-    CertaintySelection, DomainMatch, DomainScope, DomainScopes, ImportanceSelection, KeywordMatch,
-    PrivacySelection, RegisteredReferent, RegisteredReferents, TextMatch,
+    DomainMatch, DomainScope, DomainScopes, RegisteredReferent, RegisteredReferents,
 };
 
 #[cfg(feature = "testing-trace")]
@@ -49,11 +64,7 @@ use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
 // descriptors and versioning policy, so every durable write from this version
 // on is replayable history. Version 8 and earlier are pre-versioning stores
 // readable only through `sema-engine-previous` in `production_migration`.
-const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(9);
-const RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH: usize = 4;
-const RECORD_IDENTIFIER_MAXIMUM_CODE_LENGTH: usize = 7;
-const RECORD_IDENTIFIER_CODE_RADIX: u64 = 36;
-const RANDOM_IDENTIFIER_ATTEMPTS_PER_LENGTH: usize = 128;
+pub(super) const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(9);
 
 /// The SEMA durable store: a sema-engine keyed table written to a `*.sema`
 /// file.
@@ -65,7 +76,9 @@ const RANDOM_IDENTIFIER_ATTEMPTS_PER_LENGTH: usize = 128;
 /// preserve them as stable keys. Query predicate semantics stay here because
 /// they are Spirit-specific SEMA behavior, not generic daemon plumbing.
 pub struct Store {
-    database: SemaDatabase,
+    // The engine serializes its own writes; after startup table registration the
+    // store no longer needs exclusive ownership of the database handle.
+    database: Arc<SemaDatabase>,
     entries: TableReference<StoredRecord>,
     referents: TableReference<StoredReferent>,
     migrations: TableReference<Migration>,
@@ -73,28 +86,6 @@ pub struct Store {
     archive_target: ArchiveDatabaseTarget,
     #[cfg(feature = "testing-trace")]
     trace_log: TraceLog,
-}
-
-/// The component's typed knowledge of where each schema-declared record
-/// family materializes: the fold/import surface hands this directory one
-/// canonical-view row at a time and it lands the row in the right typed
-/// table. Dispatch is on the generated per-family schema hash, so no family
-/// name is ever hand-typed here.
-pub struct StoreFamilyDirectory {
-    entries: TableReference<StoredRecord>,
-    referents: TableReference<StoredReferent>,
-    migrations: TableReference<Migration>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct RecordIdentifierMint {
-    used_identifiers: BTreeSet<String>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct RecordIdentifierCodeRange {
-    first_value: u64,
-    value_count: u64,
 }
 
 impl fmt::Debug for Store {
@@ -259,7 +250,7 @@ impl Store {
         let referents = database.register_table(RecordFamily::referents_family())?;
         let migrations = database.register_table(RecordFamily::migrations_family())?;
         Ok(Self {
-            database,
+            database: Arc::new(database),
             entries,
             referents,
             migrations,
@@ -312,6 +303,21 @@ impl Store {
         &self.archive_target
     }
 
+    /// The store-schema version this build writes: the major store-format
+    /// generation, bumped only on a breaking store change. Surfaced on the
+    /// version report so a caller can see which store generation a running
+    /// daemon serves without opening its `*.sema` file.
+    pub fn store_schema_version(&self) -> u32 {
+        SPIRIT_SCHEMA_VERSION.value()
+    }
+
+    /// The engine's content-addressed store-schema hash: the identity of the
+    /// registered family set (family names plus per-family schema hashes).
+    /// Rendered as lowercase hex so it travels as version-report text.
+    pub fn store_schema_hash(&self) -> String {
+        self.database.store_schema_hash().to_string()
+    }
+
     /// Write a checkpoint of the versioned log: the portable restore
     /// artifact a fresh store imports from.
     pub fn checkpoint(&self) -> Result<CheckpointReceipt, StoreError> {
@@ -362,7 +368,7 @@ impl Store {
         let referents = database.register_table(RecordFamily::referents_family())?;
         let migrations = database.register_table(RecordFamily::migrations_family())?;
         Ok(Self {
-            database,
+            database: Arc::new(database),
             entries,
             referents,
             migrations,
@@ -813,7 +819,7 @@ impl Store {
         {
             Ok(_receipt) => Ok(true),
             Err(sema_engine::Error::RecordNotFound { .. }) => Ok(false),
-            Err(error) => Err(StoreError::Database(error)),
+            Err(engine_error) => Err(StoreError::Database { engine_error }),
         }
     }
 
@@ -1127,7 +1133,7 @@ impl Store {
 }
 
 impl StoredRecord {
-    fn new(record_identifier: String, entry: Entry) -> Self {
+    pub(super) fn new(record_identifier: String, entry: Entry) -> Self {
         Self {
             record_identifier: RecordIdentifier::new(record_identifier),
             entry,
@@ -1149,54 +1155,6 @@ impl StoredRecord {
 impl EngineRecord for StoredRecord {
     fn record_key(&self) -> RecordKey {
         RecordKey::new(self.record_identifier.payload().clone())
-    }
-}
-
-impl Migration {
-    /// The marker row's stable key in the migrations family, derived from
-    /// the typed source schema version — one row per migrated-from version,
-    /// so a repeated fold from the same source lands on the same key. The
-    /// single named home of the marker-key format: typed in, string out.
-    fn marker_key(&self) -> RecordKey {
-        RecordKey::new(format!(
-            "from-schema-{}",
-            self.source_schema_version.payload()
-        ))
-    }
-}
-
-impl EngineRecord for Migration {
-    fn record_key(&self) -> RecordKey {
-        self.marker_key()
-    }
-}
-
-impl StoreFamilyDirectory {
-    /// The directory derived purely from the generated descriptors, for
-    /// import into a virgin store whose tables are not yet registered.
-    fn from_generated_families() -> Self {
-        Self {
-            entries: TableReference::new(*RecordFamily::records_family().name()),
-            referents: TableReference::new(*RecordFamily::referents_family().name()),
-            migrations: TableReference::new(*RecordFamily::migrations_family().name()),
-        }
-    }
-}
-
-impl FamilyDirectory for StoreFamilyDirectory {
-    fn materialize(&self, row: RowMaterializer<'_>) -> sema_engine::Result<()> {
-        let schema_hash = row.family().schema_hash();
-        if schema_hash == SchemaHash::new(family_identity::RECORDS_FAMILY) {
-            row.apply(self.entries)
-        } else if schema_hash == SchemaHash::new(family_identity::REFERENTS_FAMILY) {
-            row.apply(self.referents)
-        } else if schema_hash == SchemaHash::new(family_identity::MIGRATIONS_FAMILY) {
-            row.apply(self.migrations)
-        } else {
-            Err(sema_engine::Error::FamilyUnknown {
-                family: row.family().family().as_str().to_owned(),
-            })
-        }
     }
 }
 
@@ -1253,44 +1211,8 @@ impl EngineRecord for StoredReferent {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg(feature = "agent-guardian")]
-struct GuardianRecordBundle {
-    seen_identifiers: BTreeSet<String>,
-    records: Vec<ObservedRecord>,
-}
-
-#[cfg(feature = "agent-guardian")]
-impl GuardianRecordBundle {
-    fn new() -> Self {
-        Self {
-            seen_identifiers: BTreeSet::new(),
-            records: Vec::new(),
-        }
-    }
-
-    fn insert(&mut self, record: ObservedRecord) {
-        if self
-            .seen_identifiers
-            .insert(record.record_identifier.payload().clone())
-        {
-            self.records.push(record);
-        }
-    }
-
-    fn extend(&mut self, record_set: RecordSet) {
-        for record in record_set.into_payload() {
-            self.insert(record);
-        }
-    }
-
-    fn into_record_set(self) -> RecordSet {
-        RecordSet::new(self.records)
-    }
-}
-
-#[cfg(feature = "agent-guardian")]
-trait GuardianEntryExt {
+pub trait GuardianEntryExt {
     fn guardian_domain_scopes(&self) -> DomainScopes;
 }
 
@@ -1302,7 +1224,7 @@ impl GuardianEntryExt for Entry {
 }
 
 #[cfg(feature = "agent-guardian")]
-trait GuardianQueryExt {
+pub trait GuardianQueryExt {
     fn guardian_domain_scope(scope: DomainScope) -> Self;
     fn guardian_referents(referents: Referents) -> Self;
     fn guardian_context(domain_match: DomainMatch, referent_selection: ReferentSelection) -> Self;
@@ -1335,166 +1257,294 @@ impl GuardianQueryExt for Query {
     }
 }
 
-impl RecordIdentifierMint {
-    fn from_records(records: &[StoredRecord]) -> Self {
-        Self {
-            used_identifiers: records
+pub trait EntryStoreExt {
+    fn matches(&self, query: &Query) -> bool;
+    fn certainty_rank(&self) -> u64;
+    fn importance_rank(&self) -> u64;
+}
+
+impl EntryStoreExt for Entry {
+    fn matches(&self, query: &Query) -> bool {
+        query.matches(self)
+    }
+
+    fn certainty_rank(&self) -> u64 {
+        self.certainty.payload().rank()
+    }
+
+    fn importance_rank(&self) -> u64 {
+        self.importance.payload().rank()
+    }
+}
+
+pub trait DescriptionStoreExt {
+    fn keywords(&self) -> Keywords;
+    fn contains_search_text(&self, search_text: &SearchText) -> bool;
+    #[cfg(feature = "agent-guardian")]
+    fn contains_description_text(&self, other: &Description) -> bool;
+}
+
+impl DescriptionStoreExt for Description {
+    fn keywords(&self) -> Keywords {
+        let mut keywords = Vec::new();
+        let mut seen = BTreeSet::new();
+        let mut inside_keyword = false;
+        let mut keyword = String::new();
+        for character in self.payload().chars() {
+            if character == '*' {
+                if inside_keyword {
+                    let normalized = keyword.trim().to_lowercase();
+                    if !normalized.is_empty() && seen.insert(normalized.clone()) {
+                        keywords.push(Keyword::new(normalized));
+                    }
+                    keyword.clear();
+                    inside_keyword = false;
+                } else {
+                    keyword.clear();
+                    inside_keyword = true;
+                }
+            } else if inside_keyword {
+                keyword.push(character);
+            }
+        }
+        Keywords::new(keywords)
+    }
+
+    fn contains_search_text(&self, search_text: &SearchText) -> bool {
+        self.payload()
+            .to_lowercase()
+            .contains(&search_text.payload().trim().to_lowercase())
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn contains_description_text(&self, other: &Description) -> bool {
+        let other = other.payload().trim();
+        !other.is_empty() && self.contains_search_text(&SearchText::new(other))
+    }
+}
+
+pub trait KeywordStoreExt {
+    fn normalized(&self) -> String;
+}
+
+impl KeywordStoreExt for Keyword {
+    fn normalized(&self) -> String {
+        self.payload().trim().to_lowercase()
+    }
+}
+
+pub trait KeywordsStoreExt {
+    fn contains_keyword(&self, expected: &Keyword) -> bool;
+    fn contains_any(&self, expected: &Keywords) -> bool;
+    fn contains_all(&self, expected: &Keywords) -> bool;
+}
+
+impl KeywordsStoreExt for Keywords {
+    fn contains_keyword(&self, expected: &Keyword) -> bool {
+        let expected = expected.normalized();
+        self.payload()
+            .iter()
+            .any(|keyword| keyword.normalized() == expected)
+    }
+
+    fn contains_any(&self, expected: &Keywords) -> bool {
+        expected
+            .payload()
+            .iter()
+            .any(|keyword| self.contains_keyword(keyword))
+    }
+
+    fn contains_all(&self, expected: &Keywords) -> bool {
+        expected
+            .payload()
+            .iter()
+            .all(|keyword| self.contains_keyword(keyword))
+    }
+}
+
+pub trait QueryStoreExt {
+    fn matches(&self, entry: &Entry) -> bool;
+}
+
+impl QueryStoreExt for Query {
+    fn matches(&self, entry: &Entry) -> bool {
+        self.domain_match.matches(&entry.domains)
+            && self.keyword_match.matches(&entry.description)
+            && self.text_match.matches(&entry.description)
+            && self.referent_selection.matches(&entry.referents)
+            && self.kind.as_ref().is_none_or(|kind| &entry.kind == kind)
+            && self.privacy_selection.matches(&entry.privacy)
+            && self.certainty_selection.matches(&entry.certainty)
+            && self.importance_selection.matches(&entry.importance)
+    }
+}
+
+pub trait ReferentSelectionStoreExt {
+    fn matches(&self, entry_referents: &Referents) -> bool;
+}
+
+impl ReferentSelectionStoreExt for ReferentSelection {
+    fn matches(&self, entry_referents: &Referents) -> bool {
+        match self {
+            Self::Any => true,
+            Self::AnyReferent(expected) => expected
+                .payload()
+                .payload()
                 .iter()
-                .map(|record| record.record_identifier.payload().clone())
-                .collect(),
+                .any(|referent| entry_referents.payload().contains(referent)),
+            Self::AllReferents(expected) => expected
+                .payload()
+                .payload()
+                .iter()
+                .all(|referent| entry_referents.payload().contains(referent)),
         }
     }
+}
 
-    fn next_identifier(&self) -> Result<String, StoreError> {
-        for code_length in
-            RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH..=RECORD_IDENTIFIER_MAXIMUM_CODE_LENGTH
-        {
-            if let Some(identifier) = self.identifier_for_code_length(code_length)? {
-                return Ok(identifier);
+pub trait KeywordMatchStoreExt {
+    fn matches(&self, description: &Description) -> bool;
+}
+
+impl KeywordMatchStoreExt for KeywordMatch {
+    fn matches(&self, description: &Description) -> bool {
+        match self {
+            Self::Any => true,
+            Self::AnyKeyword(expected) => description.keywords().contains_any(expected.payload()),
+            Self::AllKeywords(expected) => description.keywords().contains_all(expected.payload()),
+        }
+    }
+}
+
+pub trait TextMatchStoreExt {
+    fn matches(&self, description: &Description) -> bool;
+}
+
+impl TextMatchStoreExt for TextMatch {
+    fn matches(&self, description: &Description) -> bool {
+        match self {
+            Self::Any => true,
+            Self::ContainsText(search_text) => {
+                description.contains_search_text(search_text.payload())
             }
         }
-        Err(StoreError::IdentifierMint(format!(
-            "no available record identifier code between {RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH} and {RECORD_IDENTIFIER_MAXIMUM_CODE_LENGTH} characters"
-        )))
+    }
+}
+
+pub trait PrivacySelectionStoreExt {
+    fn default_observation_privacy() -> Self;
+    fn matches(&self, privacy: &Privacy) -> bool;
+}
+
+impl PrivacySelectionStoreExt for PrivacySelection {
+    fn default_observation_privacy() -> Self {
+        Self::exact(Privacy::new(Magnitude::Zero))
     }
 
-    fn identifier_for_code_length(&self, code_length: usize) -> Result<Option<String>, StoreError> {
-        let range = RecordIdentifierCodeRange::new(code_length);
-        for _ in 0..RANDOM_IDENTIFIER_ATTEMPTS_PER_LENGTH {
-            let identifier = range.random_identifier()?;
-            if !self.used_identifiers.contains(&identifier) {
-                return Ok(Some(identifier));
+    fn matches(&self, privacy: &Privacy) -> bool {
+        match self {
+            Self::Any => true,
+            Self::Exact(expected) => privacy == expected.payload(),
+            Self::AtMost(maximum) => privacy.payload().rank() <= maximum.payload().payload().rank(),
+            Self::AtLeast(minimum) => {
+                privacy.payload().rank() >= minimum.payload().payload().rank()
             }
         }
-        Ok(range.first_available_identifier(&self.used_identifiers))
     }
 }
 
-impl RecordIdentifierCodeRange {
-    fn new(code_length: usize) -> Self {
-        let first_value = if code_length == RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH {
-            0
-        } else {
-            Self::radix_power(code_length - 1)
-        };
-        let next_length_first_value = Self::radix_power(code_length);
-        Self {
-            first_value,
-            value_count: next_length_first_value - first_value,
+pub trait CertaintySelectionStoreExt {
+    fn default_observation_certainty() -> Self;
+    fn removal_candidate_certainty() -> Self;
+    fn matches(&self, certainty: &Certainty) -> bool;
+}
+
+impl CertaintySelectionStoreExt for CertaintySelection {
+    fn default_observation_certainty() -> Self {
+        Self::at_least_certainty(Certainty::new(Magnitude::Minimum))
+    }
+
+    fn removal_candidate_certainty() -> Self {
+        Self::exact_certainty(Certainty::new(Magnitude::Zero))
+    }
+
+    fn matches(&self, certainty: &Certainty) -> bool {
+        let certainty = certainty.payload();
+        match self {
+            Self::Any => true,
+            Self::ExactCertainty(expected) => certainty == expected.payload().payload(),
+            Self::AtMostCertainty(maximum) => {
+                certainty.rank() <= maximum.payload().payload().rank()
+            }
+            Self::AtLeastCertainty(minimum) => {
+                certainty.rank() >= minimum.payload().payload().rank()
+            }
         }
-    }
-
-    fn random_identifier(self) -> Result<String, StoreError> {
-        let mut bytes = [0_u8; 8];
-        getrandom::fill(&mut bytes)
-            .map_err(|error| StoreError::IdentifierMint(error.to_string()))?;
-        let offset = u64::from_be_bytes(bytes) % self.value_count;
-        Ok(Self::code_from_value(self.first_value + offset))
-    }
-
-    fn first_available_identifier(self, used_identifiers: &BTreeSet<String>) -> Option<String> {
-        let last_value = self.first_value + self.value_count;
-        (self.first_value..last_value)
-            .map(Self::code_from_value)
-            .find(|identifier| !used_identifiers.contains(identifier))
-    }
-
-    fn code_from_value(mut value: u64) -> String {
-        let mut digits = Vec::new();
-        while value > 0 {
-            let digit = (value % RECORD_IDENTIFIER_CODE_RADIX) as u8;
-            digits.push(Self::digit_character(digit));
-            value /= RECORD_IDENTIFIER_CODE_RADIX;
-        }
-        while digits.len() < RECORD_IDENTIFIER_MINIMUM_CODE_LENGTH {
-            digits.push('0');
-        }
-        digits.iter().rev().collect()
-    }
-
-    fn digit_character(digit: u8) -> char {
-        match digit {
-            0..=9 => char::from(b'0' + digit),
-            10..=35 => char::from(b'a' + digit - 10),
-            _ => unreachable!("base36 digit is constrained by modulo"),
-        }
-    }
-
-    fn radix_power(exponent: usize) -> u64 {
-        (0..exponent).fold(1, |value, _| value * RECORD_IDENTIFIER_CODE_RADIX)
     }
 }
 
-/// The SEPARATE archive database: a sema-engine keyed table over its own
-/// `*.sema` file, distinct from the live intent log.
-///
-/// `CollectRemovalCandidates` opens one of these on demand at the
-/// owner-configured [`ArchiveDatabaseTarget`], asserts each removal-candidate
-/// `Entry` into it, and drops the handle when the collection completes. The
-/// archive owns no relationship to the live `Store` database beyond holding the
-/// records the live log let go.
-pub(crate) struct ArchiveDatabase {
-    database: SemaDatabase,
-    entries: TableReference<StoredRecord>,
+pub trait ImportanceSelectionStoreExt {
+    fn default_observation_importance() -> Self;
+    fn matches(&self, importance: &Importance) -> bool;
 }
 
-impl ArchiveDatabase {
-    /// Open the archive at the same schema version as the live store,
-    /// registered through the same generated records-family descriptor. The
-    /// archive stays unversioned (no `VersioningPolicy`): it is a derived
-    /// holding pen for records the live log let go, not an authoritative
-    /// history of its own.
-    pub(crate) fn open(path: impl Into<PathBuf>) -> Result<Self, StoreError> {
-        let mut database = SemaDatabase::open(EngineOpen::new(path.into(), SPIRIT_SCHEMA_VERSION))?;
-        let entries = database.register_table(RecordFamily::records_family())?;
-        Ok(Self { database, entries })
+impl ImportanceSelectionStoreExt for ImportanceSelection {
+    fn default_observation_importance() -> Self {
+        Self::Any
     }
 
-    /// Durably assert an archived copy of one live `Entry` into the separate
-    /// archive database under a versioned archive key, so repeated clarification
-    /// and retirement of the same live identifier preserve every prior state.
-    fn archive_record(
-        &mut self,
-        record: StoredRecord,
-        archive_identifier: String,
-    ) -> Result<(), StoreError> {
-        self.database.assert(Assertion::new(
-            self.entries,
-            StoredRecord::new(archive_identifier, record.entry),
-        ))?;
-        Ok(())
-    }
-
-    /// Durably import one already-keyed archived record verbatim — the
-    /// archive-migration path. Live archiving re-keys through
-    /// [`Self::archive_record`].
-    #[cfg(feature = "production-migration")]
-    pub(crate) fn import_archived_record(
-        &mut self,
-        record: StoredRecord,
-    ) -> Result<(), StoreError> {
-        self.database.assert(Assertion::new(self.entries, record))?;
-        Ok(())
+    fn matches(&self, importance: &Importance) -> bool {
+        let importance = importance.payload();
+        match self {
+            Self::Any => true,
+            Self::ExactImportance(expected) => importance == expected.payload().payload(),
+            Self::AtMostImportance(maximum) => {
+                importance.rank() <= maximum.payload().payload().rank()
+            }
+            Self::AtLeastImportance(minimum) => {
+                importance.rank() >= minimum.payload().payload().rank()
+            }
+        }
     }
 }
 
-#[derive(Debug, Error)]
-pub enum StoreError {
-    #[error("sema database engine error: {0}")]
-    Database(#[from] sema_engine::Error),
+pub trait ImportanceStoreExt {
+    fn next(&self) -> Self;
+}
 
-    #[error("failed to encode record rkyv archive")]
-    ArchiveEncode,
+impl ImportanceStoreExt for Importance {
+    fn next(&self) -> Self {
+        Self::new(self.payload().next())
+    }
+}
 
-    #[error("failed to mint record identifier: {0}")]
-    IdentifierMint(String),
+pub trait MagnitudeStoreExt {
+    fn rank(&self) -> u64;
+    fn next(&self) -> Self;
+}
 
-    #[error("unregistered referent: {0}")]
-    UnregisteredReferent(String),
+impl MagnitudeStoreExt for Magnitude {
+    fn rank(&self) -> u64 {
+        match self {
+            Self::Zero => 0,
+            Self::Minimum => 1,
+            Self::VeryLow => 2,
+            Self::Low => 3,
+            Self::Medium => 4,
+            Self::High => 5,
+            Self::VeryHigh => 6,
+            Self::Maximum => 7,
+        }
+    }
 
-    #[error("referent name already registered under another canonical referent: {0}")]
-    ReferentNameConflict(String),
-
-    #[error("duplicate record vanished during guardian proposal handling: {0}")]
-    DuplicateRecordVanished(String),
+    fn next(&self) -> Self {
+        match self {
+            Self::Zero => Self::Minimum,
+            Self::Minimum => Self::VeryLow,
+            Self::VeryLow => Self::Low,
+            Self::Low => Self::Medium,
+            Self::Medium => Self::High,
+            Self::High => Self::VeryHigh,
+            Self::VeryHigh | Self::Maximum => Self::Maximum,
+        }
+    }
 }
