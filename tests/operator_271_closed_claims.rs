@@ -99,9 +99,9 @@ fn signal_schema_input_uses_exported_object_variant_names() {
     witness.must_contain("BumpImportance ImportanceBump", "4");
     witness.must_contain("ChangeRecord RecordChange", "4");
     witness.must_contain("RegisterReferent ReferentRegistration", "4");
-    witness.must_contain("Justification { Testimony * Reasoning * }", "4");
-    witness.must_contain("RecordRequest { Entry * Justification * }", "4");
-    witness.must_contain("Proposal { Entry * Justification * }", "4");
+    witness.must_contain("Justification { Testimony Reasoning }", "4");
+    witness.must_contain("RecordRequest { Entry Justification }", "4");
+    witness.must_contain("Proposal { Entry Justification }", "4");
     witness.must_contain("LookupStash StashHandle", "4");
     witness.must_contain("SubscribeIntent Query", "4");
     witness.must_contain("Version", "4");
@@ -190,7 +190,7 @@ fn signal_schema_output_uses_exported_object_variant_names() {
     witness.must_contain("SubscriptionStarted IntentSubscription", "4");
     witness.must_contain("VersionReported VersionReport", "4");
     witness.must_contain("MarkerReported DatabaseMarker", "4");
-    witness.must_contain("VersionReport { VersionText * }", "4");
+    witness.must_contain("VersionReport { VersionText }", "4");
     witness.must_contain(
         "IntentEvent [(IntentRecorded IntentRecorded belongs IntentEventStream) (IntentClarified IntentClarified belongs IntentEventStream) (IntentSuperseded IntentSuperseded belongs IntentEventStream) (IntentRetired IntentRetired belongs IntentEventStream)]",
         "4",
