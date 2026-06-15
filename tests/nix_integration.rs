@@ -258,8 +258,14 @@ fn nix_input_overrides() -> Vec<(&'static str, String)> {
         match env::var(env_key) {
             Ok(path) => Some(path),
             Err(_) => {
-                let path = PathBuf::from(format!("/git/github.com/LiGoldragon/{name}"));
-                path.exists().then(|| path.display().to_string())
+                let structural_forms_path = PathBuf::from(format!(
+                    "/home/li/wt/github.com/LiGoldragon/{name}/structural-forms-integration"
+                ));
+                let canonical_path = PathBuf::from(format!("/git/github.com/LiGoldragon/{name}"));
+                [structural_forms_path, canonical_path]
+                    .into_iter()
+                    .find(|path| path.exists())
+                    .map(|path| path.display().to_string())
             }
         }
     };
