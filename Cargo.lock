@@ -684,7 +684,7 @@ dependencies = [
 [[package]]
 name = "meta-signal-spirit"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=structural-forms-integration#31b2d3de27469ee493b5cf64585e50e684abcbc8"
+source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=structural-forms-integration#61af0fb6470479bdb2dc8a1887752c04fdfd8634"
 dependencies = [
  "nota-next 0.5.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=structural-forms-integration)",
  "rkyv",
@@ -1127,7 +1127,7 @@ checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 [[package]]
 name = "schema-cc"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=structural-forms-integration#453f40acb53de425f9df76624f0b0b51372252e9"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=structural-forms-integration#4bf0923cbeb4fbdd6d6d461cc4559d11be063cb7"
 dependencies = [
  "nota-next 0.5.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=main)",
  "prettyplease",
@@ -1151,7 +1151,7 @@ dependencies = [
 [[package]]
 name = "schema-next"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=structural-forms-integration#453f40acb53de425f9df76624f0b0b51372252e9"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=structural-forms-integration#4bf0923cbeb4fbdd6d6d461cc4559d11be063cb7"
 dependencies = [
  "blake3",
  "nota-next 0.5.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=structural-forms-integration)",
@@ -1176,7 +1176,7 @@ dependencies = [
 [[package]]
 name = "schema-rust-next"
 version = "0.5.3"
-source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=structural-forms-integration#df2bd9229a376c3c43ae52753df73e634d3d9c51"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=structural-forms-integration#f893ff962fd50f861bc94b3ae2fcded47e3c0258"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -1357,7 +1357,7 @@ dependencies = [
 [[package]]
 name = "signal-spirit"
 version = "0.6.0"
-source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=structural-forms-integration#51d4110fc732d3c6609e707f333f7cb43299387c"
+source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=structural-forms-integration#573472d8fb5803956a55e7a53ae0c44017a59edd"
 dependencies = [
  "nota-next 0.5.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=structural-forms-integration)",
  "rkyv",
