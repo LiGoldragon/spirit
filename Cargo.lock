@@ -1137,11 +1137,12 @@ dependencies = [
 [[package]]
 name = "schema-next"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=structural-forms-integration#a41162aaa7d377b335b36978604c2b9c83cf0474"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=structural-forms-integration#0543341e4327dc46c0d01968a6fe0f91864a589a"
 dependencies = [
  "blake3",
  "nota-next 0.5.0",
  "rkyv",
+ "thiserror",
 ]
 
 [[package]]
