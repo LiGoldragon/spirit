@@ -107,10 +107,10 @@
   RemovalCandidatesCollected RemovalCandidatesCollection
   ObserverTapOpened ObserverSubscription
   ObserverTapClosed ObserverRetraction
-  StashRequest { Records * DatabaseMarker * }
-  StashResult { StashHandle * RecordCount * DatabaseMarker * }
+  StashRequest { Records DatabaseMarker }
+  StashResult { StashHandle RecordCount DatabaseMarker }
   GuardianVerdict [Accept (Reject)]
-  Reject { GuardianRejectionReason * Explanation * }
+  Reject { GuardianRejectionReason Explanation }
   ReferentGuardianVerdict [Accept (RejectReferent)]
-  RejectReferent { ReferentGuardianRejectionReason * Explanation * }
+  RejectReferent { ReferentGuardianRejectionReason Explanation }
 }

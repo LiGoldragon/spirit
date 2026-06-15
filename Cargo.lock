@@ -8,7 +8,7 @@ version = "0.2.0"
 source = "git+https://github.com/LiGoldragon/agent.git?branch=main#dc5cf888344b3c448090dec08a70ed9337cf62e2"
 dependencies = [
  "meta-signal-agent",
- "nota-next 0.4.0",
+ "nota-next 0.5.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=main)",
  "reqwest",
  "rkyv",
  "schema-rust-next 0.5.3 (git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main)",
@@ -674,7 +674,7 @@ name = "meta-signal-agent"
 version = "0.2.0"
 source = "git+https://github.com/LiGoldragon/meta-signal-agent.git?branch=main#0afa9857642040b821dd02235cc91c825400f498"
 dependencies = [
- "nota-next 0.4.0",
+ "nota-next 0.5.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=main)",
  "rkyv",
  "schema-rust-next 0.5.3 (git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main)",
  "signal-frame",
@@ -684,9 +684,9 @@ dependencies = [
 [[package]]
 name = "meta-signal-spirit"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=structural-forms-integration#2c34eef1b7cbd588f2823f52f9ae32668f654b84"
+source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=structural-forms-integration#c67ecd5253ef43bde5154ee75b316b8e99516867"
 dependencies = [
- "nota-next 0.5.0",
+ "nota-next 0.5.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=structural-forms-integration)",
  "rkyv",
  "schema-rust-next 0.5.3 (git+https://github.com/LiGoldragon/schema-rust-next.git?branch=structural-forms-integration)",
  "signal-frame",
@@ -727,10 +727,10 @@ dependencies = [
 
 [[package]]
 name = "nota-next"
-version = "0.4.0"
-source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#3d6c2cdf4a7a62b36640b8622fdcaa2b931f0d43"
+version = "0.5.0"
+source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#f9155de55353900ec023b3bb76336b902b8736c1"
 dependencies = [
- "nota-next-derive 0.2.0",
+ "nota-next-derive 0.3.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=main)",
  "rkyv",
 ]
 
@@ -739,14 +739,14 @@ name = "nota-next"
 version = "0.5.0"
 source = "git+https://github.com/LiGoldragon/nota-next.git?branch=structural-forms-integration#f9155de55353900ec023b3bb76336b902b8736c1"
 dependencies = [
- "nota-next-derive 0.3.0",
+ "nota-next-derive 0.3.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=structural-forms-integration)",
  "rkyv",
 ]
 
 [[package]]
 name = "nota-next-derive"
-version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#3d6c2cdf4a7a62b36640b8622fdcaa2b931f0d43"
+version = "0.3.0"
+source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#f9155de55353900ec023b3bb76336b902b8736c1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1127,20 +1127,21 @@ checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 [[package]]
 name = "schema-next"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#f460e7b6e76ef8766e45b870c323becd0ef461bf"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#f00a467a9aee9d50980089d07b21b4180073de12"
 dependencies = [
  "blake3",
- "nota-next 0.4.0",
+ "nota-next 0.5.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=main)",
  "rkyv",
+ "thiserror",
 ]
 
 [[package]]
 name = "schema-next"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=structural-forms-integration#0543341e4327dc46c0d01968a6fe0f91864a589a"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=structural-forms-integration#1abdcd22c0d1ceb1df03fb7e28a731e3d98fd825"
 dependencies = [
  "blake3",
- "nota-next 0.5.0",
+ "nota-next 0.5.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=structural-forms-integration)",
  "rkyv",
  "thiserror",
 ]
@@ -1148,7 +1149,7 @@ dependencies = [
 [[package]]
 name = "schema-rust-next"
 version = "0.5.3"
-source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#00763d676d63395d45b5f8a81dbf9a2287574ca9"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#bb378931c95dcfa7ccb2dfc81bcacfb9c7d1161e"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -1161,7 +1162,7 @@ dependencies = [
 [[package]]
 name = "schema-rust-next"
 version = "0.5.3"
-source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=structural-forms-integration#e6d139408d5cda41577a446d26e6a243f5175caf"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=structural-forms-integration#ab9d16b7dff791f987f5f177a1826f735df019d6"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -1291,7 +1292,7 @@ name = "signal-agent"
 version = "0.3.0"
 source = "git+https://github.com/LiGoldragon/signal-agent.git?branch=main#3c88f388047645b7eb3a1f9cb778ae7eebb1a251"
 dependencies = [
- "nota-next 0.4.0",
+ "nota-next 0.5.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=main)",
  "rkyv",
  "schema-rust-next 0.5.3 (git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main)",
  "signal-frame",
@@ -1303,7 +1304,7 @@ name = "signal-frame"
 version = "0.2.1"
 source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#166bda84dc63bf8461fff11a41c43d6a1c92a941"
 dependencies = [
- "nota-next 0.4.0",
+ "nota-next 0.5.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=main)",
  "paste",
  "rkyv",
  "signal-frame-macros",
@@ -1342,9 +1343,9 @@ dependencies = [
 [[package]]
 name = "signal-spirit"
 version = "0.6.0"
-source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=structural-forms-integration#cf9da984098877a12c032ee8d931accad17299af"
+source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=structural-forms-integration#e7a10e79d5f7868e0606d0539077b4d43d444dfa"
 dependencies = [
- "nota-next 0.5.0",
+ "nota-next 0.5.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=structural-forms-integration)",
  "rkyv",
  "schema-rust-next 0.5.3 (git+https://github.com/LiGoldragon/schema-rust-next.git?branch=structural-forms-integration)",
  "signal-frame",
@@ -1388,7 +1389,7 @@ dependencies = [
  "blake3",
  "getrandom 0.3.4",
  "meta-signal-spirit",
- "nota-next 0.5.0",
+ "nota-next 0.5.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=structural-forms-integration)",
  "rkyv",
  "schema-next 0.2.0 (git+https://github.com/LiGoldragon/schema-next.git?branch=structural-forms-integration)",
  "schema-rust-next 0.5.3 (git+https://github.com/LiGoldragon/schema-rust-next.git?branch=structural-forms-integration)",
@@ -1702,7 +1703,7 @@ name = "version-projection"
 version = "0.1.0"
 source = "git+https://github.com/LiGoldragon/version-projection.git?branch=main#f00b239f75aca30098a60b30e877faafe8625d77"
 dependencies = [
- "nota-next 0.4.0",
+ "nota-next 0.5.0 (git+https://github.com/LiGoldragon/nota-next.git?branch=main)",
  "rkyv",
  "thiserror",
 ]
