@@ -3,12 +3,13 @@
     "agent-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781333143,
-        "narHash": "sha256-PRQMNPfRFCOSaPU9h1BbF4VusGU703n+zb0z7SjrXlk=",
-        "owner": "LiGoldragon",
-        "repo": "agent",
-        "rev": "dc5cf888344b3c448090dec08a70ed9337cf62e2",
-        "type": "github"
+        "lastModified": 1781559858,
+        "narHash": "sha256-jWw5Og+pZUyHuQnze75IIv5SeKwAfrGiN6vjM/4jKXI=",
+        "ref": "main",
+        "rev": "8f2cf042f673546c8b29b452db545510ae1a0f6a",
+        "revCount": 11,
+        "type": "git",
+        "url": "https://github.com/LiGoldragon/agent.git"
       },
       "original": {
         "owner": "LiGoldragon",
@@ -73,12 +74,13 @@
     "meta-signal-agent-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781333033,
-        "narHash": "sha256-NG6XfID51x1447w2CzgBTaptnk6S6GsnArJIRA02E4Y=",
-        "owner": "LiGoldragon",
-        "repo": "meta-signal-agent",
-        "rev": "0afa9857642040b821dd02235cc91c825400f498",
-        "type": "github"
+        "lastModified": 1781559619,
+        "narHash": "sha256-mqwK7dk7vUiF+QUhKg/nizrkdPvveb0ilCG6yQOzkws=",
+        "ref": "main",
+        "rev": "e7a7343c72ef3eab84f3c22ed1d3e0fa24e960d4",
+        "revCount": 15,
+        "type": "git",
+        "url": "https://github.com/LiGoldragon/meta-signal-agent.git"
       },
       "original": {
         "owner": "LiGoldragon",
@@ -89,12 +91,13 @@
     "meta-signal-spirit-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781454497,
-        "narHash": "sha256-M81NQpynI1eleesk2FWsiqiTcZ/m3L9gnhtx7wsZwCU=",
-        "owner": "LiGoldragon",
-        "repo": "meta-signal-spirit",
-        "rev": "cc576705efc7298ca45e0410de546b8612278941",
-        "type": "github"
+        "lastModified": 1781558688,
+        "narHash": "sha256-T+Wu7LTyundY36LVnVyq62BG5WP6UAx4Z9ellzEZMFg=",
+        "ref": "refs/heads/main",
+        "rev": "5fd7b39b74afb791d0d2b8b0aa6830f37cefb278",
+        "revCount": 23,
+        "type": "git",
+        "url": "https://github.com/LiGoldragon/meta-signal-spirit.git"
       },
       "original": {
         "owner": "LiGoldragon",
@@ -180,12 +183,13 @@
     "schema-next-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781503568,
-        "narHash": "sha256-zKzDilAdiKd/qsIB1zYmSW43opYSjEbRd8QiY76dvLs=",
-        "owner": "LiGoldragon",
-        "repo": "schema-next",
-        "rev": "0543341e4327dc46c0d01968a6fe0f91864a589a",
-        "type": "github"
+        "lastModified": 1781558409,
+        "narHash": "sha256-NMRYCedzFhiouatdaU3K45Ua8PnSa0n+wYnh7zIA8ho=",
+        "ref": "refs/heads/main",
+        "rev": "23299642f72015cab558044cc9efa6fa419c213d",
+        "revCount": 128,
+        "type": "git",
+        "url": "https://github.com/LiGoldragon/schema-next.git"
       },
       "original": {
         "owner": "LiGoldragon",
@@ -197,12 +201,13 @@
     "schema-rust-next-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781509244,
-        "narHash": "sha256-BOiqyMT6MJ8UuwT6/EVD41Xnr0Y9qI0FJgqfB5YgoCA=",
-        "owner": "LiGoldragon",
-        "repo": "schema-rust-next",
-        "rev": "e6d139408d5cda41577a446d26e6a243f5175caf",
-        "type": "github"
+        "lastModified": 1781558520,
+        "narHash": "sha256-xPmSXssDN+7AOQg7asAeqU8j2dtIce+J1RqbslPEfGU=",
+        "ref": "refs/heads/main",
+        "rev": "9a27332ef5d9afa15314ec92cd922b20f91876b3",
+        "revCount": 187,
+        "type": "git",
+        "url": "https://github.com/LiGoldragon/schema-rust-next.git"
       },
       "original": {
         "owner": "LiGoldragon",
@@ -281,12 +286,13 @@
     "signal-agent-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781332787,
-        "narHash": "sha256-AIeBR+DmjkZTW/gmAz6TH9TN3a6TNIIuzRPynRUIed0=",
-        "owner": "LiGoldragon",
-        "repo": "signal-agent",
-        "rev": "3c88f388047645b7eb3a1f9cb778ae7eebb1a251",
-        "type": "github"
+        "lastModified": 1781559619,
+        "narHash": "sha256-v7BebdqcZXVJf2r1V7iuQAFbXaZe5dunAyezh/uTxxo=",
+        "ref": "main",
+        "rev": "be59074b7d16d529c7b65630041fd194afa1f8e7",
+        "revCount": 20,
+        "type": "git",
+        "url": "https://github.com/LiGoldragon/signal-agent.git"
       },
       "original": {
         "owner": "LiGoldragon",
@@ -329,12 +335,13 @@
     "signal-spirit-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781509328,
-        "narHash": "sha256-/1YNUQuNxi+nvKyTuOqX5/u1MqCc8gqUIKr/Ws8gis4=",
-        "owner": "LiGoldragon",
-        "repo": "signal-spirit",
-        "rev": "cf9da984098877a12c032ee8d931accad17299af",
-        "type": "github"
+        "lastModified": 1781558601,
+        "narHash": "sha256-BElNiSq6/qNmj/doYihfy8dqNF6RPWvo+Caez+FPIcA=",
+        "ref": "refs/heads/main",
+        "rev": "19de94ec25cd9fb4bdfccea7b37312268c8efb40",
+        "revCount": 19,
+        "type": "git",
+        "url": "https://github.com/LiGoldragon/signal-spirit.git"
       },
       "original": {
         "owner": "LiGoldragon",

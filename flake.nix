@@ -249,21 +249,21 @@
 
               substituteInPlace $out/vendor-sources/signal-agent/Cargo.toml \
                 --replace-fail '{ git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main", default-features = false }' '{ path = "../signal-frame", default-features = false }' \
-                --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' '{ path = "../nota-next", optional = true }' \
-                --replace-fail '{ git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' '{ path = "../schema-rust-next" }'
+                --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "structural-forms-integration", optional = true }' '{ path = "../nota-next", optional = true }' \
+                --replace-fail '{ git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "structural-forms-integration" }' '{ path = "../schema-rust-next" }'
 
               substituteInPlace $out/vendor-sources/meta-signal-agent/Cargo.toml \
-                --replace-fail 'nota-next    = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota-next    = { path = "../nota-next", optional = true }' \
+                --replace-fail 'nota-next    = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "structural-forms-integration", optional = true }' 'nota-next    = { path = "../nota-next", optional = true }' \
                 --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main", default-features = false }' 'signal-frame = { path = "../signal-frame", default-features = false }' \
-                --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust-next = { path = "../schema-rust-next" }'
+                --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "structural-forms-integration" }' 'schema-rust-next = { path = "../schema-rust-next" }'
 
               substituteInPlace $out/vendor-sources/agent/Cargo.toml \
-                --replace-fail 'nota-next        = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next        = { path = "../nota-next" }' \
+                --replace-fail 'nota-next        = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "structural-forms-integration" }' 'nota-next        = { path = "../nota-next" }' \
                 --replace-fail 'signal-frame     = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }' 'signal-frame     = { path = "../signal-frame" }' \
                 --replace-fail 'signal-agent      = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main" }' 'signal-agent      = { path = "../signal-agent" }' \
                 --replace-fail 'meta-signal-agent = { git = "https://github.com/LiGoldragon/meta-signal-agent.git", branch = "main" }' 'meta-signal-agent = { path = "../meta-signal-agent" }' \
-                --replace-fail 'triad-runtime    = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime    = { path = "../triad-runtime" }' \
-                --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust-next = { path = "../schema-rust-next" }'
+                --replace-fail 'triad-runtime    = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "structural-forms-integration" }' 'triad-runtime    = { path = "../triad-runtime" }' \
+                --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "structural-forms-integration" }' 'schema-rust-next = { path = "../schema-rust-next" }'
 
               substituteInPlace $out/vendor-sources/version-projection/Cargo.toml \
                 --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' '{ path = "../nota-next", optional = true }' \
