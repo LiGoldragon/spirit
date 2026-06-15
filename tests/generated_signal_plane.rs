@@ -401,7 +401,7 @@ fn generated_public_private_record_shortcuts_round_trip_nota() {
 #[cfg(feature = "nota-text")]
 #[test]
 fn generated_domain_scope_is_a_recursive_enum_text_surface() {
-    use spirit::schema::signal::{Data, Domain, DomainScope, Software, Technology};
+    use spirit::schema::signal::{DataLeaf, Domain, DomainScope, Software, Technology};
 
     let technology = "(Technology All)"
         .parse::<DomainScope>()
@@ -417,8 +417,9 @@ fn generated_domain_scope_is_a_recursive_enum_text_surface() {
     assert!(impossible.is_err());
     assert_eq!(technology.to_string(), "(Technology All)");
     assert_eq!(software.to_string(), "(Technology (Software All))");
-    let schema_evolution_domain =
-        Domain::Technology(Technology::Software(Software::Data(Data::SchemaEvolution)));
+    let schema_evolution_domain = Domain::Technology(Technology::Software(Software::Data(Some(
+        DataLeaf::SchemaEvolution,
+    ))));
     assert_eq!(
         DomainScope::from(schema_evolution_domain.clone()),
         schema_evolution

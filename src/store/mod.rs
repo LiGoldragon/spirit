@@ -64,7 +64,10 @@ use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
 // descriptors and versioning policy, so every durable write from this version
 // on is replayable history. Version 8 and earlier are pre-versioning stores
 // readable only through `sema-engine-previous` in `production_migration`.
-pub(super) const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(9);
+//
+// Version 10 coarsens the stored Technology/Software domain enum: fine leaves
+// that belonged in keywords are folded into terminal-able sub-domain values.
+pub(super) const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(10);
 
 /// The SEMA durable store: a sema-engine keyed table written to a `*.sema`
 /// file.
@@ -447,10 +450,10 @@ impl Store {
             .map(|stem| stem.to_string_lossy().into_owned())
             .unwrap_or_else(|| String::from("spirit"));
         // The version suffix tracks GUARDIAN_JOURNAL_SCHEMA_VERSION: a
-        // journal-schema change (v3: the sema-engine storage-layout-3 break)
+        // journal-schema change (v4: the sema-engine storage-layout-5 break)
         // lands a fresh file rather than reading an incompatible layout. The
-        // v2 file stays on disk untouched, readable by the previous engine.
-        self.path.with_file_name(format!("{stem}.guardian.v3.sema"))
+        // older file stays on disk untouched, readable by the previous engine.
+        self.path.with_file_name(format!("{stem}.guardian.v4.sema"))
     }
 
     #[cfg(feature = "agent-guardian")]

@@ -1161,7 +1161,7 @@ dependencies = [
 [[package]]
 name = "schema-rust-next"
 version = "0.5.3"
-source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=structural-forms-integration#9e57a4cb12b8db2949b0129092878945a0481b6c"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=structural-forms-integration#e6d139408d5cda41577a446d26e6a243f5175caf"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -1342,7 +1342,7 @@ dependencies = [
 [[package]]
 name = "signal-spirit"
 version = "0.6.0"
-source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=structural-forms-integration#88da88de2e854d918b211e95d0d86914f1e52b9f"
+source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=structural-forms-integration#cf9da984098877a12c032ee8d931accad17299af"
 dependencies = [
  "nota-next 0.5.0",
  "rkyv",

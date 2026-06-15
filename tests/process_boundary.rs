@@ -541,7 +541,7 @@ fn configuration_writer_prebuilds_binary_archive_for_daemon_startup() {
     let recorded = run_cli(
         &socket_path,
         &record_nota(
-            "[(Technology (Software (Operations InfrastructureAsCode)))]",
+            "[(Technology (Software (Operations Deployment)))]",
             "Constraint",
             "daemon starts from prebuilt archive",
         ),
@@ -1025,7 +1025,7 @@ fn daemon_persists_sema_file_across_a_restart() {
         let recorded = run_cli(
             &socket_path,
             &record_nota(
-                "[(Technology (Software (Operations InfrastructureAsCode)))]",
+                "[(Technology (Software (Operations Deployment)))]",
                 "Decision",
                 "survives restart",
             ),
@@ -1050,7 +1050,7 @@ fn daemon_persists_sema_file_across_a_restart() {
 
     let observed = run_cli(
         &socket_path,
-        "(Observe ((Full [(Technology (Software (Operations InfrastructureAsCode)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
     // Designer 480: Observe stashes the durable result; the slim reply
     // returns the handle + count. Follow up by LookupStash to verify the
@@ -1082,7 +1082,7 @@ fn daemon_persists_sema_file_across_a_restart() {
     let next = run_cli(
         &socket_path,
         &record_nota(
-            "[(Technology (Software (Operations InfrastructureAsCode)))]",
+            "[(Technology (Software (Operations Deployment)))]",
             "Decision",
             "second after restart",
         ),
@@ -1107,7 +1107,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
         let recorded = run_cli(
             &socket_path,
             &record_nota(
-                "[(Technology (Software (Operations InfrastructureAsCode)))]",
+                "[(Technology (Software (Operations Deployment)))]",
                 "Constraint",
                 "production entry before copy",
             ),
@@ -1128,7 +1128,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
         let _daemon = DaemonProcess::spawn(&socket_path, &candidate_database_path);
         let observed = run_cli(
             &socket_path,
-            "(Observe ((Full [(Technology (Software (Operations InfrastructureAsCode)))]) Any Any Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+            "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))",
         );
         assert_eq!(
             stashed_descriptions(&socket_path, observed),
@@ -1139,7 +1139,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
         let candidate_recorded = run_cli(
             &socket_path,
             &record_nota(
-                "[(Technology (Software (Operations InfrastructureAsCode)))]",
+                "[(Technology (Software (Operations Deployment)))]",
                 "Constraint",
                 "candidate-only entry after copy",
             ),
@@ -1153,7 +1153,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
 
         let candidate_observed = run_cli(
             &socket_path,
-            "(Observe ((Full [(Technology (Software (Operations InfrastructureAsCode)))]) Any Any Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+            "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))",
         );
         assert_eq!(
             stashed_descriptions(&socket_path, candidate_observed),
@@ -1170,7 +1170,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
         let _daemon = DaemonProcess::spawn(&socket_path, &production_database_path);
         let observed = run_cli(
             &socket_path,
-            "(Observe ((Full [(Technology (Software (Operations InfrastructureAsCode)))]) Any Any Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+            "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))",
         );
         assert_eq!(
             stashed_descriptions(&socket_path, observed),
@@ -1181,7 +1181,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
         let production_next = run_cli(
             &socket_path,
             &record_nota(
-                "[(Technology (Software (Operations InfrastructureAsCode)))]",
+                "[(Technology (Software (Operations Deployment)))]",
                 "Constraint",
                 "production entry after handover",
             ),
@@ -1209,7 +1209,7 @@ fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
         &socket_path,
         &trace_socket_path,
         &record_nota(
-            "[(Technology (Software (Engineering SoftwareArchitecture)))]",
+            "[(Technology (Software (Engineering Architecture)))]",
             "Constraint",
             "trace crosses daemon boundary",
         ),
@@ -1240,7 +1240,7 @@ fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
     let observed = run_cli_with_trace(
         &socket_path,
         &trace_socket_path,
-        "(Observe ((Full [(Technology (Software (Engineering SoftwareArchitecture)))]) Any Any Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Technology (Software (Engineering Architecture)))]) Any Any Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
     // Designer 480: Observe flows through the recursive Nexus loop with
     // Stash; the slim wire reply carries a handle, not the full record set.

@@ -515,7 +515,7 @@ fn nix_built_spirit_cli_records_through_real_socket_to_nix_built_daemon() {
     let daemon = DaemonProcess::spawn(&binaries);
 
     let nota_input = record_nota(
-        "[(Technology (Software (Operations InfrastructureAsCode)))]",
+        "[(Technology (Software (Operations Deployment)))]",
         "Decision",
         "end to end through nix built binaries",
     );
@@ -615,7 +615,7 @@ fn nix_built_daemon_observes_recorded_entries_back_through_query() {
     let observed = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [(Technology (Software (Operations InfrastructureAsCode)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
 
     let stash_handle = match observed {
@@ -695,7 +695,7 @@ fn nix_built_daemon_handles_back_to_back_inputs_through_one_socket() {
     let counted = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Count ((Full [(Technology (Software (Operations InfrastructureAsCode)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Count ((Full [(Technology (Software (Operations Deployment)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
     match counted {
         Output::RecordsCounted(counted) => assert_eq!(*counted.payload().payload().payload(), 3),
@@ -739,7 +739,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
         &binaries,
         daemon.socket(),
         &record_nota(
-            "[(Technology (Software (Operations InfrastructureAsCode)))]",
+            "[(Technology (Software (Operations Deployment)))]",
             "Decision",
             "variant tour",
         ),
@@ -796,7 +796,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let observed = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [(Technology (Software (Operations InfrastructureAsCode)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
     assert!(matches!(observed, Output::RecordsStashed(_)));
     assert_eq!(observed.route(), OutputRoute::RecordsStashed);
@@ -825,7 +825,7 @@ fn nix_built_daemon_alias_state_across_separate_cli_processes() {
 
     // Independent process — exec a fresh CLI binary for the read.
     let mut child_a = Command::new(&binaries.spirit_cli)
-        .arg("(Observe ((Full [(Technology (Software (Operations InfrastructureAsCode)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))")
+        .arg("(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))")
         .env("SPIRIT_SOCKET", daemon.socket())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

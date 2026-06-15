@@ -4,23 +4,23 @@ use spirit::{
     Engine, MailIdentifier, MailLedgerEvent, MessageIdentifier, MessageSent, MessageSentHook,
     Nexus, OriginRoute, SentMail, ShortHeader, SignalAdmission, Store,
     schema::{
-        domain::{SoftwareScope, TechnologyScope},
+        domain::{InformationScope, SoftwareScope, TechnologyScope},
         nexus::{self, CommandSemaWrite, NexusAction, NexusEffectCommand, NexusEngine, NexusWork},
         sema::{
             self, ReadInput as SemaReadInput, ReadOutput as SemaReadOutput, SemaEngine,
             WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
         },
         signal::{
-            Certainty, CertaintyChange, CertaintySelection, Clarification, Data, DatabaseMarker,
-            Description, Distributed, Domain, DomainMatch, DomainScope, DomainScopes, Domains,
-            Entry, ErrorMessage, ErrorReport, GuardianRejectionReason, Hardware, ImportanceBump,
-            ImportanceSelection, Information, Input, Justification, Keyword, KeywordMatch,
-            Keywords, Kind, Magnitude, Output, Privacy, PrivacySelection, Proposal, Query,
-            QuoteText, Reasoning, RecordChange, RecordIdentifier, RecordRequest, RecordSelection,
-            Referent, ReferentRegistration, ReferentSelection, Referents, Removal, Replacements,
-            RetiredIdentifier, RetiredIdentifiers, Retirement, SearchText, SemaReceipt,
-            SignalRejection, Software, StashHandle, Statement, StatementText, Supersession,
-            Technology, Testimony, TextMatch, ValidationError, VerbatimQuote,
+            Certainty, CertaintyChange, CertaintySelection, Clarification, DataLeaf,
+            DatabaseMarker, Description, Domain, DomainMatch, DomainScope, DomainScopes, Domains,
+            Entry, ErrorMessage, ErrorReport, GuardianRejectionReason, HardwareLeaf,
+            ImportanceBump, ImportanceSelection, Information, Input, Justification, Keyword,
+            KeywordMatch, Keywords, Kind, Magnitude, Output, Privacy, PrivacySelection, Proposal,
+            Query, QuoteText, Reasoning, RecordChange, RecordIdentifier, RecordRequest,
+            RecordSelection, Referent, ReferentRegistration, ReferentSelection, Referents, Removal,
+            Replacements, RetiredIdentifier, RetiredIdentifiers, Retirement, SearchText,
+            SemaReceipt, SignalRejection, Software, StashHandle, Statement, StatementText,
+            Supersession, Technology, Testimony, TextMatch, ValidationError, VerbatimQuote,
         },
     },
 };
@@ -299,19 +299,13 @@ fn technology_scope() -> DomainScope {
 
 fn schema_evolution_scope() -> DomainScope {
     DomainScope::from(Domain::Technology(Technology::Software(Software::Data(
-        Data::SchemaEvolution,
+        Some(DataLeaf::SchemaEvolution),
     ))))
 }
 
-fn software_networking_scope() -> DomainScope {
-    DomainScope::from(Domain::Technology(Technology::Software(
-        Software::Distributed(Distributed::Networking),
-    )))
-}
-
-fn database_systems_scope() -> DomainScope {
+fn data_scope() -> DomainScope {
     DomainScope::from(Domain::Technology(Technology::Software(Software::Data(
-        Data::DatabaseSystems,
+        None,
     ))))
 }
 
@@ -1327,8 +1321,8 @@ fn agent_guardian_prompt_bundle_includes_equivalent_domain_records() {
     assert!(matches!(
         setup_engine
             .handle(input_record(entry_with_domain(
-                Domain::Technology(Technology::Hardware(Hardware::Networking)),
-                "hardware-network-live",
+                Domain::Information(Information::Database),
+                "database-live",
             )))
             .root(),
         Output::RecordAccepted(_)
@@ -1338,22 +1332,20 @@ fn agent_guardian_prompt_bundle_includes_equivalent_domain_records() {
     let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::Accept);
     let mut engine = sema.engine_with_guardian(fake_agent.guardian());
     let output = engine.handle(input_propose(entry_with_domain(
-        Domain::Technology(Technology::Software(Software::Distributed(
-            spirit::schema::signal::Distributed::Networking,
-        ))),
-        "software-network-candidate",
+        Domain::Technology(Technology::Software(Software::Data(None))),
+        "software-data-candidate",
     )));
 
     assert!(matches!(output.root(), Output::Proposed(_)));
     let prompts = fake_agent.captured_prompts();
     assert_eq!(prompts.len(), 1);
     assert!(
-        prompts[0].contains("hardware-network-live"),
-        "guardian prompt should include the equivalent hardware-network record: {}",
+        prompts[0].contains("database-live"),
+        "guardian prompt should include the equivalent information-database record: {}",
         prompts[0]
     );
     assert!(
-        prompts[0].contains("(Technology (Hardware Networking))"),
+        prompts[0].contains("(Information Database)"),
         "guardian prompt should preserve the equivalent record's enum domain: {}",
         prompts[0]
     );
@@ -1377,10 +1369,10 @@ fn agent_guardian_prompt_bundle_excludes_unmatched_live_records() {
     assert!(matches!(
         setup_engine
             .handle(input_record(entry_with_domain(
-                Domain::Technology(Technology::Software(Software::Security(
-                    spirit::schema::signal::Security::AdmissionControl,
-                ))),
-                "admission-control-live",
+                Domain::Technology(Technology::Software(Software::Security(Some(
+                    spirit::schema::signal::SecurityLeaf::Authorization,
+                )))),
+                "authorization-live",
             )))
             .root(),
         Output::RecordAccepted(_)
@@ -1390,17 +1382,17 @@ fn agent_guardian_prompt_bundle_excludes_unmatched_live_records() {
     let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::Accept);
     let mut engine = sema.engine_with_guardian(fake_agent.guardian());
     let output = engine.handle(input_propose(entry_with_domain(
-        Domain::Technology(Technology::Software(Software::Security(
-            spirit::schema::signal::Security::AdmissionControl,
-        ))),
-        "admission-control-candidate",
+        Domain::Technology(Technology::Software(Software::Security(Some(
+            spirit::schema::signal::SecurityLeaf::Authorization,
+        )))),
+        "authorization-candidate",
     )));
 
     assert!(matches!(output.root(), Output::Proposed(_)));
     let prompts = fake_agent.captured_prompts();
     assert_eq!(prompts.len(), 1);
     assert!(
-        prompts[0].contains("admission-control-live"),
+        prompts[0].contains("authorization-live"),
         "guardian prompt should include domain-relevant records: {}",
         prompts[0]
     );
@@ -1438,9 +1430,9 @@ fn agent_guardian_prompt_bundle_stays_bounded_as_corpus_grows() {
     assert!(matches!(
         setup_engine
             .handle(input_record(entry_with_domain(
-                Domain::Technology(Technology::Software(Software::Security(
-                    spirit::schema::signal::Security::AdmissionControl,
-                ))),
+                Domain::Technology(Technology::Software(Software::Quality(Some(
+                    spirit::schema::signal::QualityLeaf::Testing,
+                )))),
                 "guardian-domain-neighbor-live",
             )))
             .root(),
@@ -1464,7 +1456,7 @@ fn agent_guardian_prompt_bundle_stays_bounded_as_corpus_grows() {
     let mut engine = sema.engine_with_guardian(fake_agent.guardian());
     let output = engine.handle(input_propose(Entry {
         domains: Domains::new(vec![Domain::Technology(Technology::Software(
-            Software::Security(spirit::schema::signal::Security::AdmissionControl),
+            Software::Quality(Some(spirit::schema::signal::QualityLeaf::Testing)),
         ))]),
         referents: referents_from_slice(&["schemaNext"]),
         ..entry("guardian bounded candidate")
@@ -1987,7 +1979,9 @@ fn sema_engine_queries_domain_scopes_by_prefix_breadth() {
         &mut store,
         sema_write_message(
             sema_record(entry_with_domain(
-                Domain::Technology(Technology::Software(Software::Data(Data::SchemaEvolution))),
+                Domain::Technology(Technology::Software(Software::Data(Some(
+                    DataLeaf::SchemaEvolution,
+                )))),
                 "software schema",
             )),
             1,
@@ -1997,7 +1991,7 @@ fn sema_engine_queries_domain_scopes_by_prefix_breadth() {
         &mut store,
         sema_write_message(
             sema_record(entry_with_domain(
-                Domain::Technology(Technology::Hardware(Hardware::Networking)),
+                Domain::Technology(Technology::Hardware(Some(HardwareLeaf::Networking))),
                 "hardware network",
             )),
             2,
@@ -2081,7 +2075,7 @@ fn sema_engine_expands_symmetric_domain_equivalence_without_chaining() {
         &mut store,
         sema_write_message(
             sema_record(entry_with_domain(
-                Domain::Technology(Technology::Hardware(Hardware::Networking)),
+                Domain::Technology(Technology::Hardware(Some(HardwareLeaf::Networking))),
                 "hardware network",
             )),
             1,
@@ -2098,38 +2092,16 @@ fn sema_engine_expands_symmetric_domain_equivalence_without_chaining() {
         ),
     );
 
-    let software_network = SemaEngine::observe(
+    let software_data = SemaEngine::observe(
         &store,
         sema_read_message(
             sema_observe(query_with_domain_scopes(domain_scopes_from_scopes(&[
-                software_networking_scope(),
+                data_scope(),
             ]))),
             3,
         ),
     );
-    match software_network.root() {
-        SemaReadOutput::Observed(records) => {
-            assert_eq!(records.payload().payload().len(), 1);
-            assert_eq!(
-                records.payload().payload()[0].entry.description,
-                "hardware network"
-            );
-        }
-        other => panic!(
-            "expected software-network scope to observe equivalent hardware network, got {other:?}"
-        ),
-    }
-
-    let database_systems = SemaEngine::observe(
-        &store,
-        sema_read_message(
-            sema_observe(query_with_domain_scopes(domain_scopes_from_scopes(&[
-                database_systems_scope(),
-            ]))),
-            4,
-        ),
-    );
-    match database_systems.root() {
+    match software_data.root() {
         SemaReadOutput::Observed(records) => {
             assert_eq!(records.payload().payload().len(), 1);
             assert_eq!(
@@ -2138,14 +2110,36 @@ fn sema_engine_expands_symmetric_domain_equivalence_without_chaining() {
             );
         }
         other => panic!(
-            "expected database-system scope to observe equivalent information database, got {other:?}"
+            "expected software-data scope to observe equivalent information database, got {other:?}"
         ),
     }
 
-    let networking_expansion = software_networking_scope().expand();
+    let information_database = SemaEngine::observe(
+        &store,
+        sema_read_message(
+            sema_observe(query_with_domain_scopes(domain_scopes_from_scopes(&[
+                DomainScope::Information(InformationScope::Database),
+            ]))),
+            4,
+        ),
+    );
+    match information_database.root() {
+        SemaReadOutput::Observed(records) => {
+            assert_eq!(records.payload().payload().len(), 1);
+            assert_eq!(
+                records.payload().payload()[0].entry.description,
+                "information database"
+            );
+        }
+        other => panic!("expected information-database scope to observe itself, got {other:?}"),
+    }
+
+    let data_expansion = data_scope().expand();
     assert!(
-        !networking_expansion.matches_domain(&Domain::Information(Information::Database)),
-        "equivalence expansion must not chain from networking into unrelated relation classes"
+        !data_expansion.matches_domain(&Domain::Technology(Technology::Hardware(Some(
+            HardwareLeaf::Networking
+        )))),
+        "equivalence expansion must not chain from database into unrelated hardware"
     );
 }
 

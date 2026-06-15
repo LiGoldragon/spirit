@@ -124,23 +124,31 @@ fn signal_schema_domains_put_software_under_the_software_branch() {
         "(Craft [Electronics Construction Carpentry Metalworking Sewing Manufacturing Repair Engineering Handicraft Invention])",
         "software-domain",
     );
-    witness.must_contain("(Software [", "software-domain");
-    witness.must_contain("(Technology [", "software-domain");
-    witness.must_contain("(Hardware [Energy Power Automation Robotics Networking Materials Machinery Instrumentation Aerospace])", "software-domain");
+    witness.must_contain("Software [", "software-domain");
+    witness.must_contain("Technology [", "software-domain");
+    witness.must_contain("(Hardware (Optional HardwareLeaf))", "software-domain");
+    witness.must_contain("HardwareLeaf [Networking]", "software-domain");
     witness.must_contain(
-        "(Languages [ProgrammingLanguages ProgrammingParadigms TypeSystems Compilation Interpretation Parsing LexicalAnalysis Grammars CodeGeneration Metaprogramming Macros DomainSpecificLanguages RuntimeEnvironments GarbageCollection MemoryManagement ForeignFunctionInterfaces])",
+        "(Programming (Optional ProgrammingLeaf))",
         "software-domain",
     );
     witness.must_contain(
-        "(Quality [Testing UnitTesting IntegrationTesting EndToEndTesting PropertyBasedTesting Fuzzing TestAutomation Mocking CodeCoverage Debugging Profiling Benchmarking PerformanceOptimization LoadTesting CodeReview Refactoring Linting Formatting TechnicalDebt])",
+        "ProgrammingLeaf [TypeSystems Compilation Parsing Grammars CodeGeneration Metaprogramming Macros DomainSpecificLanguages]",
+        "software-domain",
+    );
+    witness.must_contain("(Quality (Optional QualityLeaf))", "software-domain");
+    witness.must_contain("QualityLeaf [Testing]", "software-domain");
+    witness.must_contain("(Operations (Optional OperationsLeaf))", "software-domain");
+    witness.must_contain(
+        "OperationsLeaf [BuildSystem ReleaseEngineering DependencyManagement Deployment ConfigurationManagement]",
         "software-domain",
     );
     witness.must_contain(
-        "(Operations [ContinuousIntegration ContinuousDelivery BuildSystem ReleaseEngineering DependencyManagement PackageManagement ArtifactManagement Deployment Provisioning InfrastructureAsCode Orchestration ConfigurationManagement AutoScaling CapacityPlanning SiteReliability IncidentResponse DisasterRecovery RateLimiting])",
+        "(Engineering (Optional EngineeringLeaf))",
         "software-domain",
     );
     witness.must_contain(
-        "(Engineering [SoftwareArchitecture SoftwareDesign DesignPatterns DomainDrivenDesign ApplicationProgrammingInterfaces Microservices Serverless CloudComputing EdgeComputing Scalability Reliability Maintainability Portability Interoperability Modularity Abstraction RequirementsEngineering Documentation VersionControl SoftwareDevelopmentProcess SoftwareMaintenance SoftwareEngineeringManagement])",
+        "EngineeringLeaf [Architecture Design ApplicationProgrammingInterfaces Documentation VersionControl DevelopmentProcess Management Modularity]",
         "software-domain",
     );
     witness.must_not_contain(
@@ -148,7 +156,7 @@ fn signal_schema_domains_put_software_under_the_software_branch() {
         "software-domain",
     );
     witness.must_contain(
-        "(Equivalence [(Technology Hardware Networking) (Technology Software Distributed Networking)])",
+        "(Equivalence [(Information Database) (Technology Software Data)])",
         "software-domain",
     );
 }
