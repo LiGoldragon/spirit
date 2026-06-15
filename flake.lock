@@ -98,7 +98,6 @@
       },
       "original": {
         "owner": "LiGoldragon",
-        "ref": "structural-forms-integration",
         "repo": "meta-signal-spirit",
         "type": "github"
       }
@@ -131,7 +130,6 @@
       },
       "original": {
         "owner": "LiGoldragon",
-        "ref": "structural-forms-integration",
         "repo": "nota-next",
         "type": "github"
       }
@@ -189,7 +187,6 @@
       },
       "original": {
         "owner": "LiGoldragon",
-        "ref": "structural-forms-integration",
         "repo": "schema-next",
         "type": "github"
       }
@@ -206,7 +203,6 @@
       },
       "original": {
         "owner": "LiGoldragon",
-        "ref": "structural-forms-integration",
         "repo": "schema-rust-next",
         "type": "github"
       }
@@ -257,7 +253,6 @@
       },
       "original": {
         "owner": "LiGoldragon",
-        "ref": "structural-forms-integration",
         "repo": "sema-engine",
         "type": "github"
       }
@@ -338,7 +333,6 @@
       },
       "original": {
         "owner": "LiGoldragon",
-        "ref": "structural-forms-integration",
         "repo": "signal-spirit",
         "type": "github"
       }
@@ -370,7 +364,6 @@
       },
       "original": {
         "owner": "LiGoldragon",
-        "ref": "structural-forms-integration",
         "repo": "triad-runtime",
         "type": "github"
       }
