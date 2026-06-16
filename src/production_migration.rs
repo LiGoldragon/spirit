@@ -161,6 +161,8 @@ enum SourceStoreVersion {
     Current,
     VersionNineCurrent,
     VersionNineLayout3,
+    VersionTenCurrent,
+    VersionTenLegacyFamilyCurrent,
     VersionTenLayout3,
     Previous(SchemaVersion),
 }
@@ -184,6 +186,18 @@ struct SpiritStoreV8LiveDatabase {
 struct SpiritStoreV8ArchiveDatabase {
     database: PreviousSemaDatabase,
     records: PreviousTableReference<SpiritStoreV8Record>,
+}
+
+/// A version-9 archive sibling written by the current layout-5 engine.
+struct SpiritStoreV9CurrentArchiveDatabase {
+    database: CurrentSemaDatabase,
+    records: CurrentTableReference<SpiritStoreV9Record>,
+}
+
+/// A version-9 archive sibling written by the deployed layout-3 engine.
+struct SpiritStoreV9Layout3ArchiveDatabase {
+    database: Layout3SemaDatabase,
+    records: Layout3TableReference<SpiritStoreV9Record>,
 }
 
 /// A version-9 store written by deployed spirit 0.12.1: materialized records
@@ -211,6 +225,33 @@ struct SpiritStoreV10Layout3LiveDatabase {
     database: Layout3SemaDatabase,
     records: Layout3TableReference<StoredRecord>,
     referents: Layout3TableReference<StoredReferent>,
+}
+
+/// A schema-10 store written under the current layout-5 engine but before the
+/// current `Store::open` contract can accept it as-is. Read only the
+/// materialized records and referents, then rebuild through the current full
+/// store registration.
+struct SpiritStoreV10CurrentLiveDatabase {
+    database: CurrentSemaDatabase,
+    records: CurrentTableReference<StoredRecord>,
+    referents: CurrentTableReference<StoredReferent>,
+}
+
+/// A schema-10, layout-5 store whose table catalog still carries the v9
+/// family identities. This is the production half-step left by the prior
+/// deployment: the engine header advanced, but the stored record family is
+/// still the fine-grained v9 domain shape.
+struct SpiritStoreV10LegacyFamilyCurrentLiveDatabase {
+    database: CurrentSemaDatabase,
+    records: CurrentTableReference<StoredRecord>,
+    referents: CurrentTableReference<StoredReferent>,
+}
+
+/// The matching schema-10, layout-5 archive sibling with the legacy v9 record
+/// family identity.
+struct SpiritStoreV10LegacyFamilyCurrentArchiveDatabase {
+    database: CurrentSemaDatabase,
+    records: CurrentTableReference<StoredRecord>,
 }
 
 /// The schema-10 archive sibling written by the previous layout-3 engine.
@@ -2044,6 +2085,12 @@ impl StoreMigration {
             SourceStoreVersion::VersionNineLayout3 => {
                 self.migrate_version_nine_layout3_store(database_path)
             }
+            SourceStoreVersion::VersionTenCurrent => {
+                self.migrate_version_ten_current_store(database_path)
+            }
+            SourceStoreVersion::VersionTenLegacyFamilyCurrent => {
+                self.migrate_version_ten_legacy_family_current_store(database_path)
+            }
             SourceStoreVersion::VersionTenLayout3 => {
                 self.migrate_version_ten_layout3_store(database_path)
             }
@@ -2068,9 +2115,19 @@ impl StoreMigration {
         if SpiritStoreV9CurrentLiveDatabase::open(database_path).is_ok() {
             return Ok(SourceStoreVersion::VersionNineCurrent);
         }
-        if SpiritStoreV10Layout3LiveDatabase::open(database_path).is_ok() {
-            return Ok(SourceStoreVersion::VersionTenLayout3);
+        let version_ten_current_error = match SpiritStoreV10CurrentLiveDatabase::open(database_path)
+        {
+            Ok(_) => return Ok(SourceStoreVersion::VersionTenCurrent),
+            Err(error) => error,
+        };
+        if SpiritStoreV10LegacyFamilyCurrentLiveDatabase::open(database_path).is_ok() {
+            return Ok(SourceStoreVersion::VersionTenLegacyFamilyCurrent);
         }
+        let version_ten_layout3_error = match SpiritStoreV10Layout3LiveDatabase::open(database_path)
+        {
+            Ok(_) => return Ok(SourceStoreVersion::VersionTenLayout3),
+            Err(error) => error,
+        };
         if SpiritStoreV9Layout3LiveDatabase::open(database_path).is_ok() {
             return Ok(SourceStoreVersion::VersionNineLayout3);
         }
@@ -2084,7 +2141,10 @@ impl StoreMigration {
                 ..
             })) => {
                 if found == SPIRIT_STORE_V10_SCHEMA_VERSION {
-                    Ok(SourceStoreVersion::VersionTenLayout3)
+                    match version_ten_current_error {
+                        StoreMigrationError::CurrentSemaStore(_) => Err(version_ten_current_error),
+                        _ => Err(version_ten_layout3_error),
+                    }
                 } else if found == SPIRIT_STORE_V9_SCHEMA_VERSION {
                     Ok(SourceStoreVersion::VersionNineLayout3)
                 } else if found == SPIRIT_STORE_V7_SCHEMA_VERSION {
@@ -2122,6 +2182,26 @@ impl StoreMigration {
             &database_path,
         )?)?;
         self.fold_previous_rows(database_path, source, SPIRIT_STORE_V9_SCHEMA_VERSION)
+    }
+
+    fn migrate_version_ten_current_store(
+        &self,
+        database_path: PathBuf,
+    ) -> Result<StoreMigrationOutput, StoreMigrationError> {
+        let source = SpiritPreviousStore::from_v10_current(
+            SpiritStoreV10CurrentLiveDatabase::open(&database_path)?,
+        )?;
+        self.fold_previous_rows(database_path, source, SPIRIT_STORE_V10_SCHEMA_VERSION)
+    }
+
+    fn migrate_version_ten_legacy_family_current_store(
+        &self,
+        database_path: PathBuf,
+    ) -> Result<StoreMigrationOutput, StoreMigrationError> {
+        let source = SpiritPreviousStore::from_v10_legacy_family_current(
+            SpiritStoreV10LegacyFamilyCurrentLiveDatabase::open(&database_path)?,
+        )?;
+        self.fold_previous_rows(database_path, source, SPIRIT_STORE_V10_SCHEMA_VERSION)
     }
 
     fn migrate_version_ten_layout3_store(
@@ -2223,8 +2303,37 @@ impl StoreMigration {
         if !archive_path.exists() {
             return Ok(());
         }
+        if previous_schema_version == SPIRIT_STORE_V10_SCHEMA_VERSION
+            && ArchiveDatabase::open(&archive_path).is_ok()
+        {
+            return Ok(());
+        }
         let archive_records = if previous_schema_version == SPIRIT_STORE_V10_SCHEMA_VERSION {
-            SpiritStoreV10Layout3ArchiveDatabase::open(&archive_path)?.records()?
+            if let Ok(archive) =
+                SpiritStoreV10LegacyFamilyCurrentArchiveDatabase::open(&archive_path)
+            {
+                archive.records()?
+            } else if let Ok(archive) = SpiritStoreV9CurrentArchiveDatabase::open(&archive_path) {
+                archive
+                    .records()?
+                    .into_iter()
+                    .map(|record| StoredRecord {
+                        record_identifier: record.record_identifier,
+                        entry: record.entry.into_current(),
+                    })
+                    .collect()
+            } else if let Ok(archive) = SpiritStoreV9Layout3ArchiveDatabase::open(&archive_path) {
+                archive
+                    .records()?
+                    .into_iter()
+                    .map(|record| StoredRecord {
+                        record_identifier: record.record_identifier,
+                        entry: record.entry.into_current(),
+                    })
+                    .collect()
+            } else {
+                SpiritStoreV10Layout3ArchiveDatabase::open(&archive_path)?.records()?
+            }
         } else {
             SpiritStoreV8ArchiveDatabase::open(&archive_path)?
                 .records()?
@@ -2397,6 +2506,52 @@ impl SpiritStoreV8ArchiveDatabase {
     }
 }
 
+impl SpiritStoreV9CurrentArchiveDatabase {
+    fn open(path: &Path) -> Result<Self, StoreMigrationError> {
+        let mut database = CurrentSemaDatabase::open(CurrentEngineOpen::new(
+            path,
+            SPIRIT_STORE_V9_SCHEMA_VERSION,
+        ))?;
+        let records = database.register_table(CurrentTableDescriptor::new(
+            CURRENT_RECORDS_TABLE,
+            sema_engine::FamilyName::new("RecordsFamily"),
+            CurrentSchemaHash::new(SPIRIT_STORE_V9_RECORDS_FAMILY),
+        ))?;
+        Ok(Self { database, records })
+    }
+
+    fn records(&self) -> Result<Vec<SpiritStoreV9Record>, StoreMigrationError> {
+        Ok(self
+            .database
+            .match_records(CurrentQueryPlan::all(self.records))?
+            .records()
+            .to_vec())
+    }
+}
+
+impl SpiritStoreV9Layout3ArchiveDatabase {
+    fn open(path: &Path) -> Result<Self, StoreMigrationError> {
+        let mut database = Layout3SemaDatabase::open(Layout3EngineOpen::new(
+            path,
+            SPIRIT_STORE_V9_SCHEMA_VERSION,
+        ))?;
+        let records = database.register_table(Layout3TableDescriptor::new(
+            LAYOUT3_RECORDS_TABLE,
+            sema_engine_layout3::FamilyName::new("RecordsFamily"),
+            sema_engine_layout3::SchemaHash::new(SPIRIT_STORE_V9_RECORDS_FAMILY),
+        ))?;
+        Ok(Self { database, records })
+    }
+
+    fn records(&self) -> Result<Vec<SpiritStoreV9Record>, StoreMigrationError> {
+        Ok(self
+            .database
+            .match_records(Layout3QueryPlan::all(self.records))?
+            .records()
+            .to_vec())
+    }
+}
+
 impl SpiritStoreV9Layout3LiveDatabase {
     fn open(path: &Path) -> Result<Self, StoreMigrationError> {
         let mut database = Layout3SemaDatabase::open(
@@ -2478,6 +2633,115 @@ impl SpiritStoreV9CurrentLiveDatabase {
         Ok(self
             .database
             .match_records(CurrentQueryPlan::all(self.referents))?
+            .records()
+            .to_vec())
+    }
+}
+
+impl SpiritStoreV10CurrentLiveDatabase {
+    fn open(path: &Path) -> Result<Self, StoreMigrationError> {
+        let mut database = CurrentSemaDatabase::open(
+            CurrentEngineOpen::new(path, SPIRIT_STORE_V10_SCHEMA_VERSION).with_versioning(
+                sema_engine::VersioningPolicy::new(sema_engine::VersionedStoreName::new(
+                    "spirit:sema",
+                )),
+            ),
+        )?;
+        let records = database.register_table(CurrentTableDescriptor::new(
+            CURRENT_RECORDS_TABLE,
+            sema_engine::FamilyName::new("RecordsFamily"),
+            CurrentSchemaHash::new(family_identity::RECORDS_FAMILY),
+        ))?;
+        let referents = database.register_table(CurrentTableDescriptor::new(
+            CURRENT_REFERENTS_TABLE,
+            sema_engine::FamilyName::new("ReferentsFamily"),
+            CurrentSchemaHash::new(family_identity::REFERENTS_FAMILY),
+        ))?;
+        Ok(Self {
+            database,
+            records,
+            referents,
+        })
+    }
+
+    fn records(&self) -> Result<Vec<StoredRecord>, StoreMigrationError> {
+        Ok(self
+            .database
+            .match_records(CurrentQueryPlan::all(self.records))?
+            .records()
+            .to_vec())
+    }
+
+    fn referents(&self) -> Result<Vec<StoredReferent>, StoreMigrationError> {
+        Ok(self
+            .database
+            .match_records(CurrentQueryPlan::all(self.referents))?
+            .records()
+            .to_vec())
+    }
+}
+
+impl SpiritStoreV10LegacyFamilyCurrentLiveDatabase {
+    fn open(path: &Path) -> Result<Self, StoreMigrationError> {
+        let mut database = CurrentSemaDatabase::open(
+            CurrentEngineOpen::new(path, SPIRIT_STORE_V10_SCHEMA_VERSION).with_versioning(
+                sema_engine::VersioningPolicy::new(sema_engine::VersionedStoreName::new(
+                    "spirit:sema",
+                )),
+            ),
+        )?;
+        let records = database.register_table(CurrentTableDescriptor::new(
+            CURRENT_RECORDS_TABLE,
+            sema_engine::FamilyName::new("RecordsFamily"),
+            CurrentSchemaHash::new(SPIRIT_STORE_V9_RECORDS_FAMILY),
+        ))?;
+        let referents = database.register_table(CurrentTableDescriptor::new(
+            CURRENT_REFERENTS_TABLE,
+            sema_engine::FamilyName::new("ReferentsFamily"),
+            CurrentSchemaHash::new(SPIRIT_STORE_V9_REFERENTS_FAMILY),
+        ))?;
+        Ok(Self {
+            database,
+            records,
+            referents,
+        })
+    }
+
+    fn records(&self) -> Result<Vec<StoredRecord>, StoreMigrationError> {
+        Ok(self
+            .database
+            .match_records(CurrentQueryPlan::all(self.records))?
+            .records()
+            .to_vec())
+    }
+
+    fn referents(&self) -> Result<Vec<StoredReferent>, StoreMigrationError> {
+        Ok(self
+            .database
+            .match_records(CurrentQueryPlan::all(self.referents))?
+            .records()
+            .to_vec())
+    }
+}
+
+impl SpiritStoreV10LegacyFamilyCurrentArchiveDatabase {
+    fn open(path: &Path) -> Result<Self, StoreMigrationError> {
+        let mut database = CurrentSemaDatabase::open(CurrentEngineOpen::new(
+            path,
+            SPIRIT_STORE_V10_SCHEMA_VERSION,
+        ))?;
+        let records = database.register_table(CurrentTableDescriptor::new(
+            CURRENT_RECORDS_TABLE,
+            sema_engine::FamilyName::new("RecordsFamily"),
+            CurrentSchemaHash::new(SPIRIT_STORE_V9_RECORDS_FAMILY),
+        ))?;
+        Ok(Self { database, records })
+    }
+
+    fn records(&self) -> Result<Vec<StoredRecord>, StoreMigrationError> {
+        Ok(self
+            .database
+            .match_records(CurrentQueryPlan::all(self.records))?
             .records()
             .to_vec())
     }
@@ -2612,6 +2876,32 @@ impl SpiritPreviousStore {
                 .records()?
                 .into_iter()
                 .map(SpiritPreviousRecord::from_v9)
+                .collect(),
+            referents: database.referents()?,
+        })
+    }
+
+    fn from_v10_current(
+        database: SpiritStoreV10CurrentLiveDatabase,
+    ) -> Result<Self, StoreMigrationError> {
+        Ok(Self {
+            records: database
+                .records()?
+                .into_iter()
+                .map(SpiritPreviousRecord::from_current)
+                .collect(),
+            referents: database.referents()?,
+        })
+    }
+
+    fn from_v10_legacy_family_current(
+        database: SpiritStoreV10LegacyFamilyCurrentLiveDatabase,
+    ) -> Result<Self, StoreMigrationError> {
+        Ok(Self {
+            records: database
+                .records()?
+                .into_iter()
+                .map(SpiritPreviousRecord::from_current)
                 .collect(),
             referents: database.referents()?,
         })
@@ -2775,6 +3065,7 @@ mod tests {
                 Software, Technology,
             },
         },
+        store::ArchiveDatabase,
     };
     use sema_engine::{
         Assertion as CurrentAssertion, FamilyName as CurrentFamilyName,
@@ -2972,6 +3263,61 @@ mod tests {
                 },
             ))
             .expect("seed schema ten archived record");
+    }
+
+    fn seed_version_ten_layout_three_live_with_current_archive(
+        live_path: &std::path::Path,
+        archive_path: &std::path::Path,
+    ) {
+        let mut live = Layout3SemaDatabase::open(
+            Layout3EngineOpen::new(live_path, SPIRIT_STORE_V10_SCHEMA_VERSION).with_versioning(
+                Layout3VersioningPolicy::new(Layout3VersionedStoreName::new("spirit:sema")),
+            ),
+        )
+        .expect("open schema ten layout three live store");
+        let records = live
+            .register_table(Layout3TableDescriptor::new(
+                LAYOUT3_RECORDS_TABLE,
+                Layout3FamilyName::new("RecordsFamily"),
+                Layout3SchemaHash::new(family_identity::RECORDS_FAMILY),
+            ))
+            .expect("register schema ten records table");
+        let referents = live
+            .register_table(Layout3TableDescriptor::new(
+                LAYOUT3_REFERENTS_TABLE,
+                Layout3FamilyName::new("ReferentsFamily"),
+                Layout3SchemaHash::new(family_identity::REFERENTS_FAMILY),
+            ))
+            .expect("register schema ten referents table");
+        live.assert(Layout3Assertion::new(
+            referents,
+            StoredReferent {
+                referent: Referent::new("mixed-schema-ten"),
+                aliases: Referents::new(Vec::new()),
+            },
+        ))
+        .expect("seed mixed schema ten referent");
+        live.assert(Layout3Assertion::new(
+            records,
+            StoredRecord {
+                record_identifier: RecordIdentifier::new("v10m"),
+                entry: version_eight_entry(
+                    "schema ten layout three live with current archive survives",
+                    vec![Referent::new("mixed-schema-ten")],
+                ),
+            },
+        ))
+        .expect("seed mixed schema ten live record");
+        drop(live);
+
+        let mut archive =
+            ArchiveDatabase::open(archive_path).expect("open current schema ten archive store");
+        archive
+            .import_archived_record(StoredRecord {
+                record_identifier: RecordIdentifier::new("old10-current-1"),
+                entry: version_eight_entry("current archived record stays readable", Vec::new()),
+            })
+            .expect("seed current schema ten archive record");
     }
 
     /// The t0tu pilot witness: a version-8 store (no versioned log) migrates
@@ -3248,6 +3594,54 @@ mod tests {
                 },
             })
             .expect("retire into migrated schema ten archive");
+        assert!(retired.is_some());
+    }
+
+    #[test]
+    fn migrates_version_ten_layout_three_live_when_archive_is_already_current() {
+        let temporary = tempfile::tempdir().expect("create migration sandbox");
+        let database_path = temporary.path().join("store.sema");
+        let archive_path = temporary.path().join("store.archive.sema");
+        seed_version_ten_layout_three_live_with_current_archive(&database_path, &archive_path);
+
+        let output = StoreMigration::new(StoreMigrationRequest::new(
+            database_path.display().to_string(),
+        ))
+        .run()
+        .expect("run mixed schema ten migration");
+        let StoreMigrationOutput::Migrated(completed) = output else {
+            panic!("mixed schema ten store must migrate, got {output:?}");
+        };
+        assert_eq!(completed.record_count(), 1);
+        assert_eq!(completed.referent_count(), 1);
+
+        let migrated = Store::open(&database_path).expect("open mixed migrated schema ten store");
+        let entry = migrated
+            .entry_by_identifier("v10m")
+            .expect("query mixed migrated schema ten entry")
+            .expect("mixed migrated schema ten entry exists");
+        assert_eq!(
+            entry.description.payload(),
+            "schema ten layout three live with current archive survives"
+        );
+        let retired = migrated
+            .retire(crate::schema::signal::Retirement {
+                record_identifier: RecordIdentifier::new("v10m"),
+                justification: crate::schema::signal::Justification {
+                    testimony: crate::schema::signal::Testimony::new(vec![
+                        crate::schema::signal::VerbatimQuote {
+                            quote_text: crate::schema::signal::QuoteText::new(
+                                "witness: current schema ten archive stays writable",
+                            ),
+                            antecedent: None,
+                        },
+                    ]),
+                    reasoning: crate::schema::signal::Reasoning::new(
+                        "mixed schema ten migration witness retirement",
+                    ),
+                },
+            })
+            .expect("retire into current schema ten archive");
         assert!(retired.is_some());
     }
 
