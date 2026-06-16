@@ -322,6 +322,16 @@ impl Store {
         self.database.store_schema_hash().to_string()
     }
 
+    /// A shared handle to the underlying versioned engine, for the mirror
+    /// shipper. The returned `Arc` clones the SAME engine instance the store
+    /// writes through, so the shipper reads the durable outbox the store's
+    /// working writes append to and records the server-confirmed head back
+    /// into it. Sharing is safe because every working mutator is `&self`
+    /// (the engine holds its own internal write lock).
+    pub fn engine_handle(&self) -> Arc<SemaDatabase> {
+        Arc::clone(&self.database)
+    }
+
     /// Write a checkpoint of the versioned log: the portable restore
     /// artifact a fresh store imports from.
     pub fn checkpoint(&self) -> Result<CheckpointReceipt, StoreError> {

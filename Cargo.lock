@@ -5,7 +5,7 @@ version = 4
 [[package]]
 name = "agent"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/agent.git?branch=main#33a967af28da1e0a990b3d7c60cecc0bfb14c6c0"
+source = "git+https://github.com/LiGoldragon/agent.git?branch=main#2320cc8a6b57c01305a19f56898925ed1dc0b441"
 dependencies = [
  "meta-signal-agent",
  "nota-next",
@@ -672,7 +672,19 @@ checksum = "88904434abc2901f197fe8cc55f0445e7ded921dba5911dad2e2b39b48e663c4"
 [[package]]
 name = "meta-signal-agent"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-agent.git?branch=main#4c58b2163873736843fe4f7a68e0bd1bd5a94336"
+source = "git+https://github.com/LiGoldragon/meta-signal-agent.git?branch=main#32799a8e5c8c752c4933e287b43aa189ece29aa3"
+dependencies = [
+ "nota-next",
+ "rkyv",
+ "schema-rust-next",
+ "signal-frame",
+ "thiserror",
+]
+
+[[package]]
+name = "meta-signal-mirror"
+version = "0.1.0"
+source = "git+https://github.com/LiGoldragon/meta-signal-mirror.git?branch=main#aa00815244552ed98c87915a796766d0ab96a5ea"
 dependencies = [
  "nota-next",
  "rkyv",
@@ -684,7 +696,7 @@ dependencies = [
 [[package]]
 name = "meta-signal-spirit"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=main#c013a82feea059f1c655732a41ae1c33a105d79d"
+source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=main#90d64b1f43317d2924bd9a01e3719e0881cb58cd"
 dependencies = [
  "nota-next",
  "rkyv",
@@ -703,6 +715,23 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "mirror"
+version = "0.1.0"
+source = "git+https://github.com/LiGoldragon/mirror.git?branch=main#91ec76fa6ff543b9f2beac363dfe5f94854a4845"
+dependencies = [
+ "meta-signal-mirror",
+ "nota-next",
+ "rkyv",
+ "schema-rust-next",
+ "sema-engine 0.6.2",
+ "signal-frame",
+ "signal-mirror",
+ "thiserror",
+ "tokio",
+ "triad-runtime",
 ]
 
 [[package]]
@@ -1108,7 +1137,7 @@ checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 [[package]]
 name = "schema-cc"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#e721626038e81cce49a7b193b07903b2868e1f68"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#abae95f999c09491c706f39b6fdef48a3530b7f1"
 dependencies = [
  "nota-next",
  "prettyplease",
@@ -1121,7 +1150,7 @@ dependencies = [
 [[package]]
 name = "schema-next"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#e721626038e81cce49a7b193b07903b2868e1f68"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#abae95f999c09491c706f39b6fdef48a3530b7f1"
 dependencies = [
  "blake3",
  "nota-next",
@@ -1133,7 +1162,7 @@ dependencies = [
 [[package]]
 name = "schema-rust-next"
 version = "0.5.3"
-source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#6e04d70ff679181938c50b6a5488035efa0979b8"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#e2e20b6607afb473204b2adbec0df81697fd38fc"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -1261,7 +1290,7 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 [[package]]
 name = "signal-agent"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/signal-agent.git?branch=main#35be3523ce5f146aa451121166cd535ba82de8dd"
+source = "git+https://github.com/LiGoldragon/signal-agent.git?branch=main#d4ba5e1be1b912fc0f6743737567264f42e15574"
 dependencies = [
  "nota-next",
  "rkyv",
@@ -1300,6 +1329,17 @@ checksum = "c4db69cba1110affc0e9f7bcd48bbf87b3f4fc7c61fc9155afd4c469eb3d6c1b"
 dependencies = [
  "errno",
  "libc",
+]
+
+[[package]]
+name = "signal-mirror"
+version = "0.1.0"
+source = "git+https://github.com/LiGoldragon/signal-mirror.git?branch=main#f52a169110b4fe7bbb943dc34bcc2343c72ebfbb"
+dependencies = [
+ "nota-next",
+ "rkyv",
+ "schema-rust-next",
+ "signal-frame",
 ]
 
 [[package]]
@@ -1359,7 +1399,9 @@ dependencies = [
  "agent",
  "blake3",
  "getrandom 0.3.4",
+ "meta-signal-mirror",
  "meta-signal-spirit",
+ "mirror",
  "nota-next",
  "rkyv",
  "schema-next",
@@ -1369,6 +1411,7 @@ dependencies = [
  "sema-engine 0.6.2",
  "signal-agent",
  "signal-frame",
+ "signal-mirror",
  "signal-sema",
  "signal-spirit",
  "tempfile",
@@ -1391,9 +1434,9 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "syn"
-version = "2.0.117"
+version = "2.0.118"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e665b8803e7b1d2a727f4023456bbbbe74da67099c585258af0ad9c5013b9b99"
+checksum = "1b9ae57f904213ebb649ce6895b8a66c66f0203b9319718f69a5612a065b1422"
 dependencies = [
  "proc-macro2",
  "quote",
