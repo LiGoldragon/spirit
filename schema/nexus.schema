@@ -13,10 +13,12 @@
   Proposal signal-spirit:signal:Proposal
   Entry signal-spirit:signal:Entry
   Clarification signal-spirit:signal:Clarification
+  ClarificationResolution signal-spirit:signal:ClarificationResolution
   Supersession signal-spirit:signal:Supersession
   Retirement signal-spirit:signal:Retirement
   SemaReceipt signal-spirit:signal:SemaReceipt
   ClarificationReceipt signal-spirit:signal:ClarificationReceipt
+  ClarificationResolutionReceipt signal-spirit:signal:ClarificationResolutionReceipt
   SupersessionReceipt signal-spirit:signal:SupersessionReceipt
   RetirementReceipt signal-spirit:signal:RetirementReceipt
   RemoveReceipt signal-spirit:signal:RemoveReceipt
@@ -66,7 +68,7 @@
   NexusWork [(SignalArrived) (SemaWriteCompleted) (SemaReadCompleted) (EffectCompleted)]
   NexusAction [(CommandSemaWrite) (CommandSemaRead) (ReplyToSignal) (CommandEffect) (Continue)]
 
-  NexusEffectCommand [(Stash) (ClassifyState) (RecordWithImpliedReferents) (GuardRecord) (ProposeWithImpliedReferents) (Propose) (Clarify) (SupersedeWithImpliedReferents) (Supersede) (Retire) (GuardRemove) (ChangeRecordWithImpliedReferents) (GuardChangeRecord) (GuardReferentRegistration) (OpenIntentSubscription) (CollectRemovalCandidates) (OpenObserverTap) (CloseObserverTap)]
+  NexusEffectCommand [(Stash) (ClassifyState) (RecordWithImpliedReferents) (GuardRecord) (ProposeWithImpliedReferents) (Propose) (Clarify) (SupersedeWithImpliedReferents) (Supersede) (Retire) (ResolveClarification) (GuardRemove) (ChangeRecordWithImpliedReferents) (GuardChangeRecord) (GuardReferentRegistration) (OpenIntentSubscription) (CollectRemovalCandidates) (OpenObserverTap) (CloseObserverTap)]
   Stash StashRequest
   ClassifyState Statement
   RecordWithImpliedReferents RecordRequest
@@ -77,6 +79,7 @@
   SupersedeWithImpliedReferents Supersession
   Supersede Supersession
   Retire Retirement
+  ResolveClarification ClarificationResolution
   GuardRemove Removal
   ChangeRecordWithImpliedReferents RecordChange
   GuardChangeRecord RecordChange
@@ -85,7 +88,7 @@
   CollectRemovalCandidates RemovalCandidateCollection
   OpenObserverTap ObserverFilter
   CloseObserverTap SubscriptionToken
-  NexusEffectResult [(Stashed) (StateClassified) (RecordReferentsSettled) (ProposeReferentsSettled) (SupersedeReferentsSettled) (ChangeRecordReferentsSettled) (Recorded) (Proposed) (Clarified) (Superseded) (Retired) (Removed) (RecordChanged) (GuardianRejected) (ReferentRegistered) (ReferentGuardianRejected) (OperationFailed) (IntentSubscriptionOpened) (RemovalCandidatesCollected) (ObserverTapOpened) (ObserverTapClosed)]
+  NexusEffectResult [(Stashed) (StateClassified) (RecordReferentsSettled) (ProposeReferentsSettled) (SupersedeReferentsSettled) (ChangeRecordReferentsSettled) (Recorded) (Proposed) (Clarified) (Superseded) (Retired) (ClarificationResolved) (Removed) (RecordChanged) (GuardianRejected) (ReferentRegistered) (ReferentGuardianRejected) (OperationFailed) (IntentSubscriptionOpened) (RemovalCandidatesCollected) (ObserverTapOpened) (ObserverTapClosed)]
   Stashed StashResult
   StateClassified RecordRequest
   RecordReferentsSettled RecordRequest
@@ -97,6 +100,7 @@
   Clarified ClarificationReceipt
   Superseded SupersessionReceipt
   Retired RetirementReceipt
+  ClarificationResolved ClarificationResolutionReceipt
   Removed RemoveReceipt
   RecordChanged RecordChangeReceipt
   GuardianRejected GuardianRejection

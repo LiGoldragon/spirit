@@ -684,7 +684,7 @@ dependencies = [
 [[package]]
 name = "meta-signal-spirit"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=main#7c575825e4bddfe10b6116450b1398cb9a12cf02"
+source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=main#c917b86563781254749e1abcf4b021a0d3f45971"
 dependencies = [
  "nota-next",
  "rkyv",
@@ -1133,7 +1133,7 @@ dependencies = [
 [[package]]
 name = "schema-rust-next"
 version = "0.5.3"
-source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#bb378931c95dcfa7ccb2dfc81bcacfb9c7d1161e"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#9ffa588d38fdbd9fbb15879d434fcedabe373b43"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -1314,7 +1314,7 @@ dependencies = [
 [[package]]
 name = "signal-spirit"
 version = "0.6.0"
-source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=main#f81afd2d7fedc00dc5d24871ddc1715c6955a016"
+source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=main#019a1330bc7e811b309700293c129e40e6a112f3"
 dependencies = [
  "nota-next",
  "rkyv",

@@ -182,6 +182,7 @@ impl ComponentDaemon for SpiritDaemon {
             | Input::Record(_)
             | Input::Propose(_)
             | Input::Clarify(_)
+            | Input::ResolveClarification(_)
             | Input::Supersede(_)
             | Input::Retire(_)
             | Input::Observe(_)

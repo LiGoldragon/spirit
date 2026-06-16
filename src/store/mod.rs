@@ -37,17 +37,18 @@ use crate::schema::{
     },
     signal::{
         Certainty, CertaintyChange, CertaintyChangeReceipt, CertaintySelection, Clarification,
-        ClarificationReceipt, CountedRecords, DatabaseMarker, Description, Entry, ErrorMessage,
-        ErrorReport, Explanation, FoundRecord, GuardianRejection, GuardianRejectionReason,
-        Importance, ImportanceBump, ImportanceBumpReceipt, ImportanceSelection, Keyword,
-        KeywordMatch, Keywords, Magnitude, ObservedRecord, ObservedRecords, Privacy,
-        PrivacySelection, Query, RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier,
-        RecordIdentifiers, RecordSet, Referent, ReferentRegistration, ReferentRegistrationReceipt,
-        ReferentSelection, Referents, Removal, RemovalArchiveRecord, RemovalArchiveRecords,
-        RemovalCandidateCollection, RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifier,
-        RemovedIdentifiers, Retirement, RetirementReceipt, SearchText, SemaReceipt,
-        SkippedRemovalCandidate, SkippedRemovalCandidates, Supersession, SupersessionReceipt,
-        TextMatch,
+        ClarificationReceipt, ClarificationRecordIdentifier, ClarificationResolution,
+        ClarificationResolutionReceipt, CountedRecords, DatabaseMarker, Description, Entry,
+        ErrorMessage, ErrorReport, Explanation, FoundRecord, GuardianRejection,
+        GuardianRejectionReason, Importance, ImportanceBump, ImportanceBumpReceipt,
+        ImportanceSelection, Keyword, KeywordMatch, Keywords, Magnitude, ObservedRecord,
+        ObservedRecords, Privacy, PrivacySelection, Query, RecordChange, RecordChangeReceipt,
+        RecordCount, RecordIdentifier, RecordIdentifiers, RecordSet, Referent,
+        ReferentRegistration, ReferentRegistrationReceipt, ReferentSelection, Referents, Removal,
+        RemovalArchiveRecord, RemovalArchiveRecords, RemovalCandidateCollection,
+        RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifier, RemovedIdentifiers,
+        Retirement, RetirementReceipt, SearchText, SemaReceipt, SkippedRemovalCandidate,
+        SkippedRemovalCandidates, Supersession, SupersessionReceipt, TextMatch,
     },
 };
 
@@ -686,6 +687,26 @@ impl Store {
                     bundle.extend(self.guardian_records_for_entry(&candidate)?);
                 }
             }
+            GuardianOperation::ResolveClarification(resolution) => {
+                if let Some(current) = self.observed_record_by_identifier(
+                    resolution
+                        .clarification_record_identifier
+                        .payload()
+                        .payload(),
+                )? {
+                    bundle.insert(current);
+                }
+                for target in resolution.target_clarifications.payload() {
+                    if let Some(current) =
+                        self.observed_record_by_identifier(target.record_identifier.payload())?
+                    {
+                        bundle.insert(current.clone());
+                        let mut candidate = current.entry;
+                        candidate.description = target.description.clone();
+                        bundle.extend(self.guardian_records_for_entry(&candidate)?);
+                    }
+                }
+            }
             GuardianOperation::Supersede(supersession) => {
                 for retired_identifier in supersession.retired_identifiers.payload() {
                     if let Some(current) =
@@ -934,6 +955,67 @@ impl Store {
             StoredRecord::new(identifier_text, entry),
         ))?;
         Ok(Some(ClarificationReceipt::new(record_identifier)))
+    }
+
+    pub fn resolve_clarification(
+        &self,
+        resolution: ClarificationResolution,
+    ) -> Result<Option<ClarificationResolutionReceipt>, StoreError> {
+        let ClarificationResolution {
+            clarification_record_identifier,
+            target_clarifications,
+            justification: _justification,
+        } = resolution;
+        let clarification_identifier = clarification_record_identifier.payload().payload().clone();
+        if self
+            .entry_by_identifier(&clarification_identifier)?
+            .is_none()
+        {
+            return Ok(None);
+        }
+
+        let mut snapshots = Vec::new();
+        for target in target_clarifications.payload() {
+            let identifier_text = target.record_identifier.payload().clone();
+            let Some(entry) = self.entry_by_identifier(&identifier_text)? else {
+                return Ok(None);
+            };
+            snapshots.push((
+                target.record_identifier.clone(),
+                identifier_text,
+                entry,
+                target.description.clone(),
+            ));
+        }
+
+        let mut archive = self.open_archive_database()?;
+        for (_record_identifier, identifier_text, entry, _description) in &snapshots {
+            archive.archive_record(
+                StoredRecord::new(identifier_text.clone(), entry.clone()),
+                self.archive_identifier(identifier_text),
+            )?;
+        }
+
+        let mut record_identifiers = Vec::new();
+        for (record_identifier, identifier_text, mut entry, description) in snapshots {
+            entry.description = description;
+            self.database.mutate(Mutation::new(
+                self.entries,
+                StoredRecord::new(identifier_text, entry),
+            ))?;
+            record_identifiers.push(record_identifier);
+        }
+
+        if !self.remove(&clarification_identifier)? {
+            return Ok(None);
+        }
+
+        Ok(Some(ClarificationResolutionReceipt {
+            clarification_record_identifier: ClarificationRecordIdentifier::new(
+                RecordIdentifier::new(clarification_identifier),
+            ),
+            record_identifiers: RecordIdentifiers::new(record_identifiers),
+        }))
     }
 
     pub fn supersede(

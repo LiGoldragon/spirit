@@ -24,7 +24,11 @@ use spirit::Configuration;
 use spirit::TraceEvent;
 #[cfg(feature = "agent-guardian")]
 use spirit::schema::nexus::GuardianVerdict;
-use spirit::schema::signal::{Domains, IntentEvent, Kind, Magnitude, Output, RecordIdentifier};
+use spirit::schema::signal::{
+    Antecedent, ClarificationRecordIdentifier, ClarificationResolution, Description, Domains,
+    Input, IntentEvent, Justification, Kind, Magnitude, Output, QuoteText, Reasoning,
+    RecordIdentifier, TargetClarification, TargetClarifications, Testimony, VerbatimQuote,
+};
 #[cfg(feature = "agent-guardian")]
 use std::{
     io::Write,
@@ -427,6 +431,24 @@ fn remove_nota(identifier: &RecordIdentifier) -> String {
     )
 }
 
+fn resolve_clarification_nota(
+    clarification_identifier: RecordIdentifier,
+    target_identifier: RecordIdentifier,
+    description: &str,
+) -> String {
+    Input::resolve_clarification(ClarificationResolution {
+        clarification_record_identifier: ClarificationRecordIdentifier::new(
+            clarification_identifier,
+        ),
+        target_clarifications: TargetClarifications::new(vec![TargetClarification {
+            record_identifier: target_identifier,
+            description: Description::new(description),
+        }]),
+        justification: test_justification("a clarification means edit the target, not add more"),
+    })
+    .to_nota()
+}
+
 fn collect_removal_candidates_nota(query: &str) -> String {
     format!(
         "(CollectRemovalCandidates ({query} ([([collect removal candidates] None)] [collect removal candidates])))"
@@ -448,6 +470,16 @@ fn assert_short_record_identifier(identifier: &RecordIdentifier) {
 
 fn record_identifier_argument(identifier: &RecordIdentifier) -> String {
     identifier.to_string()
+}
+
+fn test_justification(statement: &str) -> Justification {
+    Justification {
+        testimony: Testimony::new(vec![VerbatimQuote {
+            quote_text: QuoteText::new(statement),
+            antecedent: Some(Antecedent::new("test setup")),
+        }]),
+        reasoning: Reasoning::new(statement),
+    }
 }
 
 fn nota_path(path: &Path) -> String {
@@ -614,6 +646,93 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
     assert!(
         matches!(rejected, Output::Rejected(_)),
         "empty domain is rejected before SEMA, got {rejected:?}"
+    );
+}
+
+#[test]
+fn cli_and_daemon_resolve_clarification_edits_target_and_removes_standalone() {
+    let temp = TempDir::new().expect("tempdir");
+    let socket_path = temp.path().join("resolve-clarification.sock");
+    let database_path = temp.path().join("resolve-clarification.sema");
+
+    let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
+
+    let target = run_cli(
+        &socket_path,
+        &record_nota(
+            "[(Information Documentation)]",
+            "Decision",
+            "clarifications should not add more records",
+        ),
+    );
+    let target_identifier = match target {
+        Output::RecordAccepted(receipt) => receipt.payload().clone(),
+        other => panic!("expected target RecordAccepted, got {other:?}"),
+    };
+
+    let standalone = run_cli(
+        &socket_path,
+        &record_nota(
+            "[(Information Documentation)]",
+            "Clarification",
+            "bad standalone clarification to fold away",
+        ),
+    );
+    let clarification_identifier = match standalone {
+        Output::RecordAccepted(receipt) => receipt.payload().clone(),
+        other => panic!("expected clarification RecordAccepted, got {other:?}"),
+    };
+
+    let resolved = run_cli(
+        &socket_path,
+        &resolve_clarification_nota(
+            clarification_identifier.clone(),
+            target_identifier.clone(),
+            "clarifications edit target records instead of adding more records",
+        ),
+    );
+    match resolved {
+        Output::ClarificationResolved(receipt) => {
+            assert_eq!(
+                receipt.payload().clarification_record_identifier.payload(),
+                &clarification_identifier
+            );
+            assert_eq!(
+                receipt.payload().record_identifiers.payload(),
+                &vec![target_identifier.clone()]
+            );
+        }
+        other => panic!("expected ClarificationResolved, got {other:?}"),
+    }
+
+    let found = run_cli(
+        &socket_path,
+        &format!(
+            "(Lookup {})",
+            record_identifier_argument(&target_identifier)
+        ),
+    );
+    match found {
+        Output::RecordFound(record) => {
+            assert_eq!(record.record_identifier, target_identifier);
+            assert_eq!(
+                record.entry.description.payload(),
+                "clarifications edit target records instead of adding more records"
+            );
+        }
+        other => panic!("expected target RecordFound, got {other:?}"),
+    }
+
+    let missing = run_cli(
+        &socket_path,
+        &format!(
+            "(Lookup {})",
+            record_identifier_argument(&clarification_identifier)
+        ),
+    );
+    assert!(
+        matches!(missing, Output::Error(_)),
+        "standalone clarification should be removed, got {missing:?}"
     );
 }
 

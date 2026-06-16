@@ -182,6 +182,23 @@
               cp -R "$metaSignalAgentSource" $out/vendor-sources/meta-signal-agent
               cp -R "$agentSource" $out/vendor-sources/agent
               cp -R "$versionProjectionSource" $out/vendor-sources/version-projection
+              chmod -R u+w $out/vendor-sources
+
+              ${pkgs.python3}/bin/python3 - "$out/vendor-sources" <<'PYEOF'
+              from pathlib import Path
+              import sys
+
+              vendor_sources = Path(sys.argv[1])
+              branch_aliases = (
+                  ('branch = "structural-forms-integration"', 'branch = "main"'),
+                  ('branch = "versioned-family-identity"', 'branch = "main"'),
+              )
+              for cargo_toml in vendor_sources.rglob("Cargo.toml"):
+                  text = cargo_toml.read_text()
+                  for original, replacement in branch_aliases:
+                      text = text.replace(original, replacement)
+                  cargo_toml.write_text(text)
+              PYEOF
 
               substituteInPlace $out/Cargo.toml \
                 --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota-next = { path = "vendor-sources/nota-next", optional = true }' \
@@ -198,17 +215,44 @@
                 --replace-fail 'agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", features = ["live-provider"] }' 'agent = { path = "vendor-sources/agent", features = ["live-provider"] }' \
                 --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "vendor-sources/schema-next" }'
 
-              substituteInPlace $out/vendor-sources/schema-rust-next/Cargo.toml \
-                --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "../schema-next" }' \
-                --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next = { path = "../nota-next" }' \
-                --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }' 'signal-frame = { path = "../signal-frame" }' \
-                --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "../triad-runtime" }'
+              ${pkgs.python3}/bin/python3 - "$out/vendor-sources/schema-rust-next/Cargo.toml" <<'PYEOF'
+              from pathlib import Path
+              import sys
+
+              cargo_toml = Path(sys.argv[1])
+              text = cargo_toml.read_text()
+              replacements = {
+                  'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }': 'schema-next = { path = "../schema-next" }',
+                  'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "structural-forms-integration" }': 'schema-next = { path = "../schema-next" }',
+                  'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }': 'nota-next = { path = "../nota-next" }',
+                  'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "structural-forms-integration" }': 'nota-next = { path = "../nota-next" }',
+                  'sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "versioned-family-identity" }': 'sema-engine = { path = "../sema-engine" }',
+                  'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }': 'signal-frame = { path = "../signal-frame" }',
+                  'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }': 'triad-runtime = { path = "../triad-runtime" }',
+                  'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "structural-forms-integration" }': 'triad-runtime = { path = "../triad-runtime" }',
+              }
+              for original, replacement in replacements.items():
+                  text = text.replace(original, replacement)
+
+              required = (
+                  'schema-next = { path = "../schema-next" }',
+                  'nota-next = { path = "../nota-next" }',
+                  'signal-frame = { path = "../signal-frame" }',
+                  'triad-runtime = { path = "../triad-runtime" }',
+              )
+              missing = [line for line in required if line not in text]
+              if missing:
+                  raise SystemExit(f"schema-rust-next local dependency patch incomplete: {missing}")
+              cargo_toml.write_text(text)
+              PYEOF
 
               substituteInPlace $out/vendor-sources/schema-next/Cargo.toml \
                 --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next = { path = "../nota-next" }'
 
-              substituteInPlace $out/vendor-sources/schema-next/schema-cc/Cargo.toml \
-                --replace-fail 'nota-next    = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next    = { path = "../../nota-next" }'
+              if [ -f $out/vendor-sources/schema-next/schema-cc/Cargo.toml ]; then
+                substituteInPlace $out/vendor-sources/schema-next/schema-cc/Cargo.toml \
+                  --replace-fail 'nota-next    = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next    = { path = "../../nota-next" }'
+              fi
 
               substituteInPlace $out/vendor-sources/sema-engine/Cargo.toml \
                 --replace-fail 'sema = { git = "https://github.com/LiGoldragon/sema.git", branch = "main" }' 'sema = { path = "../sema" }' \

@@ -80,13 +80,14 @@ fn signal_schema_input_uses_exported_object_variant_names() {
 
     // The active production Input enum body — compact exported objects.
     witness.must_contain(
-        "[State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version Marker]",
+        "[State Record Propose Clarify Supersede Retire ResolveClarification Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version Marker]",
         "4",
     );
     witness.must_contain("State Statement", "4");
     witness.must_contain("Record RecordRequest", "4");
     witness.must_contain("Propose Proposal", "4");
     witness.must_contain("Clarify Clarification", "4");
+    witness.must_contain("ResolveClarification ClarificationResolution", "4");
     witness.must_contain("Supersede Supersession", "4");
     witness.must_contain("Retire Retirement", "4");
     witness.must_contain("Observe Query", "4");
@@ -169,12 +170,13 @@ fn signal_schema_output_uses_exported_object_variant_names() {
 
     // The active production Output enum body.
     witness.must_contain(
-        "[RecordAccepted Proposed Clarified Superseded Retired GuardianRejected ReferentGuardianRejected RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged ImportanceBumped RecordChanged ReferentRegistered RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted VersionReported MarkerReported (Event IntentEvent) Error Rejected]",
+        "[RecordAccepted Proposed Clarified Superseded Retired ClarificationResolved GuardianRejected ReferentGuardianRejected RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged ImportanceBumped RecordChanged ReferentRegistered RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted VersionReported MarkerReported (Event IntentEvent) Error Rejected]",
         "4",
     );
     witness.must_contain("RecordAccepted RecordIdentifier", "4");
     witness.must_contain("Proposed RecordIdentifier", "4");
     witness.must_contain("Clarified ClarificationReceipt", "4");
+    witness.must_contain("ClarificationResolved ClarificationResolutionReceipt", "4");
     witness.must_contain("Superseded SupersessionReceipt", "4");
     witness.must_contain("Retired RetirementReceipt", "4");
     witness.must_contain("GuardianRejected GuardianRejection", "4");
@@ -262,7 +264,7 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     sema_witness.must_round_trip_as_schema_source();
 
     signal_witness.must_contain(
-        "[State Record Propose Clarify Supersede Retire Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version Marker]",
+        "[State Record Propose Clarify Supersede Retire ResolveClarification Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version Marker]",
         "4",
     );
     signal_witness.must_contain("State Statement", "4");
@@ -294,7 +296,7 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     );
     nexus_witness.must_contain("NexusAction [(CommandSemaWrite)", "4");
     nexus_witness.must_contain(
-        "NexusEffectCommand [(Stash) (ClassifyState) (RecordWithImpliedReferents) (GuardRecord) (ProposeWithImpliedReferents) (Propose) (Clarify) (SupersedeWithImpliedReferents) (Supersede) (Retire) (GuardRemove) (ChangeRecordWithImpliedReferents) (GuardChangeRecord) (GuardReferentRegistration) (OpenIntentSubscription) (CollectRemovalCandidates) (OpenObserverTap) (CloseObserverTap)]",
+        "NexusEffectCommand [(Stash) (ClassifyState) (RecordWithImpliedReferents) (GuardRecord) (ProposeWithImpliedReferents) (Propose) (Clarify) (SupersedeWithImpliedReferents) (Supersede) (Retire) (ResolveClarification) (GuardRemove) (ChangeRecordWithImpliedReferents) (GuardChangeRecord) (GuardReferentRegistration) (OpenIntentSubscription) (CollectRemovalCandidates) (OpenObserverTap) (CloseObserverTap)]",
         "4",
     );
     nexus_witness.must_contain("ClassifyState Statement", "4");
@@ -303,6 +305,7 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     nexus_witness.must_contain("ProposeWithImpliedReferents Proposal", "4");
     nexus_witness.must_contain("Propose Proposal", "4");
     nexus_witness.must_contain("Clarify Clarification", "4");
+    nexus_witness.must_contain("ResolveClarification ClarificationResolution", "4");
     nexus_witness.must_contain("SupersedeWithImpliedReferents Supersession", "4");
     nexus_witness.must_contain("Supersede Supersession", "4");
     nexus_witness.must_contain("Retire Retirement", "4");
@@ -312,7 +315,7 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     nexus_witness.must_contain("GuardReferentRegistration ReferentRegistration", "4");
     nexus_witness.must_contain("OpenIntentSubscription Query", "4");
     nexus_witness.must_contain(
-        "NexusEffectResult [(Stashed) (StateClassified) (RecordReferentsSettled) (ProposeReferentsSettled) (SupersedeReferentsSettled) (ChangeRecordReferentsSettled) (Recorded) (Proposed) (Clarified) (Superseded) (Retired) (Removed) (RecordChanged) (GuardianRejected) (ReferentRegistered) (ReferentGuardianRejected) (OperationFailed) (IntentSubscriptionOpened) (RemovalCandidatesCollected) (ObserverTapOpened) (ObserverTapClosed)]",
+        "NexusEffectResult [(Stashed) (StateClassified) (RecordReferentsSettled) (ProposeReferentsSettled) (SupersedeReferentsSettled) (ChangeRecordReferentsSettled) (Recorded) (Proposed) (Clarified) (Superseded) (Retired) (ClarificationResolved) (Removed) (RecordChanged) (GuardianRejected) (ReferentRegistered) (ReferentGuardianRejected) (OperationFailed) (IntentSubscriptionOpened) (RemovalCandidatesCollected) (ObserverTapOpened) (ObserverTapClosed)]",
         "4",
     );
     nexus_witness.must_contain("StateClassified RecordRequest", "4");
@@ -320,6 +323,7 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     nexus_witness.must_contain("ProposeReferentsSettled Proposal", "4");
     nexus_witness.must_contain("SupersedeReferentsSettled Supersession", "4");
     nexus_witness.must_contain("ChangeRecordReferentsSettled RecordChange", "4");
+    nexus_witness.must_contain("ClarificationResolved ClarificationResolutionReceipt", "4");
     nexus_witness.must_contain("Recorded SemaReceipt", "4");
     nexus_witness.must_contain("Proposed SemaReceipt", "4");
     nexus_witness.must_contain("Clarified ClarificationReceipt", "4");

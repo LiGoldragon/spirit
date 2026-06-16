@@ -17,19 +17,20 @@ use crate::{
             SemaEngine, WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
         },
         signal::{
-            Certainty, Clarification, ClarificationReceipt, DatabaseMarker, Description, Domain,
-            Domains, Entry, ErrorMessage, ErrorReport, GuardianRejection, Importance, Input,
-            IntentClarified, IntentEvent, IntentRecorded, IntentSubscription, IntentSuperseded,
-            Justification, Kind, Magnitude, ObservedOperation, ObservedOperations, ObserverFilter,
-            ObserverRetraction, ObserverSubscription, OperationKind, Output, Privacy, Proposal,
-            QuoteText, Reasoning, RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier,
-            RecordRequest, Records, ReferentGuardianRejection, ReferentRegistration,
-            ReferentRegistrationReceipt, Referents, Removal, RemovalArchiveRecords,
-            RemovalCandidateCollection, RemovalCandidatesCollection, RemoveReceipt,
-            RemovedIdentifiers, Replacements, Retirement, RetirementReceipt, SemaReceipt,
-            SignalRejection, SkippedRemovalCandidates, StashHandle, StashedObservation, Statement,
-            SubscriptionToken, Supersession, SupersessionReceipt, Testimony, ValidationError,
-            VerbatimQuote, VersionReport, VersionText,
+            Certainty, Clarification, ClarificationReceipt, ClarificationResolution,
+            ClarificationResolutionReceipt, DatabaseMarker, Description, Domain, Domains, Entry,
+            ErrorMessage, ErrorReport, GuardianRejection, Importance, Input, IntentClarified,
+            IntentEvent, IntentRecorded, IntentSubscription, IntentSuperseded, Justification, Kind,
+            Magnitude, ObservedOperation, ObservedOperations, ObserverFilter, ObserverRetraction,
+            ObserverSubscription, OperationKind, Output, Privacy, Proposal, QuoteText, Reasoning,
+            RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier, RecordRequest,
+            Records, ReferentGuardianRejection, ReferentRegistration, ReferentRegistrationReceipt,
+            Referents, Removal, RemovalArchiveRecords, RemovalCandidateCollection,
+            RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifiers, Replacements,
+            Retirement, RetirementReceipt, SemaReceipt, SignalRejection, SkippedRemovalCandidates,
+            StashHandle, StashedObservation, Statement, SubscriptionToken, Supersession,
+            SupersessionReceipt, Testimony, ValidationError, VerbatimQuote, VersionReport,
+            VersionText,
         },
     },
     store::{Store, StoreError},
@@ -449,6 +450,20 @@ impl Nexus {
                     Err(error) => self.operation_failed(error.to_string()),
                 }
             }
+            NexusEffectCommand::ResolveClarification(resolution) => {
+                match self.guard_resolve_clarification(resolution.into_payload()) {
+                    Ok(Ok(Some(receipt))) => {
+                        #[cfg(feature = "testing-trace")]
+                        self.trace_direct_sema_write();
+                        NexusEffectResult::clarification_resolved(receipt)
+                    }
+                    Ok(Ok(None)) => {
+                        self.operation_failed("clarification resolution target not found")
+                    }
+                    Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
+                    Err(error) => self.operation_failed(error.to_string()),
+                }
+            }
             NexusEffectCommand::SupersedeWithImpliedReferents(supersede) => {
                 self.apply_supersede_with_implied_referents(supersede.into_payload())
             }
@@ -654,6 +669,26 @@ impl Nexus {
             return Ok(Err(rejection));
         }
         Ok(Ok(self.store.clarify(clarification)?))
+    }
+
+    #[cfg(not(feature = "agent-guardian"))]
+    fn guard_resolve_clarification(
+        &mut self,
+        resolution: ClarificationResolution,
+    ) -> Result<Result<Option<ClarificationResolutionReceipt>, GuardianRejection>, StoreError> {
+        Ok(Ok(self.store.resolve_clarification(resolution)?))
+    }
+
+    #[cfg(feature = "agent-guardian")]
+    fn guard_resolve_clarification(
+        &mut self,
+        resolution: ClarificationResolution,
+    ) -> Result<Result<Option<ClarificationResolutionReceipt>, GuardianRejection>, StoreError> {
+        let operation = GuardianOperation::resolve_clarification(resolution.clone());
+        if let Some(rejection) = self.guard_model(operation)? {
+            return Ok(Err(rejection));
+        }
+        Ok(Ok(self.store.resolve_clarification(resolution)?))
     }
 
     #[cfg(not(feature = "agent-guardian"))]
@@ -1117,6 +1152,9 @@ impl Nexus {
             Input::Clarify(clarify) => {
                 NexusAction::command_effect(NexusEffectCommand::clarify(clarify.into_payload()))
             }
+            Input::ResolveClarification(resolution) => NexusAction::command_effect(
+                NexusEffectCommand::resolve_clarification(resolution.into_payload()),
+            ),
             Input::Supersede(supersede) => NexusAction::command_effect(
                 NexusEffectCommand::supersede_with_implied_referents(supersede.into_payload()),
             ),
@@ -1291,6 +1329,9 @@ impl Nexus {
             )),
             NexusEffectResult::Clarified(receipt) => {
                 NexusAction::reply_to_signal(Output::clarified(receipt.into_payload()))
+            }
+            NexusEffectResult::ClarificationResolved(receipt) => {
+                NexusAction::reply_to_signal(Output::clarification_resolved(receipt.into_payload()))
             }
             NexusEffectResult::Superseded(receipt) => {
                 NexusAction::reply_to_signal(Output::superseded(receipt.into_payload()))

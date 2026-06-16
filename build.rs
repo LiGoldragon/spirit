@@ -68,8 +68,13 @@ impl SchemaBuild {
     /// meta listener whose wire contract is imported from `meta-signal-spirit`
     /// at mode `0o600`.
     fn daemon_shape(&self) -> NexusDaemonShape {
-        NexusDaemonShape::new("spirit-daemon", WorkingListenerTier::new("signal")).with_meta_tier(
-            MetaListenerTier::new(SocketModeBits::new(OWNER_ONLY_SOCKET_MODE)),
+        NexusDaemonShape::new(
+            "spirit-daemon",
+            WorkingListenerTier::dependency("signal_spirit::schema::signal"),
         )
+        .with_working_streams()
+        .with_meta_tier(MetaListenerTier::new(SocketModeBits::new(
+            OWNER_ONLY_SOCKET_MODE,
+        )))
     }
 }

@@ -10,45 +10,45 @@ pub type Boolean = bool;
 pub type Path = std::string::String;
 
 #[rustfmt::skip]
-pub use crate::schema::signal::Entry as Entry;
+pub use signal_spirit::schema::signal::Entry as Entry;
 #[rustfmt::skip]
-pub use crate::schema::signal::Query as Query;
+pub use signal_spirit::schema::signal::Query as Query;
 #[rustfmt::skip]
-pub use crate::schema::signal::RecordIdentifier as RecordIdentifier;
+pub use signal_spirit::schema::signal::RecordIdentifier as RecordIdentifier;
 #[rustfmt::skip]
-pub use crate::schema::signal::Referent as Referent;
+pub use signal_spirit::schema::signal::Referent as Referent;
 #[rustfmt::skip]
-pub use crate::schema::signal::Referents as Referents;
+pub use signal_spirit::schema::signal::Referents as Referents;
 #[rustfmt::skip]
-pub use crate::schema::signal::Removal as Removal;
+pub use signal_spirit::schema::signal::Removal as Removal;
 #[rustfmt::skip]
-pub use crate::schema::signal::CertaintyChange as CertaintyChange;
+pub use signal_spirit::schema::signal::CertaintyChange as CertaintyChange;
 #[rustfmt::skip]
-pub use crate::schema::signal::ImportanceBump as ImportanceBump;
+pub use signal_spirit::schema::signal::ImportanceBump as ImportanceBump;
 #[rustfmt::skip]
-pub use crate::schema::signal::RecordChange as RecordChange;
+pub use signal_spirit::schema::signal::RecordChange as RecordChange;
 #[rustfmt::skip]
-pub use crate::schema::signal::ReferentRegistration as ReferentRegistration;
+pub use signal_spirit::schema::signal::ReferentRegistration as ReferentRegistration;
 #[rustfmt::skip]
-pub use crate::schema::signal::SemaReceipt as SemaReceipt;
+pub use signal_spirit::schema::signal::SemaReceipt as SemaReceipt;
 #[rustfmt::skip]
-pub use crate::schema::signal::RemoveReceipt as RemoveReceipt;
+pub use signal_spirit::schema::signal::RemoveReceipt as RemoveReceipt;
 #[rustfmt::skip]
-pub use crate::schema::signal::CertaintyChangeReceipt as CertaintyChangeReceipt;
+pub use signal_spirit::schema::signal::CertaintyChangeReceipt as CertaintyChangeReceipt;
 #[rustfmt::skip]
-pub use crate::schema::signal::ImportanceBumpReceipt as ImportanceBumpReceipt;
+pub use signal_spirit::schema::signal::ImportanceBumpReceipt as ImportanceBumpReceipt;
 #[rustfmt::skip]
-pub use crate::schema::signal::RecordChangeReceipt as RecordChangeReceipt;
+pub use signal_spirit::schema::signal::RecordChangeReceipt as RecordChangeReceipt;
 #[rustfmt::skip]
-pub use crate::schema::signal::ReferentRegistrationReceipt as ReferentRegistrationReceipt;
+pub use signal_spirit::schema::signal::ReferentRegistrationReceipt as ReferentRegistrationReceipt;
 #[rustfmt::skip]
-pub use crate::schema::signal::ObservedRecords as ObservedRecords;
+pub use signal_spirit::schema::signal::ObservedRecords as ObservedRecords;
 #[rustfmt::skip]
-pub use crate::schema::signal::FoundRecord as FoundRecord;
+pub use signal_spirit::schema::signal::FoundRecord as FoundRecord;
 #[rustfmt::skip]
-pub use crate::schema::signal::CountedRecords as CountedRecords;
+pub use signal_spirit::schema::signal::CountedRecords as CountedRecords;
 #[rustfmt::skip]
-pub use crate::schema::signal::ErrorReport as ErrorReport;
+pub use signal_spirit::schema::signal::ErrorReport as ErrorReport;
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
@@ -966,16 +966,16 @@ impl std::fmt::Display for Output {
 #[rustfmt::skip]
 pub mod family_identity {
     pub const RECORDS_FAMILY: [u8; 32] = [
-        128, 152, 120, 200, 198, 145, 69, 202, 209, 143, 69, 0, 194, 68, 236, 123, 66,
-        45, 71, 174, 61, 91, 152, 128, 240, 76, 53, 227, 70, 162, 14, 185,
+        52, 88, 128, 170, 94, 8, 44, 131, 152, 209, 47, 138, 37, 170, 7, 248, 232, 121,
+        28, 11, 173, 83, 67, 27, 228, 29, 213, 147, 180, 153, 30, 59,
     ];
     pub const REFERENTS_FAMILY: [u8; 32] = [
-        148, 20, 243, 164, 221, 37, 189, 55, 141, 132, 255, 229, 160, 20, 221, 151, 9,
-        87, 17, 16, 190, 49, 67, 192, 49, 14, 212, 75, 162, 60, 82, 157,
+        222, 9, 197, 125, 6, 22, 39, 64, 63, 53, 45, 32, 84, 147, 157, 146, 74, 217, 28,
+        211, 241, 196, 171, 146, 247, 31, 93, 52, 123, 137, 179, 185,
     ];
     pub const MIGRATIONS_FAMILY: [u8; 32] = [
-        96, 13, 160, 54, 2, 240, 240, 159, 129, 176, 196, 115, 153, 242, 20, 188, 11,
-        198, 33, 180, 70, 0, 165, 6, 233, 11, 118, 11, 189, 6, 149, 16,
+        250, 104, 191, 54, 136, 43, 139, 136, 252, 91, 111, 162, 219, 95, 166, 21, 169,
+        84, 145, 113, 113, 66, 123, 188, 52, 80, 9, 180, 30, 19, 92, 88,
     ];
 }
 

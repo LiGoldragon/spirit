@@ -23,11 +23,9 @@ use tokio::io::AsyncWriteExt;
 #[rustfmt::skip]
 use triad_runtime::{FrameBody, FrameError, LengthPrefixedCodec};
 #[rustfmt::skip]
-use crate::schema::signal::{Input, Output, SignalFrameError};
+use signal_spirit::schema::signal::{Input, Output, SignalFrameError};
 #[rustfmt::skip]
 use signal_frame::SubscriptionTokenInner;
-#[rustfmt::skip]
-use tokio::net::unix::{OwnedReadHalf, OwnedWriteHalf};
 #[rustfmt::skip]
 use triad_runtime::{SubscriptionEventPublisher, SubscriptionRegistry};
 #[rustfmt::skip]
@@ -211,52 +209,64 @@ pub trait DaemonBinder: ComponentDaemon {
         let engine = Self::build_runtime(&configuration)
             .map_err(DaemonError::Component)?;
         let runtime = GeneratedDaemonRuntime::<Self>::new(engine);
-        let working_socket = AsyncListenerSocket::new(
-            ListenerTier::Working,
-            configuration.socket_path().to_path_buf(),
-        );
-        let working_socket = match configuration.socket_mode() {
-            Some(socket_mode) => working_socket.with_socket_mode(socket_mode),
-            None => working_socket,
-        };
-        let mut listener_sockets = std::vec![working_socket];
-        let meta_socket_path = configuration
-            .meta_socket_path()
-            .ok_or(DaemonError::MissingMetaSocket)?
-            .to_path_buf();
-        listener_sockets
-            .push(
-                AsyncListenerSocket::new(ListenerTier::Meta, meta_socket_path)
-                    .with_socket_mode(SocketMode::new(0o600)),
+        Ok({
+            let working_socket = AsyncListenerSocket::new(
+                ListenerTier::Working,
+                configuration.socket_path().to_path_buf(),
             );
-        Ok(
+            let working_socket = match configuration.socket_mode() {
+                Some(socket_mode) => working_socket.with_socket_mode(socket_mode),
+                None => working_socket,
+            };
+            let mut listener_sockets = std::vec![working_socket];
+            let meta_socket_path = configuration
+                .meta_socket_path()
+                .ok_or(DaemonError::MissingMetaSocket)?
+                .to_path_buf();
+            listener_sockets
+                .push(
+                    AsyncListenerSocket::new(ListenerTier::Meta, meta_socket_path)
+                        .with_socket_mode(SocketMode::new(0o600)),
+                );
             AsyncMultiListenerDaemon::new(
                     listener_sockets,
-                    runtime,
+                    runtime.clone(),
                     RequestErrorLog::new(Self::PROCESS_NAME),
                 )
-                .with_concurrency_limit(configuration.request_concurrency_limit()),
-        )
+                .with_concurrency_limit(configuration.request_concurrency_limit())
+        })
     }
 }
 #[rustfmt::skip]
 impl<Daemon: ComponentDaemon> DaemonBinder for Daemon {}
 #[rustfmt::skip]
+type SubscriptionWriter = Box<dyn tokio::io::AsyncWrite + Unpin + Send>;
+#[rustfmt::skip]
 /// The stream-aware working-tier transport over one accepted Tokio stream:
 /// a length-prefixed envelope around the schema-emitted signal frame codec,
 /// plus an owned writer half that can remain registered for pushed events.
-struct WorkingTransport {
-    reader: OwnedReadHalf,
-    writer: OwnedWriteHalf,
+struct WorkingTransport<Reader, Writer> {
+    reader: Reader,
+    writer: Writer,
     context: triad_runtime::ConnectionContext,
 }
 #[rustfmt::skip]
-impl WorkingTransport {
-    fn new(connection: AcceptedConnection) -> Self {
+impl<Stream> WorkingTransport<tokio::io::ReadHalf<Stream>, tokio::io::WriteHalf<Stream>>
+where
+    Stream: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
+{
+    fn from_connection(connection: AcceptedConnection<Stream>) -> Self {
         let (stream, context) = connection.into_parts();
-        let (reader, writer) = stream.into_split();
+        let (reader, writer) = tokio::io::split(stream);
         Self { reader, writer, context }
     }
+}
+#[rustfmt::skip]
+impl<Reader, Writer> WorkingTransport<Reader, Writer>
+where
+    Reader: tokio::io::AsyncRead + Unpin,
+    Writer: tokio::io::AsyncWrite + Unpin + Send + 'static,
+{
     fn context(&self) -> &triad_runtime::ConnectionContext {
         &self.context
     }
@@ -275,8 +285,8 @@ impl WorkingTransport {
         self.writer.flush().await?;
         Ok(())
     }
-    fn into_writer(self) -> OwnedWriteHalf {
-        self.writer
+    fn into_writer(self) -> SubscriptionWriter {
+        Box::new(self.writer)
     }
 }
 #[rustfmt::skip]
@@ -294,7 +304,7 @@ struct SubscriptionState<Daemon: ComponentDaemon> {
         Daemon::SubscriptionToken,
         Daemon::SubscriptionFilter,
     >,
-    writers: std::collections::HashMap<SubscriptionTokenInner, OwnedWriteHalf>,
+    writers: std::collections::HashMap<SubscriptionTokenInner, SubscriptionWriter>,
     publisher: SubscriptionEventPublisher<Input, Output, Daemon::StreamEvent>,
 }
 #[rustfmt::skip]
@@ -320,7 +330,7 @@ impl<Daemon: ComponentDaemon> EmittedSubscriptions<Daemon> {
         &self,
         token: Daemon::SubscriptionToken,
         filter: Daemon::SubscriptionFilter,
-        writer: OwnedWriteHalf,
+        writer: SubscriptionWriter,
     ) {
         let mut state = self.state.lock().await;
         state.registry.register_token(token, filter);
@@ -387,7 +397,7 @@ impl<Daemon: ComponentDaemon> EmittedSubscriptions<Daemon> {
 struct SubscriptionWriters<'writers, Daemon: ComponentDaemon> {
     writers: &'writers mut std::collections::HashMap<
         SubscriptionTokenInner,
-        OwnedWriteHalf,
+        SubscriptionWriter,
     >,
     daemon: std::marker::PhantomData<fn() -> Daemon>,
 }
@@ -396,7 +406,7 @@ impl<'writers, Daemon: ComponentDaemon> SubscriptionWriters<'writers, Daemon> {
     fn new(
         writers: &'writers mut std::collections::HashMap<
             SubscriptionTokenInner,
-            OwnedWriteHalf,
+            SubscriptionWriter,
         >,
     ) -> Self {
         Self {
@@ -499,14 +509,14 @@ impl<Daemon: ComponentDaemon> Message<MetaConnection> for EngineActor<Daemon> {
 /// spine; the engine state lives behind the actor mailbox.
 pub struct GeneratedDaemonRuntime<Daemon: ComponentDaemon> {
     engine: ActorRef<EngineActor<Daemon>>,
-    subscriptions: EmittedSubscriptions<Daemon>,
+    subscriptions: std::sync::Arc<EmittedSubscriptions<Daemon>>,
 }
 #[rustfmt::skip]
 impl<Daemon: ComponentDaemon> GeneratedDaemonRuntime<Daemon> {
     fn new(engine: Daemon::Engine) -> Self {
         Self {
             engine: EngineActor::<Daemon>::spawn(EngineActor { engine }),
-            subscriptions: EmittedSubscriptions::default(),
+            subscriptions: std::sync::Arc::new(EmittedSubscriptions::default()),
         }
     }
     /// Translate a kameo `SendError` from an engine `ask` into the
@@ -530,11 +540,14 @@ impl<Daemon: ComponentDaemon> GeneratedDaemonRuntime<Daemon> {
             }
         }
     }
-    async fn handle_working_connection(
+    async fn handle_working_connection<Stream>(
         &self,
-        connection: AcceptedConnection,
-    ) -> Result<(), Daemon::Error> {
-        let mut transport = WorkingTransport::new(connection);
+        connection: AcceptedConnection<Stream>,
+    ) -> Result<(), Daemon::Error>
+    where
+        Stream: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
+    {
+        let mut transport = WorkingTransport::from_connection(connection);
         let frame = transport.read_frame().await?;
         let (_route, input) = Input::decode_signal_frame(&frame)?;
         let filter = Daemon::subscription_filter(&input);
@@ -577,6 +590,15 @@ impl<Daemon: ComponentDaemon> GeneratedDaemonRuntime<Daemon> {
             Err(SendError::Timeout(_)) => {
                 Err(EngineRequestError::new("engine actor request timed out").into())
             }
+        }
+    }
+}
+#[rustfmt::skip]
+impl<Daemon: ComponentDaemon> Clone for GeneratedDaemonRuntime<Daemon> {
+    fn clone(&self) -> Self {
+        Self {
+            engine: self.engine.clone(),
+            subscriptions: self.subscriptions.clone(),
         }
     }
 }

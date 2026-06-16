@@ -344,6 +344,11 @@ impl<'operation> GuardianOperationPrompt<'operation> {
                 "Clarify request (sharpen an existing record without changing its arrow):\n{}",
                 clarification.to_nota()
             ),
+            GuardianOperation::ResolveClarification(resolution) => format!(
+                "ResolveClarification request (fold a standalone clarification record into its \
+                 target record edits, then remove the standalone clarification):\n{}",
+                resolution.to_nota()
+            ),
             GuardianOperation::Supersede(supersession) => format!(
                 "Supersede request (atomically retire the target set and install the replacement set; \
                  the replacements TOGETHER must preserve the retired kernel with no meaning lost):\n{}",

@@ -10,9 +10,9 @@ pub type Boolean = bool;
 pub type Path = std::string::String;
 
 #[rustfmt::skip]
-pub use crate::schema::signal::Input as SignalInput;
+pub use signal_spirit::schema::signal::Input as SignalInput;
 #[rustfmt::skip]
-pub use crate::schema::signal::Output as SignalOutput;
+pub use signal_spirit::schema::signal::Output as SignalOutput;
 #[rustfmt::skip]
 pub use crate::schema::sema::ReadInput as SemaReadInput;
 #[rustfmt::skip]
@@ -20,81 +20,85 @@ pub use crate::schema::sema::ReadOutput as SemaReadOutput;
 #[rustfmt::skip]
 pub use crate::schema::sema::WriteOutput as SemaWriteOutput;
 #[rustfmt::skip]
-pub use crate::schema::signal::Records as Records;
+pub use signal_spirit::schema::signal::Records as Records;
 #[rustfmt::skip]
-pub use crate::schema::signal::RecordCount as RecordCount;
+pub use signal_spirit::schema::signal::RecordCount as RecordCount;
 #[rustfmt::skip]
-pub use crate::schema::signal::StashHandle as StashHandle;
+pub use signal_spirit::schema::signal::StashHandle as StashHandle;
 #[rustfmt::skip]
-pub use crate::schema::signal::DatabaseMarker as DatabaseMarker;
+pub use signal_spirit::schema::signal::DatabaseMarker as DatabaseMarker;
 #[rustfmt::skip]
-pub use crate::schema::signal::Statement as Statement;
+pub use signal_spirit::schema::signal::Statement as Statement;
 #[rustfmt::skip]
-pub use crate::schema::signal::RecordRequest as RecordRequest;
+pub use signal_spirit::schema::signal::RecordRequest as RecordRequest;
 #[rustfmt::skip]
-pub use crate::schema::signal::Proposal as Proposal;
+pub use signal_spirit::schema::signal::Proposal as Proposal;
 #[rustfmt::skip]
-pub use crate::schema::signal::Entry as Entry;
+pub use signal_spirit::schema::signal::Entry as Entry;
 #[rustfmt::skip]
-pub use crate::schema::signal::Clarification as Clarification;
+pub use signal_spirit::schema::signal::Clarification as Clarification;
 #[rustfmt::skip]
-pub use crate::schema::signal::Supersession as Supersession;
+pub use signal_spirit::schema::signal::ClarificationResolution as ClarificationResolution;
 #[rustfmt::skip]
-pub use crate::schema::signal::Retirement as Retirement;
+pub use signal_spirit::schema::signal::Supersession as Supersession;
 #[rustfmt::skip]
-pub use crate::schema::signal::SemaReceipt as SemaReceipt;
+pub use signal_spirit::schema::signal::Retirement as Retirement;
 #[rustfmt::skip]
-pub use crate::schema::signal::ClarificationReceipt as ClarificationReceipt;
+pub use signal_spirit::schema::signal::SemaReceipt as SemaReceipt;
 #[rustfmt::skip]
-pub use crate::schema::signal::SupersessionReceipt as SupersessionReceipt;
+pub use signal_spirit::schema::signal::ClarificationReceipt as ClarificationReceipt;
 #[rustfmt::skip]
-pub use crate::schema::signal::RetirementReceipt as RetirementReceipt;
+pub use signal_spirit::schema::signal::ClarificationResolutionReceipt as ClarificationResolutionReceipt;
 #[rustfmt::skip]
-pub use crate::schema::signal::RemoveReceipt as RemoveReceipt;
+pub use signal_spirit::schema::signal::SupersessionReceipt as SupersessionReceipt;
 #[rustfmt::skip]
-pub use crate::schema::signal::RecordChangeReceipt as RecordChangeReceipt;
+pub use signal_spirit::schema::signal::RetirementReceipt as RetirementReceipt;
 #[rustfmt::skip]
-pub use crate::schema::signal::GuardianRejection as GuardianRejection;
+pub use signal_spirit::schema::signal::RemoveReceipt as RemoveReceipt;
 #[rustfmt::skip]
-pub use crate::schema::signal::GuardianRejectionReason as GuardianRejectionReason;
+pub use signal_spirit::schema::signal::RecordChangeReceipt as RecordChangeReceipt;
 #[rustfmt::skip]
-pub use crate::schema::signal::ReferentGuardianRejection as ReferentGuardianRejection;
+pub use signal_spirit::schema::signal::GuardianRejection as GuardianRejection;
 #[rustfmt::skip]
-pub use crate::schema::signal::ReferentGuardianRejectionReason as ReferentGuardianRejectionReason;
+pub use signal_spirit::schema::signal::GuardianRejectionReason as GuardianRejectionReason;
 #[rustfmt::skip]
-pub use crate::schema::signal::Explanation as Explanation;
+pub use signal_spirit::schema::signal::ReferentGuardianRejection as ReferentGuardianRejection;
 #[rustfmt::skip]
-pub use crate::schema::signal::ErrorReport as ErrorReport;
+pub use signal_spirit::schema::signal::ReferentGuardianRejectionReason as ReferentGuardianRejectionReason;
 #[rustfmt::skip]
-pub use crate::schema::signal::Query as Query;
+pub use signal_spirit::schema::signal::Explanation as Explanation;
 #[rustfmt::skip]
-pub use crate::schema::signal::SubscriptionToken as SubscriptionToken;
+pub use signal_spirit::schema::signal::ErrorReport as ErrorReport;
 #[rustfmt::skip]
-pub use crate::schema::signal::IntentSubscription as IntentSubscription;
+pub use signal_spirit::schema::signal::Query as Query;
 #[rustfmt::skip]
-pub use crate::schema::signal::RecordIdentifier as RecordIdentifier;
+pub use signal_spirit::schema::signal::SubscriptionToken as SubscriptionToken;
 #[rustfmt::skip]
-pub use crate::schema::signal::Removal as Removal;
+pub use signal_spirit::schema::signal::IntentSubscription as IntentSubscription;
 #[rustfmt::skip]
-pub use crate::schema::signal::CertaintyChange as CertaintyChange;
+pub use signal_spirit::schema::signal::RecordIdentifier as RecordIdentifier;
 #[rustfmt::skip]
-pub use crate::schema::signal::ImportanceBump as ImportanceBump;
+pub use signal_spirit::schema::signal::Removal as Removal;
 #[rustfmt::skip]
-pub use crate::schema::signal::RecordChange as RecordChange;
+pub use signal_spirit::schema::signal::CertaintyChange as CertaintyChange;
 #[rustfmt::skip]
-pub use crate::schema::signal::ReferentRegistration as ReferentRegistration;
+pub use signal_spirit::schema::signal::ImportanceBump as ImportanceBump;
 #[rustfmt::skip]
-pub use crate::schema::signal::ReferentRegistrationReceipt as ReferentRegistrationReceipt;
+pub use signal_spirit::schema::signal::RecordChange as RecordChange;
 #[rustfmt::skip]
-pub use crate::schema::signal::RemovalCandidateCollection as RemovalCandidateCollection;
+pub use signal_spirit::schema::signal::ReferentRegistration as ReferentRegistration;
 #[rustfmt::skip]
-pub use crate::schema::signal::RemovalCandidatesCollection as RemovalCandidatesCollection;
+pub use signal_spirit::schema::signal::ReferentRegistrationReceipt as ReferentRegistrationReceipt;
 #[rustfmt::skip]
-pub use crate::schema::signal::ObserverFilter as ObserverFilter;
+pub use signal_spirit::schema::signal::RemovalCandidateCollection as RemovalCandidateCollection;
 #[rustfmt::skip]
-pub use crate::schema::signal::ObserverSubscription as ObserverSubscription;
+pub use signal_spirit::schema::signal::RemovalCandidatesCollection as RemovalCandidatesCollection;
 #[rustfmt::skip]
-pub use crate::schema::signal::ObserverRetraction as ObserverRetraction;
+pub use signal_spirit::schema::signal::ObserverFilter as ObserverFilter;
+#[rustfmt::skip]
+pub use signal_spirit::schema::signal::ObserverSubscription as ObserverSubscription;
+#[rustfmt::skip]
+pub use signal_spirit::schema::signal::ObserverRetraction as ObserverRetraction;
 
 #[rustfmt::skip]
 #[cfg(feature = "nota-text")]
@@ -217,6 +221,7 @@ pub enum NexusEffectCommand {
     SupersedeWithImpliedReferents(SupersedeWithImpliedReferents),
     Supersede(Supersede),
     Retire(Retire),
+    ResolveClarification(ResolveClarification),
     GuardRemove(GuardRemove),
     ChangeRecordWithImpliedReferents(ChangeRecordWithImpliedReferents),
     GuardChangeRecord(GuardChangeRecord),
@@ -280,6 +285,11 @@ pub struct Retire(Retirement);
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ResolveClarification(ClarificationResolution);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct GuardRemove(Removal);
 
 #[rustfmt::skip]
@@ -332,6 +342,7 @@ pub enum NexusEffectResult {
     Clarified(Clarified),
     Superseded(Superseded),
     Retired(Retired),
+    ClarificationResolved(ClarificationResolved),
     Removed(Removed),
     RecordChanged(RecordChanged),
     GuardianRejected(GuardianRejected),
@@ -398,6 +409,11 @@ pub struct Superseded(SupersessionReceipt);
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Retired(RetirementReceipt);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ClarificationResolved(ClarificationResolutionReceipt);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -976,6 +992,25 @@ impl From<Retirement> for Retire {
 }
 
 #[rustfmt::skip]
+impl ResolveClarification {
+    pub fn new(payload: ClarificationResolution) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ClarificationResolution {
+        &self.0
+    }
+    pub fn into_payload(self) -> ClarificationResolution {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ClarificationResolution> for ResolveClarification {
+    fn from(payload: ClarificationResolution) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl GuardRemove {
     pub fn new(payload: Removal) -> Self {
         Self(payload)
@@ -1337,6 +1372,25 @@ impl From<RetirementReceipt> for Retired {
 }
 
 #[rustfmt::skip]
+impl ClarificationResolved {
+    pub fn new(payload: ClarificationResolutionReceipt) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ClarificationResolutionReceipt {
+        &self.0
+    }
+    pub fn into_payload(self) -> ClarificationResolutionReceipt {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ClarificationResolutionReceipt> for ClarificationResolved {
+    fn from(payload: ClarificationResolutionReceipt) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl Removed {
     pub fn new(payload: RemoveReceipt) -> Self {
         Self(payload)
@@ -1615,6 +1669,9 @@ impl NexusEffectCommand {
     pub fn retire(payload: Retirement) -> Self {
         Self::Retire(Retire::new(payload))
     }
+    pub fn resolve_clarification(payload: ClarificationResolution) -> Self {
+        Self::ResolveClarification(ResolveClarification::new(payload))
+    }
     pub fn guard_remove(payload: Removal) -> Self {
         Self::GuardRemove(GuardRemove::new(payload))
     }
@@ -1677,6 +1734,9 @@ impl NexusEffectResult {
     }
     pub fn retired(payload: RetirementReceipt) -> Self {
         Self::Retired(Retired::new(payload))
+    }
+    pub fn clarification_resolved(payload: ClarificationResolutionReceipt) -> Self {
+        Self::ClarificationResolved(ClarificationResolved::new(payload))
     }
     pub fn removed(payload: RemoveReceipt) -> Self {
         Self::Removed(Removed::new(payload))
@@ -1935,6 +1995,13 @@ impl From<Retire> for NexusEffectCommand {
 }
 
 #[rustfmt::skip]
+impl From<ResolveClarification> for NexusEffectCommand {
+    fn from(payload: ResolveClarification) -> Self {
+        Self::ResolveClarification(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl From<GuardRemove> for NexusEffectCommand {
     fn from(payload: GuardRemove) -> Self {
         Self::GuardRemove(payload)
@@ -2064,6 +2131,13 @@ impl From<Superseded> for NexusEffectResult {
 impl From<Retired> for NexusEffectResult {
     fn from(payload: Retired) -> Self {
         Self::Retired(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<ClarificationResolved> for NexusEffectResult {
+    fn from(payload: ClarificationResolved) -> Self {
+        Self::ClarificationResolved(payload)
     }
 }
 

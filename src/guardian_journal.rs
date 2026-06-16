@@ -9,10 +9,10 @@ use crate::{
     schema::{
         nexus::{GuardianVerdict, ReferentGuardianVerdict, Reject, RejectReferent},
         signal::{
-            Clarification, DatabaseMarker, Entry, Explanation, GuardianRejectionReason, Proposal,
-            RecordChange, RecordRequest, RecordSet, ReferentGuardianRejectionReason,
-            ReferentRegistration, RegisteredReferents, Removal, RemovalCandidateCollection,
-            Retirement, Supersession,
+            Clarification, ClarificationResolution, DatabaseMarker, Entry, Explanation,
+            GuardianRejectionReason, Proposal, RecordChange, RecordRequest, RecordSet,
+            ReferentGuardianRejectionReason, ReferentRegistration, RegisteredReferents, Removal,
+            RemovalCandidateCollection, Retirement, Supersession,
         },
     },
     store::StoreError,
@@ -35,6 +35,7 @@ pub(crate) enum GuardianOperation {
     Record(RecordRequest),
     Propose(Proposal),
     Clarify(Clarification),
+    ResolveClarification(ClarificationResolution),
     Supersede(Supersession),
     Retire(Retirement),
     Remove(Removal),
@@ -82,6 +83,10 @@ impl GuardianOperation {
         Self::Clarify(clarification)
     }
 
+    pub(crate) fn resolve_clarification(resolution: ClarificationResolution) -> Self {
+        Self::ResolveClarification(resolution)
+    }
+
     pub(crate) fn supersede(supersession: Supersession) -> Self {
         Self::Supersede(supersession)
     }
@@ -111,6 +116,7 @@ impl GuardianOperation {
             Self::Record(request) => &request.justification,
             Self::Propose(proposal) => &proposal.justification,
             Self::Clarify(clarification) => &clarification.justification,
+            Self::ResolveClarification(resolution) => &resolution.justification,
             Self::Supersede(supersession) => &supersession.justification,
             Self::Retire(retirement) => &retirement.justification,
             Self::Remove(removal) => &removal.justification,
@@ -127,6 +133,7 @@ impl GuardianOperation {
             Self::Supersede(supersession) => supersession.replacements.payload().iter().collect(),
             Self::ChangeRecord(change) => vec![&change.entry],
             Self::Clarify(_)
+            | Self::ResolveClarification(_)
             | Self::Retire(_)
             | Self::Remove(_)
             | Self::CollectRemovalCandidates(_) => Vec::new(),
@@ -138,6 +145,7 @@ impl GuardianOperation {
             Self::Record(_) => "Record",
             Self::Propose(_) => "Propose",
             Self::Clarify(_) => "Clarify",
+            Self::ResolveClarification(_) => "ResolveClarification",
             Self::Supersede(_) => "Supersede",
             Self::Retire(_) => "Retire",
             Self::Remove(_) => "Remove",
