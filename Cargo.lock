@@ -1106,13 +1106,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 
 [[package]]
+name = "schema-cc"
+version = "0.1.0"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#caa7797197540cd17e87ca78e93dca97b2e143c6"
+dependencies = [
+ "nota-next",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "thiserror",
+]
+
+[[package]]
 name = "schema-next"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#f00a467a9aee9d50980089d07b21b4180073de12"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#caa7797197540cd17e87ca78e93dca97b2e143c6"
 dependencies = [
  "blake3",
  "nota-next",
  "rkyv",
+ "schema-cc",
  "thiserror",
 ]
 

@@ -178,11 +178,11 @@
     "schema-next-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781529235,
-        "narHash": "sha256-B82TibBAS7ESWLmyFrrEUculn4x2OLd7DC2WIMEXPhE=",
+        "lastModified": 1781595848,
+        "narHash": "sha256-sm6SwX89RdKq4igC+kC6c7Zy3wM8mSJ1bYcXabLXdts=",
         "owner": "LiGoldragon",
         "repo": "schema-next",
-        "rev": "f00a467a9aee9d50980089d07b21b4180073de12",
+        "rev": "caa7797197540cd17e87ca78e93dca97b2e143c6",
         "type": "github"
       },
       "original": {

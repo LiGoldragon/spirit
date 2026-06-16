@@ -207,6 +207,9 @@
               substituteInPlace $out/vendor-sources/schema-next/Cargo.toml \
                 --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next = { path = "../nota-next" }'
 
+              substituteInPlace $out/vendor-sources/schema-next/schema-cc/Cargo.toml \
+                --replace-fail 'nota-next    = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next    = { path = "../../nota-next" }'
+
               substituteInPlace $out/vendor-sources/sema-engine/Cargo.toml \
                 --replace-fail 'sema = { git = "https://github.com/LiGoldragon/sema.git", branch = "main" }' 'sema = { path = "../sema" }' \
                 --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main", default-features = false }' 'signal-frame = { path = "../signal-frame", default-features = false }' \
