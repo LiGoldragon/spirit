@@ -40,6 +40,8 @@ pub mod nexus;
 mod plane;
 #[cfg(feature = "production-migration")]
 pub mod production_migration;
+#[cfg(feature = "nota-text")]
+pub mod render;
 pub mod store;
 pub mod subscription;
 #[cfg(feature = "testing-trace")]

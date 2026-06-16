@@ -32,6 +32,11 @@ path = "src/bin/spirit-write-configuration.rs"
 required-features = ["nota-text"]
 
 [[bin]]
+name = "spirit-render"
+path = "src/bin/spirit-render.rs"
+required-features = ["nota-text"]
+
+[[bin]]
 name = "spirit-migrate-store"
 path = "src/bin/spirit-migrate-store.rs"
 required-features = ["production-migration"]

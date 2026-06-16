@@ -471,6 +471,13 @@
             cargoExtraArgs = "--features nota-text --bin spirit-write-configuration";
           }
         );
+        renderPackage = craneLib.buildPackage (
+          commonArguments
+          // {
+            cargoArtifacts = notaTextCargoArtifacts;
+            cargoExtraArgs = "--features nota-text --bin spirit-render";
+          }
+        );
         storeMigrationPackage = craneLib.buildPackage (
           commonArguments
           // {
@@ -498,6 +505,7 @@
           ln -s "${metaSpiritCliPackage}/bin/meta-spirit" "$out/bin/meta-spirit"
           ln -s "${daemonPackage}/bin/spirit-daemon" "$out/bin/spirit-daemon"
           ln -s "${configurationWriterPackage}/bin/spirit-write-configuration" "$out/bin/spirit-write-configuration"
+          ln -s "${renderPackage}/bin/spirit-render" "$out/bin/spirit-render"
           ln -s "${storeMigrationPackage}/bin/spirit-migrate-store" "$out/bin/spirit-migrate-store"
         '';
         traceCombinedPackage = pkgs.runCommand "spirit-trace" { } ''
@@ -523,6 +531,7 @@
         packages.cli = cliPackage;
         packages.daemon = daemonPackage;
         packages.configuration-writer = configurationWriterPackage;
+        packages.render = renderPackage;
         packages.store-migration = storeMigrationPackage;
         packages.trace = traceCombinedPackage;
         packages."trace-cli" = traceCliPackage;
