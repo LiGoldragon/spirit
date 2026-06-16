@@ -112,6 +112,14 @@ const SPIRIT_STORE_V9_REFERENTS_FAMILY: [u8; 32] = [
     148, 20, 243, 164, 221, 37, 189, 55, 141, 132, 255, 229, 160, 20, 221, 151, 9, 87, 17, 16, 190,
     49, 67, 192, 49, 14, 212, 75, 162, 60, 82, 157,
 ];
+const SPIRIT_STORE_V10_PRE_STANDARD_IMPL_RECORDS_FAMILY: [u8; 32] = [
+    52, 88, 128, 170, 94, 8, 44, 131, 152, 209, 47, 138, 37, 170, 7, 248, 232, 121, 28, 11, 173,
+    83, 67, 27, 228, 29, 213, 147, 180, 153, 30, 59,
+];
+const SPIRIT_STORE_V10_PRE_STANDARD_IMPL_REFERENTS_FAMILY: [u8; 32] = [
+    222, 9, 197, 125, 6, 22, 39, 64, 63, 53, 45, 32, 84, 147, 157, 146, 74, 217, 28, 211, 241, 196,
+    171, 146, 247, 31, 93, 52, 123, 137, 179, 185,
+];
 
 #[derive(Debug, Clone, PartialEq, Eq, NotaDecode, NotaEncode)]
 pub struct StoreMigrationRequest {
@@ -237,17 +245,18 @@ struct SpiritStoreV10CurrentLiveDatabase {
     referents: CurrentTableReference<StoredReferent>,
 }
 
-/// A schema-10, layout-5 store whose table catalog still carries the v9
-/// family identities. This is the production half-step left by the prior
-/// deployment: the engine header advanced, but the stored record family is
-/// still the fine-grained v9 domain shape.
+/// A schema-10, layout-5 store whose table catalog still carries an earlier
+/// family identity. This covers both known production half-steps: stores whose
+/// schema header advanced while the families still had v9 identities, and
+/// stores written before the standard-newtype generator repin changed the
+/// schema-10 family identities.
 struct SpiritStoreV10LegacyFamilyCurrentLiveDatabase {
     database: CurrentSemaDatabase,
     records: CurrentTableReference<StoredRecord>,
     referents: CurrentTableReference<StoredReferent>,
 }
 
-/// The matching schema-10, layout-5 archive sibling with the legacy v9 record
+/// The matching schema-10, layout-5 archive sibling with a legacy record
 /// family identity.
 struct SpiritStoreV10LegacyFamilyCurrentArchiveDatabase {
     database: CurrentSemaDatabase,
@@ -2683,6 +2692,25 @@ impl SpiritStoreV10CurrentLiveDatabase {
 
 impl SpiritStoreV10LegacyFamilyCurrentLiveDatabase {
     fn open(path: &Path) -> Result<Self, StoreMigrationError> {
+        Self::open_with_family_identity(
+            path,
+            SPIRIT_STORE_V10_PRE_STANDARD_IMPL_RECORDS_FAMILY,
+            SPIRIT_STORE_V10_PRE_STANDARD_IMPL_REFERENTS_FAMILY,
+        )
+        .or_else(|_| {
+            Self::open_with_family_identity(
+                path,
+                SPIRIT_STORE_V9_RECORDS_FAMILY,
+                SPIRIT_STORE_V9_REFERENTS_FAMILY,
+            )
+        })
+    }
+
+    fn open_with_family_identity(
+        path: &Path,
+        records_family: [u8; 32],
+        referents_family: [u8; 32],
+    ) -> Result<Self, StoreMigrationError> {
         let mut database = CurrentSemaDatabase::open(
             CurrentEngineOpen::new(path, SPIRIT_STORE_V10_SCHEMA_VERSION).with_versioning(
                 sema_engine::VersioningPolicy::new(sema_engine::VersionedStoreName::new(
@@ -2693,12 +2721,12 @@ impl SpiritStoreV10LegacyFamilyCurrentLiveDatabase {
         let records = database.register_table(CurrentTableDescriptor::new(
             CURRENT_RECORDS_TABLE,
             sema_engine::FamilyName::new("RecordsFamily"),
-            CurrentSchemaHash::new(SPIRIT_STORE_V9_RECORDS_FAMILY),
+            CurrentSchemaHash::new(records_family),
         ))?;
         let referents = database.register_table(CurrentTableDescriptor::new(
             CURRENT_REFERENTS_TABLE,
             sema_engine::FamilyName::new("ReferentsFamily"),
-            CurrentSchemaHash::new(SPIRIT_STORE_V9_REFERENTS_FAMILY),
+            CurrentSchemaHash::new(referents_family),
         ))?;
         Ok(Self {
             database,
@@ -2726,6 +2754,14 @@ impl SpiritStoreV10LegacyFamilyCurrentLiveDatabase {
 
 impl SpiritStoreV10LegacyFamilyCurrentArchiveDatabase {
     fn open(path: &Path) -> Result<Self, StoreMigrationError> {
+        Self::open_with_family_identity(path, SPIRIT_STORE_V10_PRE_STANDARD_IMPL_RECORDS_FAMILY)
+            .or_else(|_| Self::open_with_family_identity(path, SPIRIT_STORE_V9_RECORDS_FAMILY))
+    }
+
+    fn open_with_family_identity(
+        path: &Path,
+        records_family: [u8; 32],
+    ) -> Result<Self, StoreMigrationError> {
         let mut database = CurrentSemaDatabase::open(CurrentEngineOpen::new(
             path,
             SPIRIT_STORE_V10_SCHEMA_VERSION,
@@ -2733,7 +2769,7 @@ impl SpiritStoreV10LegacyFamilyCurrentArchiveDatabase {
         let records = database.register_table(CurrentTableDescriptor::new(
             CURRENT_RECORDS_TABLE,
             sema_engine::FamilyName::new("RecordsFamily"),
-            CurrentSchemaHash::new(SPIRIT_STORE_V9_RECORDS_FAMILY),
+            CurrentSchemaHash::new(records_family),
         ))?;
         Ok(Self { database, records })
     }
@@ -3050,10 +3086,11 @@ mod tests {
         CurrentTableDescriptor, LAYOUT3_RECORDS_TABLE, LAYOUT3_REFERENTS_TABLE, RECORDS_TABLE,
         REFERENTS_TABLE, SPIRIT_STORE_V7_SCHEMA_VERSION, SPIRIT_STORE_V8_SCHEMA_VERSION,
         SPIRIT_STORE_V9_RECORDS_FAMILY, SPIRIT_STORE_V9_REFERENTS_FAMILY,
-        SPIRIT_STORE_V9_SCHEMA_VERSION, SPIRIT_STORE_V10_SCHEMA_VERSION, SpiritStoreV7Entry,
-        SpiritStoreV7Record, SpiritStoreV7Referent, SpiritStoreV8Record, SpiritStoreV8Referent,
-        SpiritStoreV9Record, StoreMigration, StoreMigrationOutput, StoreMigrationRequest,
-        store_version_nine, store_version_seven,
+        SPIRIT_STORE_V9_SCHEMA_VERSION, SPIRIT_STORE_V10_PRE_STANDARD_IMPL_RECORDS_FAMILY,
+        SPIRIT_STORE_V10_PRE_STANDARD_IMPL_REFERENTS_FAMILY, SPIRIT_STORE_V10_SCHEMA_VERSION,
+        SpiritStoreV7Entry, SpiritStoreV7Record, SpiritStoreV7Referent, SpiritStoreV8Record,
+        SpiritStoreV8Referent, SpiritStoreV9Record, StoreMigration, StoreMigrationOutput,
+        StoreMigrationRequest, store_version_nine, store_version_seven,
     };
     use crate::{
         Store,
@@ -3195,6 +3232,77 @@ mod tests {
             },
         ))
         .expect("seed version nine record");
+    }
+
+    fn seed_version_ten_pre_standard_impl_store(
+        live_path: &std::path::Path,
+        archive_path: &std::path::Path,
+    ) {
+        let mut live = CurrentSemaDatabase::open(
+            CurrentEngineOpen::new(live_path, SPIRIT_STORE_V10_SCHEMA_VERSION).with_versioning(
+                CurrentVersioningPolicy::new(CurrentVersionedStoreName::new("spirit:sema")),
+            ),
+        )
+        .expect("open pre-standard-impl schema ten live store");
+        let records = live
+            .register_table(CurrentTableDescriptor::new(
+                CURRENT_RECORDS_TABLE,
+                CurrentFamilyName::new("RecordsFamily"),
+                CurrentSchemaHash::new(SPIRIT_STORE_V10_PRE_STANDARD_IMPL_RECORDS_FAMILY),
+            ))
+            .expect("register pre-standard-impl records table");
+        let referents = live
+            .register_table(CurrentTableDescriptor::new(
+                CURRENT_REFERENTS_TABLE,
+                CurrentFamilyName::new("ReferentsFamily"),
+                CurrentSchemaHash::new(SPIRIT_STORE_V10_PRE_STANDARD_IMPL_REFERENTS_FAMILY),
+            ))
+            .expect("register pre-standard-impl referents table");
+        live.assert(CurrentAssertion::new(
+            referents,
+            StoredReferent {
+                referent: Referent::new("pre-standard"),
+                aliases: Referents::new(vec![Referent::new("pre standard")]),
+            },
+        ))
+        .expect("seed pre-standard-impl referent");
+        live.assert(CurrentAssertion::new(
+            records,
+            StoredRecord {
+                record_identifier: RecordIdentifier::new("v10-pre-standard"),
+                entry: version_eight_entry(
+                    "schema ten pre-standard impl record survives",
+                    vec![Referent::new("pre-standard")],
+                ),
+            },
+        ))
+        .expect("seed pre-standard-impl record");
+        drop(live);
+
+        let mut archive = CurrentSemaDatabase::open(CurrentEngineOpen::new(
+            archive_path,
+            SPIRIT_STORE_V10_SCHEMA_VERSION,
+        ))
+        .expect("open pre-standard-impl archive store");
+        let archive_records = archive
+            .register_table(CurrentTableDescriptor::new(
+                CURRENT_RECORDS_TABLE,
+                CurrentFamilyName::new("RecordsFamily"),
+                CurrentSchemaHash::new(SPIRIT_STORE_V10_PRE_STANDARD_IMPL_RECORDS_FAMILY),
+            ))
+            .expect("register pre-standard-impl archive records table");
+        archive
+            .assert(CurrentAssertion::new(
+                archive_records,
+                StoredRecord {
+                    record_identifier: RecordIdentifier::new("old10-pre-standard"),
+                    entry: version_eight_entry(
+                        "schema ten pre-standard archive survives",
+                        Vec::new(),
+                    ),
+                },
+            ))
+            .expect("seed pre-standard-impl archive record");
     }
 
     fn seed_version_ten_layout_three_store(
@@ -3595,6 +3703,51 @@ mod tests {
             })
             .expect("retire into migrated schema ten archive");
         assert!(retired.is_some());
+    }
+
+    #[test]
+    fn migrates_version_ten_pre_standard_impl_family_to_current_family() {
+        let temporary = tempfile::tempdir().expect("create migration sandbox");
+        let database_path = temporary.path().join("store.sema");
+        let archive_path = temporary.path().join("store.archive.sema");
+        seed_version_ten_pre_standard_impl_store(&database_path, &archive_path);
+
+        let request = StoreMigrationRequest::new(database_path.display().to_string());
+        let output = StoreMigration::new(request.clone())
+            .run()
+            .expect("run pre-standard-impl schema ten migration");
+        let StoreMigrationOutput::Migrated(completed) = output else {
+            panic!("pre-standard-impl schema ten store must migrate, got {output:?}");
+        };
+        assert_eq!(completed.record_count(), 1);
+        assert_eq!(completed.referent_count(), 1);
+
+        let migrated =
+            Store::open(&database_path).expect("open migrated pre-standard-impl schema ten store");
+        let entry = migrated
+            .entry_by_identifier("v10-pre-standard")
+            .expect("query migrated pre-standard-impl entry")
+            .expect("migrated pre-standard-impl entry exists");
+        assert_eq!(
+            entry.description.payload(),
+            "schema ten pre-standard impl record survives"
+        );
+        assert_eq!(
+            entry.referents.payload(),
+            &vec![Referent::new("pre-standard")]
+        );
+        let migrations = migrated.migrations().expect("read migration markers");
+        assert_eq!(migrations.len(), 1);
+        assert_eq!(*migrations[0].source_schema_version.payload(), 10);
+        drop(migrated);
+
+        let second = StoreMigration::new(request)
+            .run()
+            .expect("second pre-standard-impl migration run");
+        let StoreMigrationOutput::Current(completed) = second else {
+            panic!("already-migrated pre-standard-impl store must report Current, got {second:?}");
+        };
+        assert_eq!(completed.record_count(), 1);
     }
 
     #[test]
