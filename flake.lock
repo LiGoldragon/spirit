@@ -91,11 +91,11 @@
     "meta-signal-spirit-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781558688,
-        "narHash": "sha256-T+Wu7LTyundY36LVnVyq62BG5WP6UAx4Z9ellzEZMFg=",
-        "ref": "refs/heads/main",
-        "rev": "5fd7b39b74afb791d0d2b8b0aa6830f37cefb278",
-        "revCount": 23,
+        "lastModified": 1781596499,
+        "narHash": "sha256-isoI5lce1aJX7r75Hg0gxdwMKzuKbkCIKI9xbH5sfSc=",
+        "ref": "structural-forms-integration",
+        "rev": "4484c3a9b4403a69a9841f6e993c7ff22ecd456b",
+        "revCount": 24,
         "type": "git",
         "url": "https://github.com/LiGoldragon/meta-signal-spirit.git"
       },
@@ -183,11 +183,11 @@
     "schema-next-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781558409,
-        "narHash": "sha256-NMRYCedzFhiouatdaU3K45Ua8PnSa0n+wYnh7zIA8ho=",
-        "ref": "refs/heads/main",
-        "rev": "23299642f72015cab558044cc9efa6fa419c213d",
-        "revCount": 128,
+        "lastModified": 1781596119,
+        "narHash": "sha256-mDUOnQIxe+AuWujhlTE3/MxnR0Hom47HNbT/RfqOqgY=",
+        "ref": "structural-forms-integration",
+        "rev": "b7af872e6c97a4c4e88734a2651636b5fdbc2ad8",
+        "revCount": 129,
         "type": "git",
         "url": "https://github.com/LiGoldragon/schema-next.git"
       },
@@ -201,11 +201,11 @@
     "schema-rust-next-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781558520,
-        "narHash": "sha256-xPmSXssDN+7AOQg7asAeqU8j2dtIce+J1RqbslPEfGU=",
-        "ref": "refs/heads/main",
-        "rev": "9a27332ef5d9afa15314ec92cd922b20f91876b3",
-        "revCount": 187,
+        "lastModified": 1781596326,
+        "narHash": "sha256-oLMj0o0ttK8K2j2vk+8e3mdhNhe8+8S4h0ztYKw29UA=",
+        "ref": "structural-forms-integration",
+        "rev": "10db4e5ac7818dd78de426812b8e94db61f0d01d",
+        "revCount": 188,
         "type": "git",
         "url": "https://github.com/LiGoldragon/schema-rust-next.git"
       },
@@ -335,11 +335,11 @@
     "signal-spirit-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781558601,
-        "narHash": "sha256-BElNiSq6/qNmj/doYihfy8dqNF6RPWvo+Caez+FPIcA=",
-        "ref": "refs/heads/main",
-        "rev": "19de94ec25cd9fb4bdfccea7b37312268c8efb40",
-        "revCount": 19,
+        "lastModified": 1781596412,
+        "narHash": "sha256-yixVjQ4pY+htgSlLLCZEGD15Ngy15HLuH3oRLgupPmE=",
+        "ref": "structural-forms-integration",
+        "rev": "4f024d9f08a0e76ef995966869d6480fa682784b",
+        "revCount": 20,
         "type": "git",
         "url": "https://github.com/LiGoldragon/signal-spirit.git"
       },

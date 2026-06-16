@@ -205,7 +205,10 @@
                 --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "structural-forms-integration" }' 'triad-runtime = { path = "../triad-runtime" }'
 
               substituteInPlace $out/vendor-sources/schema-next/Cargo.toml \
-                --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "structural-forms-integration" }' 'nota-next = { path = "../nota-next" }'
+                --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next = { path = "../nota-next" }'
+
+              substituteInPlace $out/vendor-sources/schema-next/schema-cc/Cargo.toml \
+                --replace-fail 'nota-next    = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next    = { path = "../../nota-next" }'
 
               substituteInPlace $out/vendor-sources/sema-engine/Cargo.toml \
                 --replace-fail 'sema = { git = "https://github.com/LiGoldragon/sema.git", branch = "main" }' 'sema = { path = "../sema" }' \
