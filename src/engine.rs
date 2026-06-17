@@ -9,7 +9,7 @@ use crate::{
             ConfigureReceipt, ConfigureRejection, ConfigureRejectionReason, ConfigureRequest,
             ImportReceipt, ImportRequest, Output as MetaOutput,
         },
-        nexus::{self as nexus_schema, NexusAction, NexusEffectCommand, NexusEngine, NexusWork},
+        nexus::{self as nexus_schema, NexusAction, NexusEngine, NexusWork},
         sema::ErrorReport,
         signal::{
             self as signal_schema, DatabaseMarker, ErrorMessage, Input, Integer, IntentEvent,
@@ -828,7 +828,7 @@ impl nexus_schema::nexus::Nexus<NexusAction> {
     pub fn into_signal_output(self) -> SignalResponse<Output> {
         let origin_route = OriginRoute::from(self.origin_route());
         let root = match self.into_root() {
-            NexusAction::ReplyToSignal(output) => output.into_payload(),
+            NexusAction::ReplyToSignal(output) => output,
             _ => Output::error(ErrorReport::new(ErrorMessage::new(
                 "nexus returned non-signal action",
             ))),
@@ -887,30 +887,6 @@ impl std::ops::Deref for crate::schema::sema::Found {
 
 impl std::ops::Deref for crate::schema::sema::Counted {
     type Target = signal_schema::CountedRecords;
-
-    fn deref(&self) -> &Self::Target {
-        self.payload()
-    }
-}
-
-impl std::ops::Deref for nexus_schema::ReplyToSignal {
-    type Target = Output;
-
-    fn deref(&self) -> &Self::Target {
-        self.payload()
-    }
-}
-
-impl std::ops::Deref for nexus_schema::CommandEffect {
-    type Target = NexusEffectCommand;
-
-    fn deref(&self) -> &Self::Target {
-        self.payload()
-    }
-}
-
-impl std::ops::Deref for nexus_schema::SignalArrived {
-    type Target = Input;
 
     fn deref(&self) -> &Self::Target {
         self.payload()

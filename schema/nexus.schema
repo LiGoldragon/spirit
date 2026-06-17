@@ -45,13 +45,11 @@
   ObserverSubscription signal-spirit:signal:ObserverSubscription
   ObserverRetraction signal-spirit:signal:ObserverRetraction
 }
-[SignalArrived SemaWriteCompleted SemaReadCompleted EffectCompleted]
-[CommandSemaWrite CommandSemaRead ReplyToSignal CommandEffect Continue]
+(Work SignalInput SemaWriteOutput SemaReadOutput NexusEffectResult)
+(Action SignalOutput CommandSemaWrite SemaReadInput NexusEffectCommand (Work SignalInput SemaWriteOutput SemaReadOutput NexusEffectResult))
 {
-  SignalArrived SignalInput
-  SemaWriteCompleted SemaWriteOutput
-  SemaReadCompleted SemaReadOutput
-  EffectCompleted NexusEffectResult
+  (| Work Event WriteDone ReadDone EffectDone |) [(SignalArrived Event) (SemaWriteCompleted WriteDone) (SemaReadCompleted ReadDone) (EffectCompleted EffectDone)]
+  (| Action Reply Write Read Effect Continuation |) [(ReplyToSignal Reply) (CommandSemaWrite Write) (CommandSemaRead Read) (CommandEffect Effect) (Continue Continuation)]
 
   CommandSemaWrite [(Record) (Remove) (ChangeCertainty) (BumpImportance) (ChangeRecord) (RegisterReferent)]
   Record Entry
@@ -60,13 +58,9 @@
   BumpImportance ImportanceBump
   ChangeRecord RecordChange
   RegisterReferent ReferentRegistration
-  CommandSemaRead SemaReadInput
-  ReplyToSignal SignalOutput
-  CommandEffect NexusEffectCommand
-  Continue NexusWork
 
-  NexusWork [(SignalArrived) (SemaWriteCompleted) (SemaReadCompleted) (EffectCompleted)]
-  NexusAction [(CommandSemaWrite) (CommandSemaRead) (ReplyToSignal) (CommandEffect) (Continue)]
+  NexusWork (Work SignalInput SemaWriteOutput SemaReadOutput NexusEffectResult)
+  NexusAction (Action SignalOutput CommandSemaWrite SemaReadInput NexusEffectCommand NexusWork)
 
   NexusEffectCommand [(Stash) (ClassifyState) (RecordWithImpliedReferents) (GuardRecord) (ProposeWithImpliedReferents) (Propose) (Clarify) (SupersedeWithImpliedReferents) (Supersede) (Retire) (ResolveClarification) (GuardRemove) (ChangeRecordWithImpliedReferents) (GuardChangeRecord) (GuardReferentRegistration) (OpenIntentSubscription) (CollectRemovalCandidates) (OpenObserverTap) (CloseObserverTap)]
   Stash StashRequest

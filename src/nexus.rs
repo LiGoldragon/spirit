@@ -1024,9 +1024,7 @@ impl Nexus {
                 NexusAction::CommandSemaRead(command) => {
                     let Err(exhausted) = budget.spend_next_step() else {
                         let output = self.observe_sema_read_operation(
-                            command
-                                .into_payload()
-                                .with_origin_route(origin_route.into()),
+                            command.with_origin_route(origin_route.into()),
                         );
                         work = NexusWork::sema_read_completed(output);
                         continue;
@@ -1036,7 +1034,7 @@ impl Nexus {
                 }
                 NexusAction::CommandEffect(command) => {
                     let Err(exhausted) = budget.spend_next_step() else {
-                        let output = self.apply_effect_operation(command.into_payload());
+                        let output = self.apply_effect_operation(command);
                         work = NexusWork::effect_completed(output);
                         continue;
                     };
@@ -1045,7 +1043,7 @@ impl Nexus {
                 }
                 NexusAction::Continue(next) => {
                     let Err(exhausted) = budget.spend_next_step() else {
-                        work = next.into_payload();
+                        work = next;
                         continue;
                     };
                     return NexusAction::reply_to_signal(self.budget_exhausted_reply(exhausted))
@@ -1088,6 +1086,34 @@ impl NexusEngine for Nexus {
             .record(TraceEvent::new(ObjectName::Nexus(object_name)));
     }
 
+    async fn apply_sema_write(
+        &mut self,
+        origin_route: nexus_schema::OriginRoute,
+        input: CommandSemaWrite,
+    ) -> SemaWriteOutput {
+        self.apply_sema_write_operation(
+            input
+                .into_sema_write_input()
+                .with_origin_route(origin_route.into()),
+        )
+    }
+
+    async fn observe_sema_read(
+        &mut self,
+        origin_route: nexus_schema::OriginRoute,
+        input: SemaReadInput,
+    ) -> SemaReadOutput {
+        self.observe_sema_read_operation(input.with_origin_route(origin_route.into()))
+    }
+
+    async fn run_effect(&mut self, input: NexusEffectCommand) -> NexusEffectResult {
+        self.apply_effect_operation(input)
+    }
+
+    fn budget_exhausted_reply(&self, exhausted: ContinuationExhausted) -> Output {
+        Nexus::budget_exhausted_reply(self, exhausted)
+    }
+
     fn decide(
         &mut self,
         input: nexus_schema::nexus::Nexus<nexus_schema::nexus::Work>,
@@ -1120,16 +1146,10 @@ impl Nexus {
 
     fn step_decide(&mut self, work: NexusWork) -> NexusAction {
         match work {
-            NexusWork::SignalArrived(input) => self.decide_signal_arrival(input.into_payload()),
-            NexusWork::SemaWriteCompleted(output) => {
-                self.decide_sema_write_completion(output.into_payload())
-            }
-            NexusWork::SemaReadCompleted(output) => {
-                self.decide_sema_read_completion(output.into_payload())
-            }
-            NexusWork::EffectCompleted(result) => {
-                self.decide_effect_completion(result.into_payload())
-            }
+            NexusWork::SignalArrived(input) => self.decide_signal_arrival(input),
+            NexusWork::SemaWriteCompleted(output) => self.decide_sema_write_completion(output),
+            NexusWork::SemaReadCompleted(output) => self.decide_sema_read_completion(output),
+            NexusWork::EffectCompleted(result) => self.decide_effect_completion(result),
         }
     }
 

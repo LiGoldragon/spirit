@@ -434,14 +434,14 @@ fn execute_nexus_on_multi_thread_runtime(
 
 fn nexus_reply_output(output: &nexus::Nexus<NexusAction>) -> &Output {
     match output.root() {
-        NexusAction::ReplyToSignal(reply) => reply.payload(),
+        NexusAction::ReplyToSignal(reply) => reply,
         other => panic!("expected ReplyToSignal, got {other:?}"),
     }
 }
 
 fn nexus_signal_input(input: &nexus::Nexus<NexusWork>) -> &Input {
     match input.root() {
-        NexusWork::SignalArrived(signal) => signal.payload(),
+        NexusWork::SignalArrived(signal) => signal,
         other => panic!("expected SignalArrived, got {other:?}"),
     }
 }
@@ -747,8 +747,7 @@ fn nexus_change_record_is_visible_as_schema_declared_write_command() {
     assert_eq!(first_action.origin_route(), nexus_route(6));
     match first_action.root() {
         NexusAction::CommandEffect(effect) => {
-            let NexusEffectCommand::ChangeRecordWithImpliedReferents(change) = effect.payload()
-            else {
+            let NexusEffectCommand::ChangeRecordWithImpliedReferents(change) = effect else {
                 panic!("expected ChangeRecordWithImpliedReferents effect, got {effect:?}");
             };
             assert_eq!(change.payload().record_identifier, identifier);
@@ -796,7 +795,7 @@ fn nexus_state_classification_is_visible_as_schema_declared_effect_command() {
 
     assert_eq!(first_action.origin_route(), nexus_route(4));
     match first_action.root() {
-        NexusAction::CommandEffect(effect) => match effect.payload() {
+        NexusAction::CommandEffect(effect) => match effect {
             NexusEffectCommand::ClassifyState(statement) => {
                 assert_eq!(
                     statement.payload().payload().payload(),
@@ -870,7 +869,7 @@ fn nexus_write_operations_are_visible_as_schema_declared_effect_commands() {
     match propose.root() {
         NexusAction::CommandEffect(effect) => {
             assert!(matches!(
-                effect.payload(),
+                effect,
                 NexusEffectCommand::ProposeWithImpliedReferents(_)
             ));
         }
@@ -886,7 +885,7 @@ fn nexus_write_operations_are_visible_as_schema_declared_effect_commands() {
     );
     match clarify.root() {
         NexusAction::CommandEffect(effect) => {
-            assert!(matches!(effect.payload(), NexusEffectCommand::Clarify(_)));
+            assert!(matches!(effect, NexusEffectCommand::Clarify(_)));
         }
         other => panic!("expected Clarify to become CommandEffect(Clarify), got {other:?}"),
     }
@@ -902,7 +901,7 @@ fn nexus_write_operations_are_visible_as_schema_declared_effect_commands() {
     match supersede.root() {
         NexusAction::CommandEffect(effect) => {
             assert!(matches!(
-                effect.payload(),
+                effect,
                 NexusEffectCommand::SupersedeWithImpliedReferents(_)
             ));
         }
@@ -917,7 +916,7 @@ fn nexus_write_operations_are_visible_as_schema_declared_effect_commands() {
     );
     match retire.root() {
         NexusAction::CommandEffect(effect) => {
-            assert!(matches!(effect.payload(), NexusEffectCommand::Retire(_)));
+            assert!(matches!(effect, NexusEffectCommand::Retire(_)));
         }
         other => panic!("expected Retire to become CommandEffect(Retire), got {other:?}"),
     }

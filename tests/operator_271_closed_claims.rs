@@ -294,7 +294,16 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
         "CommandSemaWrite [(Record) (Remove) (ChangeCertainty) (BumpImportance) (ChangeRecord) (RegisterReferent)]",
         "4",
     );
-    nexus_witness.must_contain("NexusAction [(CommandSemaWrite)", "4");
+    nexus_witness.must_contain("(| Work Event WriteDone ReadDone EffectDone |)", "4");
+    nexus_witness.must_contain("(| Action Reply Write Read Effect Continuation |)", "4");
+    nexus_witness.must_contain(
+        "NexusWork (Work SignalInput SemaWriteOutput SemaReadOutput NexusEffectResult)",
+        "4",
+    );
+    nexus_witness.must_contain(
+        "NexusAction (Action SignalOutput CommandSemaWrite SemaReadInput NexusEffectCommand NexusWork)",
+        "4",
+    );
     nexus_witness.must_contain(
         "NexusEffectCommand [(Stash) (ClassifyState) (RecordWithImpliedReferents) (GuardRecord) (ProposeWithImpliedReferents) (Propose) (Clarify) (SupersedeWithImpliedReferents) (Supersede) (Retire) (ResolveClarification) (GuardRemove) (ChangeRecordWithImpliedReferents) (GuardChangeRecord) (GuardReferentRegistration) (OpenIntentSubscription) (CollectRemovalCandidates) (OpenObserverTap) (CloseObserverTap)]",
         "4",
