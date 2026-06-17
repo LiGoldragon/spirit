@@ -16,28 +16,9 @@
 //! head records `acknowledge_mirror` back into the shared engine, marking the
 //! shipped history `ServerCommitted`.
 //!
-//! RE-LAND STATUS (designer report 669, slice P1): this module is re-landed
-//! from the dropped `store-decomposition` history onto current spirit main, but
-//! the `mirror-shipper` feature does NOT yet compile. Two upstream gaps block
-//! it, neither fixable from this spirit-only slice:
-//!
-//!  1. `crate::schema::meta_signal::MirrorTarget` (and `MirrorAddress`,
-//!     `MirrorAddressText`, plus the `mirror_target` field on `ConfigureRequest`
-//!     / `ConfigureReceipt`) no longer exist: current spirit re-exports
-//!     `meta_signal` from the external `meta-signal-spirit` crate, whose
-//!     `ConfigureRequest(ArchiveDatabaseTarget)` carries no mirror target. The
-//!     `MirrorTarget` schema noun must be re-added to the `meta-signal-spirit`
-//!     contract (a separate triad repo) and regenerated into spirit.
-//!  2. The only `mirror::ComponentShipper` that accepts a shared
-//!     `Arc<sema_engine::Engine>` lives on mirror's `arc-shipper` branch (mirror
-//!     `main` regressed it to take `Engine` by value, which a store keeping its
-//!     engine behind an `Arc` cannot satisfy). But `arc-shipper` itself fails to
-//!     compile against today's tree: it pins a stale `nota-next` (0.4.0 via
-//!     `structural-shape-extension`) while current `signal-mirror` main pins
-//!     `nota-next` 0.5.0, so mirror's `client.rs` NOTA codec no longer lines up
-//!     with the regenerated `signal-mirror` types. The `Arc<Engine>` shipper
-//!     must be forward-ported onto mirror main's current `nota-next` base (a
-//!     mirror-repo change).
+//! The contract and mirror-side shared-engine constructor live on their
+//! respective main branches; the `mirror-shipper` feature is the opt-in gate
+//! that pulls them into Spirit.
 
 use std::{net::SocketAddr, sync::Arc};
 
@@ -83,7 +64,12 @@ impl MirrorShipper {
                             text: text.clone(),
                             message: source.to_string(),
                         })?;
-                Some(ComponentShipper::new(
+                // The store hands its `Arc<sema_engine::Engine>` straight to
+                // the shipper via `from_shared_engine`, so store and shipper
+                // hold clones of ONE engine: the working writes the store
+                // appends become the outbox this shipper ships, and
+                // `acknowledge_mirror` flows back into the same engine.
+                Some(ComponentShipper::from_shared_engine(
                     engine,
                     socket_address,
                     VersionedStoreName::new(RecordFamily::STORE_NAME),

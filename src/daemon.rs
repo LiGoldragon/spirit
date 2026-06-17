@@ -141,7 +141,19 @@ impl ComponentDaemon for SpiritDaemon {
         input: Input,
         _connection: &triad_runtime::ConnectionContext,
     ) -> Result<Output, Self::Error> {
-        Ok(engine.handle_async(input).await.root().clone())
+        let output = engine.handle_async(input).await.root().clone();
+        // After the working write committed locally, drain the unshipped
+        // outbox to the configured mirror. Present only under the
+        // `mirror-shipper` feature, and even then a no-op when no MirrorTarget
+        // is configured (the default). Shipping is best-effort: the local
+        // commit already landed, so an unreachable mirror is logged and the
+        // suffix waits in the outbox for the next durable commit's drain — it
+        // never fails the working reply.
+        #[cfg(feature = "mirror-shipper")]
+        if let Err(error) = engine.ship_unshipped_to_mirror().await {
+            let _ = error;
+        }
+        Ok(output)
     }
 
     /// Serve one owner-only meta request: decode a `Configure` meta `Input`,

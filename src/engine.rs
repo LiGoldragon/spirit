@@ -1,5 +1,7 @@
 use std::{convert::Infallible, sync::Mutex as StdMutex};
 
+#[cfg(feature = "mirror-shipper")]
+use crate::shipper::{MirrorShipper, MirrorShipperError};
 use crate::{
     nexus::Nexus,
     schema::{
@@ -281,6 +283,14 @@ impl SignalObjectName {
 pub struct Engine {
     signal_admission: SignalAdmission,
     nexus: Nexus,
+    // The OFF-by-default mirror gate. Present only under the `mirror-shipper`
+    // feature (which the binary-only daemon build excludes to keep nota-next
+    // out of its dependency tree). Even when built in, it is unarmed until an
+    // owner `Configure` carries a `MirrorTarget::Address`, so a daemon that
+    // never receives a mirror target behaves identically to one built before
+    // mirroring existed.
+    #[cfg(feature = "mirror-shipper")]
+    mirror_shipper: MirrorShipper,
     #[cfg(feature = "testing-trace")]
     trace_log: TraceLog,
 }
@@ -337,6 +347,8 @@ impl Engine {
             Self {
                 signal_admission: SignalAdmission::default(),
                 nexus: Nexus::new(store),
+                #[cfg(feature = "mirror-shipper")]
+                mirror_shipper: MirrorShipper::new(),
             }
         }
     }
@@ -356,6 +368,8 @@ impl Engine {
         Self {
             signal_admission: SignalAdmission::with_trace(trace_log.clone()),
             nexus: Nexus::new_with_trace(store, trace_log.clone()),
+            #[cfg(feature = "mirror-shipper")]
+            mirror_shipper: MirrorShipper::new(),
             trace_log,
         }
     }
@@ -413,6 +427,12 @@ impl Engine {
         self.nexus.store().len()
     }
 
+    /// The durable SEMA store this engine composes — its query surface,
+    /// versioned log, and shared engine handle.
+    pub fn store(&self) -> &Store {
+        self.nexus.store()
+    }
+
     #[cfg(feature = "agent-guardian")]
     pub fn guardian_decision_count(&self) -> usize {
         self.nexus.store().guardian_decision_count().unwrap_or(0)
@@ -450,13 +470,66 @@ impl Engine {
     /// `Configured`. The `ConfigureRejection` / `ArchiveTargetUnwritable` arm of
     /// the contract is reserved for a future eager-validation policy.
     pub fn configure(&mut self, request: ConfigureRequest) -> MetaOutput {
-        let archive_database_target = request.into_payload();
+        // `ConfigureRequest` is now a named-field struct carrying both the
+        // archive target and an optional mirror target. The field plumbing is
+        // unconditional so the DEFAULT build (where the gated shipper module is
+        // absent) still compiles and echoes the mirror target back in the
+        // receipt; only the actual shipper-arming below is feature-gated.
+        let ConfigureRequest {
+            archive_database_target,
+            mirror_target,
+        } = request;
         self.nexus
             .set_archive_target(archive_database_target.clone());
+        // Arm (or disarm) the mirror shipper against the live engine handle.
+        // A bad mirror address is an owner-config error, not a SEMA fault, so
+        // it rejects the Configure rather than silently leaving mirroring off.
+        // Present only when the gated shipper is built in; without it the
+        // mirror target is echoed in the receipt but no shipper exists.
+        #[cfg(feature = "mirror-shipper")]
+        if let Err(error) = self
+            .mirror_shipper
+            .configure(mirror_target.as_ref(), self.nexus.store().engine_handle())
+        {
+            let _ = error;
+            return MetaOutput::rejected(ConfigureRejection {
+                configure_rejection_reason: ConfigureRejectionReason::InternalError,
+                database_marker: self.nexus.database_marker(),
+            });
+        }
         MetaOutput::configured(ConfigureReceipt {
             archive_database_target,
+            mirror_target,
             database_marker: self.nexus.database_marker(),
         })
+    }
+
+    /// Whether the OFF-by-default mirror shipper is armed (an owner configured
+    /// a `MirrorTarget::Address`).
+    #[cfg(feature = "mirror-shipper")]
+    pub fn mirror_shipping_armed(&self) -> bool {
+        self.mirror_shipper.is_armed()
+    }
+
+    /// Drain the engine's unshipped versioned-log outbox to the configured
+    /// mirror. A no-op when mirroring is off, so the daemon's post-commit hook
+    /// calls it unconditionally. Shipping is best-effort relative to LOCAL
+    /// durability: the working write already committed locally before this
+    /// runs, so a mirror that is unreachable leaves the local log intact and
+    /// the suffix waiting in the outbox for the next drain.
+    #[cfg(feature = "mirror-shipper")]
+    pub async fn ship_unshipped_to_mirror(
+        &self,
+    ) -> Result<Option<mirror::ShipOutcome>, MirrorShipperError> {
+        self.mirror_shipper.ship_unshipped().await
+    }
+
+    /// Publish the store's latest local checkpoint to the configured mirror,
+    /// the portable restore body a fresh store fetches alongside the shipped
+    /// log suffix. A no-op when mirroring is off.
+    #[cfg(feature = "mirror-shipper")]
+    pub async fn publish_checkpoint_to_mirror(&self) -> Result<bool, MirrorShipperError> {
+        self.mirror_shipper.publish_checkpoint().await
     }
 
     pub async fn configure_async(&mut self, request: ConfigureRequest) -> MetaOutput {

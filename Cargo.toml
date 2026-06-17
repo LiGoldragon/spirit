@@ -85,7 +85,6 @@ getrandom = "0.3"
 # of the default build keeps nota-next out of the binary-only daemon dependency
 # tree — the daemon's no-NOTA invariant (INTENT). default-features = false drops
 # mirror's own nota-text codec, which the shipper does not use.
-#
 mirror = { git = "https://github.com/LiGoldragon/mirror.git", branch = "main", default-features = false, optional = true }
 sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main" }
 # The previous engine generation, used only by the production-migration

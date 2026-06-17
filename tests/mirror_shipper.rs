@@ -16,7 +16,7 @@
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
-use mirror::{Engine as MirrorEngine, Service, ServiceLink, TailnetClient};
+use mirror::{Engine as MirrorEngine, MirrorTailnetClient as TailnetClient, Service, ServiceLink};
 use sema_engine::{Durability, PortableCheckpoint, VersionedCommitLogEntry};
 use signal_mirror::{Input as MirrorInput, Output as MirrorOutput, RestoreQuery, StoreName};
 use triad_runtime::kameo::actor::Spawn;
