@@ -77,6 +77,46 @@
       url = "github:LiGoldragon/version-projection";
       flake = false;
     };
+    mirror-source = {
+      url = "github:LiGoldragon/mirror";
+      flake = false;
+    };
+    meta-signal-mirror-source = {
+      url = "github:LiGoldragon/meta-signal-mirror";
+      flake = false;
+    };
+    signal-mirror-source = {
+      url = "github:LiGoldragon/signal-mirror";
+      flake = false;
+    };
+    router-source = {
+      url = "github:LiGoldragon/router";
+      flake = false;
+    };
+    meta-signal-router-source = {
+      url = "github:LiGoldragon/meta-signal-router";
+      flake = false;
+    };
+    signal-router-source = {
+      url = "github:LiGoldragon/signal-router";
+      flake = false;
+    };
+    signal-message-source = {
+      url = "github:LiGoldragon/signal-message";
+      flake = false;
+    };
+    signal-harness-source = {
+      url = "github:LiGoldragon/signal-harness";
+      flake = false;
+    };
+    signal-persona-source = {
+      url = "github:LiGoldragon/signal-persona";
+      flake = false;
+    };
+    signal-mind-source = {
+      url = "github:LiGoldragon/signal-mind";
+      flake = false;
+    };
   };
 
   outputs =
@@ -102,6 +142,16 @@
       meta-signal-agent-source,
       agent-source,
       version-projection-source,
+      mirror-source,
+      meta-signal-mirror-source,
+      signal-mirror-source,
+      router-source,
+      meta-signal-router-source,
+      signal-router-source,
+      signal-message-source,
+      signal-harness-source,
+      signal-persona-source,
+      signal-mind-source,
     }:
     flake-utils.lib.eachDefaultSystem (
       system:
@@ -161,6 +211,16 @@
               metaSignalAgentSource = meta-signal-agent-source;
               agentSource = agent-source;
               versionProjectionSource = version-projection-source;
+              mirrorSource = mirror-source;
+              metaSignalMirrorSource = meta-signal-mirror-source;
+              signalMirrorSource = signal-mirror-source;
+              routerSource = router-source;
+              metaSignalRouterSource = meta-signal-router-source;
+              signalRouterSource = signal-router-source;
+              signalMessageSource = signal-message-source;
+              signalHarnessSource = signal-harness-source;
+              signalPersonaSource = signal-persona-source;
+              signalMindSource = signal-mind-source;
             }
             ''
               cp -R ${cleanSource} $out
@@ -182,6 +242,16 @@
               cp -R "$metaSignalAgentSource" $out/vendor-sources/meta-signal-agent
               cp -R "$agentSource" $out/vendor-sources/agent
               cp -R "$versionProjectionSource" $out/vendor-sources/version-projection
+              cp -R "$mirrorSource" $out/vendor-sources/mirror
+              cp -R "$metaSignalMirrorSource" $out/vendor-sources/meta-signal-mirror
+              cp -R "$signalMirrorSource" $out/vendor-sources/signal-mirror
+              cp -R "$routerSource" $out/vendor-sources/router
+              cp -R "$metaSignalRouterSource" $out/vendor-sources/meta-signal-router
+              cp -R "$signalRouterSource" $out/vendor-sources/signal-router
+              cp -R "$signalMessageSource" $out/vendor-sources/signal-message
+              cp -R "$signalHarnessSource" $out/vendor-sources/signal-harness
+              cp -R "$signalPersonaSource" $out/vendor-sources/signal-persona
+              cp -R "$signalMindSource" $out/vendor-sources/signal-mind
               chmod -R u+w $out/vendor-sources
 
               ${pkgs.python3}/bin/python3 - "$out/vendor-sources" <<'PYEOF'
@@ -316,6 +386,41 @@
                 --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' '{ path = "../nota-next", optional = true }' \
                 --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' '{ path = "../nota-next" }'
 
+              ${pkgs.python3}/bin/python3 - "$out/vendor-sources" <<'PYEOF'
+              from pathlib import Path
+              import os
+              import re
+              import sys
+
+              vendor_sources = Path(sys.argv[1])
+              repository_names = {
+                  path.name
+                  for path in vendor_sources.iterdir()
+                  if path.is_dir() and (path / "Cargo.toml").exists()
+              }
+
+              def replacement_path(cargo_toml: Path, repository: str) -> str:
+                  target = vendor_sources / repository
+                  return Path(os.path.relpath(target, cargo_toml.parent)).as_posix()
+
+              for cargo_toml in vendor_sources.rglob("Cargo.toml"):
+                  text = cargo_toml.read_text()
+                  for repository in sorted(repository_names, key=len, reverse=True):
+                      escaped = re.escape(repository)
+                      relative = replacement_path(cargo_toml, repository)
+                      text = re.sub(
+                          rf'git = "https://github\.com/LiGoldragon/{escaped}\.git", branch = "[^"]+"',
+                          f'path = "{relative}"',
+                          text,
+                      )
+                      text = re.sub(
+                          rf'git = "https://github\.com/LiGoldragon/{escaped}\.git", rev = "[^"]+"',
+                          f'path = "{relative}"',
+                          text,
+                      )
+                  cargo_toml.write_text(text)
+              PYEOF
+
               cat >> $out/Cargo.toml <<'EOF'
               [patch."https://github.com/LiGoldragon/nota-next.git"]
               nota-next = { path = "vendor-sources/nota-next" }
@@ -362,6 +467,36 @@
 
               [patch."https://github.com/LiGoldragon/version-projection.git"]
               version-projection = { path = "vendor-sources/version-projection" }
+
+              [patch."https://github.com/LiGoldragon/mirror.git"]
+              mirror = { path = "vendor-sources/mirror" }
+
+              [patch."https://github.com/LiGoldragon/meta-signal-mirror.git"]
+              meta-signal-mirror = { path = "vendor-sources/meta-signal-mirror" }
+
+              [patch."https://github.com/LiGoldragon/signal-mirror.git"]
+              signal-mirror = { path = "vendor-sources/signal-mirror" }
+
+              [patch."https://github.com/LiGoldragon/router.git"]
+              router = { path = "vendor-sources/router" }
+
+              [patch."https://github.com/LiGoldragon/meta-signal-router.git"]
+              meta-signal-router = { path = "vendor-sources/meta-signal-router" }
+
+              [patch."https://github.com/LiGoldragon/signal-router.git"]
+              signal-router = { path = "vendor-sources/signal-router" }
+
+              [patch."https://github.com/LiGoldragon/signal-message.git"]
+              signal-message = { path = "vendor-sources/signal-message" }
+
+              [patch."https://github.com/LiGoldragon/signal-harness.git"]
+              signal-harness = { path = "vendor-sources/signal-harness" }
+
+              [patch."https://github.com/LiGoldragon/signal-persona.git"]
+              signal-persona = { path = "vendor-sources/signal-persona" }
+
+              [patch."https://github.com/LiGoldragon/signal-mind.git"]
+              signal-mind = { path = "vendor-sources/signal-mind" }
               EOF
 
             '';
@@ -400,6 +535,16 @@
               "signal-spirit",
               "triad-runtime",
               "version-projection",
+              "mirror",
+              "meta-signal-mirror",
+              "signal-mirror",
+              "router",
+              "meta-signal-router",
+              "signal-router",
+              "signal-message",
+              "signal-harness",
+              "signal-persona",
+              "signal-mind",
           )
 
           source_text = open(sys.argv[1]).read()
