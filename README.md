@@ -95,16 +95,18 @@ names intrinsic significance and reaffirmation strength.
   while `Store::observe` takes shared read input. Both operate over the durable
   `.sema` component database through `sema-engine`.
 
-## Local schema stack check
+## Remote schema stack check
 
 When editing `nota-next`, `schema-next`, or `schema-rust-next` together with
-this consumer, run the local override check:
+this consumer, commit and push the participating refs, then run the override
+check:
 
 ```sh
+SPIRIT_STACK_REF=operator/my-feature SPIRIT_TARGET_REF=operator/my-feature \
 scripts/check-local-schema-stack
 ```
 
-It runs `nix flake check` while overriding the schema-stack source inputs to
-the latest local checkouts under `/git/github.com/LiGoldragon/`. Override those
-paths with `NOTA_NEXT_PATH`, `SCHEMA_NEXT_PATH`, and
-`SCHEMA_RUST_NEXT_PATH` when testing a different checkout.
+It runs `nix flake check` against pushed `github:LiGoldragon/...` refs while
+overriding the schema-stack source inputs to the same remote ref by default.
+Use per-repo variables such as `NOTA_NEXT_REF`, `SCHEMA_NEXT_REF`, and
+`SCHEMA_RUST_NEXT_REF` when the stack does not share one branch or revision.

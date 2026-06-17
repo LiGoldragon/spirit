@@ -1,39 +1,30 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+stack_reference="${SPIRIT_STACK_REF:-main}"
+target_reference="${SPIRIT_TARGET_REF:-$stack_reference}"
+github_owner=LiGoldragon
 
-nota_next_path="${NOTA_NEXT_PATH:-/git/github.com/LiGoldragon/nota-next}"
-nota_codec_path="${NOTA_CODEC_PATH:-/git/github.com/LiGoldragon/nota-codec}"
-nota_derive_path="${NOTA_DERIVE_PATH:-/git/github.com/LiGoldragon/nota-derive}"
-schema_path="${SCHEMA_PATH:-/git/github.com/LiGoldragon/schema}"
-schema_next_path="${SCHEMA_NEXT_PATH:-/git/github.com/LiGoldragon/schema-next}"
-schema_rust_next_path="${SCHEMA_RUST_NEXT_PATH:-/git/github.com/LiGoldragon/schema-rust-next}"
-sema_path="${SEMA_PATH:-/git/github.com/LiGoldragon/sema}"
-sema_engine_path="${SEMA_ENGINE_PATH:-/git/github.com/LiGoldragon/sema-engine}"
-signal_core_path="${SIGNAL_CORE_PATH:-/git/github.com/LiGoldragon/signal-core}"
-signal_frame_path="${SIGNAL_FRAME_PATH:-/git/github.com/LiGoldragon/signal-frame}"
-signal_sema_path="${SIGNAL_SEMA_PATH:-/git/github.com/LiGoldragon/signal-sema}"
-triad_runtime_path="${TRIAD_RUNTIME_PATH:-/git/github.com/LiGoldragon/triad-runtime}"
+args=(nix flake check "github:$github_owner/spirit?ref=$target_reference")
 
-for path in "$nota_next_path" "$nota_codec_path" "$nota_derive_path" "$schema_path" "$schema_next_path" "$schema_rust_next_path" "$sema_path" "$sema_engine_path" "$signal_core_path" "$signal_frame_path" "$signal_sema_path" "$triad_runtime_path"; do
-  if [[ ! -d "$path" ]]; then
-    printf 'missing local dependency checkout: %s\n' "$path" >&2
-    exit 2
-  fi
-done
+add_override() {
+  local input="$1"
+  local repository="$2"
+  local environment_key="$3"
+  local explicit_reference="${!environment_key:-}"
+  local reference="${explicit_reference:-$stack_reference}"
 
-exec nix flake check "$repo_root" \
-  --override-input nota-next-source "path:$nota_next_path" \
-  --override-input nota-codec-source "path:$nota_codec_path" \
-  --override-input nota-derive-source "path:$nota_derive_path" \
-  --override-input schema-source "path:$schema_path" \
-  --override-input schema-next-source "path:$schema_next_path" \
-  --override-input schema-rust-next-source "path:$schema_rust_next_path" \
-  --override-input sema-source "path:$sema_path" \
-  --override-input sema-engine-source "path:$sema_engine_path" \
-  --override-input signal-core-source "path:$signal_core_path" \
-  --override-input signal-frame-source "path:$signal_frame_path" \
-  --override-input signal-sema-source "path:$signal_sema_path" \
-  --override-input triad-runtime-source "path:$triad_runtime_path" \
-  "$@"
+  args+=(--override-input "$input" "github:$github_owner/$repository?ref=$reference")
+}
+
+# Historical entry-point name retained; this check uses pushed refs only.
+add_override nota-next-source nota-next NOTA_NEXT_REF
+add_override schema-next-source schema-next SCHEMA_NEXT_REF
+add_override schema-rust-next-source schema-rust-next SCHEMA_RUST_NEXT_REF
+add_override sema-source sema SEMA_REF
+add_override sema-engine-source sema-engine SEMA_ENGINE_REF
+add_override signal-frame-source signal-frame SIGNAL_FRAME_REF
+add_override signal-sema-source signal-sema SIGNAL_SEMA_REF
+add_override triad-runtime-source triad-runtime TRIAD_RUNTIME_REF
+
+exec "${args[@]}" "$@"

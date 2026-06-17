@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Run the Nix-driven integration tests against the workspace-local
-# schema-stack checkouts (record 1006 forcing function).
+# Run the Nix-driven integration tests against pushed schema-stack refs
+# (record 1006 forcing function).
 #
 # This script:
-#   1. Builds the spirit default package via Nix using
-#      `path:` overrides for the schema-stack inputs, the same way
+#   1. Builds the spirit default package via Nix using remote
+#      `github:` overrides for the schema-stack inputs, the same way
 #      `scripts/check-local-schema-stack` does.
 #   2. Exports `SPIRIT_NIX_BUILD_RESULT` so the cargo tests in
 #      `tests/nix_integration.rs` reuse the Nix-built binaries
@@ -19,47 +19,39 @@
 set -euo pipefail
 
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+stack_reference="${SPIRIT_STACK_REF:-main}"
+target_reference="${SPIRIT_TARGET_REF:-$stack_reference}"
+github_owner=LiGoldragon
 
 override_args=()
 export_args=()
 
 add_override() {
   local input="$1"
-  local env_key="$2"
-  local default_path="$3"
-  local explicit_path="${!env_key:-}"
-  local path="${explicit_path:-$default_path}"
+  local repository="$2"
+  local environment_key="$3"
+  local explicit_reference="${!environment_key:-}"
+  local reference="${explicit_reference:-$stack_reference}"
 
-  if [[ -n "$explicit_path" && ! -d "$path" ]]; then
-    printf 'explicit %s path does not exist: %s\n' "$env_key" "$path" >&2
-    exit 2
-  fi
-
-  if [[ -d "$path" ]]; then
-    override_args+=(--override-input "$input" "path:$path")
-    export_args+=("$env_key=$path")
-  fi
+  override_args+=(--override-input "$input" "github:$github_owner/$repository?ref=$reference")
+  export_args+=("$environment_key=$reference")
 }
 
-add_override nota-next-source NOTA_NEXT_PATH /git/github.com/LiGoldragon/nota-next
-add_override nota-codec-source NOTA_CODEC_PATH /git/github.com/LiGoldragon/nota-codec
-add_override nota-derive-source NOTA_DERIVE_PATH /git/github.com/LiGoldragon/nota-derive
-add_override schema-source SCHEMA_PATH /git/github.com/LiGoldragon/schema
-add_override schema-next-source SCHEMA_NEXT_PATH /git/github.com/LiGoldragon/schema-next
-add_override schema-rust-next-source SCHEMA_RUST_NEXT_PATH /git/github.com/LiGoldragon/schema-rust-next
-add_override sema-source SEMA_PATH /git/github.com/LiGoldragon/sema
-add_override sema-engine-source SEMA_ENGINE_PATH /git/github.com/LiGoldragon/sema-engine
-add_override signal-core-source SIGNAL_CORE_PATH /git/github.com/LiGoldragon/signal-core
-add_override signal-frame-source SIGNAL_FRAME_PATH /git/github.com/LiGoldragon/signal-frame
-add_override signal-sema-source SIGNAL_SEMA_PATH /git/github.com/LiGoldragon/signal-sema
-add_override triad-runtime-source TRIAD_RUNTIME_PATH /git/github.com/LiGoldragon/triad-runtime
+add_override nota-next-source nota-next NOTA_NEXT_REF
+add_override schema-next-source schema-next SCHEMA_NEXT_REF
+add_override schema-rust-next-source schema-rust-next SCHEMA_RUST_NEXT_REF
+add_override sema-source sema SEMA_REF
+add_override sema-engine-source sema-engine SEMA_ENGINE_REF
+add_override signal-frame-source signal-frame SIGNAL_FRAME_REF
+add_override signal-sema-source signal-sema SIGNAL_SEMA_REF
+add_override triad-runtime-source triad-runtime TRIAD_RUNTIME_REF
 
 build_result="$(nix build \
   "${override_args[@]}" \
   --log-format bar-with-logs \
   --print-out-paths \
   --no-link \
-  "$repo_root#default")"
+  "github:$github_owner/spirit?ref=$target_reference#default")"
 
 if [[ -z "$build_result" ]]; then
   printf 'nix build produced no out path\n' >&2
@@ -68,6 +60,8 @@ fi
 
 printf 'using Nix-built binaries at %s\n' "$build_result"
 export SPIRIT_NIX_BUILD_RESULT="$build_result"
+export SPIRIT_STACK_REF="$stack_reference"
+export SPIRIT_TARGET_REF="$target_reference"
 for assignment in "${export_args[@]}"; do
   export "$assignment"
 done

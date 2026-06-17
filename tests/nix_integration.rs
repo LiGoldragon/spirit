@@ -209,10 +209,9 @@ impl NixBuiltBinaries {
         }
     }
 
-    /// Run `nix build` against the workspace flake. Present local dependency
-    /// checkouts are passed as `path:` overrides so in-flight stack work is
-    /// exercised; missing default checkouts are skipped so a clean machine can
-    /// still verify the packaged binary against the flake pins.
+    /// Run `nix build` against the pushed workspace flake. Dependency
+    /// overrides use remote refs so another agent can reproduce the same
+    /// build without this machine's checkout state.
     fn nix_build() -> PathBuf {
         let repo_root = repo_root();
         let temp_link = repo_root.join("target").join("nix-integration-result");
@@ -227,10 +226,13 @@ impl NixBuiltBinaries {
             .arg("bar-with-logs")
             .arg("--print-out-paths")
             .arg("--no-link");
-        for (input, path) in nix_input_overrides() {
-            command.arg("--override-input").arg(input).arg(path);
+        for (input, flake_ref) in nix_input_overrides() {
+            command.arg("--override-input").arg(input).arg(flake_ref);
         }
-        command.arg(format!("path:{}#default", repo_root.display()));
+        command.arg(format!(
+            "github:LiGoldragon/spirit?ref={}#default",
+            target_reference()
+        ));
 
         let output = command.output().expect("invoke nix build");
         assert!(
@@ -254,68 +256,50 @@ fn repo_root() -> PathBuf {
 }
 
 fn nix_input_overrides() -> Vec<(&'static str, String)> {
-    let workspace_default = |name: &str, env_key: &str| -> Option<String> {
-        match env::var(env_key) {
-            Ok(path) => Some(path),
-            Err(_) => {
-                let structural_forms_path = PathBuf::from(format!(
-                    "/home/li/wt/github.com/LiGoldragon/{name}/structural-forms-integration"
-                ));
-                let canonical_path = PathBuf::from(format!("/git/github.com/LiGoldragon/{name}"));
-                [structural_forms_path, canonical_path]
-                    .into_iter()
-                    .find(|path| path.exists())
-                    .map(|path| path.display().to_string())
-            }
-        }
-    };
+    fn github_source(repository: &'static str, environment_key: &str) -> String {
+        let reference_name = env::var(environment_key).unwrap_or_else(|_| stack_reference());
+        format!("github:LiGoldragon/{repository}?ref={reference_name}")
+    }
+
     vec![
         (
             "nota-next-source",
-            workspace_default("nota-next", "NOTA_NEXT_PATH"),
+            github_source("nota-next", "NOTA_NEXT_REF"),
         ),
-        (
-            "nota-codec-source",
-            workspace_default("nota-codec", "NOTA_CODEC_PATH"),
-        ),
-        (
-            "nota-derive-source",
-            workspace_default("nota-derive", "NOTA_DERIVE_PATH"),
-        ),
-        ("schema-source", workspace_default("schema", "SCHEMA_PATH")),
         (
             "schema-next-source",
-            workspace_default("schema-next", "SCHEMA_NEXT_PATH"),
+            github_source("schema-next", "SCHEMA_NEXT_REF"),
         ),
         (
             "schema-rust-next-source",
-            workspace_default("schema-rust-next", "SCHEMA_RUST_NEXT_PATH"),
+            github_source("schema-rust-next", "SCHEMA_RUST_NEXT_REF"),
         ),
-        ("sema-source", workspace_default("sema", "SEMA_PATH")),
+        ("sema-source", github_source("sema", "SEMA_REF")),
         (
             "sema-engine-source",
-            workspace_default("sema-engine", "SEMA_ENGINE_PATH"),
-        ),
-        (
-            "signal-core-source",
-            workspace_default("signal-core", "SIGNAL_CORE_PATH"),
+            github_source("sema-engine", "SEMA_ENGINE_REF"),
         ),
         (
             "signal-frame-source",
-            workspace_default("signal-frame", "SIGNAL_FRAME_PATH"),
+            github_source("signal-frame", "SIGNAL_FRAME_REF"),
         ),
         (
             "signal-sema-source",
-            workspace_default("signal-sema", "SIGNAL_SEMA_PATH"),
+            github_source("signal-sema", "SIGNAL_SEMA_REF"),
         ),
         (
             "triad-runtime-source",
-            workspace_default("triad-runtime", "TRIAD_RUNTIME_PATH"),
+            github_source("triad-runtime", "TRIAD_RUNTIME_REF"),
         ),
     ]
-    .into_iter()
-    .filter_map(|(input, path)| path.map(|path| (input, format!("path:{path}"))))
-    .collect()
+}
+
+fn stack_reference() -> String {
+    env::var("SPIRIT_STACK_REF").unwrap_or_else(|_| String::from("main"))
+}
+
+fn target_reference() -> String {
+    env::var("SPIRIT_TARGET_REF").unwrap_or_else(|_| stack_reference())
 }
 
 // ---------------------------------------------------------------------------
