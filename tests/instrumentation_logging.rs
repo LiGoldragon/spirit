@@ -79,9 +79,8 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
         certainty_selection: CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
     }));
-    // Designer 480: Observe now flows through Stash (operator 287 §
-    // "Acceptance Tests"). The slim wire reply carries a handle, not the
-    // full record set. The trace below witnesses the recursive Nexus loop:
+    // Observe flows through Stash and returns both records and a recovery
+    // handle. The trace below witnesses the recursive Nexus loop:
     // each NexusEntered/NexusDecided pair is one decision step. Observe needs
     // three steps: command SEMA read, command stash effect, reply to Signal.
     let record_marker = match observed.root() {

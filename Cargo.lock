@@ -1442,8 +1442,8 @@ dependencies = [
 
 [[package]]
 name = "signal-spirit"
-version = "0.6.0"
-source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=main#69679584f686ef0f188ea9d4e6d90943e35fdc42"
+version = "0.7.0"
+source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=main#624695746ce311f61e401cc93d0b2454522976f8"
 dependencies = [
  "nota-next",
  "rkyv",
@@ -1483,7 +1483,7 @@ dependencies = [
 
 [[package]]
 name = "spirit"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "agent",
  "blake3",

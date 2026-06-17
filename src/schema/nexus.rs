@@ -461,6 +461,7 @@ pub struct StashResult {
     pub stash_handle: StashHandle,
     pub record_count: RecordCount,
     pub database_marker: DatabaseMarker,
+    pub records: Records,
 }
 
 #[rustfmt::skip]

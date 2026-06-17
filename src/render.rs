@@ -13,7 +13,7 @@ use crate::{
     schema::signal::{
         Certainty, CertaintySelection, DomainMatch, ImportanceSelection, Input, KeywordMatch,
         Magnitude, ObservedRecords, Output, Privacy, PrivacySelection, Query, RecordSet, Referent,
-        ReferentSelection, Referents, StashHandle, TextMatch,
+        ReferentSelection, Referents, TextMatch,
     },
 };
 
@@ -283,9 +283,9 @@ impl RenderClient {
         let (_route, output) = transport.exchange(&Input::observe(request.query()))?;
         match output {
             Output::RecordsObserved(_) => Ok(output),
-            Output::RecordsStashed(stashed) => {
-                self.stashed_records(stashed.into_payload().stash_handle)
-            }
+            Output::RecordsStashed(stashed) => Ok(Output::records_observed(
+                stashed.into_payload().observed_records,
+            )),
             Output::Error(error) if error.payload().payload().payload() == "no matching record" => {
                 Ok(Output::records_observed(ObservedRecords::new(
                     RecordSet::new(Vec::new()),
@@ -293,18 +293,6 @@ impl RenderClient {
             }
             other => Err(RenderError::UnexpectedOutput {
                 expected: "RecordsObserved or RecordsStashed",
-                actual: other.to_string(),
-            }),
-        }
-    }
-
-    fn stashed_records(&self, stash_handle: StashHandle) -> Result<Output, RenderError> {
-        let mut transport = SignalTransport::connect(&self.socket_path)?;
-        let (_route, output) = transport.exchange(&Input::lookup_stash(stash_handle))?;
-        match output {
-            Output::RecordsObserved(_) => Ok(output),
-            other => Err(RenderError::UnexpectedOutput {
-                expected: "RecordsObserved",
                 actual: other.to_string(),
             }),
         }

@@ -21,16 +21,16 @@ use crate::{
             ClarificationResolutionReceipt, DatabaseMarker, Description, Domain, Domains, Entry,
             ErrorMessage, ErrorReport, GuardianRejection, Importance, Input, IntentClarified,
             IntentEvent, IntentRecorded, IntentSubscription, IntentSuperseded, Justification, Kind,
-            Magnitude, ObservedOperation, ObservedOperations, ObserverFilter, ObserverRetraction,
-            ObserverSubscription, OperationKind, Output, Privacy, Proposal, QuoteText, Reasoning,
-            RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier, RecordRequest,
-            Records, ReferentGuardianRejection, ReferentRegistration, ReferentRegistrationReceipt,
-            Referents, Removal, RemovalArchiveRecords, RemovalCandidateCollection,
-            RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifiers, Replacements,
-            Retirement, RetirementReceipt, SemaReceipt, SignalRejection, SkippedRemovalCandidates,
-            StashHandle, StashedObservation, Statement, SubscriptionToken, Supersession,
-            SupersessionReceipt, Testimony, ValidationError, VerbatimQuote, VersionReport,
-            VersionText,
+            Magnitude, ObservedOperation, ObservedOperations, ObservedRecords, ObserverFilter,
+            ObserverRetraction, ObserverSubscription, OperationKind, Output, Privacy, Proposal,
+            QuoteText, Reasoning, RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier,
+            RecordRequest, RecordSet, Records, ReferentGuardianRejection, ReferentRegistration,
+            ReferentRegistrationReceipt, Referents, Removal, RemovalArchiveRecords,
+            RemovalCandidateCollection, RemovalCandidatesCollection, RemoveReceipt,
+            RemovedIdentifiers, Replacements, Retirement, RetirementReceipt, SemaReceipt,
+            SignalRejection, SkippedRemovalCandidates, StashHandle, StashedObservation, Statement,
+            SubscriptionToken, Supersession, SupersessionReceipt, Testimony, ValidationError,
+            VerbatimQuote, VersionReport, VersionText,
         },
     },
     store::{Store, StoreError},
@@ -50,9 +50,9 @@ use triad_runtime::{ContinuationExhausted, ContinuationLimit, SubscriptionTokenI
 /// The stash table — the durable handle store backing the Stash effect.
 ///
 /// The full-records observation gets archived under a freshly minted
-/// `StashHandle`; the slim reply carries the handle + the record count.
-/// A follow-up `Input::LookupStash(handle)` returns the full records as
-/// a normal `RecordsObserved` output.
+/// `StashHandle`; the reply carries the handle, count, and records together.
+/// A follow-up `Input::LookupStash(handle)` recovers the same records as a
+/// normal `RecordsObserved` output.
 #[derive(Debug, Default)]
 pub struct StashTable {
     next_handle: u64,
@@ -138,6 +138,7 @@ impl StashTable {
         self.next_handle += 1;
         let handle = self.next_handle;
         let record_count = records.payload().len() as u64;
+        let observed_records = records.clone();
         self.entries.insert(
             handle,
             StashEntry {
@@ -149,6 +150,7 @@ impl StashTable {
             stash_handle: StashHandle::new(handle),
             record_count: RecordCount::new(record_count),
             database_marker,
+            records: observed_records,
         }
     }
 
@@ -1132,7 +1134,8 @@ impl Nexus {
     /// The Observe-with-Stash flow lives here: a SemaRead completion
     /// with non-empty results becomes a `CommandEffect(Stash(...))`
     /// recursion (NOT a direct Signal reply), and the EffectCompleted
-    /// (Stashed) feedback becomes the slim `Output::RecordsStashed`.
+    /// (Stashed) feedback becomes `Output::RecordsStashed`, carrying
+    /// both the stash handle and the observed records.
     /// State classification also lives here as a schema-declared
     /// `CommandEffect(ClassifyState)` followed by
     /// `EffectCompleted(StateClassified)` and the ordinary SEMA
@@ -1283,9 +1286,8 @@ impl Nexus {
     fn decide_sema_read_completion(&self, output: SemaReadOutput) -> NexusAction {
         match output {
             SemaReadOutput::Observed(observed) => {
-                // Observe's slim-output path per Spirit 1389: recurse
-                // through Stash effect so the wire reply carries a
-                // handle, not the full record set.
+                // Observe recurses through Stash so the reply carries
+                // both a recovery handle and the record set.
                 let observed = observed.into_payload();
                 let records = Records::new(observed.into_payload().into_payload());
                 NexusAction::command_effect(NexusEffectCommand::stash(StashRequest {
@@ -1388,10 +1390,12 @@ impl Nexus {
                     stash_handle,
                     record_count,
                     database_marker: _database_marker,
+                    records,
                 } = stashed.into_payload();
                 NexusAction::reply_to_signal(Output::records_stashed(StashedObservation {
                     stash_handle,
                     record_count,
+                    observed_records: ObservedRecords::new(RecordSet::new(records.into_payload())),
                 }))
             }
             NexusEffectResult::IntentSubscriptionOpened(subscription) => {

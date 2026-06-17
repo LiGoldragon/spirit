@@ -64,8 +64,8 @@
 //!
 //! - `nix_built_daemon_observes_recorded_entries_back_through_query`
 //!   — a Record followed by an Observe Query returns the schema-emitted
-//!   `RecordsStashed` variant, then `LookupStash` returns the full
-//!   `RecordsObserved` payload.
+//!   `RecordsStashed` variant with records inline, while `LookupStash`
+//!   keeps the recovery path available.
 //!
 //! - `nix_built_daemon_returns_missed_when_no_matching_record_exists`
 //!   — Observe against an empty store returns the schema-emitted
@@ -594,8 +594,8 @@ fn nix_built_daemon_observes_recorded_entries_back_through_query() {
     // PATTERN: Record then Observe through the Nix-built binaries. The
     // Observe path crosses Signal -> Nexus -> SEMA -> Nexus -> Signal
     // end-to-end, producing the schema-emitted `RecordsStashed` variant.
-    // A follow-up LookupStash returns the original Entry inside
-    // `RecordsObserved`.
+    // The first reply carries the original Entry inline; a follow-up
+    // LookupStash recovers the same Entry.
     let binaries = NixBuiltBinaries::ensure();
     let daemon = DaemonProcess::spawn(&binaries);
 
@@ -611,6 +611,14 @@ fn nix_built_daemon_observes_recorded_entries_back_through_query() {
     let stash_handle = match observed {
         Output::RecordsStashed(stashed) => {
             assert_eq!(stashed.record_count, 1);
+            assert_short_record_identifier(
+                &stashed.observed_records.payload().payload()[0].record_identifier,
+            );
+            assert_eq!(
+                stashed.observed_records.payload().payload()[0].entry,
+                entry("observe round trip"),
+                "Observe must return the schema-emitted Entry inline"
+            );
             stashed.stash_handle.clone()
         }
         other => panic!("expected schema-emitted RecordsStashed, got {other:?}"),
@@ -836,6 +844,14 @@ fn nix_built_daemon_alias_state_across_separate_cli_processes() {
     let stash_handle = match observed {
         Output::RecordsStashed(stashed) => {
             assert_eq!(stashed.record_count, 1);
+            assert_short_record_identifier(
+                &stashed.observed_records.payload().payload()[0].record_identifier,
+            );
+            assert_eq!(
+                stashed.observed_records.payload().payload()[0].entry,
+                entry("process a record"),
+                "Observe must return the schema-emitted Entry inline"
+            );
             stashed.stash_handle.clone()
         }
         other => panic!("expected RecordsStashed across separate CLI processes, got {other:?}"),

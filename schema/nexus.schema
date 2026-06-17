@@ -106,7 +106,7 @@
   ObserverTapOpened ObserverSubscription
   ObserverTapClosed ObserverRetraction
   StashRequest { Records * DatabaseMarker * }
-  StashResult { StashHandle * RecordCount * DatabaseMarker * }
+  StashResult { StashHandle * RecordCount * DatabaseMarker * Records * }
   GuardianVerdict [Accept (Reject)]
   Reject { GuardianRejectionReason * Explanation * }
   ReferentGuardianVerdict [Accept (RejectReferent)]

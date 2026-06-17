@@ -617,11 +617,11 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
         &socket_path,
         "(Observe ((Full [(Information Documentation)]) Any Any Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
-    // Designer 480: Observe now flows through Stash; the slim wire reply
-    // carries a handle, not the full record set.
+    // Observe flows through Stash and returns both the recovery handle and
+    // the observed records.
     assert!(
         matches!(observed, Output::RecordsStashed(_)),
-        "the daemon stashes the observed records and returns a slim handle, got {observed:?}"
+        "the daemon stashes and returns the observed records, got {observed:?}"
     );
 
     let removed = run_cli(&socket_path, &remove_nota(&record_identifier));
@@ -893,6 +893,35 @@ fn cli_and_daemon_classify_state_into_provisional_record() {
         panic!("expected classified State observation to be stashed, got {observed:?}");
     };
     assert_eq!(stashed.record_count, 1);
+    assert_eq!(stashed.observed_records.payload().payload().len(), 1);
+    assert_eq!(
+        stashed.observed_records.payload().payload()[0]
+            .entry
+            .domains,
+        Domains::from_strings(vec![String::from("meaning")])
+    );
+    assert_eq!(
+        stashed.observed_records.payload().payload()[0].entry.kind,
+        Kind::Clarification
+    );
+    assert_eq!(
+        stashed.observed_records.payload().payload()[0]
+            .entry
+            .description,
+        "daemon raw intent"
+    );
+    assert_eq!(
+        stashed.observed_records.payload().payload()[0]
+            .entry
+            .certainty,
+        Magnitude::Minimum
+    );
+    assert_eq!(
+        stashed.observed_records.payload().payload()[0]
+            .entry
+            .privacy,
+        Magnitude::Zero
+    );
 
     let looked_up = run_cli(
         &socket_path,
@@ -1225,14 +1254,20 @@ fn daemon_persists_sema_file_across_a_restart() {
         &socket_path,
         "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
-    // Designer 480: Observe stashes the durable result; the slim reply
-    // returns the handle + count. Follow up by LookupStash to verify the
-    // full content survived the daemon restart.
+    // Observe returns records inline and a recovery stash handle. LookupStash
+    // verifies the same content survived the daemon restart.
     let stash_handle = match observed {
         Output::RecordsStashed(stashed) => {
             assert_eq!(
                 stashed.record_count, 1,
                 "the restarted daemon observes one durable record"
+            );
+            assert_eq!(
+                stashed.observed_records.payload().payload()[0]
+                    .entry
+                    .description,
+                "survives restart",
+                "the restarted daemon returns durable content inline"
             );
             stashed.stash_handle.clone()
         }
@@ -1415,8 +1450,8 @@ fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
         &trace_socket_path,
         "(Observe ((Full [(Technology (Software (Engineering Architecture)))]) Any Any Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))",
     );
-    // Designer 480: Observe flows through the recursive Nexus loop with
-    // Stash; the slim wire reply carries a handle, not the full record set.
+    // Observe flows through the recursive Nexus loop with Stash and returns
+    // both the recovery handle and the observed records.
     // The trace below shows each continuation step: command SEMA read,
     // command Stash effect, then reply.
     assert!(
@@ -1438,17 +1473,12 @@ fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
     ]);
 }
 
-/// Designer 480: Observe now returns a slim Stash handle; the helper
-/// resolves the handle through LookupStash and reads back the descriptions.
-fn stashed_descriptions(socket_path: &Path, output: Output) -> Vec<String> {
-    let stash_handle = match output {
-        Output::RecordsStashed(stashed) => stashed.stash_handle.clone(),
-        other => panic!("expected RecordsStashed, got {other:?}"),
-    };
-    let resolved = run_cli(socket_path, &format!("(LookupStash {})", stash_handle));
-    match resolved {
-        Output::RecordsObserved(records) => {
-            let mut descriptions: Vec<String> = records
+/// Observe returns records inline with a recovery Stash handle.
+fn stashed_descriptions(_socket_path: &Path, output: Output) -> Vec<String> {
+    match output {
+        Output::RecordsStashed(stashed) => {
+            let mut descriptions: Vec<String> = stashed
+                .observed_records
                 .payload()
                 .payload()
                 .iter()
@@ -1457,7 +1487,7 @@ fn stashed_descriptions(socket_path: &Path, output: Output) -> Vec<String> {
             descriptions.sort();
             descriptions
         }
-        other => panic!("expected RecordsObserved from LookupStash, got {other:?}"),
+        other => panic!("expected RecordsStashed, got {other:?}"),
     }
 }
 

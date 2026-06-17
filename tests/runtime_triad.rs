@@ -2742,10 +2742,9 @@ fn import_export_paths_use_single_colon_namespaces() {
 fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
     // Designer 480 layer-2 witness for the Stash effect (operator 287 §
     // "Acceptance Tests"): Observe with a non-empty result drives the
-    // recursive Nexus loop through Stash and returns the slim
-    // RecordsStashed reply. A follow-up LookupStash by handle returns the
-    // full records. The two-call pattern proves the recursive computation
-    // is real on a real flow.
+    // recursive Nexus loop through Stash and returns a RecordsStashed
+    // reply carrying both the records and a recovery handle. A follow-up
+    // LookupStash by handle returns the same records.
     let sema = SemaFile::new();
     let mut engine = sema.engine();
 
@@ -2778,17 +2777,22 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
     assert_eq!(observed.origin_route(), route(2));
     let stash_handle = match observed.root() {
         Output::RecordsStashed(stashed) => {
-            // The slim wire reply per Spirit 1389: handle + count + marker,
-            // not the full record set.
             assert_eq!(stashed.record_count, 1);
+            assert_short_record_identifier(
+                &stashed.observed_records.payload().payload()[0].record_identifier,
+            );
+            assert_eq!(
+                stashed.observed_records.payload().payload()[0].entry,
+                entry("full runtime triad works")
+            );
             stashed.stash_handle.clone()
         }
-        other => panic!("expected slim RecordsStashed reply after Observe, got {other:?}"),
+        other => panic!("expected RecordsStashed reply after Observe, got {other:?}"),
     };
     assert_eq!(engine.sent_message_count(), 2);
     assert_eq!(engine.processed_message_count(), 2);
 
-    // Layer 2 witness: follow up with LookupStash and get the full records.
+    // Recovery witness: follow up with LookupStash and get the same records.
     let looked_up = engine.handle(input_lookup_stash(stash_handle));
     assert_eq!(looked_up.origin_route(), route(3));
     match looked_up.root() {
