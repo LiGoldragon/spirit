@@ -87,7 +87,9 @@ impl MirrorShipper {
 
     /// The configured tailnet address, when armed.
     pub fn address(&self) -> Option<SocketAddr> {
-        self.armed.as_ref().map(|shipper| shipper.client().address())
+        self.armed
+            .as_ref()
+            .map(|shipper| shipper.client().address())
     }
 
     /// Drain the engine's unshipped outbox to the configured mirror. A no-op

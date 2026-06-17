@@ -179,7 +179,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -694,6 +694,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "meta-signal-router"
+version = "0.2.0"
+source = "git+https://github.com/LiGoldragon/meta-signal-router.git?branch=main#12c085fd0adf7c4c411ef3bdc31758ed69b9687f"
+dependencies = [
+ "rkyv",
+ "schema-rust-next",
+ "signal-frame",
+]
+
+[[package]]
 name = "meta-signal-spirit"
 version = "0.1.0"
 source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=main#90d64b1f43317d2924bd9a01e3719e0881cb58cd"
@@ -1069,6 +1079,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "router"
+version = "0.4.1"
+source = "git+https://github.com/LiGoldragon/router.git?branch=main#075ca73162d5172bd81dad346af7372475a3affb"
+dependencies = [
+ "kameo",
+ "meta-signal-router",
+ "nota-next",
+ "rkyv",
+ "schema-rust-next",
+ "sema-engine 0.6.2",
+ "signal-frame",
+ "signal-harness",
+ "signal-message",
+ "signal-mind",
+ "signal-persona",
+ "signal-router",
+ "thiserror",
+ "tokio",
+ "triad-runtime",
+]
+
+[[package]]
 name = "rustc-hash"
 version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1084,7 +1116,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1322,6 +1354,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "signal-harness"
+version = "0.1.0"
+source = "git+https://github.com/LiGoldragon/signal-harness.git?branch=main#b2dcba72b33047957a3b0594d5fcee94fb7e6ebd"
+dependencies = [
+ "nota-next",
+ "rkyv",
+ "signal-frame",
+ "signal-persona",
+ "thiserror",
+]
+
+[[package]]
 name = "signal-hook-registry"
 version = "1.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1329,6 +1373,30 @@ checksum = "c4db69cba1110affc0e9f7bcd48bbf87b3f4fc7c61fc9155afd4c469eb3d6c1b"
 dependencies = [
  "errno",
  "libc",
+]
+
+[[package]]
+name = "signal-message"
+version = "0.3.0"
+source = "git+https://github.com/LiGoldragon/signal-message.git?branch=main#2e9c9cca1058bbb83706f329c2e51be18a4ef1f5"
+dependencies = [
+ "nota-next",
+ "rkyv",
+ "schema-rust-next",
+ "signal-frame",
+ "thiserror",
+]
+
+[[package]]
+name = "signal-mind"
+version = "0.1.0"
+source = "git+https://github.com/LiGoldragon/signal-mind.git?branch=main#42cbf6e6cefcfcb03e748a864eeb5424688090c3"
+dependencies = [
+ "nota-next",
+ "rkyv",
+ "signal-frame",
+ "signal-persona",
+ "thiserror",
 ]
 
 [[package]]
@@ -1340,6 +1408,27 @@ dependencies = [
  "rkyv",
  "schema-rust-next",
  "signal-frame",
+]
+
+[[package]]
+name = "signal-persona"
+version = "0.1.0"
+source = "git+https://github.com/LiGoldragon/signal-persona.git?branch=main#5953c8fc98b81e06034ebffbf8bc92d216de4777"
+dependencies = [
+ "nota-next",
+ "rkyv",
+ "signal-frame",
+]
+
+[[package]]
+name = "signal-router"
+version = "0.2.0"
+source = "git+https://github.com/LiGoldragon/signal-router.git?branch=main#7331456fd665c202cbf8b845df49d897ef36a1be"
+dependencies = [
+ "rkyv",
+ "schema-rust-next",
+ "signal-frame",
+ "thiserror",
 ]
 
 [[package]]
@@ -1389,7 +1478,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52d1cfed4120b4d927bf7c0f86d2087a4a7d6027c906d9f9d525a80573b9be51"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -1399,11 +1488,13 @@ dependencies = [
  "agent",
  "blake3",
  "getrandom 0.3.4",
+ "kameo",
  "meta-signal-mirror",
  "meta-signal-spirit",
  "mirror",
  "nota-next",
  "rkyv",
+ "router",
  "schema-next",
  "schema-rust-next",
  "sema-engine 0.2.3",
@@ -1411,7 +1502,10 @@ dependencies = [
  "sema-engine 0.6.2",
  "signal-agent",
  "signal-frame",
+ "signal-harness",
+ "signal-message",
  "signal-mirror",
+ "signal-router",
  "signal-sema",
  "signal-spirit",
  "tempfile",
@@ -1473,7 +1567,7 @@ dependencies = [
  "getrandom 0.4.2",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]

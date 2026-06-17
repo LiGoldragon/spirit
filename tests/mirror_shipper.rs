@@ -19,7 +19,6 @@ use std::path::PathBuf;
 use mirror::{Engine as MirrorEngine, MirrorTailnetClient as TailnetClient, Service, ServiceLink};
 use sema_engine::{Durability, PortableCheckpoint, VersionedCommitLogEntry};
 use signal_mirror::{Input as MirrorInput, Output as MirrorOutput, RestoreQuery, StoreName};
-use triad_runtime::kameo::actor::Spawn;
 use spirit::schema::meta_signal::{
     ArchiveDatabaseTarget, ConfigureRequest, MirrorAddress, MirrorAddressText, MirrorTarget,
     Output as MetaOutput,
@@ -31,6 +30,7 @@ use spirit::schema::signal::{
 };
 use spirit::{Engine, Store};
 use tempfile::TempDir;
+use triad_runtime::kameo::actor::Spawn;
 
 const STORE_NAME: &str = RecordFamily::STORE_NAME;
 
@@ -78,7 +78,9 @@ async fn record(engine: &mut Engine, description: &str) {
 }
 
 fn mirror_target(address: SocketAddr) -> MirrorTarget {
-    MirrorTarget::Address(MirrorAddress::new(MirrorAddressText::new(address.to_string())))
+    MirrorTarget::Address(MirrorAddress::new(MirrorAddressText::new(
+        address.to_string(),
+    )))
 }
 
 /// Stand up an in-process mirror daemon runtime (real engine, real store, real
@@ -173,7 +175,10 @@ fn configured_mirror_target_ships_commits_and_a_fresh_store_restores_identically
         // post-checkpoint write — so the mirror restore carries both a
         // checkpoint body and a live suffix.
         record(&mut engine, "the log is authoritative").await;
-        engine.store().checkpoint().expect("local checkpoint writes");
+        engine
+            .store()
+            .checkpoint()
+            .expect("local checkpoint writes");
         record(&mut engine, "the fold materializes the view").await;
 
         // Before the drain, the local history is queued for the mirror.
@@ -214,11 +219,8 @@ fn configured_mirror_target_ships_commits_and_a_fresh_store_restores_identically
                 .expect("publish checkpoint"),
             "an armed shipper publishes the checkpoint"
         );
-        let restored = restore_from_mirror(
-            address,
-            component_directory.path().join("restored.sema"),
-        )
-        .await;
+        let restored =
+            restore_from_mirror(address, component_directory.path().join("restored.sema")).await;
 
         assert_eq!(restored.len(), engine.store().len());
         assert_eq!(restored.database_marker(), engine.store().database_marker());

@@ -38,12 +38,12 @@ mod guardian_prompt;
 pub mod meta_transport;
 pub mod nexus;
 mod plane;
-#[cfg(feature = "mirror-shipper")]
-pub mod shipper;
 #[cfg(feature = "production-migration")]
 pub mod production_migration;
 #[cfg(feature = "nota-text")]
 pub mod render;
+#[cfg(feature = "mirror-shipper")]
+pub mod shipper;
 pub mod store;
 pub mod subscription;
 #[cfg(feature = "testing-trace")]

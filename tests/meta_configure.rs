@@ -63,6 +63,13 @@ fn wait_for_socket(path: &Path) {
     panic!("socket did not appear at {}", path.display());
 }
 
+fn configure_request(archive_database_target: ArchiveDatabaseTarget) -> ConfigureRequest {
+    ConfigureRequest {
+        archive_database_target,
+        mirror_target: None,
+    }
+}
+
 fn decision_entry(description: &str) -> Entry {
     Entry {
         domains: Domains::from_strings(vec![String::from("meta-configure")]),
@@ -127,7 +134,7 @@ fn configure_sets_archive_target_and_leaves_live_database_unchanged() {
     let mut meta_transport =
         MetaSignalTransport::connect(&meta_socket).expect("connect meta socket");
     let (_route, reply) = meta_transport
-        .configure(ConfigureRequest::new(archive_target.clone()).into())
+        .configure(configure_request(archive_target.clone()).into())
         .expect("exchange configure");
     match reply {
         MetaOutput::Configured(receipt) => {
@@ -252,7 +259,7 @@ fn working_socket_rejects_a_meta_configure_frame() {
     let target = ArchiveDatabaseTarget::path(database.to_string_lossy().into_owned().into());
     let mut meta_on_working = MetaSignalTransport::connect(&working_socket)
         .expect("connect meta transport to working socket");
-    let result = meta_on_working.configure(ConfigureRequest::new(target).into());
+    let result = meta_on_working.configure(configure_request(target).into());
     assert!(
         result.is_err(),
         "the working socket must not answer a meta Configure as a meta reply"
