@@ -6,7 +6,7 @@ use spirit::schema::signal::{
     Certainty, CertaintyChange, CertaintyChangeReceipt, DatabaseMarker, Description, DomainMatch,
     DomainScopes, Domains, Entry, Input, InputRoute, IntentEvent, IntentRecorded, Justification,
     Kind, Magnitude, Output, OutputRoute, Privacy, QuoteText, Reasoning, Record, RecordChange,
-    RecordChangeReceipt, RecordIdentifier, RecordRequest, RecordSelection, Rejected,
+    RecordChangeReceipt, RecordIdentifier, RecordRequest, RecordSelection, Rejected, SearchText,
     SignalFrameError, SignalRejection, Statement, StatementText, Testimony, ValidationError,
     VerbatimQuote, VersionReport, VersionText,
 };
@@ -161,6 +161,19 @@ fn generated_public_private_record_shortcut_roots_own_route_header_and_rkyv_fram
     assert_eq!(private_route, InputRoute::PrivateRecords);
     assert_eq!(public_decoded, public_input);
     assert_eq!(private_decoded, private_input);
+}
+
+#[test]
+fn generated_public_text_search_root_owns_route_header_and_rkyv_frame() {
+    let input = Input::public_text_search(SearchText::new("routing protocol"));
+
+    assert_eq!(input.route(), InputRoute::PublicTextSearch);
+
+    let frame = input.encode_signal_frame().expect("encode frame");
+    let (route, decoded) = Input::decode_signal_frame(&frame).expect("decode frame");
+
+    assert_eq!(route, InputRoute::PublicTextSearch);
+    assert_eq!(decoded, input);
 }
 
 #[test]
@@ -356,6 +369,20 @@ fn generated_change_record_round_trips_the_canonical_shape() {
         input.to_string(),
         "(ChangeRecord (003g ([(Technology (Software (Data SchemaEvolution)))] Correction replacement High Minimum Zero []) ([(replacement None)] replacement)))"
     );
+}
+
+#[cfg(feature = "nota-text")]
+#[test]
+fn generated_public_text_search_round_trips_nota() {
+    let input = "(PublicTextSearch [routing protocol])"
+        .parse::<Input>()
+        .expect("parse public text search input");
+
+    assert_eq!(
+        input,
+        Input::public_text_search(SearchText::new("routing protocol"))
+    );
+    assert_eq!(input.to_string(), "(PublicTextSearch [routing protocol])");
 }
 
 #[cfg(feature = "nota-text")]

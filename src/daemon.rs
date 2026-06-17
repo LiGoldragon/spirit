@@ -198,6 +198,7 @@ impl ComponentDaemon for SpiritDaemon {
             | Input::Supersede(_)
             | Input::Retire(_)
             | Input::Observe(_)
+            | Input::PublicTextSearch(_)
             | Input::PublicRecords(_)
             | Input::PrivateRecords(_)
             | Input::Lookup(_)

@@ -369,12 +369,19 @@ the full stored `Entry` under the same `RecordIdentifier`. The reply is
 `AtLeastCertainty Minimum`; explicit review uses `ExactCertainty Zero`; direct
 `Lookup` remains available by record identifier.
 
-`PublicRecords` and `PrivateRecords` are ergonomic privacy-scoped read
-shortcuts. Signal admits a generated `RecordSelection` payload — topic match
-plus optional kind, without a privacy field. Nexus projects it to the canonical
-SEMA `Observe(Query)` command: public means exact `Zero` privacy, private means
-`AtLeast Minimum` privacy. This keeps the friendly working-signal verbs visible
-while preserving one SEMA predicate implementation.
+`PublicTextSearch`, `PublicRecords`, and `PrivateRecords` are ergonomic read
+shortcuts. `PublicTextSearch(SearchText)` is the common agent-facing search
+path: Signal admits one text payload, Nexus projects it to the schema-declared
+SEMA `PublicTextSearch(SearchText)` read, and SEMA searches active public
+records by description text and referent text, ranks likely matches, and
+returns capped `RecordsObserved` results directly. It intentionally does not
+canonicalize referents first, so unknown words are search terms rather than
+errors. `PublicRecords` and `PrivateRecords` admit a generated
+`RecordSelection` payload — topic match plus optional kind, without a privacy
+field. Nexus projects those to canonical SEMA `Observe(Query)`: public means
+exact `Zero` privacy, private means `AtLeast Minimum` privacy. This keeps
+friendly working-signal verbs visible while preserving the full `Query`
+predicate for structured/exhaustive reads.
 
 `CollectRemovalCandidates` is the peer-callable archiving operation ported from
 old persona-spirit. Signal admits a `RemovalCandidateCollection { RecordQuery }`
@@ -506,7 +513,8 @@ uses `sema-engine` over a `*.sema` file:
   sema::Sema<sema::ReadOutput>` is the read surface. `Observe(Query)` reads
   keyed records through sema-engine and applies Spirit's schema-specific
   domain/keyword/text/referent/kind/privacy/certainty/importance predicate,
-  `Lookup(RecordIdentifier)` uses a key query,
+  `PublicTextSearch(SearchText)` performs ranked active-public text lookup and
+  returns direct capped results, `Lookup(RecordIdentifier)` uses a key query,
   and `Count(Query)` returns the number of matching records without mutating
   state. `DomainMatch::Any` is the all-record query. The `&self` receiver lets parallel readers share
   the store reference; `tests/runtime_triad.rs` has a scoped-thread witness for

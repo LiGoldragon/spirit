@@ -4,6 +4,7 @@
   RecordIdentifier signal-spirit:signal:RecordIdentifier
   Referent signal-spirit:signal:Referent
   Referents signal-spirit:signal:Referents
+  SearchText signal-spirit:signal:SearchText
   Removal signal-spirit:signal:Removal
   CertaintyChange signal-spirit:signal:CertaintyChange
   ImportanceBump signal-spirit:signal:ImportanceBump
@@ -31,8 +32,9 @@
   ChangeRecord RecordChange
   RegisterReferent ReferentRegistration
 
-  ReadInput [(Observe) (Lookup) (Count)]
+  ReadInput [(Observe) (PublicTextSearch) (Lookup) (Count)]
   Observe Query
+  PublicTextSearch SearchText
   Lookup RecordIdentifier
   Count Query
 
@@ -45,8 +47,9 @@
   ReferentRegistered ReferentRegistrationReceipt
   Missed ErrorReport
 
-  ReadOutput [(Observed) (Found) (Counted) (Missed)]
+  ReadOutput [(Observed) (PublicTextSearchResults) (Found) (Counted) (Missed)]
   Observed ObservedRecords
+  PublicTextSearchResults ObservedRecords
   Found FoundRecord
   Counted CountedRecords
 

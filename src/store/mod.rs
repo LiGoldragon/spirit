@@ -52,6 +52,8 @@ use crate::schema::{
     },
 };
 
+const PUBLIC_TEXT_SEARCH_LIMIT: usize = 25;
+
 #[cfg(feature = "agent-guardian")]
 use crate::schema::signal::{
     DomainMatch, DomainScope, DomainScopes, RegisteredReferent, RegisteredReferents,
@@ -201,6 +203,19 @@ impl SemaEngine for Store {
                 Ok(entries) if !entries.is_empty() => {
                     SemaReadOutput::observed(ObservedRecords::new(RecordSet::new(entries)))
                 }
+                Ok(_) => SemaReadOutput::missed(ErrorReport::new(ErrorMessage::new(
+                    "no matching record",
+                ))),
+                Err(error) => {
+                    SemaReadOutput::missed(ErrorReport::new(ErrorMessage::new(error.to_string())))
+                }
+            },
+            SemaReadInput::PublicTextSearch(search) => match self
+                .public_text_search(search.payload())
+            {
+                Ok(entries) if !entries.is_empty() => SemaReadOutput::public_text_search_results(
+                    ObservedRecords::new(RecordSet::new(entries)),
+                ),
                 Ok(_) => SemaReadOutput::missed(ErrorReport::new(ErrorMessage::new(
                     "no matching record",
                 ))),
@@ -674,6 +689,38 @@ impl Store {
         Ok(records
             .into_iter()
             .map(StoredRecord::into_observed_record)
+            .collect())
+    }
+
+    fn public_text_search(
+        &self,
+        search_text: &SearchText,
+    ) -> Result<Vec<ObservedRecord>, StoreError> {
+        let needle = PublicTextSearchNeedle::new(search_text);
+        if needle.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut scored = self
+            .records()?
+            .into_iter()
+            .filter(|record| record.entry.is_public_active())
+            .filter_map(|record| {
+                let score = needle.score_entry(&record.entry)?;
+                Some((score, record))
+            })
+            .collect::<Vec<_>>();
+        scored.sort_by_key(|(score, record)| {
+            std::cmp::Reverse((
+                *score,
+                record.entry.certainty_rank(),
+                record.entry.importance_rank(),
+            ))
+        });
+        Ok(scored
+            .into_iter()
+            .take(PUBLIC_TEXT_SEARCH_LIMIT)
+            .map(|(_score, record)| record.into_observed_record())
             .collect())
     }
 
@@ -1352,8 +1399,71 @@ impl GuardianQueryExt for Query {
     }
 }
 
+struct PublicTextSearchNeedle {
+    full_text: String,
+    tokens: Vec<String>,
+}
+
+impl PublicTextSearchNeedle {
+    fn new(search_text: &SearchText) -> Self {
+        let full_text = search_text.payload().trim().to_lowercase();
+        let tokens = full_text
+            .split_whitespace()
+            .map(str::trim)
+            .filter(|token| !token.is_empty())
+            .map(ToOwned::to_owned)
+            .collect();
+        Self { full_text, tokens }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.full_text.is_empty()
+    }
+
+    fn score_entry(&self, entry: &Entry) -> Option<u64> {
+        let score =
+            self.score_description(&entry.description) + self.score_referents(&entry.referents);
+        (score > 0).then_some(score)
+    }
+
+    fn score_description(&self, description: &Description) -> u64 {
+        let haystack = description.payload().to_lowercase();
+        let mut score = 0;
+        if haystack.contains(&self.full_text) {
+            score += 100;
+        }
+        for token in &self.tokens {
+            if haystack.contains(token) {
+                score += 10;
+            }
+        }
+        score
+    }
+
+    fn score_referents(&self, referents: &Referents) -> u64 {
+        let mut score = 0;
+        for referent in referents.payload() {
+            let candidate = referent.payload().to_lowercase();
+            if candidate == self.full_text {
+                score += 120;
+            } else if candidate.contains(&self.full_text) {
+                score += 60;
+            }
+            for token in &self.tokens {
+                if candidate == *token {
+                    score += 30;
+                } else if candidate.contains(token) {
+                    score += 15;
+                }
+            }
+        }
+        score
+    }
+}
+
 pub trait EntryStoreExt {
     fn matches(&self, query: &Query) -> bool;
+    fn is_public_active(&self) -> bool;
     fn certainty_rank(&self) -> u64;
     fn importance_rank(&self) -> u64;
 }
@@ -1361,6 +1471,12 @@ pub trait EntryStoreExt {
 impl EntryStoreExt for Entry {
     fn matches(&self, query: &Query) -> bool {
         query.matches(self)
+    }
+
+    fn is_public_active(&self) -> bool {
+        PrivacySelection::default_observation_privacy().matches(&self.privacy)
+            && CertaintySelection::default_observation_certainty().matches(&self.certainty)
+            && ImportanceSelection::default_observation_importance().matches(&self.importance)
     }
 
     fn certainty_rank(&self) -> u64 {

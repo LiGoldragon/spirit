@@ -80,7 +80,7 @@ fn signal_schema_input_uses_exported_object_variant_names() {
 
     // The active production Input enum body — compact exported objects.
     witness.must_contain(
-        "[State Record Propose Clarify Supersede Retire ResolveClarification Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version Marker]",
+        "[State Record Propose Clarify Supersede Retire ResolveClarification Observe PublicTextSearch PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version Marker]",
         "4",
     );
     witness.must_contain("State Statement", "4");
@@ -91,6 +91,7 @@ fn signal_schema_input_uses_exported_object_variant_names() {
     witness.must_contain("Supersede Supersession", "4");
     witness.must_contain("Retire Retirement", "4");
     witness.must_contain("Observe Query", "4");
+    witness.must_contain("PublicTextSearch SearchText", "4");
     witness.must_contain("PublicRecords RecordSelection", "4");
     witness.must_contain("PrivateRecords RecordSelection", "4");
     witness.must_contain("Lookup RecordIdentifier", "4");
@@ -264,12 +265,13 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     sema_witness.must_round_trip_as_schema_source();
 
     signal_witness.must_contain(
-        "[State Record Propose Clarify Supersede Retire ResolveClarification Observe PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version Marker]",
+        "[State Record Propose Clarify Supersede Retire ResolveClarification Observe PublicTextSearch PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version Marker]",
         "4",
     );
     signal_witness.must_contain("State Statement", "4");
     signal_witness.must_contain("Record RecordRequest", "4");
     signal_witness.must_contain("Observe Query", "4");
+    signal_witness.must_contain("PublicTextSearch SearchText", "4");
     signal_witness.must_contain("PublicRecords RecordSelection", "4");
     signal_witness.must_contain("PrivateRecords RecordSelection", "4");
     signal_witness.must_contain("Lookup RecordIdentifier", "4");
@@ -366,11 +368,13 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     signal_witness.must_contain("pub struct Record(RecordRequest);", "4");
     signal_witness.must_contain("pub struct Propose(Proposal);", "4");
     signal_witness.must_contain("pub struct Observe(Query);", "4");
+    signal_witness.must_contain("pub struct PublicTextSearch(SearchText);", "4");
     signal_witness.must_contain("pub struct PublicRecords(RecordSelection);", "4");
     signal_witness.must_contain("pub struct PrivateRecords(RecordSelection);", "4");
     signal_witness.must_contain("pub struct Lookup(RecordIdentifier);", "4");
     signal_witness.must_contain("Record(Record)", "4");
     signal_witness.must_contain("Observe(Observe)", "4");
+    signal_witness.must_contain("PublicTextSearch(PublicTextSearch)", "4");
     signal_witness.must_contain("PublicRecords(PublicRecords)", "4");
     signal_witness.must_contain("PrivateRecords(PrivateRecords)", "4");
     signal_witness.must_contain("Lookup(Lookup)", "4");

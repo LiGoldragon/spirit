@@ -650,6 +650,60 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
 }
 
 #[test]
+fn public_text_search_returns_direct_ranked_records() {
+    let temp = TempDir::new().expect("tempdir");
+    let socket_path = temp.path().join("public-text-search.sock");
+    let database_path = temp.path().join("public-text-search.sema");
+
+    let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
+
+    let first = run_cli(
+        &socket_path,
+        &record_nota(
+            "[(Technology (Software (Distributed ProtocolDesign)))]",
+            "Decision",
+            "router.node.cluster.criome is the endpoint naming example",
+        ),
+    );
+    assert!(
+        matches!(first, Output::RecordAccepted(_)),
+        "expected first search fixture to record, got {first:?}"
+    );
+    let second = run_cli(
+        &socket_path,
+        &record_nota(
+            "[(Technology (Software (Engineering Architecture)))]",
+            "Decision",
+            "Router owns the standardized routing protocol envelope",
+        ),
+    );
+    assert!(
+        matches!(second, Output::RecordAccepted(_)),
+        "expected second search fixture to record, got {second:?}"
+    );
+
+    let suffix_results = run_cli(&socket_path, "(PublicTextSearch .criome)");
+    let Output::RecordsObserved(suffix_records) = suffix_results else {
+        panic!("PublicTextSearch should return direct records, got {suffix_results:?}");
+    };
+    assert_eq!(suffix_records.payload().payload().len(), 1);
+    assert_eq!(
+        suffix_records.payload().payload()[0].entry.description,
+        "router.node.cluster.criome is the endpoint naming example"
+    );
+
+    let phrase_results = run_cli(&socket_path, "(PublicTextSearch [routing protocol])");
+    let Output::RecordsObserved(phrase_records) = phrase_results else {
+        panic!("PublicTextSearch should return direct phrase records, got {phrase_results:?}");
+    };
+    assert_eq!(phrase_records.payload().payload().len(), 1);
+    assert_eq!(
+        phrase_records.payload().payload()[0].entry.description,
+        "Router owns the standardized routing protocol envelope"
+    );
+}
+
+#[test]
 fn cli_and_daemon_resolve_clarification_edits_target_and_removes_standalone() {
     let temp = TempDir::new().expect("tempdir");
     let socket_path = temp.path().join("resolve-clarification.sock");

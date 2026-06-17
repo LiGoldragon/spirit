@@ -20,6 +20,8 @@ pub use signal_spirit::schema::signal::Referent as Referent;
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::Referents as Referents;
 #[rustfmt::skip]
+pub use signal_spirit::schema::signal::SearchText as SearchText;
+#[rustfmt::skip]
 pub use signal_spirit::schema::signal::Removal as Removal;
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::CertaintyChange as CertaintyChange;
@@ -101,6 +103,7 @@ pub struct RegisterReferent(ReferentRegistration);
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum ReadInput {
     Observe(Observe),
+    PublicTextSearch(PublicTextSearch),
     Lookup(Lookup),
     Count(Count),
 }
@@ -109,6 +112,11 @@ pub enum ReadInput {
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Observe(Query);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct PublicTextSearch(SearchText);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -173,6 +181,7 @@ pub struct Missed(ErrorReport);
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum ReadOutput {
     Observed(Observed),
+    PublicTextSearchResults(PublicTextSearchResults),
     Found(Found),
     Counted(Counted),
     Missed(Missed),
@@ -182,6 +191,11 @@ pub enum ReadOutput {
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Observed(ObservedRecords);
+
+#[rustfmt::skip]
+#[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct PublicTextSearchResults(ObservedRecords);
 
 #[rustfmt::skip]
 #[cfg_attr(feature = "nota-text", derive(nota_next::NotaDecode, nota_next::NotaEncode))]
@@ -383,6 +397,25 @@ impl From<Query> for Observe {
 }
 
 #[rustfmt::skip]
+impl PublicTextSearch {
+    pub fn new(payload: SearchText) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &SearchText {
+        &self.0
+    }
+    pub fn into_payload(self) -> SearchText {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<SearchText> for PublicTextSearch {
+    fn from(payload: SearchText) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl Lookup {
     pub fn new(payload: RecordIdentifier) -> Self {
         Self(payload)
@@ -573,6 +606,25 @@ impl From<ObservedRecords> for Observed {
 }
 
 #[rustfmt::skip]
+impl PublicTextSearchResults {
+    pub fn new(payload: ObservedRecords) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ObservedRecords {
+        &self.0
+    }
+    pub fn into_payload(self) -> ObservedRecords {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ObservedRecords> for PublicTextSearchResults {
+    fn from(payload: ObservedRecords) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl Found {
     pub fn new(payload: FoundRecord) -> Self {
         Self(payload)
@@ -694,6 +746,9 @@ impl ReadInput {
     pub fn observe(payload: Query) -> Self {
         Self::Observe(Observe::new(payload))
     }
+    pub fn public_text_search(payload: SearchText) -> Self {
+        Self::PublicTextSearch(PublicTextSearch::new(payload))
+    }
     pub fn lookup(payload: RecordIdentifier) -> Self {
         Self::Lookup(Lookup::new(payload))
     }
@@ -731,6 +786,9 @@ impl WriteOutput {
 impl ReadOutput {
     pub fn observed(payload: ObservedRecords) -> Self {
         Self::Observed(Observed::new(payload))
+    }
+    pub fn public_text_search_results(payload: ObservedRecords) -> Self {
+        Self::PublicTextSearchResults(PublicTextSearchResults::new(payload))
     }
     pub fn found(payload: FoundRecord) -> Self {
         Self::Found(Found::new(payload))
@@ -813,6 +871,13 @@ impl From<Observe> for ReadInput {
 }
 
 #[rustfmt::skip]
+impl From<PublicTextSearch> for ReadInput {
+    fn from(payload: PublicTextSearch) -> Self {
+        Self::PublicTextSearch(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl From<Lookup> for ReadInput {
     fn from(payload: Lookup) -> Self {
         Self::Lookup(payload)
@@ -879,6 +944,13 @@ impl From<Missed> for WriteOutput {
 impl From<Observed> for ReadOutput {
     fn from(payload: Observed) -> Self {
         Self::Observed(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<PublicTextSearchResults> for ReadOutput {
+    fn from(payload: PublicTextSearchResults) -> Self {
+        Self::PublicTextSearchResults(payload)
     }
 }
 
@@ -1165,6 +1237,7 @@ impl WriteInput {
 )]
 pub enum ReadInputRoute {
     Observe,
+    PublicTextSearch,
     Lookup,
     Count,
 }
@@ -1174,6 +1247,7 @@ impl ReadInput {
     pub fn route(&self) -> ReadInputRoute {
         match self {
             Self::Observe(_) => ReadInputRoute::Observe,
+            Self::PublicTextSearch(_) => ReadInputRoute::PublicTextSearch,
             Self::Lookup(_) => ReadInputRoute::Lookup,
             Self::Count(_) => ReadInputRoute::Count,
         }
@@ -1231,6 +1305,7 @@ impl WriteOutput {
 )]
 pub enum ReadOutputRoute {
     Observed,
+    PublicTextSearchResults,
     Found,
     Counted,
     Missed,
@@ -1241,6 +1316,7 @@ impl ReadOutput {
     pub fn route(&self) -> ReadOutputRoute {
         match self {
             Self::Observed(_) => ReadOutputRoute::Observed,
+            Self::PublicTextSearchResults(_) => ReadOutputRoute::PublicTextSearchResults,
             Self::Found(_) => ReadOutputRoute::Found,
             Self::Counted(_) => ReadOutputRoute::Counted,
             Self::Missed(_) => ReadOutputRoute::Missed,
@@ -1287,6 +1363,7 @@ impl SemaObjectName {
             Self::ReadInput(route) => {
                 match route {
                     ReadInputRoute::Observe => "SemaReadInputObserve",
+                    ReadInputRoute::PublicTextSearch => "SemaReadInputPublicTextSearch",
                     ReadInputRoute::Lookup => "SemaReadInputLookup",
                     ReadInputRoute::Count => "SemaReadInputCount",
                 }
@@ -1311,6 +1388,9 @@ impl SemaObjectName {
             Self::ReadOutput(route) => {
                 match route {
                     ReadOutputRoute::Observed => "SemaReadOutputObserved",
+                    ReadOutputRoute::PublicTextSearchResults => {
+                        "SemaReadOutputPublicTextSearchResults"
+                    }
                     ReadOutputRoute::Found => "SemaReadOutputFound",
                     ReadOutputRoute::Counted => "SemaReadOutputCounted",
                     ReadOutputRoute::Missed => "SemaReadOutputMissed",

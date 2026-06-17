@@ -83,11 +83,15 @@ the existing `RecordIdentifier`; certainty changes mutate only the stored
 entry's certainty, while record changes replace the full stored
 `Entry`. Replies carry the updated `CertaintyChangeReceipt` or `RecordChangeReceipt`; callers use `Marker` when they need the database marker.
 
-*Public/private record query shortcuts are ergonomic Signal operations.*
+*Public search and record query shortcuts are ergonomic Signal operations.*
+Generated `Input::PublicTextSearch(SearchText)` is the ordinary agent-facing
+lookup path: it searches active public records by description text and referent
+text, ranks likely matches, tolerates unregistered words as search terms, and
+returns capped `RecordsObserved` results directly rather than a stash handle.
 Generated `Input::PublicRecords(RecordSelection)` and
-`Input::PrivateRecords(RecordSelection)` expose common privacy-scoped reads
+`Input::PrivateRecords(RecordSelection)` expose privacy-scoped structured reads
 without making callers spell the full `Query` object every time. Nexus lowers
-those shortcut roots into schema-declared `CommandSemaRead(Observe(Query))`:
+those record-selection roots into schema-declared `CommandSemaRead(Observe(Query))`:
 `PublicRecords` uses exact-`Zero` privacy, and `PrivateRecords` uses non-zero
 privacy (`AtLeast Minimum`). Both project to ordinary observation certainty
 (`AtLeastCertainty Minimum`) and unconstrained importance, so zero-certainty removal

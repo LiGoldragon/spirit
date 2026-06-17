@@ -56,6 +56,9 @@ SPIRIT_SOCKET=/tmp/spirit.sock \
   spirit "(Observe ((Full [(Software (Data SchemaEvolution))]) (AllKeywords [schema]) (ContainsText interface) Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
+  spirit "(PublicTextSearch [routing protocol])"
+
+SPIRIT_SOCKET=/tmp/spirit.sock \
   spirit "(Remove (1 ([remove obsolete record] None)))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
@@ -80,6 +83,13 @@ registered runtime referents; aliases are canonicalized through
 `(ExactCertainty Zero)` when reviewing candidates. Certainty and importance are
 separate stored axes: certainty names confidence/currentness, while importance
 names intrinsic significance and reaffirmation strength.
+
+For ordinary agent lookup, prefer `PublicTextSearch` before spelling the full
+`Observe` predicate. It searches active public records by description text and
+referent text, tolerates unregistered words as search terms, ranks likely
+matches, and returns a capped `RecordsObserved` result directly. Use full
+`Observe` when you need exact domain / kind / referent / privacy / certainty /
+importance predicates or exhaustive stashed results.
 
 ## Runtime triad
 

@@ -1184,6 +1184,9 @@ impl Nexus {
             Input::Observe(observe) => {
                 NexusAction::command_sema_read(SemaReadInput::observe(observe.into_payload()))
             }
+            Input::PublicTextSearch(search) => NexusAction::command_sema_read(
+                SemaReadInput::public_text_search(search.into_payload()),
+            ),
             Input::PublicRecords(selection) => NexusAction::command_sema_read(
                 SemaReadInput::observe(selection.into_payload().into_public_query()),
             ),
@@ -1289,6 +1292,9 @@ impl Nexus {
                     records,
                     database_marker: self.database_marker(),
                 }))
+            }
+            SemaReadOutput::PublicTextSearchResults(observed) => {
+                NexusAction::reply_to_signal(Output::records_observed(observed.into_payload()))
             }
             SemaReadOutput::Found(record) => {
                 NexusAction::reply_to_signal(Output::record_found(record.into_payload()))
