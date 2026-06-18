@@ -56,7 +56,7 @@ const PUBLIC_TEXT_SEARCH_LIMIT: usize = 25;
 
 #[cfg(feature = "agent-guardian")]
 use crate::schema::signal::{
-    DomainMatch, DomainScope, DomainScopes, RegisteredReferent, RegisteredReferents,
+    DomainMatch, DomainScope, DomainScopes, RegisteredReferent, RegisteredReferents, SelectedKind,
 };
 
 #[cfg(feature = "testing-trace")]
@@ -1391,7 +1391,7 @@ impl GuardianQueryExt for Query {
             keyword_match: KeywordMatch::Any,
             text_match: TextMatch::Any,
             referent_selection,
-            kind: None,
+            selected_kind: SelectedKind::new(None),
             privacy_selection: PrivacySelection::Any,
             certainty_selection: CertaintySelection::default_observation_certainty(),
             importance_selection: ImportanceSelection::default_observation_importance(),
@@ -1583,7 +1583,11 @@ impl QueryStoreExt for Query {
             && self.keyword_match.matches(&entry.description)
             && self.text_match.matches(&entry.description)
             && self.referent_selection.matches(&entry.referents)
-            && self.kind.as_ref().is_none_or(|kind| &entry.kind == kind)
+            && self
+                .selected_kind
+                .payload()
+                .as_ref()
+                .is_none_or(|kind| &entry.kind == kind)
             && self.privacy_selection.matches(&entry.privacy)
             && self.certainty_selection.matches(&entry.certainty)
             && self.importance_selection.matches(&entry.importance)

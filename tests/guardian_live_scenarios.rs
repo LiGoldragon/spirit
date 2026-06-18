@@ -391,10 +391,10 @@ fn proposal(entry: Entry, quote: &str, reasoning: &str) -> Proposal {
 
 fn justification(statement: &str) -> spirit::schema::signal::Justification {
     spirit::schema::signal::Justification {
-        testimony: Testimony::new(vec![VerbatimQuote {
-            quote_text: QuoteText::new(statement.to_owned()),
-            antecedent: None,
-        }]),
+        testimony: Testimony::new(vec![VerbatimQuote::new(
+            QuoteText::new(statement.to_owned()),
+            None,
+        )]),
         reasoning: Reasoning::new(statement.to_owned()),
     }
 }
@@ -544,9 +544,11 @@ fn eval_justification(
         testimony: Testimony::new(
             quotes
                 .iter()
-                .map(|(quote, antecedent)| VerbatimQuote {
-                    quote_text: QuoteText::new((*quote).to_owned()),
-                    antecedent: antecedent.map(|text| Antecedent::new(text.to_owned())),
+                .map(|(quote, antecedent)| {
+                    VerbatimQuote::new(
+                        QuoteText::new((*quote).to_owned()),
+                        antecedent.map(|text| Antecedent::new(text.to_owned())),
+                    )
                 })
                 .collect(),
         ),

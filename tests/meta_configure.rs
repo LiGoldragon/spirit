@@ -20,7 +20,7 @@ use spirit::schema::signal::GuardianRejectionReason;
 use spirit::schema::signal::{
     Description, DomainMatch, DomainScopes, Domains, Entry, ImportanceSelection, Input,
     Justification, Kind, Magnitude, Output, Privacy, Query, QuoteText, Reasoning, RecordRequest,
-    Testimony, VerbatimQuote,
+    SelectedKind, Testimony, VerbatimQuote,
 };
 use spirit::{
     Configuration, Daemon, DaemonError, MetaSignalTransport, SignalTransport, SpiritDaemon,
@@ -64,10 +64,7 @@ fn wait_for_socket(path: &Path) {
 }
 
 fn configure_request(archive_database_target: ArchiveDatabaseTarget) -> ConfigureRequest {
-    ConfigureRequest {
-        archive_database_target,
-        mirror_target: None,
-    }
+    ConfigureRequest::new(archive_database_target, None)
 }
 
 fn decision_entry(description: &str) -> Entry {
@@ -86,10 +83,10 @@ fn record_request(description: &str) -> RecordRequest {
     RecordRequest {
         entry: decision_entry(description),
         justification: Justification {
-            testimony: Testimony::new(vec![VerbatimQuote {
-                quote_text: QuoteText::new(description.to_owned()),
-                antecedent: None,
-            }]),
+            testimony: Testimony::new(vec![VerbatimQuote::new(
+                QuoteText::new(description.to_owned()),
+                None,
+            )]),
             reasoning: Reasoning::new(description.to_owned()),
         },
     }
@@ -103,7 +100,7 @@ fn observe_query() -> Query {
         keyword_match: spirit::schema::signal::KeywordMatch::Any,
         text_match: spirit::schema::signal::TextMatch::Any,
         referent_selection: spirit::schema::signal::ReferentSelection::Any,
-        kind: Some(Kind::Decision),
+        selected_kind: SelectedKind::new(Some(Kind::Decision)),
         privacy_selection: spirit::schema::signal::PrivacySelection::default_observation_privacy(),
         certainty_selection:
             spirit::schema::signal::CertaintySelection::default_observation_certainty(),

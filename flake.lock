@@ -3,11 +3,11 @@
     "agent-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781671477,
-        "narHash": "sha256-8EEoBq0v1MvPAU4QCnwC5V6RE0VbWrdtfyst70pXgv8=",
+        "lastModified": 1781795854,
+        "narHash": "sha256-7D7LZp0fvXzZBd4DwhH5KCg2mcvdhXQbi0wR9KNgnc0=",
         "owner": "LiGoldragon",
         "repo": "agent",
-        "rev": "2320cc8a6b57c01305a19f56898925ed1dc0b441",
+        "rev": "547febd88561c202d8cad2d1327a324b53e3fb00",
         "type": "github"
       },
       "original": {
@@ -73,11 +73,11 @@
     "meta-signal-agent-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781671317,
-        "narHash": "sha256-zoSYZdyGX+DdQ38WO8Wt//hRrVG2zG5f5ltdl+ynSIo=",
+        "lastModified": 1781794271,
+        "narHash": "sha256-Kj99jAZA1p1lxVd0nzx7Z6chLWG6Ri0OFjocOEt3zok=",
         "owner": "LiGoldragon",
         "repo": "meta-signal-agent",
-        "rev": "32799a8e5c8c752c4933e287b43aa189ece29aa3",
+        "rev": "61e2c9e8d408ce20e46a9410b01a17954dde660e",
         "type": "github"
       },
       "original": {
@@ -89,11 +89,11 @@
     "meta-signal-mirror-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781681628,
-        "narHash": "sha256-lF3MvJpXyfV/mj0VzwFu+p8lftfar6H6MaqIkHQ5JuI=",
+        "lastModified": 1781786072,
+        "narHash": "sha256-MbP7aY+V+c81+10QSZDM9ZMcE536JMrKRrGChEpnrYg=",
         "owner": "LiGoldragon",
         "repo": "meta-signal-mirror",
-        "rev": "aa00815244552ed98c87915a796766d0ab96a5ea",
+        "rev": "872af53b5ec1dd93a5f66d22272d699ed0c2b85b",
         "type": "github"
       },
       "original": {
@@ -105,11 +105,11 @@
     "meta-signal-router-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781673277,
-        "narHash": "sha256-xNG7n/iyVuO3vDH5wmT8YM745rW5LLr+PzC5uDlPHB0=",
+        "lastModified": 1781784746,
+        "narHash": "sha256-NbdNLiwJAdHMejLkbb+b2lOq7uE8hzn1OFe3iAKXisI=",
         "owner": "LiGoldragon",
         "repo": "meta-signal-router",
-        "rev": "12c085fd0adf7c4c411ef3bdc31758ed69b9687f",
+        "rev": "00634e89f8c81c5c1375781d6a04e270e6bc599d",
         "type": "github"
       },
       "original": {
@@ -121,11 +121,11 @@
     "meta-signal-spirit-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781769935,
-        "narHash": "sha256-+52gTMEbveyylR8jlYvEFu6OZ4tA0YXuC0MYzgCDRjs=",
+        "lastModified": 1781793963,
+        "narHash": "sha256-PdqDD2tc9oCHcqC4gHoIRS+csj5eqVdak7sfVqne+fU=",
         "owner": "LiGoldragon",
         "repo": "meta-signal-spirit",
-        "rev": "d26bed810eb5d355fb26cd8e6579beb2531e0496",
+        "rev": "3413883a6f903f44006bbea36a8605e07f8527c1",
         "type": "github"
       },
       "original": {
@@ -219,11 +219,11 @@
     "router-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781682188,
-        "narHash": "sha256-WZp0sxJolXOUPzeuVPt7YTczAXVFpuW7DINFHCcIh04=",
+        "lastModified": 1781796540,
+        "narHash": "sha256-qAxTXHIlGty2Sl46cfhU5ylCuzMXrJfT3eWoVCNqowQ=",
         "owner": "LiGoldragon",
         "repo": "router",
-        "rev": "075ca73162d5172bd81dad346af7372475a3affb",
+        "rev": "430f1de5289c5c7b49ef8d0db455e46a0ef9b69b",
         "type": "github"
       },
       "original": {
@@ -252,11 +252,11 @@
     "schema-next-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781682752,
-        "narHash": "sha256-h1hWUXYn6MEY/ek/KMnRnA0Dn4Jt1VIXm5vS7plGP38=",
+        "lastModified": 1781783949,
+        "narHash": "sha256-p785sKxMlbzLrP07z6ssJyPnzfveelCPgp+R44LINZA=",
         "owner": "LiGoldragon",
         "repo": "schema-next",
-        "rev": "abae95f999c09491c706f39b6fdef48a3530b7f1",
+        "rev": "1de72dde6241b15299cd37fe096b3ef0e2f618b6",
         "type": "github"
       },
       "original": {
@@ -350,11 +350,11 @@
     "signal-agent-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781671239,
-        "narHash": "sha256-8Y6bQNtUNccMTwCaNU9ZZryt7gEOUxPWZyrX/4e310o=",
+        "lastModified": 1781795607,
+        "narHash": "sha256-iv60uq4FaLdFSYruNveCfD/rwpTjzc2EwmsI4LJUTnI=",
         "owner": "LiGoldragon",
         "repo": "signal-agent",
-        "rev": "d4ba5e1be1b912fc0f6743737567264f42e15574",
+        "rev": "5f393ef3287206316901fe426aa9b9df7a41cd94",
         "type": "github"
       },
       "original": {
@@ -382,11 +382,11 @@
     "signal-harness-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781675597,
-        "narHash": "sha256-ASfzwxM+9pByJZOiwjjc2v9vYYXdWIur6CgcKZyxuqA=",
+        "lastModified": 1781685702,
+        "narHash": "sha256-PtZfCo21zplcND+KMVaHq8ADDfkUiFQS69LdC+80OJQ=",
         "owner": "LiGoldragon",
         "repo": "signal-harness",
-        "rev": "b2dcba72b33047957a3b0594d5fcee94fb7e6ebd",
+        "rev": "64642c046d8f5a8b8751dfb627b477c4af54811d",
         "type": "github"
       },
       "original": {
@@ -398,11 +398,11 @@
     "signal-message-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781672861,
-        "narHash": "sha256-4VLn4hk3N+qXe6dpfJMrI4Y0lmAo3JEsijNZxgoxHLo=",
+        "lastModified": 1781784963,
+        "narHash": "sha256-QJ7m/DDh4LwcR+Vnusw6PeoD0r5XTGzEoxaenGl+SD4=",
         "owner": "LiGoldragon",
         "repo": "signal-message",
-        "rev": "2e9c9cca1058bbb83706f329c2e51be18a4ef1f5",
+        "rev": "56c6b873f263ebf10cc6c90923c902aec9bee4ba",
         "type": "github"
       },
       "original": {
@@ -414,11 +414,11 @@
     "signal-mind-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781678471,
-        "narHash": "sha256-9PL7UsNnXyBLfLOqH8bLZ1FhDAJ/F97YzkVwLz9i0oc=",
+        "lastModified": 1781795443,
+        "narHash": "sha256-9zvqY+g40jQPsXijtfUidpqDRDcVKBSRgabbBvE8T1c=",
         "owner": "LiGoldragon",
         "repo": "signal-mind",
-        "rev": "42cbf6e6cefcfcb03e748a864eeb5424688090c3",
+        "rev": "e97c1419ba0c8854c54d58546000c13a19b9dfd5",
         "type": "github"
       },
       "original": {
@@ -430,11 +430,11 @@
     "signal-mirror-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781681592,
-        "narHash": "sha256-dHBaOnroxTB0INCjFjVmZns53C2ucLJVp8I5OEnXf1o=",
+        "lastModified": 1781785398,
+        "narHash": "sha256-S9ygQEI9UR82/CuGZOuT8KYM3ESkAuwNCNudO/h8nng=",
         "owner": "LiGoldragon",
         "repo": "signal-mirror",
-        "rev": "f52a169110b4fe7bbb943dc34bcc2343c72ebfbb",
+        "rev": "4ecfa050077115fade9127b5048dc7e23c32a2d0",
         "type": "github"
       },
       "original": {
@@ -446,11 +446,11 @@
     "signal-persona-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781658040,
-        "narHash": "sha256-t1YvyF1/cp2i0gwKI943aGyqmLa3kkxXp2djHzELSyg=",
+        "lastModified": 1781794968,
+        "narHash": "sha256-2+UgV9tgbEAsEsiF0z1if6IpxJ9hrk4Va0y71IIXSDs=",
         "owner": "LiGoldragon",
         "repo": "signal-persona",
-        "rev": "5953c8fc98b81e06034ebffbf8bc92d216de4777",
+        "rev": "8c427aadafc90c6c73d364665162f0d896076f7c",
         "type": "github"
       },
       "original": {
@@ -462,11 +462,11 @@
     "signal-router-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781682157,
-        "narHash": "sha256-HmFAytmBiney1Q4jpGFbhKetNg428dNZcMvTzMhgjhU=",
+        "lastModified": 1781784564,
+        "narHash": "sha256-xZO+5/G3qiK6XlSygQI1ByAC94H/TdH97+8Ovws0Zlg=",
         "owner": "LiGoldragon",
         "repo": "signal-router",
-        "rev": "7331456fd665c202cbf8b845df49d897ef36a1be",
+        "rev": "e36e773d165d0a996208b7702d14416c559539c6",
         "type": "github"
       },
       "original": {
@@ -494,11 +494,11 @@
     "signal-spirit-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781712617,
-        "narHash": "sha256-KDRAtPUWXgae1PCKd93qDSF2oNJQue8V9vK63KRFreg=",
+        "lastModified": 1781793726,
+        "narHash": "sha256-jCOdtz8dy0BIlV5O0JpyEitGjjN+d9x14sWFQYjuR6U=",
         "owner": "LiGoldragon",
         "repo": "signal-spirit",
-        "rev": "e5f432b2bda97a250b75fc397eeeb6f7256dff1b",
+        "rev": "e971059cd5af3e321487260da762b6a066864db8",
         "type": "github"
       },
       "original": {

@@ -7,8 +7,8 @@ use spirit::schema::signal::{
     DomainScopes, Domains, Entry, Input, InputRoute, IntentEvent, IntentRecorded, Justification,
     Kind, Magnitude, Output, OutputRoute, Privacy, QuoteText, Reasoning, Record, RecordChange,
     RecordChangeReceipt, RecordIdentifier, RecordRequest, RecordSelection, Rejected, SearchText,
-    SignalFrameError, SignalRejection, Statement, StatementText, Testimony, ValidationError,
-    VerbatimQuote, VersionReport, VersionText,
+    SelectedKind, SignalFrameError, SignalRejection, Statement, StatementText, Testimony,
+    ValidationError, VerbatimQuote, VersionReport, VersionText,
 };
 use spirit::{OriginRoute, SignalAdmission};
 
@@ -23,10 +23,10 @@ fn record_request(entry: Entry, statement: &str) -> RecordRequest {
     RecordRequest {
         entry,
         justification: Justification {
-            testimony: Testimony::new(vec![VerbatimQuote {
-                quote_text: QuoteText::new(statement.to_owned()),
-                antecedent: None,
-            }]),
+            testimony: Testimony::new(vec![VerbatimQuote::new(
+                QuoteText::new(statement.to_owned()),
+                None,
+            )]),
             reasoning: Reasoning::new(statement.to_owned()),
         },
     }
@@ -34,10 +34,10 @@ fn record_request(entry: Entry, statement: &str) -> RecordRequest {
 
 fn justification(statement: &str) -> Justification {
     Justification {
-        testimony: Testimony::new(vec![VerbatimQuote {
-            quote_text: QuoteText::new(statement.to_owned()),
-            antecedent: None,
-        }]),
+        testimony: Testimony::new(vec![VerbatimQuote::new(
+            QuoteText::new(statement.to_owned()),
+            None,
+        )]),
         reasoning: Reasoning::new(statement.to_owned()),
     }
 }
@@ -138,13 +138,13 @@ fn generated_state_input_surface_owns_route_header_and_rkyv_frame() {
 fn generated_public_private_record_shortcut_roots_own_route_header_and_rkyv_frame() {
     let public_input = Input::public_records(RecordSelection {
         domain_match: DomainMatch::full(DomainScopes::from_strings(vec![String::from("schema")])),
-        kind: Some(Kind::Decision),
+        selected_kind: SelectedKind::new(Some(Kind::Decision)),
     });
     let private_input = Input::private_records(RecordSelection {
         domain_match: DomainMatch::partial(DomainScopes::from_strings(vec![String::from(
             "schema",
         )])),
-        kind: None,
+        selected_kind: SelectedKind::new(None),
     });
 
     assert_eq!(public_input.route(), InputRoute::PublicRecords);
@@ -403,7 +403,7 @@ fn generated_public_private_record_shortcuts_round_trip_nota() {
             domain_match: DomainMatch::full(DomainScopes::from_strings(vec![String::from(
                 "schema"
             )])),
-            kind: Some(Kind::Decision),
+            selected_kind: SelectedKind::new(Some(Kind::Decision)),
         })
     );
     assert_eq!(
@@ -412,7 +412,7 @@ fn generated_public_private_record_shortcuts_round_trip_nota() {
             domain_match: DomainMatch::partial(DomainScopes::from_strings(vec![String::from(
                 "schema"
             )])),
-            kind: None,
+            selected_kind: SelectedKind::new(None),
         })
     );
     assert_eq!(

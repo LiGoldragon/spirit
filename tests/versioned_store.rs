@@ -44,10 +44,10 @@ impl Fixture {
 fn justification(reasoning: &str) -> spirit::schema::signal::Justification {
     spirit::schema::signal::Justification {
         testimony: spirit::schema::signal::Testimony::new(vec![
-            spirit::schema::signal::VerbatimQuote {
-                quote_text: spirit::schema::signal::QuoteText::new(reasoning),
-                antecedent: None,
-            },
+            spirit::schema::signal::VerbatimQuote::new(
+                spirit::schema::signal::QuoteText::new(reasoning),
+                None,
+            ),
         ]),
         reasoning: spirit::schema::signal::Reasoning::new(reasoning),
     }

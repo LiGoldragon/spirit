@@ -217,10 +217,10 @@ impl ClassificationPolicy {
         let statement_text = statement.into_payload();
         let description = statement_text.payload().clone();
         let justification = Justification {
-            testimony: Testimony::new(vec![VerbatimQuote {
-                quote_text: QuoteText::new(description.clone()),
-                antecedent: None,
-            }]),
+            testimony: Testimony::new(vec![VerbatimQuote::new(
+                QuoteText::new(description.clone()),
+                None,
+            )]),
             reasoning: Reasoning::new(description.clone()),
         };
         let entry = Entry {

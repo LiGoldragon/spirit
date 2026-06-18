@@ -474,10 +474,10 @@ fn record_identifier_argument(identifier: &RecordIdentifier) -> String {
 
 fn test_justification(statement: &str) -> Justification {
     Justification {
-        testimony: Testimony::new(vec![VerbatimQuote {
-            quote_text: QuoteText::new(statement),
-            antecedent: Some(Antecedent::new("test setup")),
-        }]),
+        testimony: Testimony::new(vec![VerbatimQuote::new(
+            QuoteText::new(statement),
+            Some(Antecedent::new("test setup")),
+        )]),
         reasoning: Reasoning::new(statement),
     }
 }

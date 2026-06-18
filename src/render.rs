@@ -13,7 +13,7 @@ use crate::{
     schema::signal::{
         Certainty, CertaintySelection, DomainMatch, ImportanceSelection, Input, KeywordMatch,
         Magnitude, ObservedRecords, Output, Privacy, PrivacySelection, Query, RecordSet, Referent,
-        ReferentSelection, Referents, TextMatch,
+        ReferentSelection, Referents, SelectedKind, TextMatch,
     },
 };
 
@@ -204,7 +204,7 @@ impl RenderRequest {
             keyword_match: KeywordMatch::Any,
             text_match: TextMatch::Any,
             referent_selection: self.referents.referent_selection(),
-            kind: None,
+            selected_kind: SelectedKind::new(None),
             privacy_selection: PrivacySelection::exact(Privacy::new(Magnitude::Zero)),
             certainty_selection: CertaintySelection::at_least_certainty(Certainty::new(
                 Magnitude::Minimum,

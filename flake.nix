@@ -272,6 +272,7 @@
 
               substituteInPlace $out/Cargo.toml \
                 --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota-next = { path = "vendor-sources/nota-next", optional = true }' \
+                --replace-fail 'mirror = { git = "https://github.com/LiGoldragon/mirror.git", branch = "main", default-features = false, optional = true }' 'mirror = { path = "vendor-sources/mirror", default-features = false, optional = true }' \
                 --replace-fail 'sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main" }' 'sema-engine = { path = "vendor-sources/sema-engine" }' \
                 --replace-fail 'sema-engine-previous = { git = "https://github.com/LiGoldragon/sema-engine.git", rev = "ebee6e44ba6ee4afcb26998007bcfd128641b54c", package = "sema-engine", optional = true }' 'sema-engine-previous = { path = "vendor-sources/sema-engine-previous", package = "sema-engine", optional = true }' \
                 --replace-fail 'sema-engine-layout3 = { git = "https://github.com/LiGoldragon/sema-engine.git", rev = "dbe29427d9a2c6c194909385485ad42b008048b8", package = "sema-engine", optional = true }' 'sema-engine-layout3 = { path = "vendor-sources/sema-engine-layout3", package = "sema-engine", optional = true }' \
@@ -283,7 +284,13 @@
                 --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "vendor-sources/triad-runtime" }' \
                 --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust-next = { path = "vendor-sources/schema-rust-next" }' \
                 --replace-fail 'agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", features = ["live-provider"] }' 'agent = { path = "vendor-sources/agent", features = ["live-provider"] }' \
-                --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "vendor-sources/schema-next" }'
+                --replace-fail 'meta-signal-mirror = { git = "https://github.com/LiGoldragon/meta-signal-mirror.git", branch = "main" }' 'meta-signal-mirror = { path = "vendor-sources/meta-signal-mirror" }' \
+                --replace-fail 'signal-mirror = { git = "https://github.com/LiGoldragon/signal-mirror.git", branch = "main" }' 'signal-mirror = { path = "vendor-sources/signal-mirror" }' \
+                --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "vendor-sources/schema-next" }' \
+                --replace-fail 'router = { git = "https://github.com/LiGoldragon/router.git", branch = "main" }' 'router = { path = "vendor-sources/router" }' \
+                --replace-fail 'signal-router = { git = "https://github.com/LiGoldragon/signal-router.git", branch = "main" }' 'signal-router = { path = "vendor-sources/signal-router" }' \
+                --replace-fail 'signal-message = { git = "https://github.com/LiGoldragon/signal-message.git", branch = "main" }' 'signal-message = { path = "vendor-sources/signal-message" }' \
+                --replace-fail 'signal-harness = { git = "https://github.com/LiGoldragon/signal-harness.git", branch = "main" }' 'signal-harness = { path = "vendor-sources/signal-harness" }'
 
               ${pkgs.python3}/bin/python3 - "$out/vendor-sources/schema-rust-next/Cargo.toml" <<'PYEOF'
               from pathlib import Path

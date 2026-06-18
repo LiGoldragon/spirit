@@ -19,8 +19,9 @@ use spirit::{
             Query, QuoteText, Reasoning, RecordChange, RecordIdentifier, RecordRequest,
             RecordSelection, Referent, ReferentRegistration, ReferentSelection, Referents, Removal,
             Replacements, RetiredIdentifier, RetiredIdentifiers, Retirement, SearchText,
-            SemaReceipt, SignalRejection, Software, StashHandle, Statement, StatementText,
-            Supersession, Technology, Testimony, TextMatch, ValidationError, VerbatimQuote,
+            SelectedKind, SemaReceipt, SignalRejection, Software, StashHandle, Statement,
+            StatementText, Supersession, Technology, Testimony, TextMatch, ValidationError,
+            VerbatimQuote,
         },
     },
 };
@@ -261,10 +262,10 @@ fn entry_with_referents(description: &str, referents: &[&str]) -> Entry {
 
 fn justification(statement: &str) -> Justification {
     Justification {
-        testimony: Testimony::new(vec![VerbatimQuote {
-            quote_text: QuoteText::new(statement.to_owned()),
-            antecedent: None,
-        }]),
+        testimony: Testimony::new(vec![VerbatimQuote::new(
+            QuoteText::new(statement.to_owned()),
+            None,
+        )]),
         reasoning: Reasoning::new(statement.to_owned()),
     }
 }
@@ -357,7 +358,7 @@ fn full_query(domains: &[&str], kind: Option<Kind>) -> Query {
         keyword_match: KeywordMatch::Any,
         text_match: TextMatch::Any,
         referent_selection: spirit::schema::signal::ReferentSelection::Any,
-        kind,
+        selected_kind: SelectedKind::new(kind),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
@@ -370,7 +371,7 @@ fn partial_query(domains: &[&str], kind: Option<Kind>) -> Query {
         keyword_match: KeywordMatch::Any,
         text_match: TextMatch::Any,
         referent_selection: spirit::schema::signal::ReferentSelection::Any,
-        kind,
+        selected_kind: SelectedKind::new(kind),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
@@ -383,7 +384,7 @@ fn query_with_domain_scopes(domain_scopes: DomainScopes) -> Query {
         keyword_match: KeywordMatch::Any,
         text_match: TextMatch::Any,
         referent_selection: spirit::schema::signal::ReferentSelection::Any,
-        kind: Some(Kind::Decision),
+        selected_kind: SelectedKind::new(Some(Kind::Decision)),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
@@ -400,7 +401,7 @@ fn privacy_query(privacy_selection: PrivacySelection) -> Query {
 fn record_selection() -> RecordSelection {
     RecordSelection {
         domain_match: DomainMatch::Any,
-        kind: Some(Kind::Decision),
+        selected_kind: SelectedKind::new(Some(Kind::Decision)),
     }
 }
 
@@ -2768,7 +2769,7 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
         keyword_match: KeywordMatch::Any,
         text_match: TextMatch::Any,
         referent_selection: spirit::schema::signal::ReferentSelection::Any,
-        kind: Some(Kind::Decision),
+        selected_kind: SelectedKind::new(Some(Kind::Decision)),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),

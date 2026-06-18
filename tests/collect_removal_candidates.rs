@@ -13,8 +13,8 @@ use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest};
 use spirit::schema::signal::{
     CertaintySelection, Description, DomainMatch, DomainScopes, Domains, Entry,
     ImportanceSelection, Input, Justification, Kind, Magnitude, Output, Privacy, PrivacySelection,
-    Query, QuoteText, Reasoning, RecordRequest, RemovalCandidateCollection, Testimony,
-    VerbatimQuote,
+    Query, QuoteText, Reasoning, RecordRequest, RemovalCandidateCollection, SelectedKind,
+    Testimony, VerbatimQuote,
 };
 use spirit::{Engine, Store};
 use tempfile::TempDir;
@@ -24,10 +24,7 @@ fn domains(label: &str) -> Domains {
 }
 
 fn configure_request(archive_database_target: ArchiveDatabaseTarget) -> ConfigureRequest {
-    ConfigureRequest {
-        archive_database_target,
-        mirror_target: None,
-    }
+    ConfigureRequest::new(archive_database_target, None)
 }
 
 fn domain_scopes(label: &str) -> DomainScopes {
@@ -55,10 +52,10 @@ fn record_request(entry: Entry) -> RecordRequest {
     RecordRequest {
         entry,
         justification: Justification {
-            testimony: Testimony::new(vec![VerbatimQuote {
-                quote_text: QuoteText::new(statement.clone()),
-                antecedent: None,
-            }]),
+            testimony: Testimony::new(vec![VerbatimQuote::new(
+                QuoteText::new(statement.clone()),
+                None,
+            )]),
             reasoning: Reasoning::new(statement),
         },
     }
@@ -70,7 +67,7 @@ fn domain_query(domain: &str) -> Query {
         keyword_match: spirit::schema::signal::KeywordMatch::Any,
         text_match: spirit::schema::signal::TextMatch::Any,
         referent_selection: spirit::schema::signal::ReferentSelection::Any,
-        kind: Some(Kind::Decision),
+        selected_kind: SelectedKind::new(Some(Kind::Decision)),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
@@ -83,7 +80,7 @@ fn removal_candidate_query(domain: &str) -> Query {
         keyword_match: spirit::schema::signal::KeywordMatch::Any,
         text_match: spirit::schema::signal::TextMatch::Any,
         referent_selection: spirit::schema::signal::ReferentSelection::Any,
-        kind: Some(Kind::Decision),
+        selected_kind: SelectedKind::new(Some(Kind::Decision)),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::removal_candidate_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
@@ -95,10 +92,10 @@ fn removal_candidate_collection(domain: &str) -> RemovalCandidateCollection {
     RemovalCandidateCollection {
         record_query: removal_candidate_query(domain).into(),
         justification: Justification {
-            testimony: Testimony::new(vec![VerbatimQuote {
-                quote_text: QuoteText::new(statement.clone()),
-                antecedent: None,
-            }]),
+            testimony: Testimony::new(vec![VerbatimQuote::new(
+                QuoteText::new(statement.clone()),
+                None,
+            )]),
             reasoning: Reasoning::new(statement),
         },
     }

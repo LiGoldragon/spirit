@@ -57,10 +57,7 @@ fn record_request(description: &str) -> RecordRequest {
     RecordRequest {
         entry: entry(description),
         justification: Justification {
-            testimony: Testimony::new(vec![VerbatimQuote {
-                quote_text: QuoteText::new(description),
-                antecedent: None,
-            }]),
+            testimony: Testimony::new(vec![VerbatimQuote::new(QuoteText::new(description), None)]),
             reasoning: Reasoning::new(description),
         },
     }
@@ -161,10 +158,10 @@ fn configured_mirror_target_ships_commits_and_a_fresh_store_restores_identically
 
         // OWNER configures the mirror target on the meta surface — this arms
         // the shipper against the live engine handle.
-        let configured = engine.configure(ConfigureRequest {
-            archive_database_target: ArchiveDatabaseTarget::Default,
-            mirror_target: Some(mirror_target(address)),
-        });
+        let configured = engine.configure(ConfigureRequest::new(
+            ArchiveDatabaseTarget::Default,
+            Some(mirror_target(address)),
+        ));
         assert!(
             matches!(configured, MetaOutput::Configured(_)),
             "configure accepted, got {configured:?}"
@@ -239,10 +236,8 @@ fn unconfigured_mirror_target_ships_nothing_and_leaves_behavior_unchanged() {
         engine.start().expect("engine starts");
 
         // No mirror target: the default Configure leaves the shipper unarmed.
-        let configured = engine.configure(ConfigureRequest {
-            archive_database_target: ArchiveDatabaseTarget::Default,
-            mirror_target: None,
-        });
+        let configured =
+            engine.configure(ConfigureRequest::new(ArchiveDatabaseTarget::Default, None));
         assert!(matches!(configured, MetaOutput::Configured(_)));
         assert!(
             !engine.mirror_shipping_armed(),

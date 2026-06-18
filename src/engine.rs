@@ -477,8 +477,9 @@ impl Engine {
         // receipt; only the actual shipper-arming below is feature-gated.
         let ConfigureRequest {
             archive_database_target,
-            mirror_target,
+            selected_mirror_target,
         } = request;
+        let mirror_target = selected_mirror_target.into_payload();
         self.nexus
             .set_archive_target(archive_database_target.clone());
         // Arm (or disarm) the mirror shipper against the live engine handle.
@@ -497,11 +498,11 @@ impl Engine {
                 database_marker: self.nexus.database_marker(),
             });
         }
-        MetaOutput::configured(ConfigureReceipt {
+        MetaOutput::configured(ConfigureReceipt::new(
             archive_database_target,
             mirror_target,
-            database_marker: self.nexus.database_marker(),
-        })
+            self.nexus.database_marker(),
+        ))
     }
 
     /// Whether the OFF-by-default mirror shipper is armed (an owner configured

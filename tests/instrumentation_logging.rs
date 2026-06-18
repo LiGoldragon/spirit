@@ -6,8 +6,8 @@ use spirit::{
         signal::{
             CertaintySelection, Description, DomainMatch, DomainScopes, Domains, Entry,
             ImportanceSelection, Input, Justification, Kind, Magnitude, Output, Privacy,
-            PrivacySelection, Query, QuoteText, Reasoning, RecordRequest, SignalRejection,
-            Testimony, ValidationError, VerbatimQuote,
+            PrivacySelection, Query, QuoteText, Reasoning, RecordRequest, SelectedKind,
+            SignalRejection, Testimony, ValidationError, VerbatimQuote,
         },
     },
 };
@@ -48,10 +48,10 @@ fn record_request(entry: Entry) -> RecordRequest {
     RecordRequest {
         entry,
         justification: Justification {
-            testimony: Testimony::new(vec![VerbatimQuote {
-                quote_text: QuoteText::new(statement.clone()),
-                antecedent: None,
-            }]),
+            testimony: Testimony::new(vec![VerbatimQuote::new(
+                QuoteText::new(statement.clone()),
+                None,
+            )]),
             reasoning: Reasoning::new(statement),
         },
     }
@@ -74,7 +74,7 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
         keyword_match: spirit::schema::signal::KeywordMatch::Any,
         text_match: spirit::schema::signal::TextMatch::Any,
         referent_selection: spirit::schema::signal::ReferentSelection::Any,
-        kind: Some(Kind::Decision),
+        selected_kind: SelectedKind::new(Some(Kind::Decision)),
         privacy_selection: PrivacySelection::default_observation_privacy(),
         certainty_selection: CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),

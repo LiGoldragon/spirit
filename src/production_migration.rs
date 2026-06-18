@@ -3523,12 +3523,12 @@ mod tests {
                 record_identifier: crate::schema::signal::RecordIdentifier::new("t0tu"),
                 justification: crate::schema::signal::Justification {
                     testimony: crate::schema::signal::Testimony::new(vec![
-                        crate::schema::signal::VerbatimQuote {
-                            quote_text: crate::schema::signal::QuoteText::new(
+                        crate::schema::signal::VerbatimQuote::new(
+                            crate::schema::signal::QuoteText::new(
                                 "witness: the migrated archive accepts writes",
                             ),
-                            antecedent: None,
-                        },
+                            None,
+                        ),
                     ]),
                     reasoning: crate::schema::signal::Reasoning::new(
                         "migration witness retirement",
@@ -3689,12 +3689,12 @@ mod tests {
                 record_identifier: RecordIdentifier::new("v10a"),
                 justification: crate::schema::signal::Justification {
                     testimony: crate::schema::signal::Testimony::new(vec![
-                        crate::schema::signal::VerbatimQuote {
-                            quote_text: crate::schema::signal::QuoteText::new(
+                        crate::schema::signal::VerbatimQuote::new(
+                            crate::schema::signal::QuoteText::new(
                                 "witness: schema ten migrated archive accepts writes",
                             ),
-                            antecedent: None,
-                        },
+                            None,
+                        ),
                     ]),
                     reasoning: crate::schema::signal::Reasoning::new(
                         "schema ten migration witness retirement",
@@ -3782,12 +3782,12 @@ mod tests {
                 record_identifier: RecordIdentifier::new("v10m"),
                 justification: crate::schema::signal::Justification {
                     testimony: crate::schema::signal::Testimony::new(vec![
-                        crate::schema::signal::VerbatimQuote {
-                            quote_text: crate::schema::signal::QuoteText::new(
+                        crate::schema::signal::VerbatimQuote::new(
+                            crate::schema::signal::QuoteText::new(
                                 "witness: current schema ten archive stays writable",
                             ),
-                            antecedent: None,
-                        },
+                            None,
+                        ),
                     ]),
                     reasoning: crate::schema::signal::Reasoning::new(
                         "mixed schema ten migration witness retirement",
