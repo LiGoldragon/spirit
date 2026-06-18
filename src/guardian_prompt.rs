@@ -59,13 +59,14 @@ struct GuardianOperationPrompt<'operation> {
 /// excluded because the model never emits them — they are set on transport
 /// failure. `GuardianRejectionReason::admission_gloss` is exhaustive, so adding
 /// a variant to the enum forces a decision here.
-const MODEL_REASONS: [GuardianRejectionReason; 15] = [
+const MODEL_REASONS: [GuardianRejectionReason; 16] = [
     GuardianRejectionReason::MissingTestimony,
     GuardianRejectionReason::TestimonyFabricated,
     GuardianRejectionReason::InsufficientWarrant,
     GuardianRejectionReason::Overstated,
     GuardianRejectionReason::ImportanceUnsupported,
     GuardianRejectionReason::NonIntent,
+    GuardianRejectionReason::NegativeGuideline,
     GuardianRejectionReason::Compound,
     GuardianRejectionReason::UnclearDomain,
     GuardianRejectionReason::UnclearPrivacy,
@@ -112,6 +113,11 @@ impl GuardianRejectionReasonPromptExt for GuardianRejectionReason {
             Self::NonIntent => Some(
                 "task chatter, a status update, or a transient reaction — not durable intent that \
                  still guides once the current task is erased.",
+            ),
+            Self::NegativeGuideline => Some(
+                "the candidate's operative guidance is framed primarily as an exclusion, \
+                 prohibition, forbidden wording, or definition-by-negation. Remand: state the \
+                 affirmative shape to follow.",
             ),
             Self::Compound => {
                 Some("the Entry bundles several separable arrows that belong in distinct records.")
@@ -439,7 +445,7 @@ mod tests {
                 "model reason {reason:?} must carry a gloss"
             );
         }
-        assert_eq!(MODEL_REASONS.len(), 15);
+        assert_eq!(MODEL_REASONS.len(), 16);
         assert!(
             GuardianRejectionReason::HarnessMalformed
                 .admission_gloss()
@@ -456,6 +462,7 @@ mod tests {
             "TYPED JUSTIFICATION",
             "BURDEN OF PROOF",
             "THE CHECKLIST",
+            "AFFIRMATIVE GUIDANCE",
             "WORKED EXAMPLES",
         ] {
             assert!(

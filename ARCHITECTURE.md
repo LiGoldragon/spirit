@@ -446,6 +446,13 @@ enabled at high reasoning effort (threaded through the typed `ReasoningEffort` /
 retries before failing closed. The decision journal is a separate, schema-
 versioned SEMA store (`spirit.guardian.v<N>.sema`).
 
+The prompt includes an affirmative-guidance gate. A candidate whose operative
+rule is primarily an exclusion, prohibition, forbidden wording list, or
+definition by negation is rejected with the typed
+`GuardianRejectionReason::NegativeGuideline`; the agent then re-pleads the
+positive rule. This is a semantic guardian judgment, not a deterministic
+substring filter.
+
 ### SEMA
 
 `Store` is the SEMA writer. SEMA means database work: the SEMA plane writes

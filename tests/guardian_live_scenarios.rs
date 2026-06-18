@@ -43,7 +43,8 @@ struct LiveAgentServer {
 struct GuardianScenario {
     name: &'static str,
     proposal: Entry,
-    justification: String,
+    quote: &'static str,
+    reasoning: &'static str,
     expected: ExpectedVerdict,
 }
 
@@ -133,12 +134,17 @@ impl LiveAgentServer {
 }
 
 impl GuardianScenario {
-    fn accepts(name: &'static str, proposal: Entry) -> Self {
-        let justification = proposal.description.payload().clone();
+    fn accepts(
+        name: &'static str,
+        proposal: Entry,
+        quote: &'static str,
+        reasoning: &'static str,
+    ) -> Self {
         Self {
             name,
             proposal,
-            justification,
+            quote,
+            reasoning,
             expected: ExpectedVerdict::Accept,
         }
     }
@@ -146,40 +152,30 @@ impl GuardianScenario {
     fn accepts_with_justification(
         name: &'static str,
         proposal: Entry,
-        justification: &'static str,
+        quote: &'static str,
+        reasoning: &'static str,
     ) -> Self {
         Self {
             name,
             proposal,
-            justification: justification.to_owned(),
+            quote,
+            reasoning,
             expected: ExpectedVerdict::Accept,
-        }
-    }
-
-    fn rejects(
-        name: &'static str,
-        proposal: Entry,
-        allowed_reasons: &'static [GuardianRejectionReason],
-    ) -> Self {
-        let justification = proposal.description.payload().clone();
-        Self {
-            name,
-            proposal,
-            justification,
-            expected: ExpectedVerdict::Reject(allowed_reasons),
         }
     }
 
     fn rejects_with_justification(
         name: &'static str,
         proposal: Entry,
-        justification: &'static str,
+        quote: &'static str,
+        reasoning: &'static str,
         allowed_reasons: &'static [GuardianRejectionReason],
     ) -> Self {
         Self {
             name,
             proposal,
-            justification: justification.to_owned(),
+            quote,
+            reasoning,
             expected: ExpectedVerdict::Reject(allowed_reasons),
         }
     }
@@ -210,7 +206,8 @@ fn live_deepseek_guardian_accepts_and_rejects_realistic_scenarios() {
     for scenario in scenarios {
         let output = engine.handle(Input::propose(proposal(
             scenario.proposal,
-            scenario.justification.as_str(),
+            scenario.quote,
+            scenario.reasoning,
         )));
         match scenario.expected {
             ExpectedVerdict::Accept => {
@@ -278,25 +275,30 @@ fn scenarios() -> Vec<GuardianScenario> {
     vec![
         GuardianScenario::accepts(
             "clear guardian testing intent",
-            entry(
+            medium_entry(
                 &["software", "spirit"],
                 "Spirit guardian tests should use sandbox stores with realistic accept and reject proposals before deployment.",
             ),
+            "we should use sandbox stores with realistic accept and reject proposals before deployment",
+            "The quote is a direct testing preference; Medium matches should.",
         ),
         GuardianScenario::accepts(
             "clear agent provider test intent",
-            entry(
+            medium_entry(
                 &["software", "agent"],
                 "Agent live-provider tests should verify gopass-backed DeepSeek calls through the same signal protocol Spirit uses.",
             ),
+            "the live provider tests should go through gopass-backed DeepSeek using the same signal protocol Spirit uses",
+            "The quote directly supports the live-provider test shape; Medium matches should.",
         ),
         GuardianScenario::accepts_with_justification(
             "detailed justification is source evidence",
-            entry(
+            medium_entry(
                 &["software", "spirit"],
                 "Spirit guardian admission should judge the Entry as the candidate intent and use Justification only as source evidence.",
             ),
-            "This regression test exists because the current Proposal shape carries both an Entry and a Justification. The admission question is only whether the Entry can enter the live intent store; this paragraph explains why the test matters and must not be counted as a second intent arrow.",
+            "The guardian should judge the Entry itself; the justification is evidence for it, not a second intent.",
+            "The quote distinguishes candidate Entry from evidentiary justification; Medium matches should.",
         ),
         GuardianScenario::rejects_with_justification(
             "duplicate provider secret policy",
@@ -304,42 +306,68 @@ fn scenarios() -> Vec<GuardianScenario> {
                 &["software", "agent"],
                 "Agent provider secrets are resolved by the agent daemon from configured secret-source backends.",
             ),
-            "This repeats a seeded record exactly so the model can reject it as a duplicate instead of treating the justification text as the candidate.",
+            "agent secrets come from the configured backends, that is settled",
+            "Restates a settled seeded provider-secret policy.",
             &[GuardianRejectionReason::Duplicate],
         ),
-        GuardianScenario::rejects(
+        GuardianScenario::rejects_with_justification(
             "nota quotation contradiction",
-            entry(
+            entry_with_certainty(
                 &["software", "nota"],
                 "NOTA strings should use quotation marks as the canonical representation.",
+                Magnitude::High,
             ),
+            "let us make quotation marks the canonical NOTA string form",
+            "Contradicts the seeded NOTA bracket-form rule.",
             &[GuardianRejectionReason::Contradiction],
         ),
-        GuardianScenario::rejects(
+        GuardianScenario::rejects_with_justification(
             "compound agent and deployment intent",
-            entry(
+            medium_entry(
                 &["software", "agent"],
                 "Agent should resolve DeepSeek keys through gopass and Spirit should deploy the guardian immediately.",
             ),
+            "resolve the keys through gopass and also deploy the guardian right away",
+            "Contains two separable arrows: key resolution and deployment.",
             &[GuardianRejectionReason::Compound],
         ),
-        GuardianScenario::rejects(
+        GuardianScenario::rejects_with_justification(
             "non-intent uncertainty",
             entry(
                 &["software", "spirit"],
                 "I am unsure whether the guardian is ready.",
             ),
+            "I am not sure whether the guardian is ready, let me look again",
+            "Momentary uncertainty is task state, not durable intent.",
             &[GuardianRejectionReason::NonIntent],
+        ),
+        GuardianScenario::rejects_with_justification(
+            "negative spelling guideline",
+            medium_entry(
+                &["software", "spirit"],
+                "Canonical prose names are criome for the authentication component and criomos for the operating system name; creome and creomos are misspellings.",
+            ),
+            "its criome and criomos, not creome and creomos",
+            "Centers rejected spellings instead of an affirmative canonical naming rule.",
+            &[GuardianRejectionReason::NegativeGuideline],
         ),
     ]
 }
 
 fn entry(domains: &[&str], description: &str) -> Entry {
+    entry_with_certainty(domains, description, Magnitude::Maximum)
+}
+
+fn medium_entry(domains: &[&str], description: &str) -> Entry {
+    entry_with_certainty(domains, description, Magnitude::Medium)
+}
+
+fn entry_with_certainty(domains: &[&str], description: &str, certainty: Magnitude) -> Entry {
     Entry {
         domains: Domains::from_strings(domains.iter().map(|domain| (*domain).to_owned()).collect()),
         kind: Kind::Decision,
         description: Description::new(description),
-        certainty: Magnitude::Maximum.into(),
+        certainty: certainty.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
         referents: Referents::new(Vec::new()),
@@ -354,10 +382,10 @@ fn record_request(entry: Entry) -> RecordRequest {
     }
 }
 
-fn proposal(entry: Entry, justification_text: &str) -> Proposal {
+fn proposal(entry: Entry, quote: &str, reasoning: &str) -> Proposal {
     Proposal {
         entry,
-        justification: justification(justification_text),
+        justification: eval_justification(&[(quote, None)], reasoning),
     }
 }
 
@@ -665,6 +693,19 @@ fn eval_cases() -> Vec<EvalCase> {
             )],
             reasoning: "A momentary status check.",
             expected: EvalExpect::Reject(GuardianRejectionReason::NonIntent),
+        },
+        EvalCase {
+            name: "negative-guideline-reject",
+            entry: eval_entry(
+                &["software", "spirit"],
+                Kind::Correction,
+                Magnitude::Medium,
+                Magnitude::Minimum,
+                "Canonical prose names are criome for the authentication component and criomos for the operating system name; creome and creomos are misspellings.",
+            ),
+            quotes: &[("its criome and criomos, not creome and creomos", None)],
+            reasoning: "This centers the rejected spellings rather than pleading only the affirmative canonical names.",
+            expected: EvalExpect::Reject(GuardianRejectionReason::NegativeGuideline),
         },
         EvalCase {
             name: "duplicate-reject",

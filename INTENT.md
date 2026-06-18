@@ -104,6 +104,14 @@ record for removal while direct `Lookup` remains possible. Importance names
 importance/repetition and drives retrieval order/filtering. Importance must not be
 overloaded onto certainty.
 
+*Guardian admission requires affirmative guidance.* Per Spirit record `nr7h`,
+intent captures should state the positive shape to follow: what the practice is,
+what the component does, what spelling/name/contract is canonical, or what
+boundary holds. When a proposed record's operative guidance is framed primarily
+as an exclusion, prohibition, forbidden wording list, or definition by negation,
+the guardian rejects it with `NegativeGuideline` so the submitting agent can
+re-plead the affirmative rule.
+
 *Settled referent registrations do not need guardian judgment.* Per Spirit
 record `bwxn`, when a referent registration request names a referent and aliases
 that already resolve to one registered referent, the registry itself settles the
