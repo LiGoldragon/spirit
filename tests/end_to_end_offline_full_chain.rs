@@ -45,14 +45,13 @@ use std::sync::mpsc::{Receiver, channel};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use kameo::actor::ActorRef;
 use mirror::{
     ComponentShipper, Engine as MirrorEngine, MirrorTailnetClient, Service, ServiceLink,
     ShipOutcome, Store as MirrorStore,
 };
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use router::{
-    Actor, ActorIdentifier, ApplyRouterObservation, ApplySignalMessage, ChannelLifetime,
+    Actor, ActorIdentifier, ActorRef, ApplyRouterObservation, ApplySignalMessage, ChannelLifetime,
     EndpointKind, EndpointTransport, GrantChannel, GrantRouteChannel, InstallRemotePeer,
     InstallRemoteRoute, ReadRouterTailnetAddress, ReadRouterTrace, RegisterActor,
     RemoteRouterIdentity, RouterInput, RouterNetworkConfiguration, RouterRuntime, RouterTraceStep,

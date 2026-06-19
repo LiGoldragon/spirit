@@ -609,7 +609,21 @@ dependencies = [
  "downcast-rs",
  "dyn-clone",
  "futures",
- "kameo_macros",
+ "kameo_macros 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "kameo"
+version = "0.20.0"
+source = "git+https://github.com/LiGoldragon/kameo.git?branch=main#f491b45d7dcb55e5837eddde3d5d7ca8ceaa9f01"
+dependencies = [
+ "downcast-rs",
+ "dyn-clone",
+ "futures",
+ "kameo_macros 0.20.0 (git+https://github.com/LiGoldragon/kameo.git?branch=main)",
  "serde",
  "tokio",
  "tracing",
@@ -620,6 +634,17 @@ name = "kameo_macros"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "16c9002c9ecd16e1636f566c0bf62db48e70d86ed0d0a91b398955e883217a23"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "kameo_macros"
+version = "0.20.0"
+source = "git+https://github.com/LiGoldragon/kameo.git?branch=main#f491b45d7dcb55e5837eddde3d5d7ca8ceaa9f01"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -1081,9 +1106,9 @@ dependencies = [
 [[package]]
 name = "router"
 version = "0.4.1"
-source = "git+https://github.com/LiGoldragon/router.git?branch=main#4ce85c125b302e7e0cac28e53a684fdf8db54b3b"
+source = "git+https://github.com/LiGoldragon/router.git?branch=main#fb403c4ceabae54bb1bfba9d0c500073d2055007"
 dependencies = [
- "kameo",
+ "kameo 0.20.0 (git+https://github.com/LiGoldragon/kameo.git?branch=main)",
  "meta-signal-router",
  "nota-next",
  "rkyv",
@@ -1500,7 +1525,7 @@ dependencies = [
  "agent",
  "blake3",
  "getrandom 0.3.4",
- "kameo",
+ "kameo 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "meta-signal-mirror",
  "meta-signal-spirit",
  "mirror",
@@ -1746,7 +1771,7 @@ name = "triad-runtime"
 version = "0.6.1"
 source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#f46f66ee4f16d5774c6c3889e1d3c162ddac3811"
 dependencies = [
- "kameo",
+ "kameo 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rkyv",
  "rustix",
  "signal-frame",

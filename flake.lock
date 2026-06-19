@@ -89,6 +89,22 @@
         "type": "github"
       }
     },
+    "kameo-source": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1781859599,
+        "narHash": "sha256-yEide3elYr0mtRUStsD3AlOwdl/sKWtslj3vBp8VzVE=",
+        "owner": "LiGoldragon",
+        "repo": "kameo",
+        "rev": "f491b45d7dcb55e5837eddde3d5d7ca8ceaa9f01",
+        "type": "github"
+      },
+      "original": {
+        "owner": "LiGoldragon",
+        "repo": "kameo",
+        "type": "github"
+      }
+    },
     "meta-signal-agent-source": {
       "flake": false,
       "locked": {
@@ -205,6 +221,7 @@
       "inputs": {
         "agent-source": "agent-source",
         "flake-utils": "flake-utils",
+        "kameo-source": "kameo-source",
         "meta-signal-agent-source": "meta-signal-agent-source",
         "meta-signal-mirror-source": "meta-signal-mirror-source",
         "meta-signal-router-source": "meta-signal-router-source",
@@ -238,11 +255,11 @@
     "router-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781865692,
-        "narHash": "sha256-B3F/GAfkQf8q/FxcA8nOz79UftaBf1e2xlqhOcsmqJ4=",
+        "lastModified": 1781872362,
+        "narHash": "sha256-ho2QxL3LXInirZa11LOIltFEg6tDvOAgDgKZDrbLIk8=",
         "owner": "LiGoldragon",
         "repo": "router",
-        "rev": "4ce85c125b302e7e0cac28e53a684fdf8db54b3b",
+        "rev": "fb403c4ceabae54bb1bfba9d0c500073d2055007",
         "type": "github"
       },
       "original": {

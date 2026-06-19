@@ -8,6 +8,10 @@
       url = "github:LiGoldragon/rust-build";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    kameo-source = {
+      url = "github:LiGoldragon/kameo";
+      flake = false;
+    };
     nota-next-source = {
       url = "github:LiGoldragon/nota-next";
       flake = false;
@@ -128,6 +132,7 @@
       nixpkgs,
       flake-utils,
       rust-build,
+      kameo-source,
       nota-next-source,
       schema-next-source,
       schema-rust-next-source,
@@ -189,6 +194,7 @@
         src =
           pkgs.runCommand "spirit-source-with-local-schema-patches"
             {
+              kameoSource = kameo-source;
               notaNextSource = nota-next-source;
               schemaNextSource = schema-next-source;
               schemaRustNextSource = schema-rust-next-source;
@@ -221,6 +227,7 @@
               cp -R ${cleanSource} $out
               chmod -R u+w $out
               mkdir -p $out/vendor-sources
+              cp -R "$kameoSource" $out/vendor-sources/kameo
               cp -R "$notaNextSource" $out/vendor-sources/nota-next
               cp -R "$schemaNextSource" $out/vendor-sources/schema-next
               cp -R "$schemaRustNextSource" $out/vendor-sources/schema-rust-next
@@ -429,6 +436,10 @@
               nota-next = { path = "vendor-sources/nota-next" }
               nota-next-derive = { path = "vendor-sources/nota-next/derive" }
 
+              [patch."https://github.com/LiGoldragon/kameo.git"]
+              kameo = { path = "vendor-sources/kameo" }
+              kameo_macros = { path = "vendor-sources/kameo/macros" }
+
               [patch."https://github.com/LiGoldragon/schema-next.git"]
               schema-next = { path = "vendor-sources/schema-next" }
 
@@ -526,6 +537,8 @@
               "nota-next-derive": "0.3.0",
           }
           path_dependency_names = (
+              "kameo",
+              "kameo_macros",
               "meta-signal-agent",
               "meta-signal-spirit",
               "nota-next",
@@ -562,6 +575,17 @@
               found = re.search(r'^%s = "([^"]*)"' % name, entry, re.M)
               return found.group(1) if found else ""
 
+          def dedup_key(entry):
+              name = field(entry, "name")
+              version = field(entry, "version")
+              source = field(entry, "source")
+              if name in {"kameo", "kameo_macros"}:
+                  if source.startswith("registry+"):
+                      return (name, version, "registry")
+                  if "github.com/LiGoldragon/kameo.git" in source:
+                      return (name, version, "vendored")
+              return (name, version)
+
           kept, seen = [], {}
           for entry in entries:
               name = field(entry, "name")
@@ -569,10 +593,10 @@
               preferred = preferred_version.get(name)
               if preferred and preferred != version:
                   continue
-              key = (name, version)
+              key = dedup_key(entry)
               source = field(entry, "source")
               if key in seen:
-                  wanted = preferred_reference.get(key[0])
+                  wanted = preferred_reference.get(name)
                   if wanted and wanted in source:
                       kept[seen[key]] = entry
                   continue
@@ -581,6 +605,9 @@
 
           stripped = []
           for entry in kept:
+              name = field(entry, "name")
+              source = field(entry, "source")
+              is_registry_kameo = name in {"kameo", "kameo_macros"} and source.startswith("registry+")
               entry = "\n".join(
                   line for line in entry.split("\n")
                   if not line.startswith('source = "git+https://github.com/LiGoldragon/')
@@ -591,11 +618,22 @@
                   entry,
               )
               for dependency_name in path_dependency_names:
+                  if dependency_name in {"kameo", "kameo_macros"}:
+                      continue
                   entry = re.sub(
                       r'"' + re.escape(dependency_name) + r'(?: [^"]+)?",',
                       '"' + dependency_name + '",',
                       entry,
                   )
+              if not is_registry_kameo:
+                  for dependency_name in ("kameo", "kameo_macros"):
+                      entry = re.sub(
+                          r'"'
+                          + re.escape(dependency_name)
+                          + r'(?: [^"]*git\+https://github\.com/LiGoldragon/kameo\.git[^"]*)?",',
+                          '"' + dependency_name + '",',
+                          entry,
+                      )
               stripped.append(entry)
           open(sys.argv[2], "w").write(header + "".join("[[package]]" + entry for entry in stripped))
           PYEOF
