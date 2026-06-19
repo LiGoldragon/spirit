@@ -73,12 +73,9 @@ name = "mirror_shipper"
 path = "tests/mirror_shipper.rs"
 required-features = ["mirror-shipper"]
 
-# The OFFLINE full-chain e2e (designer report 669/2, P5): spirit source engine
-# records → ships to mirror A → a router-carried object-accepted notice crosses
-# A→B → mirror B restores identically up to the announced head. Joins the real
-# `mirror` and `router`/`signal-router` mainline legs in ONE binary; gated on
-# `mirror-shipper` so the router/signal-router dev-deps are only pulled with
-# the shipper surface.
+# The OFFLINE full-chain e2e: spirit source engine records → ships to mirror A
+# → criome authorizes the shipped head → router fans the typed head reference
+# → mirror latest restore is accepted or rejected by the delivered digest.
 [[test]]
 name = "end_to_end_offline_full_chain"
 path = "tests/end_to_end_offline_full_chain.rs"
@@ -127,17 +124,12 @@ meta-signal-mirror = { git = "https://github.com/LiGoldragon/meta-signal-mirror.
 schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }
 # Typed `SemaOperation` labels for versioned-log shape witnesses.
 signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main" }
-# The router legs of the OFFLINE full-chain e2e (designer report 669/2, P5). The
-# router carries the object-accepted notice A->B; `signal-router` is the wire
-# contract its forward speaks; `signal-message` is the chat-shaped submission the
-# notice body rides; `signal-harness` is the local-delivery frame the notify
-# witness on router B decodes.
+# The criome/router legs of the OFFLINE full-chain e2e. Criome authorizes a
+# typed object reference and router fans that reference to matching subscribers.
 router = { git = "https://github.com/LiGoldragon/router.git", branch = "main" }
-signal-router = { git = "https://github.com/LiGoldragon/signal-router.git", branch = "main" }
-signal-message = { git = "https://github.com/LiGoldragon/signal-message.git", branch = "main" }
-signal-harness = { git = "https://github.com/LiGoldragon/signal-harness.git", branch = "main" }
+criome = { git = "https://github.com/LiGoldragon/criome.git", branch = "main" }
+signal-criome = { git = "https://github.com/LiGoldragon/signal-criome.git", branch = "main", default-features = false }
 signal-standard = { git = "https://github.com/LiGoldragon/signal-standard.git", branch = "main", default-features = false }
-kameo = { version = "0.20", default-features = false, features = ["macros", "tracing"] }
 tempfile = "3"
 
 [[test]]
