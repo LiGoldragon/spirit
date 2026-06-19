@@ -120,6 +120,14 @@ const SPIRIT_STORE_V10_PRE_STANDARD_IMPL_REFERENTS_FAMILY: [u8; 32] = [
     222, 9, 197, 125, 6, 22, 39, 64, 63, 53, 45, 32, 84, 147, 157, 146, 74, 217, 28, 211, 241, 196,
     171, 146, 247, 31, 93, 52, 123, 137, 179, 185,
 ];
+const SPIRIT_STORE_V10_LIVE_JUNE19_RECORDS_FAMILY: [u8; 32] = [
+    233, 88, 40, 251, 202, 165, 243, 158, 178, 206, 219, 154, 217, 122, 18, 128, 35, 156, 125, 179,
+    133, 120, 84, 95, 126, 125, 34, 169, 134, 70, 127, 110,
+];
+const SPIRIT_STORE_V10_LIVE_JUNE19_REFERENTS_FAMILY: [u8; 32] = [
+    59, 31, 217, 119, 192, 51, 0, 231, 184, 226, 27, 216, 243, 155, 185, 14, 181, 217, 16, 174,
+    156, 53, 105, 145, 174, 107, 88, 19, 140, 85, 162, 41,
+];
 
 #[derive(Debug, Clone, PartialEq, Eq, NotaDecode, NotaEncode)]
 pub struct StoreMigrationRequest {
@@ -2129,9 +2137,11 @@ impl StoreMigration {
             Ok(_) => return Ok(SourceStoreVersion::VersionTenCurrent),
             Err(error) => error,
         };
-        if SpiritStoreV10LegacyFamilyCurrentLiveDatabase::open(database_path).is_ok() {
-            return Ok(SourceStoreVersion::VersionTenLegacyFamilyCurrent);
-        }
+        let version_ten_legacy_family_error =
+            match SpiritStoreV10LegacyFamilyCurrentLiveDatabase::open(database_path) {
+                Ok(_) => return Ok(SourceStoreVersion::VersionTenLegacyFamilyCurrent),
+                Err(error) => error,
+            };
         let version_ten_layout3_error = match SpiritStoreV10Layout3LiveDatabase::open(database_path)
         {
             Ok(_) => return Ok(SourceStoreVersion::VersionTenLayout3),
@@ -2151,7 +2161,9 @@ impl StoreMigration {
             })) => {
                 if found == SPIRIT_STORE_V10_SCHEMA_VERSION {
                     match version_ten_current_error {
-                        StoreMigrationError::CurrentSemaStore(_) => Err(version_ten_current_error),
+                        StoreMigrationError::CurrentSemaStore(_) => {
+                            Err(version_ten_legacy_family_error)
+                        }
                         _ => Err(version_ten_layout3_error),
                     }
                 } else if found == SPIRIT_STORE_V9_SCHEMA_VERSION {
@@ -2694,9 +2706,16 @@ impl SpiritStoreV10LegacyFamilyCurrentLiveDatabase {
     fn open(path: &Path) -> Result<Self, StoreMigrationError> {
         Self::open_with_family_identity(
             path,
-            SPIRIT_STORE_V10_PRE_STANDARD_IMPL_RECORDS_FAMILY,
-            SPIRIT_STORE_V10_PRE_STANDARD_IMPL_REFERENTS_FAMILY,
+            SPIRIT_STORE_V10_LIVE_JUNE19_RECORDS_FAMILY,
+            SPIRIT_STORE_V10_LIVE_JUNE19_REFERENTS_FAMILY,
         )
+        .or_else(|_| {
+            Self::open_with_family_identity(
+                path,
+                SPIRIT_STORE_V10_PRE_STANDARD_IMPL_RECORDS_FAMILY,
+                SPIRIT_STORE_V10_PRE_STANDARD_IMPL_REFERENTS_FAMILY,
+            )
+        })
         .or_else(|_| {
             Self::open_with_family_identity(
                 path,
@@ -2754,7 +2773,13 @@ impl SpiritStoreV10LegacyFamilyCurrentLiveDatabase {
 
 impl SpiritStoreV10LegacyFamilyCurrentArchiveDatabase {
     fn open(path: &Path) -> Result<Self, StoreMigrationError> {
-        Self::open_with_family_identity(path, SPIRIT_STORE_V10_PRE_STANDARD_IMPL_RECORDS_FAMILY)
+        Self::open_with_family_identity(path, SPIRIT_STORE_V10_LIVE_JUNE19_RECORDS_FAMILY)
+            .or_else(|_| {
+                Self::open_with_family_identity(
+                    path,
+                    SPIRIT_STORE_V10_PRE_STANDARD_IMPL_RECORDS_FAMILY,
+                )
+            })
             .or_else(|_| Self::open_with_family_identity(path, SPIRIT_STORE_V9_RECORDS_FAMILY))
     }
 
@@ -3086,7 +3111,9 @@ mod tests {
         CurrentTableDescriptor, LAYOUT3_RECORDS_TABLE, LAYOUT3_REFERENTS_TABLE, RECORDS_TABLE,
         REFERENTS_TABLE, SPIRIT_STORE_V7_SCHEMA_VERSION, SPIRIT_STORE_V8_SCHEMA_VERSION,
         SPIRIT_STORE_V9_RECORDS_FAMILY, SPIRIT_STORE_V9_REFERENTS_FAMILY,
-        SPIRIT_STORE_V9_SCHEMA_VERSION, SPIRIT_STORE_V10_PRE_STANDARD_IMPL_RECORDS_FAMILY,
+        SPIRIT_STORE_V9_SCHEMA_VERSION, SPIRIT_STORE_V10_LIVE_JUNE19_RECORDS_FAMILY,
+        SPIRIT_STORE_V10_LIVE_JUNE19_REFERENTS_FAMILY,
+        SPIRIT_STORE_V10_PRE_STANDARD_IMPL_RECORDS_FAMILY,
         SPIRIT_STORE_V10_PRE_STANDARD_IMPL_REFERENTS_FAMILY, SPIRIT_STORE_V10_SCHEMA_VERSION,
         SpiritStoreV7Entry, SpiritStoreV7Record, SpiritStoreV7Referent, SpiritStoreV8Record,
         SpiritStoreV8Referent, SpiritStoreV9Record, StoreMigration, StoreMigrationOutput,
@@ -3303,6 +3330,77 @@ mod tests {
                 },
             ))
             .expect("seed pre-standard-impl archive record");
+    }
+
+    fn seed_version_ten_live_june19_family_store(
+        live_path: &std::path::Path,
+        archive_path: &std::path::Path,
+    ) {
+        let mut live = CurrentSemaDatabase::open(
+            CurrentEngineOpen::new(live_path, SPIRIT_STORE_V10_SCHEMA_VERSION).with_versioning(
+                CurrentVersioningPolicy::new(CurrentVersionedStoreName::new("spirit:sema")),
+            ),
+        )
+        .expect("open live-june19 schema ten live store");
+        let records = live
+            .register_table(CurrentTableDescriptor::new(
+                CURRENT_RECORDS_TABLE,
+                CurrentFamilyName::new("RecordsFamily"),
+                CurrentSchemaHash::new(SPIRIT_STORE_V10_LIVE_JUNE19_RECORDS_FAMILY),
+            ))
+            .expect("register live-june19 records table");
+        let referents = live
+            .register_table(CurrentTableDescriptor::new(
+                CURRENT_REFERENTS_TABLE,
+                CurrentFamilyName::new("ReferentsFamily"),
+                CurrentSchemaHash::new(SPIRIT_STORE_V10_LIVE_JUNE19_REFERENTS_FAMILY),
+            ))
+            .expect("register live-june19 referents table");
+        live.assert(CurrentAssertion::new(
+            referents,
+            StoredReferent {
+                referent: Referent::new("live-june19"),
+                aliases: Referents::new(vec![Referent::new("live june19")]),
+            },
+        ))
+        .expect("seed live-june19 referent");
+        live.assert(CurrentAssertion::new(
+            records,
+            StoredRecord {
+                record_identifier: RecordIdentifier::new("v10-live-june19"),
+                entry: version_eight_entry(
+                    "schema ten live june nineteen record survives",
+                    vec![Referent::new("live-june19")],
+                ),
+            },
+        ))
+        .expect("seed live-june19 record");
+        drop(live);
+
+        let mut archive = CurrentSemaDatabase::open(CurrentEngineOpen::new(
+            archive_path,
+            SPIRIT_STORE_V10_SCHEMA_VERSION,
+        ))
+        .expect("open live-june19 archive store");
+        let archive_records = archive
+            .register_table(CurrentTableDescriptor::new(
+                CURRENT_RECORDS_TABLE,
+                CurrentFamilyName::new("RecordsFamily"),
+                CurrentSchemaHash::new(SPIRIT_STORE_V10_LIVE_JUNE19_RECORDS_FAMILY),
+            ))
+            .expect("register live-june19 archive records table");
+        archive
+            .assert(CurrentAssertion::new(
+                archive_records,
+                StoredRecord {
+                    record_identifier: RecordIdentifier::new("old10-live-june19"),
+                    entry: version_eight_entry(
+                        "schema ten live june nineteen archive survives",
+                        Vec::new(),
+                    ),
+                },
+            ))
+            .expect("seed live-june19 archive record");
     }
 
     fn seed_version_ten_layout_three_store(
@@ -3746,6 +3844,51 @@ mod tests {
             .expect("second pre-standard-impl migration run");
         let StoreMigrationOutput::Current(completed) = second else {
             panic!("already-migrated pre-standard-impl store must report Current, got {second:?}");
+        };
+        assert_eq!(completed.record_count(), 1);
+    }
+
+    #[test]
+    fn migrates_version_ten_live_june19_family_to_current_family() {
+        let temporary = tempfile::tempdir().expect("create migration sandbox");
+        let database_path = temporary.path().join("store.sema");
+        let archive_path = temporary.path().join("store.archive.sema");
+        seed_version_ten_live_june19_family_store(&database_path, &archive_path);
+
+        let request = StoreMigrationRequest::new(database_path.display().to_string());
+        let output = StoreMigration::new(request.clone())
+            .run()
+            .expect("run live-june19 schema ten migration");
+        let StoreMigrationOutput::Migrated(completed) = output else {
+            panic!("live-june19 schema ten store must migrate, got {output:?}");
+        };
+        assert_eq!(completed.record_count(), 1);
+        assert_eq!(completed.referent_count(), 1);
+
+        let migrated =
+            Store::open(&database_path).expect("open migrated live-june19 schema ten store");
+        let entry = migrated
+            .entry_by_identifier("v10-live-june19")
+            .expect("query migrated live-june19 entry")
+            .expect("migrated live-june19 entry exists");
+        assert_eq!(
+            entry.description.payload(),
+            "schema ten live june nineteen record survives"
+        );
+        assert_eq!(
+            entry.referents.payload(),
+            &vec![Referent::new("live-june19")]
+        );
+        let migrations = migrated.migrations().expect("read migration markers");
+        assert_eq!(migrations.len(), 1);
+        assert_eq!(*migrations[0].source_schema_version.payload(), 10);
+        drop(migrated);
+
+        let second = StoreMigration::new(request)
+            .run()
+            .expect("second live-june19 migration run");
+        let StoreMigrationOutput::Current(completed) = second else {
+            panic!("already-migrated live-june19 store must report Current, got {second:?}");
         };
         assert_eq!(completed.record_count(), 1);
     }
