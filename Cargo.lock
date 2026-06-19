@@ -208,7 +208,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -769,7 +769,7 @@ dependencies = [
 [[package]]
 name = "mirror"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/mirror.git?branch=main#027a991c7de7e03ce32f41a489ce3355b842d55a"
+source = "git+https://github.com/LiGoldragon/mirror.git?branch=main#fca9e5acdeb768f03a7d7743f7bf1632aa1a47c0"
 dependencies = [
  "meta-signal-mirror",
  "nota-next",
@@ -1167,7 +1167,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1442,7 +1442,7 @@ dependencies = [
 [[package]]
 name = "signal-message"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/signal-message.git?branch=main#97d9b14e2f8d607d21b95f924a77b990c195d644"
+source = "git+https://github.com/LiGoldragon/signal-message.git?branch=main#56c6b873f263ebf10cc6c90923c902aec9bee4ba"
 dependencies = [
  "nota-next",
  "rkyv",
@@ -1477,7 +1477,7 @@ dependencies = [
 [[package]]
 name = "signal-persona"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/signal-persona.git?branch=main#b4c66501f1b81e80fccd34211b023b72a139fa29"
+source = "git+https://github.com/LiGoldragon/signal-persona.git?branch=main#8c427aadafc90c6c73d364665162f0d896076f7c"
 dependencies = [
  "nota-next",
  "rkyv",
@@ -1488,7 +1488,7 @@ dependencies = [
 [[package]]
 name = "signal-router"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/signal-router.git?branch=main#3e4bb074d55d7b8cf9179979b4f2de7b08934c87"
+source = "git+https://github.com/LiGoldragon/signal-router.git?branch=main#e36e773d165d0a996208b7702d14416c559539c6"
 dependencies = [
  "rkyv",
  "schema-rust-next",
@@ -1553,7 +1553,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52d1cfed4120b4d927bf7c0f86d2087a4a7d6027c906d9f9d525a80573b9be51"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -1641,7 +1641,7 @@ dependencies = [
  "getrandom 0.4.2",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
