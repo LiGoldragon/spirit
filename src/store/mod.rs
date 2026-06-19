@@ -12,13 +12,13 @@ use std::{
     sync::Arc,
 };
 
-#[cfg(feature = "mirror-shipper")]
-use sema_engine::PortableCheckpoint;
 use sema_engine::{
     Assertion, Checkpoint, CheckpointReceipt, CommitSequence, Engine as SemaDatabase, EngineOpen,
-    EngineRecord, EntryDigest, Mutation, QueryPlan, RecordKey, Retraction, SchemaVersion,
-    TableReference, VersionedCommitLogEntry,
+    EngineRecord, Mutation, QueryPlan, RecordKey, Retraction, SchemaVersion, TableReference,
+    VersionedCommitLogEntry,
 };
+#[cfg(feature = "mirror-shipper")]
+use sema_engine::{EntryDigest, PortableCheckpoint};
 
 pub(crate) use archive::ArchiveDatabase;
 pub use error::StoreError;

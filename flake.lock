@@ -31,6 +31,23 @@
         "type": "github"
       }
     },
+    "criome-source": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1781879884,
+        "narHash": "sha256-1GqBUO1hFXQyscz99l/Vx6NB7+nNSOz2MiRwJLUrrgM=",
+        "ref": "main",
+        "rev": "6c75804cb23deeffee64542c5f70fa7c8d2692b6",
+        "revCount": 123,
+        "type": "git",
+        "url": "https://github.com/LiGoldragon/criome.git"
+      },
+      "original": {
+        "ref": "main",
+        "type": "git",
+        "url": "https://github.com/LiGoldragon/criome.git"
+      }
+    },
     "fenix": {
       "inputs": {
         "nixpkgs": [
@@ -220,6 +237,7 @@
     "root": {
       "inputs": {
         "agent-source": "agent-source",
+        "criome-source": "criome-source",
         "flake-utils": "flake-utils",
         "kameo-source": "kameo-source",
         "meta-signal-agent-source": "meta-signal-agent-source",
@@ -238,6 +256,7 @@
         "sema-engine-source": "sema-engine-source",
         "sema-source": "sema-source",
         "signal-agent-source": "signal-agent-source",
+        "signal-criome-source": "signal-criome-source",
         "signal-frame-source": "signal-frame-source",
         "signal-harness-source": "signal-harness-source",
         "signal-message-source": "signal-message-source",
@@ -311,33 +330,35 @@
     "schema-next-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781803333,
-        "narHash": "sha256-Dh3PNHGFinUUJyDDPQ8LfDW8CNPOwhuYvoBC8gL9E7g=",
-        "owner": "LiGoldragon",
-        "repo": "schema-next",
-        "rev": "b3be7d0f9161cc01353cfecd0cc0a17678b5030a",
-        "type": "github"
+        "lastModified": 1781879405,
+        "narHash": "sha256-FE+xFAdXsTjgRZJhofnSFgoLYjLifW4ILa5eA2NAzq0=",
+        "ref": "main",
+        "rev": "da5643cf3cba675c27bfabdbbe7a684893813f27",
+        "revCount": 139,
+        "type": "git",
+        "url": "https://github.com/LiGoldragon/schema-next.git"
       },
       "original": {
-        "owner": "LiGoldragon",
-        "repo": "schema-next",
-        "type": "github"
+        "ref": "main",
+        "type": "git",
+        "url": "https://github.com/LiGoldragon/schema-next.git"
       }
     },
     "schema-rust-next-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781803337,
-        "narHash": "sha256-LfUnGAcBvm6MjkC/YF2tRkh0tH/gUAEaMDmCe+LZ21g=",
-        "owner": "LiGoldragon",
-        "repo": "schema-rust-next",
-        "rev": "bb4dfe293e03e64e89f899621cc5dfa5bff6958e",
-        "type": "github"
+        "lastModified": 1781872375,
+        "narHash": "sha256-2f60CaNsQknEXIt3AVyo4KiRMkdTsLG4vzbr3VjT6lo=",
+        "ref": "main",
+        "rev": "e116cc46bf916c548ea74499f2ac0d63720820a9",
+        "revCount": 195,
+        "type": "git",
+        "url": "https://github.com/LiGoldragon/schema-rust-next.git"
       },
       "original": {
-        "owner": "LiGoldragon",
-        "repo": "schema-rust-next",
-        "type": "github"
+        "ref": "main",
+        "type": "git",
+        "url": "https://github.com/LiGoldragon/schema-rust-next.git"
       }
     },
     "sema-engine-layout3-source": {
@@ -422,20 +443,38 @@
         "type": "github"
       }
     },
+    "signal-criome-source": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1781860747,
+        "narHash": "sha256-u78rybH+9GdubjtticdB8gznGytfKrr7+O9SGs90M7o=",
+        "ref": "main",
+        "rev": "9194c795a104d7e07cd5220ddb35630e87c15137",
+        "revCount": 57,
+        "type": "git",
+        "url": "https://github.com/LiGoldragon/signal-criome.git"
+      },
+      "original": {
+        "ref": "main",
+        "type": "git",
+        "url": "https://github.com/LiGoldragon/signal-criome.git"
+      }
+    },
     "signal-frame-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781667644,
-        "narHash": "sha256-xwQw79qAw4BGL0z2tqT2Pnh+TftKddfK6jlBttan9hU=",
-        "owner": "LiGoldragon",
-        "repo": "signal-frame",
-        "rev": "e2eae5c28dac47eea6c4c641b60c4fd27bb547d8",
-        "type": "github"
+        "lastModified": 1781803529,
+        "narHash": "sha256-hhPQzQvvrc9VW2s3rBB+CvLNd4mEu/Az7WKKMYVqyR8=",
+        "ref": "main",
+        "rev": "b0c2c65c3da5117caa01819655de9952c4a0710c",
+        "revCount": 65,
+        "type": "git",
+        "url": "https://github.com/LiGoldragon/signal-frame.git"
       },
       "original": {
-        "owner": "LiGoldragon",
-        "repo": "signal-frame",
-        "type": "github"
+        "ref": "main",
+        "type": "git",
+        "url": "https://github.com/LiGoldragon/signal-frame.git"
       }
     },
     "signal-harness-source": {
@@ -615,17 +654,18 @@
     "triad-runtime-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781668302,
-        "narHash": "sha256-XzDATAWTcfLmsg8e3ktoanxa0hhHTE4l19tgqPGmEPg=",
-        "owner": "LiGoldragon",
-        "repo": "triad-runtime",
-        "rev": "f46f66ee4f16d5774c6c3889e1d3c162ddac3811",
-        "type": "github"
+        "lastModified": 1781872311,
+        "narHash": "sha256-JLvUD/mtZm/36fskmt1HodY7PN1kLpZajfx599lt6pA=",
+        "ref": "main",
+        "rev": "60e0ed7c753d35561458586ff7d870dcadf47ea5",
+        "revCount": 45,
+        "type": "git",
+        "url": "https://github.com/LiGoldragon/triad-runtime.git"
       },
       "original": {
-        "owner": "LiGoldragon",
-        "repo": "triad-runtime",
-        "type": "github"
+        "ref": "main",
+        "type": "git",
+        "url": "https://github.com/LiGoldragon/triad-runtime.git"
       }
     },
     "version-projection-source": {

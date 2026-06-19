@@ -17,11 +17,11 @@
       flake = false;
     };
     schema-next-source = {
-      url = "github:LiGoldragon/schema-next";
+      url = "git+https://github.com/LiGoldragon/schema-next.git?ref=main";
       flake = false;
     };
     schema-rust-next-source = {
-      url = "github:LiGoldragon/schema-rust-next";
+      url = "git+https://github.com/LiGoldragon/schema-rust-next.git?ref=main";
       flake = false;
     };
     sema-source = {
@@ -45,7 +45,7 @@
       flake = false;
     };
     signal-frame-source = {
-      url = "github:LiGoldragon/signal-frame";
+      url = "git+https://github.com/LiGoldragon/signal-frame.git?ref=main";
       flake = false;
     };
     signal-sema-source = {
@@ -53,7 +53,15 @@
       flake = false;
     };
     triad-runtime-source = {
-      url = "github:LiGoldragon/triad-runtime";
+      url = "git+https://github.com/LiGoldragon/triad-runtime.git?ref=main";
+      flake = false;
+    };
+    criome-source = {
+      url = "git+https://github.com/LiGoldragon/criome.git?ref=main";
+      flake = false;
+    };
+    signal-criome-source = {
+      url = "git+https://github.com/LiGoldragon/signal-criome.git?ref=main";
       flake = false;
     };
     signal-spirit-source = {
@@ -143,6 +151,8 @@
       signal-frame-source,
       signal-sema-source,
       triad-runtime-source,
+      criome-source,
+      signal-criome-source,
       signal-spirit-source,
       meta-signal-spirit-source,
       signal-agent-source,
@@ -205,6 +215,8 @@
               signalFrameSource = signal-frame-source;
               signalSemaSource = signal-sema-source;
               triadRuntimeSource = triad-runtime-source;
+              criomeSource = criome-source;
+              signalCriomeSource = signal-criome-source;
               signalSpiritSource = signal-spirit-source;
               metaSignalSpiritSource = meta-signal-spirit-source;
               signalAgentSource = signal-agent-source;
@@ -238,6 +250,8 @@
               cp -R "$signalFrameSource" $out/vendor-sources/signal-frame
               cp -R "$signalSemaSource" $out/vendor-sources/signal-sema
               cp -R "$triadRuntimeSource" $out/vendor-sources/triad-runtime
+              cp -R "$criomeSource" $out/vendor-sources/criome
+              cp -R "$signalCriomeSource" $out/vendor-sources/signal-criome
               cp -R "$signalSpiritSource" $out/vendor-sources/signal-spirit
               cp -R "$metaSignalSpiritSource" $out/vendor-sources/meta-signal-spirit
               cp -R "$signalAgentSource" $out/vendor-sources/signal-agent
@@ -288,12 +302,12 @@
                 --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust-next = { path = "vendor-sources/schema-rust-next" }' \
                 --replace-fail 'agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", features = ["live-provider"] }' 'agent = { path = "vendor-sources/agent", features = ["live-provider"] }' \
                 --replace-fail 'meta-signal-mirror = { git = "https://github.com/LiGoldragon/meta-signal-mirror.git", branch = "main" }' 'meta-signal-mirror = { path = "vendor-sources/meta-signal-mirror" }' \
-                --replace-fail 'signal-mirror = { git = "https://github.com/LiGoldragon/signal-mirror.git", branch = "main" }' 'signal-mirror = { path = "vendor-sources/signal-mirror" }' \
+                --replace-fail 'signal-mirror = { git = "https://github.com/LiGoldragon/signal-mirror.git", branch = "main", default-features = false, optional = true }' 'signal-mirror = { path = "vendor-sources/signal-mirror", default-features = false, optional = true }' \
                 --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "vendor-sources/schema-next" }' \
                 --replace-fail 'router = { git = "https://github.com/LiGoldragon/router.git", branch = "main" }' 'router = { path = "vendor-sources/router" }' \
-                --replace-fail 'signal-router = { git = "https://github.com/LiGoldragon/signal-router.git", branch = "main" }' 'signal-router = { path = "vendor-sources/signal-router" }' \
-                --replace-fail 'signal-message = { git = "https://github.com/LiGoldragon/signal-message.git", branch = "main" }' 'signal-message = { path = "vendor-sources/signal-message" }' \
-                --replace-fail 'signal-harness = { git = "https://github.com/LiGoldragon/signal-harness.git", branch = "main" }' 'signal-harness = { path = "vendor-sources/signal-harness" }'
+                --replace-fail 'criome = { git = "https://github.com/LiGoldragon/criome.git", branch = "main" }' 'criome = { path = "vendor-sources/criome" }' \
+                --replace-fail 'signal-criome = { git = "https://github.com/LiGoldragon/signal-criome.git", branch = "main", default-features = false }' 'signal-criome = { path = "vendor-sources/signal-criome", default-features = false }' \
+                --replace-fail 'signal-standard = { git = "https://github.com/LiGoldragon/signal-standard.git", branch = "main", default-features = false }' 'signal-standard = { path = "vendor-sources/signal-standard", default-features = false }'
 
               ${pkgs.python3}/bin/python3 - "$out/vendor-sources/schema-rust-next/Cargo.toml" <<'PYEOF'
               from pathlib import Path
@@ -494,6 +508,12 @@
               [patch."https://github.com/LiGoldragon/router.git"]
               router = { path = "vendor-sources/router" }
 
+              [patch."https://github.com/LiGoldragon/criome.git"]
+              criome = { path = "vendor-sources/criome" }
+
+              [patch."https://github.com/LiGoldragon/signal-criome.git"]
+              signal-criome = { path = "vendor-sources/signal-criome" }
+
               [patch."https://github.com/LiGoldragon/meta-signal-router.git"]
               meta-signal-router = { path = "vendor-sources/meta-signal-router" }
 
@@ -558,6 +578,8 @@
               "meta-signal-mirror",
               "signal-mirror",
               "router",
+              "criome",
+              "signal-criome",
               "meta-signal-router",
               "signal-router",
               "signal-standard",
@@ -579,11 +601,6 @@
               name = field(entry, "name")
               version = field(entry, "version")
               source = field(entry, "source")
-              if name in {"kameo", "kameo_macros"}:
-                  if source.startswith("registry+"):
-                      return (name, version, "registry")
-                  if "github.com/LiGoldragon/kameo.git" in source:
-                      return (name, version, "vendored")
               return (name, version)
 
           kept, seen = [], {}
@@ -605,9 +622,6 @@
 
           stripped = []
           for entry in kept:
-              name = field(entry, "name")
-              source = field(entry, "source")
-              is_registry_kameo = name in {"kameo", "kameo_macros"} and source.startswith("registry+")
               entry = "\n".join(
                   line for line in entry.split("\n")
                   if not line.startswith('source = "git+https://github.com/LiGoldragon/')
@@ -618,22 +632,11 @@
                   entry,
               )
               for dependency_name in path_dependency_names:
-                  if dependency_name in {"kameo", "kameo_macros"}:
-                      continue
                   entry = re.sub(
                       r'"' + re.escape(dependency_name) + r'(?: [^"]+)?",',
                       '"' + dependency_name + '",',
                       entry,
                   )
-              if not is_registry_kameo:
-                  for dependency_name in ("kameo", "kameo_macros"):
-                      entry = re.sub(
-                          r'"'
-                          + re.escape(dependency_name)
-                          + r'(?: [^"]*git\+https://github\.com/LiGoldragon/kameo\.git[^"]*)?",',
-                          '"' + dependency_name + '",',
-                          entry,
-                      )
               stripped.append(entry)
           open(sys.argv[2], "w").write(header + "".join("[[package]]" + entry for entry in stripped))
           PYEOF
