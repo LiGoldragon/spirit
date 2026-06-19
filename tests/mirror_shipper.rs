@@ -130,7 +130,7 @@ async fn restore_from_mirror(address: SocketAddr, path: PathBuf) -> Store {
             .decode()
             .expect("decode checkpoint artifact");
     let suffix: Vec<VersionedCommitLogEntry> = bundle
-        .suffix
+        .suffix()
         .iter()
         .map(|envelope| {
             rkyv::from_bytes::<VersionedCommitLogEntry, rkyv::rancor::Error>(

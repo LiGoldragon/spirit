@@ -151,25 +151,25 @@ impl FakeGuardianAgent {
             panic!("expected Call input, got {input:?}");
         };
         assert!(
-            call.payload().transcript.payload()[0]
+            call.payload().chat_transcript().payload()[0]
                 .text
                 .payload()
                 .contains("Operation:")
         );
         captured_prompts.lock().expect("capture prompts").push(
-            call.payload().transcript.payload()[0]
+            call.payload().chat_transcript().payload()[0]
                 .text
                 .payload()
                 .clone(),
         );
-        assert_eq!(call.payload().options.maximum_output_tokens, None);
+        assert_eq!(
+            call.payload().prompt_options().maximum_output_tokens(),
+            None
+        );
         let output = AgentOutput::completed(Completion {
-            text: CompletionText::new(reply),
+            completion_text: CompletionText::new(reply),
             stop_reason: StopReasonText::new("stop"),
-            usage: TokenUsage {
-                prompt_tokens: None,
-                completion_tokens: None,
-            },
+            token_usage: TokenUsage::new(None, None),
         });
         codec
             .write_body(

@@ -100,6 +100,10 @@
       url = "github:LiGoldragon/signal-router";
       flake = false;
     };
+    signal-standard-source = {
+      url = "github:LiGoldragon/signal-standard";
+      flake = false;
+    };
     signal-message-source = {
       url = "github:LiGoldragon/signal-message";
       flake = false;
@@ -146,6 +150,7 @@
       router-source,
       meta-signal-router-source,
       signal-router-source,
+      signal-standard-source,
       signal-message-source,
       signal-harness-source,
       signal-persona-source,
@@ -206,6 +211,7 @@
               routerSource = router-source;
               metaSignalRouterSource = meta-signal-router-source;
               signalRouterSource = signal-router-source;
+              signalStandardSource = signal-standard-source;
               signalMessageSource = signal-message-source;
               signalHarnessSource = signal-harness-source;
               signalPersonaSource = signal-persona-source;
@@ -237,6 +243,7 @@
               cp -R "$routerSource" $out/vendor-sources/router
               cp -R "$metaSignalRouterSource" $out/vendor-sources/meta-signal-router
               cp -R "$signalRouterSource" $out/vendor-sources/signal-router
+              cp -R "$signalStandardSource" $out/vendor-sources/signal-standard
               cp -R "$signalMessageSource" $out/vendor-sources/signal-message
               cp -R "$signalHarnessSource" $out/vendor-sources/signal-harness
               cp -R "$signalPersonaSource" $out/vendor-sources/signal-persona
@@ -482,6 +489,9 @@
               [patch."https://github.com/LiGoldragon/signal-router.git"]
               signal-router = { path = "vendor-sources/signal-router" }
 
+              [patch."https://github.com/LiGoldragon/signal-standard.git"]
+              signal-standard = { path = "vendor-sources/signal-standard" }
+
               [patch."https://github.com/LiGoldragon/signal-message.git"]
               signal-message = { path = "vendor-sources/signal-message" }
 
@@ -537,6 +547,7 @@
               "router",
               "meta-signal-router",
               "signal-router",
+              "signal-standard",
               "signal-message",
               "signal-harness",
               "signal-persona",

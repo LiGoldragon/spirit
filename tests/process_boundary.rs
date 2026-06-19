@@ -127,12 +127,9 @@ impl FakeGuardianAgent {
             panic!("expected guardian Call input, got {input:?}");
         };
         let output = AgentOutput::completed(Completion {
-            text: CompletionText::new(GuardianVerdict::Accept.to_nota()),
+            completion_text: CompletionText::new(GuardianVerdict::Accept.to_nota()),
             stop_reason: StopReasonText::new("stop"),
-            usage: TokenUsage {
-                prompt_tokens: None,
-                completion_tokens: None,
-            },
+            token_usage: TokenUsage::new(None, None),
         });
         codec
             .write_body(

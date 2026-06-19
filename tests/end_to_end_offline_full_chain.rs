@@ -428,7 +428,7 @@ fn import_restore_bundle(bundle: RestoreBundle, target: &mut ComponentEngine) {
             .decode()
             .expect("decode checkpoint artifact");
     let suffix: Vec<VersionedCommitLogEntry> = bundle
-        .suffix
+        .suffix()
         .iter()
         .map(|envelope| {
             rkyv::from_bytes::<VersionedCommitLogEntry, rkyv::rancor::Error>(
@@ -703,7 +703,7 @@ async fn intent_recorded_on_node_a_ships_notifies_over_router_and_restores_ident
         MirrorOutput::Restored(bundle) => bundle,
         other => panic!("expected Restored, got {other:?}"),
     };
-    assert_eq!(bundle.suffix.len(), 2, "gamma + the beta tombstone");
+    assert_eq!(bundle.suffix().len(), 2, "gamma + the beta tombstone");
 
     let mut target = fixture.open_fresh("component-restored");
     import_restore_bundle(bundle, &mut target);

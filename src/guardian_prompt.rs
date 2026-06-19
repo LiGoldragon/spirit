@@ -182,16 +182,16 @@ impl<'configuration> GuardianPromptBuilder<'configuration> {
         let retry_text = retry
             .map(|retry| retry.user_text("GuardianVerdict"))
             .unwrap_or_default();
-        Prompt {
-            system: Some(SystemText::new(Self::intent_guardian_system_prompt())),
-            transcript: ChatTranscript::new(vec![ChatMessage::user(format!(
+        Prompt::new(
+            Some(SystemText::new(Self::intent_guardian_system_prompt())),
+            ChatTranscript::new(vec![ChatMessage::user(format!(
                 "Operation: {operation}\n\nCandidate under judgement:\n{candidate}\n\nRelevant existing records (the live bundle — judge duplicates, contradictions, and named targets only against what appears here):\n{bundle}{retry_text}",
                 operation = operation.name(),
                 candidate = GuardianOperationPrompt::new(operation).to_text(),
                 bundle = records.to_nota(),
             ))]),
-            options: self.prompt_options(),
-        }
+            self.prompt_options(),
+        )
     }
 
     pub(crate) fn referent_prompt(
@@ -203,15 +203,15 @@ impl<'configuration> GuardianPromptBuilder<'configuration> {
         let retry_text = retry
             .map(|retry| retry.user_text("ReferentGuardianVerdict"))
             .unwrap_or_default();
-        Prompt {
-            system: Some(SystemText::new(Self::referent_guardian_system_prompt())),
-            transcript: ChatTranscript::new(vec![ChatMessage::user(format!(
+        Prompt::new(
+            Some(SystemText::new(Self::referent_guardian_system_prompt())),
+            ChatTranscript::new(vec![ChatMessage::user(format!(
                 "Operation: RegisterReferent\n\nCandidate registration:\n{registration}\n\nAlready-registered referents:\n{registered}{retry_text}",
                 registration = registration.to_nota(),
                 registered = registered_referents.to_nota(),
             ))]),
-            options: self.prompt_options(),
-        }
+            self.prompt_options(),
+        )
     }
 
     /// The full intent-guardian system prompt: role, the record and justification
@@ -293,23 +293,21 @@ impl<'configuration> GuardianPromptBuilder<'configuration> {
     }
 
     fn prompt_options(&self) -> PromptOptions {
-        PromptOptions {
-            model: self
-                .model_name
+        PromptOptions::new(
+            self.model_name
                 .map(|model| ModelName::new(model.to_owned())),
-            provider: self
-                .provider_name
+            self.provider_name
                 .map(|provider| ProviderName::new(provider.to_owned())),
             // Temperature 0: the judge internalises the skeptic, hunting the
             // competing reading of a quote and the hedge that caps the claim.
-            temperature_milli: Some(TemperatureMilli::new(0)),
-            maximum_output_tokens: self.maximum_output_tokens.map(MaximumOutputTokens::new),
-            output_mode: OutputMode::Nota,
+            Some(TemperatureMilli::new(0)),
+            self.maximum_output_tokens.map(MaximumOutputTokens::new),
+            OutputMode::Nota,
             // A deliberate judge: thinking enabled at high effort. Higher
             // reasoning effort also improves exact-format adherence.
-            reasoning_effort: Some(ReasoningEffort::High),
-            thinking_mode: Some(ThinkingMode::Enabled),
-        }
+            Some(ReasoningEffort::High),
+            Some(ThinkingMode::Enabled),
+        )
     }
 }
 

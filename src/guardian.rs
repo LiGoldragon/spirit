@@ -177,10 +177,13 @@ impl AgentGuardian {
             let AgentOutput::Completed(completion) = output else {
                 return Err(AgentGuardianError::AgentRejected(format!("{output:?}")));
             };
-            match self.parse_verdict(&completion.text) {
+            match self.parse_verdict(&completion.completion_text) {
                 Ok(verdict) => return Ok(verdict),
                 Err(error) => {
-                    retry = Some(GuardianRetry::new(completion.text, error.to_string()));
+                    retry = Some(GuardianRetry::new(
+                        completion.completion_text,
+                        error.to_string(),
+                    ));
                     last_error = Some(error);
                 }
             }
@@ -205,10 +208,13 @@ impl AgentGuardian {
             let AgentOutput::Completed(completion) = output else {
                 return Err(AgentGuardianError::AgentRejected(format!("{output:?}")));
             };
-            match self.parse_referent_verdict(&completion.text) {
+            match self.parse_referent_verdict(&completion.completion_text) {
                 Ok(verdict) => return Ok(verdict),
                 Err(error) => {
-                    retry = Some(GuardianRetry::new(completion.text, error.to_string()));
+                    retry = Some(GuardianRetry::new(
+                        completion.completion_text,
+                        error.to_string(),
+                    ));
                     last_error = Some(error);
                 }
             }
