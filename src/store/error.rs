@@ -18,6 +18,15 @@ pub enum StoreError {
     #[error("failed to encode record rkyv archive")]
     ArchiveEncode,
 
+    #[error("failed to decode rkyv archive: {message}")]
+    ArchiveDecode { message: String },
+
+    #[error("restored mirror head mismatch: expected {expected:?}, restored {restored:?}")]
+    MirrorRestoreHeadMismatch {
+        expected: sema_engine::EntryDigest,
+        restored: sema_engine::EntryDigest,
+    },
+
     #[error("failed to mint record identifier: {0}")]
     IdentifierMint(String),
 

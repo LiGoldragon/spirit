@@ -17,7 +17,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 
 use mirror::{Engine as MirrorEngine, MirrorTailnetClient as TailnetClient, Service, ServiceLink};
-use sema_engine::{Durability, PortableCheckpoint, VersionedCommitLogEntry};
+use sema_engine::{Durability, EntryDigest};
 use signal_mirror::{Input as MirrorInput, Output as MirrorOutput, RestoreQuery, StoreName};
 use spirit::schema::meta_signal::{
     ArchiveDatabaseTarget, ConfigureRequest, MirrorAddress, MirrorAddressText, MirrorTarget,
@@ -28,7 +28,7 @@ use spirit::schema::signal::{
     Certainty, Description, Domains, Entry, Importance, Input, Justification, Kind, Magnitude,
     Output, Privacy, QuoteText, Reasoning, RecordRequest, Referents, Testimony, VerbatimQuote,
 };
-use spirit::{Engine, Store};
+use spirit::{Engine, Store, StoreError};
 use tempfile::TempDir;
 use triad_runtime::kameo::actor::Spawn;
 
@@ -111,11 +111,9 @@ async fn running_mirror(directory: &TempDir) -> (ServiceLink, SocketAddr) {
     (link, address)
 }
 
-/// Restore a fresh spirit store from the mirror: fetch the checkpoint plus the
-/// versioned-log suffix and import them through the engine-owned import session.
-async fn restore_from_mirror(address: SocketAddr, path: PathBuf) -> Store {
+async fn restore_bundle_from_mirror(address: SocketAddr) -> signal_mirror::RestoreBundle {
     let client = TailnetClient::new(address);
-    let bundle = match client
+    match client
         .exchange(MirrorInput::Restore(RestoreQuery::new(StoreName::new(
             STORE_NAME.to_owned(),
         ))))
@@ -124,22 +122,20 @@ async fn restore_from_mirror(address: SocketAddr, path: PathBuf) -> Store {
     {
         MirrorOutput::Restored(bundle) => bundle,
         other => panic!("expected Restored, got {other:?}"),
-    };
-    let checkpoint =
-        PortableCheckpoint::from_bytes(bundle.checkpoint.artifact.payload().payload().to_vec())
-            .decode()
-            .expect("decode checkpoint artifact");
-    let suffix: Vec<VersionedCommitLogEntry> = bundle
-        .suffix()
-        .iter()
-        .map(|envelope| {
-            rkyv::from_bytes::<VersionedCommitLogEntry, rkyv::rancor::Error>(
-                envelope.payload.payload().payload(),
-            )
-            .expect("decode versioned entry payload")
-        })
-        .collect();
-    Store::import(path, checkpoint, suffix).expect("import into fresh spirit store")
+    }
+}
+
+/// Restore a fresh spirit store from the mirror: fetch the checkpoint plus the
+/// versioned-log suffix and import them through the production head-verified
+/// mirror restore path.
+async fn restore_from_mirror(
+    address: SocketAddr,
+    path: PathBuf,
+    expected_head: EntryDigest,
+) -> Store {
+    let bundle = restore_bundle_from_mirror(address).await;
+    Store::import_mirror_restore_bundle(path, bundle, expected_head)
+        .expect("head-verified import into fresh spirit store")
 }
 
 #[test]
@@ -186,15 +182,15 @@ fn configured_mirror_target_ships_commits_and_a_fresh_store_restores_identically
         );
 
         // DRAIN: exactly what the daemon's `handle_working_input` hook calls.
-        let outcome = engine
+        let confirmed_head = match engine
             .ship_unshipped_to_mirror()
             .await
             .expect("ship unshipped")
-            .expect("an armed shipper ships");
-        assert!(
-            matches!(outcome, mirror::ShipOutcome::Shipped { .. }),
-            "history shipped, got {outcome:?}"
-        );
+            .expect("an armed shipper ships")
+        {
+            mirror::ShipOutcome::Shipped { head } => head,
+            other => panic!("history shipped, got {other:?}"),
+        };
 
         // The shared engine marks the shipped history server-committed and the
         // outbox is drained.
@@ -216,8 +212,25 @@ fn configured_mirror_target_ships_commits_and_a_fresh_store_restores_identically
                 .expect("publish checkpoint"),
             "an armed shipper publishes the checkpoint"
         );
-        let restored =
-            restore_from_mirror(address, component_directory.path().join("restored.sema")).await;
+        let wrong_head = EntryDigest::new([0; 32]);
+        let wrong_restore = Store::import_mirror_restore_bundle(
+            component_directory.path().join("wrong-head.sema"),
+            restore_bundle_from_mirror(address).await,
+            wrong_head,
+        );
+        assert!(
+            matches!(
+                wrong_restore,
+                Err(StoreError::MirrorRestoreHeadMismatch { expected, .. }) if expected == wrong_head
+            ),
+            "a restore bundle cannot import under a mismatched expected head"
+        );
+        let restored = restore_from_mirror(
+            address,
+            component_directory.path().join("restored.sema"),
+            confirmed_head.entry_digest(),
+        )
+        .await;
 
         assert_eq!(restored.len(), engine.store().len());
         assert_eq!(restored.database_marker(), engine.store().database_marker());

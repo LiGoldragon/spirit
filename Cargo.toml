@@ -61,7 +61,7 @@ testing-trace = []
 # mirror. OFF by default and deploy-gated. Pulls the `mirror` crate (and its
 # signal-mirror/nota-next transitive surface), so it is excluded from the
 # binary-only daemon dependency tree unless explicitly enabled.
-mirror-shipper = ["dep:mirror"]
+mirror-shipper = ["dep:mirror", "dep:signal-mirror"]
 
 [[test]]
 name = "instrumentation_logging"
@@ -107,6 +107,7 @@ sema-engine-previous = { git = "https://github.com/LiGoldragon/sema-engine.git",
 # engine.
 sema-engine-layout3 = { git = "https://github.com/LiGoldragon/sema-engine.git", rev = "dbe29427d9a2c6c194909385485ad42b008048b8", package = "sema-engine", optional = true }
 signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }
+signal-mirror = { git = "https://github.com/LiGoldragon/signal-mirror.git", branch = "main", default-features = false, optional = true }
 signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main", optional = true }
 signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main" }
 meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", branch = "main" }
@@ -123,7 +124,6 @@ agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", fea
 # gated-shipper test ships to and restores from. Same branches mirror pins, so
 # Cargo unifies them with the `mirror` crate's own dependency instances.
 meta-signal-mirror = { git = "https://github.com/LiGoldragon/meta-signal-mirror.git", branch = "main" }
-signal-mirror = { git = "https://github.com/LiGoldragon/signal-mirror.git", branch = "main" }
 schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }
 # Typed `SemaOperation` labels for versioned-log shape witnesses.
 signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main" }
@@ -136,6 +136,7 @@ router = { git = "https://github.com/LiGoldragon/router.git", branch = "main" }
 signal-router = { git = "https://github.com/LiGoldragon/signal-router.git", branch = "main" }
 signal-message = { git = "https://github.com/LiGoldragon/signal-message.git", branch = "main" }
 signal-harness = { git = "https://github.com/LiGoldragon/signal-harness.git", branch = "main" }
+signal-standard = { git = "https://github.com/LiGoldragon/signal-standard.git", branch = "main", default-features = false }
 kameo = { version = "0.20", default-features = false, features = ["macros", "tracing"] }
 tempfile = "3"
 

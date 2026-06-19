@@ -1545,6 +1545,7 @@ dependencies = [
  "signal-router",
  "signal-sema",
  "signal-spirit",
+ "signal-standard",
  "tempfile",
  "thiserror",
  "tokio",
