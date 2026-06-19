@@ -142,16 +142,30 @@ impl ComponentDaemon for SpiritDaemon {
         _connection: &triad_runtime::ConnectionContext,
     ) -> Result<Output, Self::Error> {
         let output = engine.handle_async(input).await.root().clone();
-        // After the working write committed locally, drain the unshipped
-        // outbox to the configured mirror. Present only under the
-        // `mirror-shipper` feature, and even then a no-op when no MirrorTarget
-        // is configured (the default). Shipping is best-effort: the local
-        // commit already landed, so an unreachable mirror is logged and the
-        // suffix waits in the outbox for the next durable commit's drain — it
-        // never fails the working reply.
+        // THE 1-of-1 LOCAL CRIOME GATE (Spirit `xhwa`, report 703-6 Item 1).
+        //
+        // The working write committed LOCALLY above. Before fanning the
+        // committed head out to the configured mirror, ask the co-resident
+        // LOCAL criome daemon to authorize the content-addressed head `D`, and
+        // fan out ONLY on an `Authorized` decision. `gate_and_ship_head`
+        // captures `D` from the local versioned log (never `ShipOutcome.head`),
+        // projects it to the criome reference, calls the local criome over its
+        // Unix socket (synchronous `CriomeClient::send` wrapped in
+        // `spawn_blocking` — the actor mailbox is never blocked), and ships the
+        // outbox only when criome authorizes.
+        //
+        // Present only under the `mirror-shipper` feature. The gate INVERTS
+        // the prior best-effort ship: an UNCONFIGURED, DENIED, or UNREACHABLE
+        // criome holds the head back (the local commit stands, the suffix
+        // waits for the next authorized drain), and a gate-machinery fault is
+        // logged. Neither ever fails the working reply: the local commit
+        // already landed durably.
         #[cfg(feature = "mirror-shipper")]
-        if let Err(error) = engine.ship_unshipped_to_mirror().await {
-            let _ = error;
+        match engine.gate_and_ship_head().await {
+            Ok(_decision) => {}
+            Err(error) => {
+                let _ = error;
+            }
         }
         Ok(output)
     }

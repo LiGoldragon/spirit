@@ -24,6 +24,26 @@ use crate::{ObjectName, TraceEvent, TraceLog};
 
 const ORIGIN_ROUTE_BASE: Integer = 1_000_000;
 
+/// The composed failure modes of the gated head fan-out
+/// ([`Engine::gate_and_ship_head`]): a head-capture / store read failure, a
+/// gate-machinery failure (the blocking criome task or an off-contract reply),
+/// or a mirror-shipper transport failure on the authorized ship. An
+/// UNCONFIGURED, DENIED, or UNREACHABLE criome is NOT an error — it is a
+/// [`crate::criome_gate::GateDecision`] the daemon handles by holding the head
+/// back.
+#[cfg(feature = "mirror-shipper")]
+#[derive(Debug, thiserror::Error)]
+pub enum GateAndShipError {
+    #[error("head capture / store read failed: {0}")]
+    Store(#[from] StoreError),
+
+    #[error("criome gate failed: {0}")]
+    Gate(#[from] crate::criome_gate::CriomeGateError),
+
+    #[error("authorized mirror ship failed: {0}")]
+    Ship(#[from] MirrorShipperError),
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct OriginRoute(Integer);
 
@@ -291,6 +311,13 @@ pub struct Engine {
     // mirroring existed.
     #[cfg(feature = "mirror-shipper")]
     mirror_shipper: MirrorShipper,
+    // The 1-of-1 LOCAL criome gate (Spirit `xhwa`). Present only under the
+    // `mirror-shipper` feature alongside the shipper it gates. Unarmed by
+    // default: a daemon with no configured local criome holds the head back
+    // because no authorization exists. When armed, every fan-out is held
+    // behind a real criome authorization round-trip.
+    #[cfg(feature = "mirror-shipper")]
+    criome_gate: crate::criome_gate::CriomeGate,
     #[cfg(feature = "testing-trace")]
     trace_log: TraceLog,
 }
@@ -349,6 +376,8 @@ impl Engine {
                 nexus: Nexus::new(store),
                 #[cfg(feature = "mirror-shipper")]
                 mirror_shipper: MirrorShipper::new(),
+                #[cfg(feature = "mirror-shipper")]
+                criome_gate: crate::criome_gate::CriomeGate::new(),
             }
         }
     }
@@ -370,6 +399,8 @@ impl Engine {
             nexus: Nexus::new_with_trace(store, trace_log.clone()),
             #[cfg(feature = "mirror-shipper")]
             mirror_shipper: MirrorShipper::new(),
+            #[cfg(feature = "mirror-shipper")]
+            criome_gate: crate::criome_gate::CriomeGate::new(),
             trace_log,
         }
     }
@@ -431,6 +462,17 @@ impl Engine {
     /// versioned log, and shared engine handle.
     pub fn store(&self) -> &Store {
         self.nexus.store()
+    }
+
+    /// The current versioned-log head `EntryDigest` after the latest local
+    /// commit — the content-addressed head `D` the criome gate authorizes
+    /// BEFORE fan-out. Read from the local log, never from `ShipOutcome.head`
+    /// (which exists only after a ship). `None` when nothing has been
+    /// committed to the versioned log yet (an empty store cannot be authorized
+    /// and is not shipped).
+    #[cfg(feature = "mirror-shipper")]
+    pub fn versioned_log_head(&self) -> Result<Option<sema_engine::EntryDigest>, StoreError> {
+        self.nexus.store().versioned_log_head()
     }
 
     #[cfg(feature = "agent-guardian")]
@@ -523,6 +565,57 @@ impl Engine {
         &self,
     ) -> Result<Option<mirror::ShipOutcome>, MirrorShipperError> {
         self.mirror_shipper.ship_unshipped().await
+    }
+
+    /// Arm the 1-of-1 LOCAL criome gate against a local criome socket path and
+    /// the deploy-config attestor (the admitted contract + signed evidence). An
+    /// armed gate holds every fan-out behind a criome authorization round-trip;
+    /// an unarmed gate holds the head back because no authorization exists.
+    #[cfg(feature = "mirror-shipper")]
+    pub fn arm_criome_gate(
+        &mut self,
+        socket: impl Into<std::path::PathBuf>,
+        attestor: crate::criome_gate::SpiritAttestor,
+    ) {
+        self.criome_gate.arm(socket, attestor);
+    }
+
+    /// Whether the 1-of-1 LOCAL criome gate is armed.
+    #[cfg(feature = "mirror-shipper")]
+    pub fn criome_gate_armed(&self) -> bool {
+        self.criome_gate.is_armed()
+    }
+
+    /// THE GATE. Capture the post-commit local head `D`, ask the LOCAL criome
+    /// daemon to authorize it, and fan out ONLY on an `Authorized` decision.
+    ///
+    /// Order (report 703-6 Item 1): the working write already committed
+    /// LOCALLY before this runs (`Engine::handle_async`). Here the daemon (a)
+    /// captures `D` from the local versioned log — never `ShipOutcome.head`;
+    /// (b) projects it to the criome `AuthorizedObjectReference` and asks the
+    /// local criome over the per-user Unix socket; (c) ships the outbox and
+    /// returns the projected reference ONLY when criome authorizes. On an
+    /// UNCONFIGURED, DENIED, or UNREACHABLE criome the head does NOT ship — the
+    /// local commit stands and the suffix waits in the outbox for the next
+    /// authorized drain (this inverts the prior best-effort ship).
+    ///
+    /// Returns the gate decision: `Authorized` carries the emitted reference
+    /// (the SAME projection that fed the criome request, so authorized head ==
+    /// fanned head). An empty versioned log (nothing to authorize) is a no-op:
+    /// it returns `None`.
+    #[cfg(feature = "mirror-shipper")]
+    pub async fn gate_and_ship_head(
+        &self,
+    ) -> Result<Option<crate::criome_gate::GateDecision>, GateAndShipError> {
+        let Some(head_digest) = self.versioned_log_head()? else {
+            return Ok(None);
+        };
+        let capture = crate::criome_gate::LocalHeadCapture::spirit_head(head_digest);
+        let decision = self.criome_gate.authorize_head(&capture).await?;
+        if decision.ships() {
+            self.mirror_shipper.ship_unshipped().await?;
+        }
+        Ok(Some(decision))
     }
 
     /// Publish the store's latest local checkpoint to the configured mirror,

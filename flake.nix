@@ -304,10 +304,10 @@
                 --replace-fail 'meta-signal-mirror = { git = "https://github.com/LiGoldragon/meta-signal-mirror.git", branch = "main" }' 'meta-signal-mirror = { path = "vendor-sources/meta-signal-mirror" }' \
                 --replace-fail 'signal-mirror = { git = "https://github.com/LiGoldragon/signal-mirror.git", branch = "main", default-features = false, optional = true }' 'signal-mirror = { path = "vendor-sources/signal-mirror", default-features = false, optional = true }' \
                 --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "vendor-sources/schema-next" }' \
-                --replace-fail 'router = { git = "https://github.com/LiGoldragon/router.git", branch = "main" }' 'router = { path = "vendor-sources/router" }' \
-                --replace-fail 'criome = { git = "https://github.com/LiGoldragon/criome.git", branch = "main" }' 'criome = { path = "vendor-sources/criome" }' \
-                --replace-fail 'signal-criome = { git = "https://github.com/LiGoldragon/signal-criome.git", branch = "main", default-features = false }' 'signal-criome = { path = "vendor-sources/signal-criome", default-features = false }' \
-                --replace-fail 'signal-standard = { git = "https://github.com/LiGoldragon/signal-standard.git", branch = "main", default-features = false }' 'signal-standard = { path = "vendor-sources/signal-standard", default-features = false }'
+                --replace-fail 'router = { git = "https://github.com/LiGoldragon/router.git", branch = "main", optional = true }' 'router = { path = "vendor-sources/router", optional = true }' \
+                --replace-fail 'criome = { git = "https://github.com/LiGoldragon/criome.git", branch = "main", optional = true }' 'criome = { path = "vendor-sources/criome", optional = true }' \
+                --replace-fail 'signal-criome = { git = "https://github.com/LiGoldragon/signal-criome.git", branch = "main", default-features = false, optional = true }' 'signal-criome = { path = "vendor-sources/signal-criome", default-features = false, optional = true }' \
+                --replace-fail 'signal-standard = { git = "https://github.com/LiGoldragon/signal-standard.git", branch = "main", default-features = false, optional = true }' 'signal-standard = { path = "vendor-sources/signal-standard", default-features = false, optional = true }'
 
               ${pkgs.python3}/bin/python3 - "$out/vendor-sources/schema-rust-next/Cargo.toml" <<'PYEOF'
               from pathlib import Path

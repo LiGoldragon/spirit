@@ -27,6 +27,8 @@
 #![forbid(unsafe_code)]
 
 pub mod config;
+#[cfg(feature = "mirror-shipper")]
+pub mod criome_gate;
 pub mod daemon;
 pub mod engine;
 #[cfg(feature = "agent-guardian")]
@@ -77,7 +79,13 @@ pub mod schema {
 }
 
 pub use config::{Configuration, ConfigurationError};
+#[cfg(feature = "mirror-shipper")]
+pub use criome_gate::{
+    CriomeGate, CriomeGateError, GateDecision, LocalHeadCapture, SpiritAttestor,
+};
 pub use daemon::{Daemon, SpiritDaemon, SpiritDaemonError};
+#[cfg(feature = "mirror-shipper")]
+pub use engine::GateAndShipError;
 pub use engine::{
     Engine, MailIdentifier, MailLedger, MailLedgerEvent, MailLedgerHook, MessageIdentifier,
     MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook, OriginRoute,

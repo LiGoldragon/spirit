@@ -418,6 +418,20 @@ impl Store {
         Ok(self.database.versioned_commit_log()?)
     }
 
+    /// The current versioned-log head: the `EntryDigest` of the last entry in
+    /// the replayable history, or `None` when the store has never committed a
+    /// versioned entry. This is the content-addressed identity of the local
+    /// head `D` the criome gate authorizes BEFORE fan-out — read straight from
+    /// the local log after the working commit, never from `ShipOutcome.head`
+    /// (which exists only after a ship has happened).
+    #[cfg(feature = "mirror-shipper")]
+    pub fn versioned_log_head(&self) -> Result<Option<EntryDigest>, StoreError> {
+        Ok(self
+            .versioned_log()?
+            .last()
+            .map(VersionedCommitLogEntry::entry_digest))
+    }
+
     /// The versioned-log suffix strictly after `sequence`, in commit order —
     /// the entries an importer ingests on top of a checkpoint.
     pub fn versioned_log_from(
