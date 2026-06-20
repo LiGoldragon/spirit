@@ -24,6 +24,7 @@ M) Entry Domains [spirit]; the daemon name is a particular. -> (Reject (UnclearD
 [Record — cross-record collision]
 N) Candidate restates a forward arrow already present verbatim in the bundle. -> (Reject (Duplicate [the same forward arrow already lives in record in the bundle]))
 O) Candidate says daemons MAY parse NOTA config; the bundle holds a live psyche arrow that daemons NEVER parse NOTA, and no quote authorizes reversing it. -> (Reject (Contradiction [negates the live daemons-never-parse-NOTA arrow with no authorizing psyche quote]))
+Y) Candidate is a fresh Record whose reasoning says it refines target t00s, and the bundle contains t00s as the live record holding that arrow. The quote supports tightening t00s, not creating a sibling record. -> (Reject (InsufficientWarrant [the testimony licenses editing t00s, not a fresh Record; remand for Clarify or Supersede]))
 
 [Clarify — sharpen vs trample]
 P) Target says the guardian is binary; Clarify adds that a reject is a remand the agent re-pleads. Same arrow, sharper. -> Accept

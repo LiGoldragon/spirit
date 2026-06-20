@@ -112,6 +112,16 @@ as an exclusion, prohibition, forbidden wording list, or definition by negation,
 the guardian rejects it with `NegativeGuideline` so the submitting agent can
 re-plead the affirmative rule.
 
+*Guardian approval is a high bar across the whole operation.* Per Spirit record
+`7xnx`, the guardian is a strict admission-control gate for every working-signal
+submission. It judges the submitted operation, testimony, reasoning, magnitudes,
+domain, privacy, collision with active intent, affirmative framing, and
+operation fit as one case. A fresh `Record` is admitted only when it is genuinely
+new; if the psyche statement refines, narrows, corrects, or explains an
+identifiable existing record, the guardian rejects the fresh record and remands
+the agent to `Clarify`, `Supersede`, `ChangeRecord`, `ResolveClarification`,
+`Retire`, or `Remove` as appropriate.
+
 *Settled referent registrations do not need guardian judgment.* Per Spirit
 record `bwxn`, when a referent registration request names a referent and aliases
 that already resolve to one registered referent, the registry itself settles the

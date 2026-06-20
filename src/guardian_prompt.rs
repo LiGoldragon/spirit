@@ -100,7 +100,8 @@ impl GuardianRejectionReasonPromptExt for GuardianRejectionReason {
             Self::InsufficientWarrant => Some(
                 "the reasoning and quotes do not license THIS submission: on-point words that do \
                  not argue this point, or a destructive op (Supersede / Retire / meaning-changing \
-                 ChangeRecord / certainty downgrade) carrying no verbatim psyche authorization.",
+                 ChangeRecord / certainty downgrade) carrying no verbatim psyche authorization, \
+                 or a fresh Record whose evidence warrants editing an existing target instead.",
             ),
             Self::Overstated => Some(
                 "the claimed Certainty outruns the quote's modal strength (e.g. High claimed on \
@@ -461,6 +462,8 @@ mod tests {
             "BURDEN OF PROOF",
             "THE CHECKLIST",
             "AFFIRMATIVE GUIDANCE",
+            "OPERATION FIT",
+            "Approval is a high bar",
             "WORKED EXAMPLES",
         ] {
             assert!(
