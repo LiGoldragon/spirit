@@ -667,6 +667,15 @@ impl Store {
         record_identifier: String,
         entry: Entry,
     ) -> Result<String, StoreError> {
+        // Owner bypass: a corpus import carries its own referents. Auto-register
+        // any not-yet-registered referent (kebab-validated) directly, without the
+        // referent guardian, so the import is self-contained rather than failing
+        // on UnregisteredReferent the way the guarded working path would.
+        for referent in entry.referents.payload() {
+            if self.canonical_referent(referent)?.is_none() {
+                self.register_referent_record(referent.clone(), Referents::new(Vec::new()))?;
+            }
+        }
         let entry = self.canonicalized_entry(entry)?;
         self.database.assert(Assertion::new(
             self.entries,
@@ -682,17 +691,48 @@ impl Store {
         if let Some(receipt) = self.settled_referent_registration_receipt(&registration)? {
             return Ok(receipt);
         }
-        let mut record = StoredReferent::new(registration.referent, registration.aliases);
+        self.register_referent_record(registration.referent, registration.aliases)
+    }
+
+    /// The justification-free core of referent registration, shared by the
+    /// guarded working path and the owner import bypass. A brand-new referent
+    /// name must be lowercase kebab-case; already-registered names are
+    /// grandfathered (alias merge), so legacy capitalized referents keep working
+    /// while no new non-kebab name can enter the store.
+    fn register_referent_record(
+        &self,
+        referent: Referent,
+        aliases: Referents,
+    ) -> Result<ReferentRegistrationReceipt, StoreError> {
+        let mut record = StoredReferent::new(referent, aliases);
         self.reject_conflicting_referent_names(&record)?;
         if let Some(existing) = self.referent_by_key(record.referent.payload())? {
             record = existing.with_aliases_merged(record.aliases);
             self.database
                 .mutate(Mutation::new(self.referents, record.clone()))?;
         } else {
+            Self::validate_kebab_referent(record.referent.payload())?;
             self.database
                 .assert(Assertion::new(self.referents, record.clone()))?;
         }
         Ok(ReferentRegistrationReceipt::new(record.referent))
+    }
+
+    /// A referent name is lowercase kebab-case: ASCII lowercase/digit groups
+    /// joined by single hyphens, no leading/trailing/double hyphen.
+    fn validate_kebab_referent(name: &str) -> Result<(), StoreError> {
+        let well_formed = !name.is_empty()
+            && !name.starts_with('-')
+            && !name.ends_with('-')
+            && !name.contains("--")
+            && name
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-');
+        if well_formed {
+            Ok(())
+        } else {
+            Err(StoreError::NonKebabReferent(name.to_string()))
+        }
     }
 
     pub(crate) fn settled_referent_registration_receipt(
