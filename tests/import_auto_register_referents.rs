@@ -63,6 +63,23 @@ fn import_auto_registers_a_new_kebab_referent() {
 }
 
 #[test]
+fn import_upserts_an_existing_record() {
+    let (_directory, store) = open_store();
+
+    store
+        .import_record(String::from("dup1"), entry("original text", vec![Referent::new("spirit")]))
+        .expect("first import inserts");
+    // Re-importing the same id overwrites in place (owner curation), rather than
+    // failing on the insert-only assert.
+    store
+        .import_record(
+            String::from("dup1"),
+            entry("curated replacement text", vec![Referent::new("spirit"), Referent::new("sema-engine")]),
+        )
+        .expect("second import of the same id upserts in place");
+}
+
+#[test]
 fn import_refuses_a_non_kebab_referent() {
     let (_directory, store) = open_store();
 
