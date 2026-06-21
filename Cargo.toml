@@ -144,8 +144,8 @@ signal-criome = { git = "https://github.com/LiGoldragon/signal-criome.git", bran
 router = { git = "https://github.com/LiGoldragon/router.git", branch = "main", optional = true }
 signal-standard = { git = "https://github.com/LiGoldragon/signal-standard.git", branch = "main", default-features = false, optional = true }
 signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main", optional = true }
-signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main" }
-meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", branch = "main" }
+signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "schema-help" }
+meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", branch = "schema-help" }
 thiserror = "2"
 tokio = { version = "1.47", features = ["io-util", "net", "rt-multi-thread", "sync"] }
 triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }
@@ -159,7 +159,7 @@ agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", fea
 # gated-shipper test ships to and restores from. Same branches mirror pins, so
 # Cargo unifies them with the `mirror` crate's own dependency instances.
 meta-signal-mirror = { git = "https://github.com/LiGoldragon/meta-signal-mirror.git", branch = "main" }
-schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }
+schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "schema-help" }
 # Typed `SemaOperation` labels for versioned-log shape witnesses.
 signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main" }
 tempfile = "3"

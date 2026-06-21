@@ -1,6 +1,7 @@
 use std::{env, fs, io::ErrorKind, os::unix::net::UnixStream, path::PathBuf};
 
 use nota_next::NotaDecodeError;
+use signal_spirit::{HelpModel, HelpRequest};
 use spirit::{
     SignalTransport, TransportError,
     schema::signal::{Input, Output},
@@ -33,6 +34,10 @@ impl SpiritCli {
 
     fn run(&self) -> Result<(), SpiritCliError> {
         let source = self.source()?;
+        if let Some(response) = source.help_response()? {
+            println!("{response}");
+            return Ok(());
+        }
         let input = source.parse_input()?;
         let socket_path =
             env::var("SPIRIT_SOCKET").unwrap_or_else(|_| String::from("/tmp/spirit.sock"));
@@ -101,6 +106,15 @@ impl SpiritInputSource {
     fn parse_input(&self) -> Result<Input, NotaDecodeError> {
         self.text.parse::<Input>()
     }
+
+    fn help_response(&self) -> Result<Option<signal_spirit::HelpResponse>, SpiritCliError> {
+        let Some(request) = HelpRequest::from_text(&self.text)? else {
+            return Ok(None);
+        };
+        Ok(Some(
+            HelpModel::from_signal_schema_source()?.render(&request)?,
+        ))
+    }
 }
 
 #[derive(Debug, Error)]
@@ -117,6 +131,9 @@ enum SpiritCliError {
 
     #[error("invalid NOTA input: {0}")]
     NotaDecode(#[from] NotaDecodeError),
+
+    #[error("help error: {0}")]
+    Help(#[from] signal_spirit::HelpError),
 
     #[error("transport error: {0}")]
     Transport(#[from] TransportError),

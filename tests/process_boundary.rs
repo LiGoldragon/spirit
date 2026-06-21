@@ -415,6 +415,20 @@ fn run_cli(socket_path: &Path, nota_argument: &str) -> Output {
     })
 }
 
+fn run_cli_for_stdout(socket_path: &Path, nota_argument: &str) -> String {
+    let output = Command::new(env!("CARGO_BIN_EXE_spirit"))
+        .env("SPIRIT_SOCKET", socket_path)
+        .arg(nota_argument)
+        .output()
+        .expect("run cli");
+    assert!(
+        output.status.success(),
+        "cli stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8(output.stdout).expect("cli stdout is UTF-8")
+}
+
 fn record_nota(domains: &str, kind: &str, description: &str) -> String {
     format!(
         "(Record (({domains} {kind} [{description}] Maximum Minimum Zero []) ([([{description}] None)] [{description}])))"
@@ -455,18 +469,20 @@ fn collect_removal_candidates_nota(query: &str) -> String {
 fn assert_short_record_identifier(identifier: &RecordIdentifier) {
     assert!(
         (4..=7).contains(&identifier.len()),
-        "record identifier should use a four-to-seven-character code: {identifier}"
+        "record identifier should use a four-to-seven-character code: {}",
+        identifier.payload()
     );
     assert!(
         identifier
             .chars()
             .all(|character| character.is_ascii_digit() || character.is_ascii_lowercase()),
-        "record identifier should be lower-base36: {identifier}"
+        "record identifier should be lower-base36: {}",
+        identifier.payload()
     );
 }
 
 fn record_identifier_argument(identifier: &RecordIdentifier) -> String {
-    identifier.to_string()
+    identifier.payload().clone()
 }
 
 fn test_justification(statement: &str) -> Justification {
@@ -773,7 +789,7 @@ fn cli_and_daemon_resolve_clarification_edits_target_and_removes_standalone() {
         Output::RecordFound(record) => {
             assert_eq!(record.record_identifier, target_identifier);
             assert_eq!(
-                record.entry.description.payload().payload(),
+                record.entry.description.payload(),
                 "clarifications edit target records instead of adding more records"
             );
         }
@@ -811,6 +827,27 @@ fn cli_and_daemon_report_version_from_bare_nota_atom() {
         }
         other => panic!("expected VersionReported from bare Version input, got {other:?}"),
     }
+}
+
+#[test]
+fn cli_renders_help_without_daemon_transport() {
+    let temp = TempDir::new().expect("tempdir");
+    let socket_path = temp.path().join("missing.sock");
+
+    let top_level = run_cli_for_stdout(&socket_path, "(Help)");
+    assert!(
+        top_level.contains("(Record { Entry Justification })"),
+        "top-level help should include Record shape:\n{top_level}"
+    );
+
+    let record = run_cli_for_stdout(&socket_path, "(Help Record)");
+    assert_eq!(record.trim(), "(Record { Entry Justification })");
+
+    let domains = run_cli_for_stdout(&socket_path, "(Help Domains)");
+    assert_eq!(domains.trim(), "(Domains (Vec Domain))");
+
+    let description = run_cli_for_stdout(&socket_path, "(Help Description)");
+    assert_eq!(description.trim(), "(Description String)");
 }
 
 #[test]
@@ -932,7 +969,7 @@ fn cli_and_daemon_classify_state_into_provisional_record() {
 
     let looked_up = run_cli(
         &socket_path,
-        &format!("(LookupStash {})", stashed.stash_handle),
+        &format!("(LookupStash {})", stashed.stash_handle.payload()),
     );
     match looked_up {
         Output::RecordsObserved(records) => {
@@ -1282,7 +1319,10 @@ fn daemon_persists_sema_file_across_a_restart() {
         }
         other => panic!("expected RecordsStashed after restart, got {other:?}"),
     };
-    let looked_up = run_cli(&socket_path, &format!("(LookupStash {})", stash_handle));
+    let looked_up = run_cli(
+        &socket_path,
+        &format!("(LookupStash {})", stash_handle.payload()),
+    );
     match looked_up {
         Output::RecordsObserved(records) => {
             assert_eq!(
@@ -1491,7 +1531,7 @@ fn stashed_descriptions(_socket_path: &Path, output: Output) -> Vec<String> {
                 .payload()
                 .payload()
                 .iter()
-                .map(|record| record.entry.description.payload().payload().clone())
+                .map(|record| record.entry.description.payload().clone())
                 .collect();
             descriptions.sort();
             descriptions

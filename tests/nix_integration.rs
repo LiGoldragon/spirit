@@ -579,8 +579,8 @@ fn nix_built_daemon_persists_state_across_two_cli_invocations() {
     assert!(
         second_marker.commit_sequence > first_marker.commit_sequence,
         "schema-emitted CommitSequence advances across CLI invocations: {} -> {}",
-        first_marker.commit_sequence,
-        second_marker.commit_sequence
+        first_marker.commit_sequence.payload(),
+        second_marker.commit_sequence.payload()
     );
     // The state digest also evolves (different records contribute
     // different magnitude importances into the digest fold).
@@ -629,7 +629,7 @@ fn nix_built_daemon_observes_recorded_entries_back_through_query() {
     let resolved = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        &format!("(LookupStash {stash_handle})"),
+        &format!("(LookupStash {})", stash_handle.payload()),
     );
 
     match resolved {
@@ -861,7 +861,7 @@ fn nix_built_daemon_alias_state_across_separate_cli_processes() {
     let resolved = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        &format!("(LookupStash {stash_handle})"),
+        &format!("(LookupStash {})", stash_handle.payload()),
     );
     match resolved {
         Output::RecordsObserved(records) => {

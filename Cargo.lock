@@ -745,7 +745,7 @@ dependencies = [
 [[package]]
 name = "meta-signal-spirit"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=main#50cb035ac284d051f20efc74def174fb6f251894"
+source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=schema-help#e10b65c3daf10ada66d6117b8afd1f80cde54f89"
 dependencies = [
  "nota-next",
  "rkyv",
@@ -1231,6 +1231,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "schema-cc"
+version = "0.1.0"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=schema-help#ece5c380442f90e6f6ec172525f035a4c7fd2362"
+dependencies = [
+ "nota-next",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "thiserror",
+]
+
+[[package]]
 name = "schema-next"
 version = "0.2.0"
 source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#4b7e830a7001708737a617bd8eedac8002cc1fc6"
@@ -1238,7 +1251,19 @@ dependencies = [
  "blake3",
  "nota-next",
  "rkyv",
- "schema-cc",
+ "schema-cc 0.1.0 (git+https://github.com/LiGoldragon/schema-next.git?branch=main)",
+ "thiserror",
+]
+
+[[package]]
+name = "schema-next"
+version = "0.2.0"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=schema-help#ece5c380442f90e6f6ec172525f035a4c7fd2362"
+dependencies = [
+ "blake3",
+ "nota-next",
+ "rkyv",
+ "schema-cc 0.1.0 (git+https://github.com/LiGoldragon/schema-next.git?branch=schema-help)",
  "thiserror",
 ]
 
@@ -1250,7 +1275,7 @@ dependencies = [
  "prettyplease",
  "proc-macro2",
  "quote",
- "schema-next",
+ "schema-next 0.2.0 (git+https://github.com/LiGoldragon/schema-next.git?branch=main)",
  "syn",
  "thiserror",
 ]
@@ -1508,10 +1533,11 @@ dependencies = [
 [[package]]
 name = "signal-spirit"
 version = "0.8.0"
-source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=main#7ae038ef1af5abf008bf2e012903892943a206d6"
+source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=schema-help#69284bf4d0701850b5de5168131c445b622bc8b0"
 dependencies = [
  "nota-next",
  "rkyv",
+ "schema-next 0.2.0 (git+https://github.com/LiGoldragon/schema-next.git?branch=schema-help)",
  "schema-rust-next",
  "signal-frame",
  "thiserror",
@@ -1570,7 +1596,7 @@ dependencies = [
  "nota-next",
  "rkyv",
  "router",
- "schema-next",
+ "schema-next 0.2.0 (git+https://github.com/LiGoldragon/schema-next.git?branch=schema-help)",
  "schema-rust-next",
  "sema-engine 0.2.3",
  "sema-engine 0.4.0",
