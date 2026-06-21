@@ -1,3 +1,10 @@
+#[cfg(feature = "testing-trace")]
+use signal_introspect::{
+    ComponentTraceEvent, IntrospectionTarget, TraceEventName, TraceLayer, TraceSequence,
+};
+#[cfg(feature = "testing-trace")]
+use signal_persona::EngineIdentifier;
+
 use crate::{
     engine::SignalObjectName,
     schema::{nexus::NexusObjectName, sema::SemaObjectName},
@@ -42,5 +49,39 @@ impl TraceEvent {
 
     pub fn name(&self) -> &'static str {
         self.0.name()
+    }
+}
+
+/// The actor-boundary layer of one of spirit's three execution centers,
+/// projected onto the shared `signal-introspect` classification axis.
+#[cfg(feature = "testing-trace")]
+impl From<ObjectName> for TraceLayer {
+    fn from(object_name: ObjectName) -> Self {
+        match object_name {
+            ObjectName::Signal(_) => TraceLayer::Signal,
+            ObjectName::Nexus(_) => TraceLayer::Nexus,
+            ObjectName::Sema(_) => TraceLayer::Sema,
+        }
+    }
+}
+
+/// Project spirit's own actor-boundary `TraceEvent` onto the shared wire
+/// contract `signal_introspect::ComponentTraceEvent` (report 716). The layer
+/// and the schema-derived event name come from the event itself; the emitting
+/// `engine` identity and the monotonic per-emitter `sequence` are not carried
+/// by a `TraceEvent`, so this conversion stamps the empty engine and sequence
+/// zero. The socket sink in `crate::trace` owns the engine identity and the
+/// shared monotonic counter and overwrites both at the push boundary.
+#[cfg(feature = "testing-trace")]
+impl From<TraceEvent> for ComponentTraceEvent {
+    fn from(event: TraceEvent) -> Self {
+        let object_name = event.object_name();
+        ComponentTraceEvent::new(
+            EngineIdentifier::new(String::new()),
+            IntrospectionTarget::Signal,
+            TraceLayer::from(object_name),
+            TraceEventName::new(object_name.name()),
+            TraceSequence::new(0),
+        )
     }
 }

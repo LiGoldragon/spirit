@@ -110,9 +110,15 @@ impl ComponentDaemon for SpiritDaemon {
     fn build_runtime(configuration: &Self::Configuration) -> Result<Self::Engine, Self::Error> {
         #[cfg(feature = "testing-trace")]
         let mut engine = {
+            // The pushed `ComponentTraceEvent`s are stamped with this engine's
+            // identity so introspect can key its store per emitter. The daemon
+            // socket path uniquely identifies this running spirit instance.
+            let engine_identity = signal_persona::EngineIdentifier::new(
+                configuration.socket_path().to_string_lossy().into_owned(),
+            );
             let trace_log = configuration
                 .trace_socket_path()
-                .map(TraceLog::socket)
+                .map(|path| TraceLog::socket(engine_identity.clone(), path))
                 .unwrap_or_default();
             let store = Store::open_with_trace(configuration.database_path(), trace_log.clone())?;
             Engine::new_with_trace(store, trace_log)

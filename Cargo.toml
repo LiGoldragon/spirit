@@ -53,10 +53,10 @@ required-features = ["nota-text"]
 
 [features]
 default = []
-nota-text = ["dep:nota-next", "signal-spirit/nota-text", "meta-signal-spirit/nota-text"]
+nota-text = ["dep:nota-next", "signal-spirit/nota-text", "meta-signal-spirit/nota-text", "signal-introspect?/nota-text"]
 agent-guardian = ["nota-text", "dep:signal-agent"]
 production-migration = ["nota-text", "dep:sema-engine-layout3", "dep:sema-engine-previous"]
-testing-trace = []
+testing-trace = ["dep:signal-introspect", "dep:signal-persona"]
 # The gated mirror shipper: ship the versioned log to a sema version-control
 # mirror. OFF by default and deploy-gated. Pulls the `mirror` crate (and its
 # signal-mirror/nota-next transitive surface), so it is excluded from the
@@ -144,6 +144,26 @@ signal-criome = { git = "https://github.com/LiGoldragon/signal-criome.git", bran
 router = { git = "https://github.com/LiGoldragon/router.git", branch = "main", optional = true }
 signal-standard = { git = "https://github.com/LiGoldragon/signal-standard.git", branch = "main", default-features = false, optional = true }
 signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main", optional = true }
+# The shared wire contract for the tracing -> introspect slice (report 716):
+# spirit projects its own `TraceEvent` onto `signal_introspect::ComponentTraceEvent`
+# and pushes that contract type over the testing-trace socket, so introspect
+# decodes the exact archived noun without depending on spirit. default-features
+# = false drops its nota-text codec from non-text builds; spirit's own nota-text
+# feature re-enables it.
+# The shared wire contract for the tracing -> introspect slice (report 716):
+# spirit projects its own `TraceEvent` onto `signal_introspect::ComponentTraceEvent`
+# and pushes that contract type over the testing-trace socket, so introspect
+# decodes the exact archived noun without depending on spirit. Optional and
+# pulled in ONLY by `testing-trace`: signal-introspect carries a non-optional
+# nota-next dependency, so leaving it out of the default daemon build keeps
+# nota-next out of the binary-only runtime tree (the daemon's no-NOTA invariant).
+signal-introspect = { git = "https://github.com/LiGoldragon/signal-introspect.git", branch = "trace-introspect-slice", default-features = false, optional = true }
+# The `EngineIdentifier` newtype stamped onto each pushed `ComponentTraceEvent`.
+# It is a public field type of the `signal-introspect` contract records but is
+# not re-exported from that crate's root, so spirit pins the same `signal-persona`
+# instance directly to construct it; Cargo unifies it with signal-introspect's.
+# Optional and pulled in only by `testing-trace`, for the same no-NOTA reason.
+signal-persona = { git = "https://github.com/LiGoldragon/signal-persona.git", branch = "main", optional = true }
 signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main" }
 meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", branch = "main" }
 thiserror = "2"
