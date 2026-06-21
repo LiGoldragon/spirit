@@ -555,7 +555,7 @@
               "triad-runtime": "main",
           }
           preferred_version = {
-              "nota-next": "0.5.0",
+              "nota-next": "0.5.1",
               "nota-next-derive": "0.3.0",
           }
           path_dependency_names = (
