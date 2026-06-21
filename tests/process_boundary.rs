@@ -1452,9 +1452,10 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
     }
 }
 
+#[cfg(feature = "nota-text")]
 #[test]
 #[ignore = "copies this machine's live Spirit database; run explicitly before deploying Spirit"]
-fn candidate_daemon_reads_live_production_database_copy_in_sandbox() {
+fn help_leaves_live_production_database_copy_byte_identical_in_sandbox() {
     let source = env::var("SPIRIT_PRODUCTION_DATABASE_SOURCE")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|_| {
@@ -1480,6 +1481,38 @@ fn candidate_daemon_reads_live_production_database_copy_in_sandbox() {
             candidate_database_path.display()
         )
     });
+    let before_help = fs::read(&candidate_database_path).unwrap_or_else(|error| {
+        panic!(
+            "read copied production database {} before Help calls: {error}",
+            candidate_database_path.display()
+        )
+    });
+
+    for help_request in [
+        "Help",
+        "(Help Record)",
+        "(Help Entry)",
+        "(Help Domain)",
+        "(Help IntentEventStream)",
+        "(Help RecordAccepted)",
+    ] {
+        let output = run_cli_for_stdout(&socket_path, help_request);
+        assert!(
+            output.trim().starts_with('('),
+            "Help request {help_request} should render local help, got {output:?}"
+        );
+    }
+
+    let after_help = fs::read(&candidate_database_path).unwrap_or_else(|error| {
+        panic!(
+            "read copied production database {} after Help calls: {error}",
+            candidate_database_path.display()
+        )
+    });
+    assert_eq!(
+        before_help, after_help,
+        "client-side Help must not mutate the copied production SEMA database"
+    );
 
     let _daemon = DaemonProcess::spawn(&socket_path, &candidate_database_path);
     let found = run_cli(&socket_path, "(Lookup 6th4)");

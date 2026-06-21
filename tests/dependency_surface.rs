@@ -40,6 +40,10 @@ fn binary_only_surface_has_no_nota_next_runtime_dependency() {
         !tree.contains("nota-next") && !tree.contains("nota_next"),
         "binary-only runtime dependency tree must not contain nota-next:\n{tree}"
     );
+    assert!(
+        !tree.contains("schema-next") && !tree.contains("schema_next"),
+        "binary-only runtime dependency tree must not contain schema-next:\n{tree}"
+    );
 }
 
 #[test]
