@@ -227,6 +227,7 @@ impl NixBuiltBinaries {
         let mut command = Command::new("nix");
         command
             .arg("build")
+            .arg("--refresh")
             .arg("--log-format")
             .arg("bar-with-logs")
             .arg("--print-out-paths")
