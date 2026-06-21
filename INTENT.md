@@ -16,6 +16,14 @@ Load-bearing constraints:
 
 *CLI input and output are NOTA when the `nota-text` feature is enabled.* Component/process communication is always binary rkyv. Generated schema datatypes always carry rkyv support; NOTA encode/decode is an opt-in text-client surface, not a daemon requirement. The daemon binary must not depend on `nota-next`; the CLI crate enables `nota-text`. Tests run `cargo tree --edges normal --no-default-features` and assert `nota-next` is absent from the binary, while the text surface must contain it.
 
+*Schema help is a local text-client reflection surface.* `(Help)` and
+`(Help Name)` are recognized by the Spirit CLI before generated input
+parsing and before socket transport. The CLI builds the rkyv-serializable
+typed help data tree from `signal-spirit`'s embedded schema source and
+renders it as NOTA help text locally, so Help works when the daemon
+socket is absent. The daemon's ordinary `Input` / `Output` contract does
+not grow `Help` or `HelpReported` roots for this feature.
+
 *Rust data types are generated from schema source, with the public signal
 contract imported from `signal-spirit`.* Authored schema source is a typed
 artifact before Rust emission. `signal-spirit` generates the ordinary

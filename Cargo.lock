@@ -745,7 +745,7 @@ dependencies = [
 [[package]]
 name = "meta-signal-spirit"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=schema-help#e10b65c3daf10ada66d6117b8afd1f80cde54f89"
+source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=schema-help#13c53dfa6e3b46913d1545bf52458d9cb1e04c27"
 dependencies = [
  "nota-next",
  "rkyv",
@@ -1533,7 +1533,7 @@ dependencies = [
 [[package]]
 name = "signal-spirit"
 version = "0.8.0"
-source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=schema-help#69284bf4d0701850b5de5168131c445b622bc8b0"
+source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=schema-help#974d4a1390347362c481996930890035329ff698"
 dependencies = [
  "nota-next",
  "rkyv",
