@@ -212,7 +212,7 @@ fn signal_schema_unit_variant_enum_uses_bare_pascal_case_atoms() {
     // ValidationError carries bare unit variants per designer 480; keyword
     // and text-query validation add typed read-predicate failures.
     witness.must_contain(
-        "ValidationError [EmptyDomain EmptyDescription EmptyQueryDomain EmptyKeyword EmptySearchText EmptyQueryReferent StashHandleNotFound]",
+        "ValidationError [EmptyDomain EmptyDescription EmptyQueryDomain EmptyKeyword EmptySearchText EmptyQueryReferent StashHandleNotFound EmptyReferents]",
         "4",
     );
 

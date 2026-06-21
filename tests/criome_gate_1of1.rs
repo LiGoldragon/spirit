@@ -77,7 +77,7 @@ fn record_request(description: &str) -> RecordRequest {
             certainty: Certainty::new(Magnitude::High),
             importance: Importance::new(Magnitude::Medium),
             privacy: Privacy::new(Magnitude::Zero),
-            referents: Referents::new(Vec::new()),
+            referents: Referents::new(vec![Referent::new("spirit")]),
         },
         justification: Justification {
             testimony: Testimony::new(vec![VerbatimQuote::new(QuoteText::new(description), None)]),

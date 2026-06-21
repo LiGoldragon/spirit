@@ -433,7 +433,9 @@ fn entry(description: &str) -> Entry {
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(Vec::new()),
+        referents: spirit::schema::signal::Referents::new(vec![
+            spirit::schema::signal::Referent::new("spirit"),
+        ]),
     }
 }
 
@@ -610,7 +612,7 @@ fn nix_built_daemon_observes_recorded_entries_back_through_query() {
 
     let stash_handle = match observed {
         Output::RecordsStashed(stashed) => {
-            assert_eq!(stashed.record_count, 1);
+            assert_eq!(*stashed.record_count.payload(), 1);
             assert_short_record_identifier(
                 &stashed.observed_records.payload().payload()[0].record_identifier,
             );
@@ -843,7 +845,7 @@ fn nix_built_daemon_alias_state_across_separate_cli_processes() {
     });
     let stash_handle = match observed {
         Output::RecordsStashed(stashed) => {
-            assert_eq!(stashed.record_count, 1);
+            assert_eq!(*stashed.record_count.payload(), 1);
             assert_short_record_identifier(
                 &stashed.observed_records.payload().payload()[0].record_identifier,
             );

@@ -51,7 +51,9 @@ fn generated_input_surface_owns_route_header_and_rkyv_frame() {
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(Vec::new()),
+        referents: spirit::schema::signal::Referents::new(vec![
+            spirit::schema::signal::Referent::new("spirit"),
+        ]),
     };
     let input = Input::record(record_request(entry, "schema creates the signal plane"));
 
@@ -217,7 +219,9 @@ fn generated_record_change_surface_owns_route_header_and_rkyv_frame() {
         certainty: Magnitude::High.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(Vec::new()),
+        referents: spirit::schema::signal::Referents::new(vec![
+            spirit::schema::signal::Referent::new("spirit"),
+        ]),
     };
     let input = Input::change_record(RecordChange {
         record_identifier: RecordIdentifier::new("003g"),
@@ -257,7 +261,9 @@ fn generated_streaming_surface_owns_subscription_event_frames() {
             certainty: Magnitude::High.into(),
             importance: Magnitude::Minimum.into(),
             privacy: Privacy::new(Magnitude::Zero),
-            referents: spirit::schema::signal::Referents::new(Vec::new()),
+            referents: spirit::schema::signal::Referents::new(vec![
+                spirit::schema::signal::Referent::new("spirit"),
+            ]),
         },
         record_identifier: RecordIdentifier::new("003g"),
     });
@@ -360,7 +366,9 @@ fn generated_change_record_round_trips_the_canonical_shape() {
                 certainty: Magnitude::High.into(),
                 importance: Magnitude::Minimum.into(),
                 privacy: Privacy::new(Magnitude::Zero),
-                referents: spirit::schema::signal::Referents::new(Vec::new()),
+                referents: spirit::schema::signal::Referents::new(vec![
+                    spirit::schema::signal::Referent::new("spirit")
+                ]),
             },
             justification: justification("replacement"),
         })
@@ -471,7 +479,9 @@ fn generated_record_input_renders_bracket_bearing_strings_losslessly() {
         certainty: Magnitude::High.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(Vec::new()),
+        referents: spirit::schema::signal::Referents::new(vec![
+            spirit::schema::signal::Referent::new("spirit"),
+        ]),
     };
     let input = Input::record(record_request(entry, &description));
     let rendered = input.to_string();
@@ -510,14 +520,16 @@ fn bare_schema_bindings_are_explicit_payload_wrappers() {
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(Vec::new()),
+        referents: spirit::schema::signal::Referents::new(vec![
+            spirit::schema::signal::Referent::new("spirit"),
+        ]),
     };
     let record: Record = record_request(entry, "alias bindings carry direct payloads").into();
     let input = Input::Record(record);
     match input {
         Input::Record(record) => {
             assert_eq!(
-                record.payload().entry.description,
+                record.payload().entry.description.payload(),
                 "alias bindings carry direct payloads"
             );
         }
@@ -557,7 +569,9 @@ fn generated_signal_surface_rejects_unknown_header_before_body_decode() {
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(Vec::new()),
+        referents: spirit::schema::signal::Referents::new(vec![
+            spirit::schema::signal::Referent::new("spirit"),
+        ]),
     };
     let mut frame = Input::record(record_request(entry, "schema rejects unknown routes"))
         .encode_signal_frame()
@@ -584,7 +598,9 @@ fn signal_admission_emits_mail_sent_event() {
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(Vec::new()),
+        referents: spirit::schema::signal::Referents::new(vec![
+            spirit::schema::signal::Referent::new("spirit"),
+        ]),
     };
     let input = Input::record(record_request(entry, "signal admission emits mail events"));
     let short_header = input.short_header();

@@ -223,7 +223,9 @@ fn entry_with_domains(domains: &[&str], description: &str) -> Entry {
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(Vec::new()),
+        referents: spirit::schema::signal::Referents::new(vec![
+            spirit::schema::signal::Referent::new("spirit"),
+        ]),
     }
 }
 
@@ -235,7 +237,9 @@ fn entry_with_domain(domain: Domain, description: &str) -> Entry {
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(Vec::new()),
+        referents: spirit::schema::signal::Referents::new(vec![
+            spirit::schema::signal::Referent::new("spirit"),
+        ]),
     }
 }
 
@@ -660,8 +664,8 @@ fn nexus_runner_moves_sema_work_through_multi_thread_runtime_boundary() {
 
     match nexus_reply_output(&observe_output) {
         Output::RecordsStashed(stash) => {
-            assert_eq!(stash.stash_handle, 1);
-            assert_eq!(stash.record_count, 1);
+            assert_eq!(*stash.stash_handle.payload(), 1);
+            assert_eq!(*stash.record_count.payload(), 1);
         }
         other => panic!("expected observed records to become RecordsStashed, got {other:?}"),
     }
@@ -694,7 +698,7 @@ fn nexus_classifies_state_into_provisional_record_through_sema_write() {
         SemaReadOutput::Observed(records) => {
             assert_eq!(records.payload().payload().len(), 1);
             assert_eq!(
-                records.payload().payload()[0].entry.description,
+                records.payload().payload()[0].entry.description.payload(),
                 "capture this statement"
             );
             assert_eq!(
@@ -849,7 +853,7 @@ fn sema_engine_changes_certainty_without_changing_record_identifier() {
     match found.root() {
         SemaReadOutput::Found(record) => {
             assert_eq!(record.record_identifier, record_identifier);
-            assert_eq!(record.entry.description, "certainty target");
+            assert_eq!(record.entry.description.payload(), "certainty target");
             assert_eq!(record.entry.certainty, Magnitude::Zero);
         }
         other => panic!("expected changed record lookup, got {other:?}"),
@@ -956,7 +960,7 @@ fn sema_engine_bumps_record_importance_without_changing_record_identifier() {
     match found.root() {
         SemaReadOutput::Found(record) => {
             assert_eq!(record.record_identifier, record_identifier);
-            assert_eq!(record.entry.description, "importance target");
+            assert_eq!(record.entry.description.payload(), "importance target");
             assert_eq!(record.entry.importance.payload(), &Magnitude::VeryLow);
         }
         other => panic!("expected bumped record lookup, got {other:?}"),
@@ -1050,7 +1054,7 @@ fn signal_write_operations_propose_clarify_supersede_and_retire() {
         .into_root()
     {
         Output::RecordFound(found) => {
-            assert_eq!(found.entry.description, "clearer forward arrow");
+            assert_eq!(found.entry.description.payload(), "clearer forward arrow");
             assert_eq!(found.record_identifier, original_identifier);
         }
         other => panic!("expected clarified record lookup, got {other:?}"),
@@ -1081,7 +1085,10 @@ fn signal_write_operations_propose_clarify_supersede_and_retire() {
         .into_root()
     {
         Output::RecordFound(found) => {
-            assert_eq!(found.entry.description, "replacement forward arrow");
+            assert_eq!(
+                found.entry.description.payload(),
+                "replacement forward arrow"
+            );
             assert_eq!(found.record_identifier, replacement_identifier);
         }
         other => panic!("expected replacement lookup, got {other:?}"),
@@ -1227,7 +1234,10 @@ fn required_guardian_skips_noop_existing_referent_registration() {
     let sema = SemaFile::new();
     let mut engine = sema.engine();
 
-    let registered = engine.handle(input_register_referent("schemaNext", &["schema-next"]));
+    let registered = engine.handle(input_register_referent(
+        "schema-next",
+        &["schema-next-alias"],
+    ));
     assert!(matches!(registered.root(), Output::ReferentRegistered(_)));
     assert_eq!(engine.guardian_decision_count(), 0);
 
@@ -1236,7 +1246,7 @@ fn required_guardian_skips_noop_existing_referent_registration() {
 
     match repeated.root() {
         Output::ReferentRegistered(receipt) => {
-            assert_eq!(receipt.payload().payload().payload(), "schemaNext");
+            assert_eq!(receipt.payload().payload().payload(), "schema-next");
         }
         other => {
             panic!("expected existing referent registration to bypass guardian, got {other:?}")
@@ -1251,11 +1261,14 @@ fn required_guardian_still_rejects_existing_referent_with_new_alias_when_unconfi
     let sema = SemaFile::new();
     let mut engine = sema.engine();
 
-    let registered = engine.handle(input_register_referent("schemaNext", &[]));
+    let registered = engine.handle(input_register_referent("schema-next", &[]));
     assert!(matches!(registered.root(), Output::ReferentRegistered(_)));
 
     engine.require_guardian();
-    let output = engine.handle(input_register_referent("schemaNext", &["schema-next"]));
+    let output = engine.handle(input_register_referent(
+        "schema-next",
+        &["schema-next-alias"],
+    ));
 
     match output.root() {
         Output::ReferentGuardianRejected(rejection) => {
@@ -1411,7 +1424,10 @@ fn agent_guardian_prompt_bundle_stays_bounded_as_corpus_grows() {
     let mut setup_engine = sema.engine();
     assert!(matches!(
         setup_engine
-            .handle(input_register_referent("schemaNext", &["schema-next"]))
+            .handle(input_register_referent(
+                "schema-next",
+                &["schema-next-alias"]
+            ))
             .root(),
         Output::ReferentRegistered(_)
     ));
@@ -1444,7 +1460,7 @@ fn agent_guardian_prompt_bundle_stays_bounded_as_corpus_grows() {
                 domains: Domains::new(vec![Domain::Health(
                     spirit::schema::signal::Health::Medicine,
                 )]),
-                referents: referents_from_slice(&["schemaNext"]),
+                referents: referents_from_slice(&["schema-next"]),
                 ..entry("guardian-referent-neighbor-live")
             }))
             .root(),
@@ -1458,7 +1474,7 @@ fn agent_guardian_prompt_bundle_stays_bounded_as_corpus_grows() {
         domains: Domains::new(vec![Domain::Technology(Technology::Software(
             Software::Quality(Some(spirit::schema::signal::QualityLeaf::Testing)),
         ))]),
-        referents: referents_from_slice(&["schemaNext"]),
+        referents: referents_from_slice(&["schema-next"]),
         ..entry("guardian bounded candidate")
     }));
 
@@ -1528,7 +1544,10 @@ fn agent_guardian_reject_verdict_blocks_clarify_supersede_and_retire() {
 
     match engine.handle(input_lookup(original_identifier)).into_root() {
         Output::RecordFound(found) => {
-            assert_eq!(found.entry.description, "original guarded mutation target");
+            assert_eq!(
+                found.entry.description.payload(),
+                "original guarded mutation target"
+            );
         }
         other => panic!("expected original record to remain, got {other:?}"),
     }
@@ -1544,11 +1563,14 @@ fn agent_guardian_accept_verdict_admits_referent_registration() {
     let fake_agent = FakeGuardianAgent::spawn_referent(ReferentGuardianVerdict::Accept);
     let mut engine = sema.engine_with_guardian(fake_agent.guardian());
 
-    let output = engine.handle(input_register_referent("schemaNext", &["schema-next"]));
+    let output = engine.handle(input_register_referent(
+        "schema-next",
+        &["schema-next-alias"],
+    ));
 
     match output.root() {
         Output::ReferentRegistered(receipt) => {
-            assert_eq!(receipt.payload().payload().payload(), "schemaNext");
+            assert_eq!(receipt.payload().payload().payload(), "schema-next");
         }
         other => panic!("expected ReferentRegistered, got {other:?}"),
     }
@@ -1630,7 +1652,7 @@ fn agent_guardian_accepts_embedded_referent_before_guarding_record() {
 
     let output = engine.handle(input_record(entry_with_referents(
         "embedded referent accepted before record",
-        &["schemaNext"],
+        &["schema-next"],
     )));
 
     match output.root() {
@@ -1760,7 +1782,10 @@ fn nexus_step_decide_routes_signal_arrival_to_sema_command_without_committing() 
     assert_eq!(nexus_input.origin_route(), nexus_route(1));
     match nexus_signal_input(&nexus_input) {
         Input::Record(recorded) => {
-            assert_eq!(recorded.payload().entry.description, "held in flight")
+            assert_eq!(
+                recorded.payload().entry.description.payload(),
+                "held in flight"
+            )
         }
         other => panic!("expected SignalArrived(Record), got {other:?}"),
     }
@@ -1783,9 +1808,10 @@ fn sema_engine_writes_durable_records_and_returns_schema_objects() {
     match response.root() {
         SemaWriteOutput::Recorded(receipt) => {
             assert_short_record_identifier(&receipt.record_identifier);
-            assert_eq!(receipt.database_marker.commit_sequence, 1);
+            assert_eq!(*receipt.database_marker.commit_sequence.payload(), 2);
             assert_ne!(
-                receipt.database_marker.state_digest, 0,
+                *receipt.database_marker.state_digest.payload(),
+                0,
                 "a committed record yields a non-empty content digest"
             );
         }
@@ -1894,8 +1920,9 @@ fn sema_store_persists_records_across_reopen_of_the_same_sema_file() {
         "records written before the drop survive the reopen"
     );
 
-    // The commit ledger resumed: the next write is commit sequence 3,
-    // not 1, proving the counter persisted, not just the records.
+    // The commit ledger resumed: the next write is commit sequence 4,
+    // not 1, proving the counter persisted, not just the records and the
+    // implied referent-registration writes.
     let after = SemaEngine::apply(
         &mut reopened,
         sema_write_message(sema_record(entry("durable three")), 3),
@@ -1903,7 +1930,7 @@ fn sema_store_persists_records_across_reopen_of_the_same_sema_file() {
     match after.root() {
         SemaWriteOutput::Recorded(receipt) => {
             assert_short_record_identifier(&receipt.record_identifier);
-            assert_eq!(receipt.database_marker.commit_sequence, 3);
+            assert_eq!(*receipt.database_marker.commit_sequence.payload(), 4);
         }
         other => panic!("expected Recorded after reopen, got {other:?}"),
     }
@@ -1916,7 +1943,8 @@ fn sema_store_persists_records_across_reopen_of_the_same_sema_file() {
         "the reopened store observes a pre-drop record"
     );
     assert_ne!(
-        first_marker.state_digest, 0,
+        *first_marker.state_digest.payload(),
+        0,
         "the durable digest is content-addressed, not a zero placeholder"
     );
 }
@@ -1947,7 +1975,10 @@ fn sema_engine_queries_partial_and_full_domain_sets() {
     match partial.root() {
         SemaReadOutput::Observed(records) => {
             assert_eq!(records.payload().payload().len(), 1);
-            assert_eq!(records.payload().payload()[0].entry.description, "both");
+            assert_eq!(
+                records.payload().payload()[0].entry.description.payload(),
+                "both"
+            );
         }
         other => panic!("expected partial query to observe one record, got {other:?}"),
     }
@@ -1965,7 +1996,10 @@ fn sema_engine_queries_partial_and_full_domain_sets() {
     match full.root() {
         SemaReadOutput::Observed(records) => {
             assert_eq!(records.payload().payload().len(), 1);
-            assert_eq!(records.payload().payload()[0].entry.description, "both");
+            assert_eq!(
+                records.payload().payload()[0].entry.description.payload(),
+                "both"
+            );
         }
         other => panic!("expected full query to require every domain, got {other:?}"),
     }
@@ -2021,7 +2055,7 @@ fn sema_engine_queries_domain_scopes_by_prefix_breadth() {
         SemaReadOutput::Observed(records) => {
             assert_eq!(records.payload().payload().len(), 1);
             assert_eq!(
-                records.payload().payload()[0].entry.description,
+                records.payload().payload()[0].entry.description.payload(),
                 "software schema"
             );
         }
@@ -2059,7 +2093,7 @@ fn sema_engine_queries_domain_scopes_by_prefix_breadth() {
         SemaReadOutput::Observed(records) => {
             assert_eq!(records.payload().payload().len(), 1);
             assert_eq!(
-                records.payload().payload()[0].entry.description,
+                records.payload().payload()[0].entry.description.payload(),
                 "software schema"
             );
         }
@@ -2105,7 +2139,7 @@ fn sema_engine_expands_symmetric_domain_equivalence_without_chaining() {
         SemaReadOutput::Observed(records) => {
             assert_eq!(records.payload().payload().len(), 1);
             assert_eq!(
-                records.payload().payload()[0].entry.description,
+                records.payload().payload()[0].entry.description.payload(),
                 "information database"
             );
         }
@@ -2127,7 +2161,7 @@ fn sema_engine_expands_symmetric_domain_equivalence_without_chaining() {
         SemaReadOutput::Observed(records) => {
             assert_eq!(records.payload().payload().len(), 1);
             assert_eq!(
-                records.payload().payload()[0].entry.description,
+                records.payload().payload()[0].entry.description.payload(),
                 "information database"
             );
         }
@@ -2185,7 +2219,7 @@ fn sema_engine_queries_description_keyword_spans() {
         SemaReadOutput::Observed(records) => {
             assert_eq!(records.payload().payload().len(), 1);
             assert_eq!(
-                records.payload().payload()[0].entry.description,
+                records.payload().payload()[0].entry.description.payload(),
                 "guardian retrieval uses *Schema Language* and *NOTA* terms"
             );
         }
@@ -2240,7 +2274,7 @@ fn sema_engine_queries_description_full_text() {
         SemaReadOutput::Observed(records) => {
             assert_eq!(records.payload().payload().len(), 1);
             assert_eq!(
-                records.payload().payload()[0].entry.description,
+                records.payload().payload()[0].entry.description.payload(),
                 "Guardian retrieval keeps full text as the recall floor"
             );
         }
@@ -2314,15 +2348,15 @@ fn sema_engine_observation_orders_by_certainty_then_importance() {
             assert_eq!(records.payload().payload().len(), 3);
             assert_short_record_identifier(&records.payload().payload()[0].record_identifier);
             assert_eq!(
-                records.payload().payload()[0].entry.description,
+                records.payload().payload()[0].entry.description.payload(),
                 "reaffirmed"
             );
             assert_eq!(
-                records.payload().payload()[1].entry.description,
+                records.payload().payload()[1].entry.description.payload(),
                 "tertiary high"
             );
             assert_eq!(
-                records.payload().payload()[2].entry.description,
+                records.payload().payload()[2].entry.description.payload(),
                 "tertiary low"
             );
         }
@@ -2341,7 +2375,7 @@ fn sema_engine_observation_orders_by_certainty_then_importance() {
         SemaReadOutput::Observed(records) => {
             assert_eq!(records.payload().payload().len(), 1);
             assert_eq!(
-                records.payload().payload()[0].entry.description,
+                records.payload().payload()[0].entry.description.payload(),
                 "reaffirmed"
             );
         }
@@ -2391,7 +2425,10 @@ fn sema_engine_queries_privacy_as_directional_magnitude() {
     match default.root() {
         SemaReadOutput::Observed(records) => {
             assert_eq!(records.payload().payload().len(), 1);
-            assert_eq!(records.payload().payload()[0].entry.description, "open");
+            assert_eq!(
+                records.payload().payload()[0].entry.description.payload(),
+                "open"
+            );
         }
         other => panic!("expected default privacy query to observe open record, got {other:?}"),
     }
@@ -2402,7 +2439,10 @@ fn sema_engine_queries_privacy_as_directional_magnitude() {
     match high.root() {
         SemaReadOutput::Observed(records) => {
             assert_eq!(records.payload().payload().len(), 1);
-            assert_eq!(records.payload().payload()[0].entry.description, "private");
+            assert_eq!(
+                records.payload().payload()[0].entry.description.payload(),
+                "private"
+            );
         }
         other => panic!("expected high privacy query to observe private record, got {other:?}"),
     }
@@ -2435,7 +2475,7 @@ fn public_private_record_shortcuts_project_to_privacy_queries_through_nexus() {
     let public_observed = engine.handle(input_public_records(record_selection()));
     let public_stash = match public_observed.root() {
         Output::RecordsStashed(stashed) => {
-            assert_eq!(stashed.record_count, 1);
+            assert_eq!(*stashed.record_count.payload(), 1);
             stashed.stash_handle.clone()
         }
         other => panic!("expected public shortcut to stash matching records, got {other:?}"),
@@ -2443,7 +2483,7 @@ fn public_private_record_shortcuts_project_to_privacy_queries_through_nexus() {
     let private_observed = engine.handle(input_private_records(record_selection()));
     let private_stash = match private_observed.root() {
         Output::RecordsStashed(stashed) => {
-            assert_eq!(stashed.record_count, 1);
+            assert_eq!(*stashed.record_count.payload(), 1);
             stashed.stash_handle.clone()
         }
         other => panic!("expected private shortcut to stash matching records, got {other:?}"),
@@ -2454,7 +2494,7 @@ fn public_private_record_shortcuts_project_to_privacy_queries_through_nexus() {
         Output::RecordsObserved(records) => {
             assert_eq!(records.payload().payload().len(), 1);
             assert_eq!(
-                records.payload().payload()[0].entry.description,
+                records.payload().payload()[0].entry.description.payload(),
                 "public shortcut target"
             );
             assert_eq!(
@@ -2470,7 +2510,7 @@ fn public_private_record_shortcuts_project_to_privacy_queries_through_nexus() {
         Output::RecordsObserved(records) => {
             assert_eq!(records.payload().payload().len(), 1);
             assert_eq!(
-                records.payload().payload()[0].entry.description,
+                records.payload().payload()[0].entry.description.payload(),
                 "private shortcut target"
             );
             assert_eq!(
@@ -2517,7 +2557,7 @@ fn sema_engine_lookup_and_count_are_read_plane_operations() {
     match found.root() {
         SemaReadOutput::Found(record) => {
             assert_eq!(record.record_identifier, second_identifier);
-            assert_eq!(record.entry.description, "second");
+            assert_eq!(record.entry.description.payload(), "second");
         }
         other => panic!("expected SEMA lookup to find the second record, got {other:?}"),
     }
@@ -2599,7 +2639,7 @@ fn sema_engine_removes_records_and_advances_database_work_marker() {
         "removed record should not be observed again"
     );
     assert_eq!(store.len(), 0);
-    assert_eq!(store.database_marker().state_digest.payload(), &0);
+    assert_ne!(store.database_marker().state_digest.payload(), &0);
 }
 
 #[test]
@@ -2758,7 +2798,7 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
         }
         other => panic!("expected RecordAccepted, got {other:?}"),
     };
-    assert_eq!(record_marker.commit_sequence, 1);
+    assert_eq!(*record_marker.commit_sequence.payload(), 2);
     assert_eq!(engine.sent_message_count(), 1);
     assert_eq!(engine.processed_message_count(), 1);
 
@@ -2778,7 +2818,7 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
     assert_eq!(observed.origin_route(), route(2));
     let stash_handle = match observed.root() {
         Output::RecordsStashed(stashed) => {
-            assert_eq!(stashed.record_count, 1);
+            assert_eq!(*stashed.record_count.payload(), 1);
             assert_short_record_identifier(
                 &stashed.observed_records.payload().payload()[0].record_identifier,
             );
@@ -2850,7 +2890,7 @@ fn full_runtime_triad_looks_up_and_counts_through_signal_nexus_and_sema() {
     match found.root() {
         Output::RecordFound(record) => {
             assert_eq!(record.record_identifier, first_identifier);
-            assert_eq!(record.entry.description, "lookup one");
+            assert_eq!(record.entry.description.payload(), "lookup one");
         }
         other => panic!("expected full runtime lookup to return RecordFound, got {other:?}"),
     }
@@ -2887,7 +2927,7 @@ fn full_runtime_triad_reports_database_marker_only_through_marker_operation() {
     let marker = engine.handle(Input::Marker);
     match marker.root() {
         Output::MarkerReported(marker) => {
-            assert_eq!(marker.payload().commit_sequence.payload(), &1);
+            assert_eq!(marker.payload().commit_sequence.payload(), &2);
             assert_ne!(marker.payload().state_digest.payload(), &0);
         }
         other => panic!("expected MarkerReported after write, got {other:?}"),
@@ -2899,11 +2939,14 @@ fn full_runtime_triad_registers_referent_through_signal_nexus_and_sema() {
     let sema = SemaFile::new();
     let mut engine = sema.engine();
 
-    let registered = engine.handle(input_register_referent("schemaNext", &["schema-next"]));
+    let registered = engine.handle(input_register_referent(
+        "schema-next",
+        &["schema-next-alias"],
+    ));
 
     match registered.root() {
         Output::ReferentRegistered(receipt) => {
-            assert_eq!(receipt.payload().payload().payload(), "schemaNext");
+            assert_eq!(receipt.payload().payload().payload(), "schema-next");
         }
         other => panic!("expected ReferentRegistered, got {other:?}"),
     }
@@ -2916,7 +2959,7 @@ fn full_runtime_triad_records_and_registers_embedded_referent() {
 
     let output = engine.handle(input_record(entry_with_referents(
         "embedded referent should register",
-        &["schemaNext"],
+        &["schema-next"],
     )));
 
     match output.root() {
@@ -2924,7 +2967,7 @@ fn full_runtime_triad_records_and_registers_embedded_referent() {
         other => panic!("expected RecordAccepted for embedded referent, got {other:?}"),
     }
     let observed = engine.handle(input_observe(Query {
-        referent_selection: ReferentSelection::any_referent(referents_from_slice(&["schemaNext"])),
+        referent_selection: ReferentSelection::any_referent(referents_from_slice(&["schema-next"])),
         ..query()
     }));
     let stash = match observed.root() {
@@ -2936,7 +2979,7 @@ fn full_runtime_triad_records_and_registers_embedded_referent() {
         Output::RecordsObserved(records) => {
             assert_eq!(records.payload().payload().len(), 1);
             assert_eq!(
-                records.payload().payload()[0].entry.description,
+                records.payload().payload()[0].entry.description.payload(),
                 "embedded referent should register"
             );
         }
@@ -2951,7 +2994,7 @@ fn full_runtime_triad_proposes_and_registers_embedded_referent() {
 
     let output = engine.handle(input_propose(entry_with_referents(
         "embedded proposal referent should register",
-        &["schemaNext"],
+        &["schema-next"],
     )));
 
     match output.root() {
@@ -2974,7 +3017,7 @@ fn full_runtime_triad_change_record_registers_embedded_referent() {
     };
     let changed = engine.handle(input_change_record(
         record_identifier.clone(),
-        entry_with_referents("record after embedded referent change", &["schemaNext"]),
+        entry_with_referents("record after embedded referent change", &["schema-next"]),
     ));
 
     match changed.root() {
@@ -2991,7 +3034,7 @@ fn full_runtime_triad_change_record_registers_embedded_referent() {
         Output::RecordFound(record) => {
             assert_eq!(
                 record.entry.referents.payload(),
-                &[Referent::new("schemaNext")]
+                &[Referent::new("schema-next")]
             );
         }
         other => panic!("expected RecordFound after embedded referent change, got {other:?}"),
@@ -3002,11 +3045,14 @@ fn full_runtime_triad_change_record_registers_embedded_referent() {
 fn full_runtime_triad_canonicalizes_referent_aliases_on_write_and_query() {
     let sema = SemaFile::new();
     let mut engine = sema.engine();
-    engine.handle(input_register_referent("schemaNext", &["schema-next"]));
+    engine.handle(input_register_referent(
+        "schema-next",
+        &["schema-next-alias"],
+    ));
 
     let recorded = engine.handle(input_record(entry_with_referents(
         "alias referent canonicalizes",
-        &["schema-next"],
+        &["schema-next-alias"],
     )));
     let identifier = match recorded.into_root() {
         Output::RecordAccepted(receipt) => receipt.payload().clone(),
@@ -3019,19 +3065,21 @@ fn full_runtime_triad_canonicalizes_referent_aliases_on_write_and_query() {
             assert_eq!(record.record_identifier, identifier);
             assert_eq!(
                 record.entry.referents.payload(),
-                &vec![Referent::new("schemaNext")]
+                &vec![Referent::new("schema-next")]
             );
         }
         other => panic!("expected RecordFound, got {other:?}"),
     }
 
     let observed = engine.handle(input_observe(Query {
-        referent_selection: ReferentSelection::any_referent(referents_from_slice(&["schema-next"])),
+        referent_selection: ReferentSelection::any_referent(referents_from_slice(&[
+            "schema-next-alias",
+        ])),
         ..query()
     }));
     match observed.root() {
         Output::RecordsStashed(stash) => {
-            assert_eq!(stash.record_count, 1);
+            assert_eq!(*stash.record_count.payload(), 1);
         }
         other => panic!("expected alias query to match the canonical record, got {other:?}"),
     }
@@ -3041,11 +3089,14 @@ fn full_runtime_triad_canonicalizes_referent_aliases_on_write_and_query() {
 fn full_runtime_triad_canonicalizes_referent_aliases_on_propose() {
     let sema = SemaFile::new();
     let mut engine = sema.engine();
-    engine.handle(input_register_referent("schemaNext", &["schema-next"]));
+    engine.handle(input_register_referent(
+        "schema-next",
+        &["schema-next-alias"],
+    ));
 
     let proposed = engine.handle(input_propose(entry_with_referents(
         "alias referent canonicalizes on proposal",
-        &["schema-next"],
+        &["schema-next-alias"],
     )));
     let identifier = match proposed.into_root() {
         Output::Proposed(receipt) => receipt.payload().clone(),
@@ -3058,7 +3109,7 @@ fn full_runtime_triad_canonicalizes_referent_aliases_on_propose() {
             assert_eq!(record.record_identifier, identifier);
             assert_eq!(
                 record.entry.referents.payload(),
-                &vec![Referent::new("schemaNext")]
+                &vec![Referent::new("schema-next")]
             );
         }
         other => panic!("expected RecordFound, got {other:?}"),

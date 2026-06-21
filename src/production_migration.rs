@@ -760,7 +760,7 @@ mod store_version_nine {
                 certainty,
                 importance,
                 privacy,
-                referents: Referents::new(Vec::new()),
+                referents: Referents::new(vec![Referent::new("migrated-record")]),
             }
         }
     }
@@ -4038,7 +4038,9 @@ mod tests {
                         certainty: crate::schema::signal::Certainty::new(Magnitude::High),
                         importance: crate::schema::signal::Importance::new(Magnitude::Medium),
                         privacy: crate::schema::signal::Privacy::new(Magnitude::Zero),
-                        referents: crate::schema::signal::Referents::new(Vec::new()),
+                        referents: crate::schema::signal::Referents::new(vec![
+                            crate::schema::signal::Referent::new("migrated-record"),
+                        ]),
                     },
                 },
             ))

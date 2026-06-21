@@ -370,7 +370,7 @@ fn entry_with_certainty(domains: &[&str], description: &str, certainty: Magnitud
         certainty: certainty.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: Referents::new(Vec::new()),
+        referents: Referents::new(vec![Referent::new("spirit")]),
     }
 }
 
@@ -532,7 +532,7 @@ fn eval_entry(
         certainty: certainty.into(),
         importance: Importance::new(importance),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: Referents::new(Vec::new()),
+        referents: Referents::new(vec![Referent::new("spirit")]),
     }
 }
 

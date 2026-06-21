@@ -75,7 +75,9 @@ fn decision_entry(description: &str) -> Entry {
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(Vec::new()),
+        referents: spirit::schema::signal::Referents::new(vec![
+            spirit::schema::signal::Referent::new("spirit"),
+        ]),
     }
 }
 
@@ -202,7 +204,8 @@ fn configure_sets_archive_target_and_leaves_live_database_unchanged() {
             panic!("the live database serves the recorded intent back, got {observed:?}")
         };
         assert_eq!(
-            stashed.record_count, 1,
+            *stashed.record_count.payload(),
+            1,
             "the live database holds exactly the one intent recorded after the Configure"
         );
     }

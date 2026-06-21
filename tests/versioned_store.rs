@@ -326,7 +326,7 @@ fn versioned_log_covers_every_durable_write() {
     store
         .register_referent(spirit::schema::signal::ReferentRegistration {
             referent: Referent::new("spirit"),
-            aliases: Referents::new(Vec::new()),
+            aliases: Referents::new(vec![Referent::new("spirit")]),
             justification: justification("witness referent registration"),
         })
         .expect("register referent");

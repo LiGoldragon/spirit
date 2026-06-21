@@ -28,7 +28,9 @@ fn entry(description: &str) -> Entry {
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(Vec::new()),
+        referents: spirit::schema::signal::Referents::new(vec![
+            spirit::schema::signal::Referent::new("spirit"),
+        ]),
     }
 }
 
@@ -87,7 +89,7 @@ fn tap_returns_the_operations_observed_so_far() {
         panic!("expected ObservationTapped, got {reply:?}")
     };
     assert!(
-        subscription.subscription_token >= 1,
+        *subscription.subscription_token.payload() >= 1,
         "the tap minted a subscription token"
     );
     assert_eq!(

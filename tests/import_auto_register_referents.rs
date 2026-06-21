@@ -46,7 +46,10 @@ fn import_auto_registers_a_new_kebab_referent() {
     store
         .import_record(
             String::from("imp1"),
-            entry("owner import carries its referent", vec![Referent::new("sema-engine")]),
+            entry(
+                "owner import carries its referent",
+                vec![Referent::new("sema-engine")],
+            ),
         )
         .expect("import auto-registers the kebab referent and writes the record");
 
@@ -67,14 +70,20 @@ fn import_upserts_an_existing_record() {
     let (_directory, store) = open_store();
 
     store
-        .import_record(String::from("dup1"), entry("original text", vec![Referent::new("spirit")]))
+        .import_record(
+            String::from("dup1"),
+            entry("original text", vec![Referent::new("spirit")]),
+        )
         .expect("first import inserts");
     // Re-importing the same id overwrites in place (owner curation), rather than
     // failing on the insert-only assert.
     store
         .import_record(
             String::from("dup1"),
-            entry("curated replacement text", vec![Referent::new("spirit"), Referent::new("sema-engine")]),
+            entry(
+                "curated replacement text",
+                vec![Referent::new("spirit"), Referent::new("sema-engine")],
+            ),
         )
         .expect("second import of the same id upserts in place");
 }
@@ -85,7 +94,10 @@ fn import_refuses_a_non_kebab_referent() {
 
     let result = store.import_record(
         String::from("imp3"),
-        entry("capitalized referent is refused", vec![Referent::new("SemaEngine")]),
+        entry(
+            "capitalized referent is refused",
+            vec![Referent::new("SemaEngine")],
+        ),
     );
     assert!(
         matches!(&result, Err(StoreError::NonKebabReferent(name)) if name == "SemaEngine"),

@@ -682,9 +682,11 @@ impl Store {
         // maintenance), insert a new one (restore into an empty store). The
         // SEMA `assert` rejects an existing key, so an existing id needs
         // `mutate` — matching the change_record / change_certainty update path.
-        if self.entry_by_identifier(record_identifier.as_str())?.is_some() {
-            self.database
-                .mutate(Mutation::new(self.entries, record))?;
+        if self
+            .entry_by_identifier(record_identifier.as_str())?
+            .is_some()
+        {
+            self.database.mutate(Mutation::new(self.entries, record))?;
         } else {
             self.database.assert(Assertion::new(self.entries, record))?;
         }

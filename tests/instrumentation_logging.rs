@@ -39,7 +39,9 @@ fn entry(description: &str) -> Entry {
         certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(Vec::new()),
+        referents: spirit::schema::signal::Referents::new(vec![
+            spirit::schema::signal::Referent::new("spirit"),
+        ]),
     }
 }
 
@@ -155,7 +157,8 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
         assert_eq!(parsed, events[6]);
     }
     assert_ne!(
-        record_marker.state_digest, 0,
+        *record_marker.state_digest.payload(),
+        0,
         "trace is attached to a real SEMA write, not a string-presence check"
     );
 }

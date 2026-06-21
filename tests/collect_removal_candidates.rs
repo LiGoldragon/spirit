@@ -43,7 +43,9 @@ fn entry_with_certainty(domain: &str, description: &str, magnitude: Magnitude) -
         certainty: magnitude.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(Vec::new()),
+        referents: spirit::schema::signal::Referents::new(vec![
+            spirit::schema::signal::Referent::new("spirit"),
+        ]),
     }
 }
 
@@ -171,7 +173,8 @@ fn collect_removal_candidates_archives_to_separate_db_and_removes_from_live() {
     assert_eq!(
         collected.removal_archive_records.payload()[0]
             .entry
-            .description,
+            .description
+            .payload(),
         "obsolete intent to retire",
         "the archived record is the stale one"
     );
@@ -196,7 +199,8 @@ fn collect_removal_candidates_archives_to_separate_db_and_removes_from_live() {
         panic!("the keep record still serves from the live log, got {keep_observe:?}")
     };
     assert_eq!(
-        kept.record_count, 1,
+        *kept.record_count.payload(),
+        1,
         "the keep record stayed in the live log"
     );
 
@@ -262,7 +266,8 @@ fn collect_removal_candidates_with_no_matches_archives_nothing() {
         panic!("the keep record still serves from the live log, got {keep_observe:?}")
     };
     assert_eq!(
-        kept.record_count, 1,
+        *kept.record_count.payload(),
+        1,
         "the keep record stayed in the live log"
     );
 
@@ -313,7 +318,11 @@ fn collect_removal_candidates_requires_zero_certainty() {
     let Output::RecordsStashed(live) = live_observe else {
         panic!("the nonzero record still serves from the live log, got {live_observe:?}")
     };
-    assert_eq!(live.record_count, 1, "the nonzero record stayed live");
+    assert_eq!(
+        *live.record_count.payload(),
+        1,
+        "the nonzero record stayed live"
+    );
 
     engine.stop().expect("engine stop");
 }

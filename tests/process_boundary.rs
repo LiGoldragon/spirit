@@ -685,7 +685,10 @@ fn public_text_search_returns_direct_ranked_records() {
     };
     assert_eq!(suffix_records.payload().payload().len(), 1);
     assert_eq!(
-        suffix_records.payload().payload()[0].entry.description,
+        suffix_records.payload().payload()[0]
+            .entry
+            .description
+            .payload(),
         "router.node.cluster.criome is the endpoint naming example"
     );
 
@@ -695,7 +698,10 @@ fn public_text_search_returns_direct_ranked_records() {
     };
     assert_eq!(phrase_records.payload().payload().len(), 1);
     assert_eq!(
-        phrase_records.payload().payload()[0].entry.description,
+        phrase_records.payload().payload()[0]
+            .entry
+            .description
+            .payload(),
         "Router owns the standardized routing protocol envelope"
     );
 }
@@ -767,7 +773,7 @@ fn cli_and_daemon_resolve_clarification_edits_target_and_removes_standalone() {
         Output::RecordFound(record) => {
             assert_eq!(record.record_identifier, target_identifier);
             assert_eq!(
-                record.entry.description.payload(),
+                record.entry.description.payload().payload(),
                 "clarifications edit target records instead of adding more records"
             );
         }
@@ -859,7 +865,10 @@ fn cli_subscription_receives_matching_intent_events_without_blocking_daemon() {
                 Domains::from_strings(vec![String::from("relating")])
             );
             assert_eq!(recorded.entry.kind, Kind::Decision);
-            assert_eq!(recorded.entry.description, "subscriber receives this");
+            assert_eq!(
+                recorded.entry.description.payload(),
+                "subscriber receives this"
+            );
             assert_eq!(&recorded.record_identifier, receipt.payload());
         }
         other => panic!("expected IntentRecorded event, got {other:?}"),
@@ -889,7 +898,7 @@ fn cli_and_daemon_classify_state_into_provisional_record() {
     let Output::RecordsStashed(stashed) = observed else {
         panic!("expected classified State observation to be stashed, got {observed:?}");
     };
-    assert_eq!(stashed.record_count, 1);
+    assert_eq!(*stashed.record_count.payload(), 1);
     assert_eq!(stashed.observed_records.payload().payload().len(), 1);
     assert_eq!(
         stashed.observed_records.payload().payload()[0]
@@ -904,7 +913,8 @@ fn cli_and_daemon_classify_state_into_provisional_record() {
     assert_eq!(
         stashed.observed_records.payload().payload()[0]
             .entry
-            .description,
+            .description
+            .payload(),
         "daemon raw intent"
     );
     assert_eq!(
@@ -936,7 +946,7 @@ fn cli_and_daemon_classify_state_into_provisional_record() {
                 Kind::Clarification
             );
             assert_eq!(
-                records.payload().payload()[0].entry.description,
+                records.payload().payload()[0].entry.description.payload(),
                 "daemon raw intent"
             );
             assert_eq!(
@@ -1006,7 +1016,7 @@ fn cli_and_daemon_change_certainty_without_changing_record_identifier() {
     );
     match explicit_candidate_query {
         Output::RecordsStashed(stashed) => {
-            assert_eq!(stashed.record_count, 1);
+            assert_eq!(*stashed.record_count.payload(), 1);
         }
         other => panic!("expected explicit zero-certainty query to stash record, got {other:?}"),
     }
@@ -1021,7 +1031,7 @@ fn cli_and_daemon_change_certainty_without_changing_record_identifier() {
     match found {
         Output::RecordFound(record) => {
             assert_eq!(record.record_identifier, record_identifier);
-            assert_eq!(record.entry.description, "certainty target");
+            assert_eq!(record.entry.description.payload(), "certainty target");
             assert_eq!(record.entry.certainty, Magnitude::Zero);
         }
         other => panic!("expected changed record lookup, got {other:?}"),
@@ -1133,7 +1143,7 @@ fn cli_and_daemon_change_record_replaces_entry_under_same_identifier() {
                 Domains::from_strings(vec![String::from("meaning")])
             );
             assert_eq!(record.entry.kind, Kind::Correction);
-            assert_eq!(record.entry.description, "replacement record");
+            assert_eq!(record.entry.description.payload(), "replacement record");
             assert_eq!(record.entry.certainty, Magnitude::High);
             assert_eq!(record.entry.privacy, Magnitude::Zero);
         }
@@ -1256,13 +1266,15 @@ fn daemon_persists_sema_file_across_a_restart() {
     let stash_handle = match observed {
         Output::RecordsStashed(stashed) => {
             assert_eq!(
-                stashed.record_count, 1,
+                *stashed.record_count.payload(),
+                1,
                 "the restarted daemon observes one durable record"
             );
             assert_eq!(
                 stashed.observed_records.payload().payload()[0]
                     .entry
-                    .description,
+                    .description
+                    .payload(),
                 "survives restart",
                 "the restarted daemon returns durable content inline"
             );
@@ -1274,7 +1286,7 @@ fn daemon_persists_sema_file_across_a_restart() {
     match looked_up {
         Output::RecordsObserved(records) => {
             assert_eq!(
-                records.payload().payload()[0].entry.description,
+                records.payload().payload()[0].entry.description.payload(),
                 "survives restart",
                 "the restarted daemon's stash retrieves the durable content"
             );
@@ -1479,7 +1491,7 @@ fn stashed_descriptions(_socket_path: &Path, output: Output) -> Vec<String> {
                 .payload()
                 .payload()
                 .iter()
-                .map(|record| record.entry.description.payload().clone())
+                .map(|record| record.entry.description.payload().payload().clone())
                 .collect();
             descriptions.sort();
             descriptions
