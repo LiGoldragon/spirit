@@ -81,6 +81,11 @@
 //!   `bin/spirit-daemon`, proving the schema-driven build pipeline
 //!   reaches the binary stage.
 //!
+//! - `nix_built_spirit_cli_renders_help_without_daemon_transport`
+//!   — the Nix-built CLI renders schema-derived Help locally while
+//!   pointed at a missing socket, proving Help is a text-client
+//!   reflection path rather than daemon transport.
+//!
 //! - `nix_built_binaries_round_trip_representative_schema_outputs`
 //!   — drive representative schema-emitted `Output` variants, including
 //!   `VersionReported`, through the CLI and parse stdout back through the
@@ -288,6 +293,14 @@ fn nix_input_overrides() -> Vec<(&'static str, String)> {
             github_source("signal-sema", "SIGNAL_SEMA_REF"),
         ),
         (
+            "signal-spirit-source",
+            github_source("signal-spirit", "SIGNAL_SPIRIT_REF"),
+        ),
+        (
+            "meta-signal-spirit-source",
+            github_source("meta-signal-spirit", "META_SIGNAL_SPIRIT_REF"),
+        ),
+        (
             "triad-runtime-source",
             github_source("triad-runtime", "TRIAD_RUNTIME_REF"),
         ),
@@ -490,6 +503,35 @@ fn nix_build_default_package_emits_both_binaries() {
         is_executable(&metadata_daemon),
         "daemon binary at {} must be executable",
         binaries.spirit_daemon.display()
+    );
+}
+
+#[test]
+#[ignore = "invokes nix build; run via cargo test --test nix_integration -- --ignored"]
+fn nix_built_spirit_cli_renders_help_without_daemon_transport() {
+    let binaries = NixBuiltBinaries::ensure();
+    let temp_directory = TempDir::new().expect("create tempdir");
+    let missing_socket = temp_directory.path().join("missing-spirit.sock");
+
+    let output = Command::new(&binaries.spirit_cli)
+        .arg("(Help Entry)")
+        .env("SPIRIT_SOCKET", &missing_socket)
+        .output()
+        .expect("run Nix-built CLI help");
+    assert!(
+        output.status.success(),
+        "spirit Help failed (status {}): stderr={}; stdout={}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr),
+        String::from_utf8_lossy(&output.stdout)
+    );
+    assert_eq!(
+        String::from_utf8(output.stdout).expect("CLI stdout is UTF-8"),
+        "(Entry { Domains Kind Description Certainty Importance Privacy Referents })\n"
+    );
+    assert!(
+        !missing_socket.exists(),
+        "Help should render locally without creating or connecting a daemon socket"
     );
 }
 

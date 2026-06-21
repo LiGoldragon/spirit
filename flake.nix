@@ -271,16 +271,18 @@
               cp -R "$signalMindSource" $out/vendor-sources/signal-mind
               chmod -R u+w $out/vendor-sources
 
-              ${pkgs.python3}/bin/python3 - "$out/vendor-sources" <<'PYEOF'
+              ${pkgs.python3}/bin/python3 - "$out/Cargo.toml" "$out/vendor-sources" <<'PYEOF'
               from pathlib import Path
               import sys
 
-              vendor_sources = Path(sys.argv[1])
+              root_cargo = Path(sys.argv[1])
+              vendor_sources = Path(sys.argv[2])
               branch_aliases = (
+                  ('branch = "schema-help"', 'branch = "main"'),
                   ('branch = "structural-forms-integration"', 'branch = "main"'),
                   ('branch = "versioned-family-identity"', 'branch = "main"'),
               )
-              for cargo_toml in vendor_sources.rglob("Cargo.toml"):
+              for cargo_toml in [root_cargo, *vendor_sources.rglob("Cargo.toml")]:
                   text = cargo_toml.read_text()
                   for original, replacement in branch_aliases:
                       text = text.replace(original, replacement)
