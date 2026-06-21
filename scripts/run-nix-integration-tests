@@ -49,6 +49,7 @@ add_override meta-signal-spirit-source meta-signal-spirit META_SIGNAL_SPIRIT_REF
 add_override triad-runtime-source triad-runtime TRIAD_RUNTIME_REF
 
 build_result="$(nix build \
+  --refresh \
   "${override_args[@]}" \
   --log-format bar-with-logs \
   --print-out-paths \
