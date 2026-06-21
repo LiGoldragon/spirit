@@ -146,7 +146,7 @@ fn nota_text(value: &str) -> String {
 fn record_nota(domains: &str, kind: &str, description: &str) -> String {
     let description = nota_text(description);
     format!(
-        "(Record (({domains} {kind} {description} Maximum Minimum Zero []) ([({description} None)] {description})))"
+        "(Record (({domains} {kind} {description} Maximum Minimum Zero [spirit]) ([({description} None)] {description})))"
     )
 }
 
