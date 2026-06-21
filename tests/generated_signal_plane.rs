@@ -351,7 +351,7 @@ fn generated_change_certainty_round_trips_the_canonical_shape() {
 #[cfg(feature = "nota-text")]
 #[test]
 fn generated_change_record_round_trips_the_canonical_shape() {
-    let input = "(ChangeRecord (003g ([(Technology (Software (Data SchemaEvolution)))] Correction replacement High Minimum Zero []) ([(replacement None)] replacement)))"
+    let input = "(ChangeRecord (003g ([(Technology (Software (Data SchemaEvolution)))] Correction replacement High Minimum Zero [spirit]) ([(replacement None)] replacement)))"
         .parse::<Input>()
         .expect("parse change record input");
 
@@ -375,7 +375,7 @@ fn generated_change_record_round_trips_the_canonical_shape() {
     );
     assert_eq!(
         input.to_string(),
-        "(ChangeRecord (003g ([(Technology (Software (Data SchemaEvolution)))] Correction replacement High Minimum Zero []) ([(replacement None)] replacement)))"
+        "(ChangeRecord (003g ([(Technology (Software (Data SchemaEvolution)))] Correction replacement High Minimum Zero [spirit]) ([(replacement None)] replacement)))"
     );
 }
 
@@ -488,7 +488,7 @@ fn generated_record_input_renders_bracket_bearing_strings_losslessly() {
 
     assert_eq!(
         rendered,
-        "(Record (([(Technology (Software (Data SchemaEvolution)))] Correction [|text contains [brackets] and the pipe close marker \\|]|] High Minimum Zero []) ([([|text contains [brackets] and the pipe close marker \\|]|] None)] [|text contains [brackets] and the pipe close marker \\|]|])))"
+        "(Record (([(Technology (Software (Data SchemaEvolution)))] Correction [|text contains [brackets] and the pipe close marker \\|]|] High Minimum Zero [spirit]) ([([|text contains [brackets] and the pipe close marker \\|]|] None)] [|text contains [brackets] and the pipe close marker \\|]|])))"
     );
     let reparsed = rendered
         .parse::<Input>()

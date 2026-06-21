@@ -1,5 +1,5 @@
 use std::{
-    fs,
+    env, fs,
     io::{BufRead, BufReader},
     path::Path,
     process::{Child, ChildStdout, Command, Stdio},
@@ -431,7 +431,7 @@ fn run_cli_for_stdout(socket_path: &Path, nota_argument: &str) -> String {
 
 fn record_nota(domains: &str, kind: &str, description: &str) -> String {
     format!(
-        "(Record (({domains} {kind} [{description}] Maximum Minimum Zero []) ([([{description}] None)] [{description}])))"
+        "(Record (({domains} {kind} [{description}] Maximum Minimum Zero [spirit]) ([([{description}] None)] [{description}])))"
     )
 }
 
@@ -1154,7 +1154,7 @@ fn cli_and_daemon_change_record_replaces_entry_under_same_identifier() {
     let changed = run_cli(
         &socket_path,
         &format!(
-            "(ChangeRecord ({} ([(Information Documentation)] Correction [replacement record] High Minimum Zero []) ([([replacement record] None)] [replacement record])))",
+            "(ChangeRecord ({} ([(Information Documentation)] Correction [replacement record] High Minimum Zero [spirit]) ([([replacement record] None)] [replacement record])))",
             record_identifier_argument(&record_identifier)
         ),
     );
@@ -1450,6 +1450,63 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
             other => panic!("expected production post-handover record, got {other:?}"),
         }
     }
+}
+
+#[test]
+#[ignore = "copies this machine's live Spirit database; run explicitly before deploying Spirit"]
+fn candidate_daemon_reads_live_production_database_copy_in_sandbox() {
+    let source = env::var("SPIRIT_PRODUCTION_DATABASE_SOURCE")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            std::path::PathBuf::from(env!("HOME"))
+                .join(".local")
+                .join("state")
+                .join("spirit")
+                .join("spirit.sema")
+        });
+    assert!(
+        source.exists(),
+        "production database source must exist at {}",
+        source.display()
+    );
+
+    let temp = TempDir::new().expect("tempdir");
+    let socket_path = temp.path().join("production-copy-live.sock");
+    let candidate_database_path = temp.path().join("production-copy-live.sema");
+    fs::copy(&source, &candidate_database_path).unwrap_or_else(|error| {
+        panic!(
+            "copy production database {} to sandbox {}: {error}",
+            source.display(),
+            candidate_database_path.display()
+        )
+    });
+
+    let _daemon = DaemonProcess::spawn(&socket_path, &candidate_database_path);
+    let found = run_cli(&socket_path, "(Lookup 6th4)");
+    match found {
+        Output::RecordFound(record) => {
+            assert_eq!(
+                record.payload().record_identifier,
+                RecordIdentifier::new("6th4")
+            );
+            assert!(
+                record
+                    .payload()
+                    .entry
+                    .description
+                    .payload()
+                    .contains("typed Rust help data tree"),
+                "live production copy should contain the schema-help decision"
+            );
+        }
+        other => panic!("expected RecordFound for 6th4 from production copy, got {other:?}"),
+    }
+
+    let marker = run_cli(&socket_path, "Marker");
+    assert!(
+        matches!(marker, Output::MarkerReported(_)),
+        "candidate daemon should report marker state from the copied production database"
+    );
 }
 
 #[cfg(feature = "testing-trace")]

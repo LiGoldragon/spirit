@@ -760,7 +760,7 @@ mod store_version_nine {
                 certainty,
                 importance,
                 privacy,
-                referents: Referents::new(vec![Referent::new("migrated-record")]),
+                referents: Referents::new(vec![super::Referent::new("migrated-record")]),
             }
         }
     }

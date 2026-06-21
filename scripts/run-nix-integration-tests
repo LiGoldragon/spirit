@@ -44,6 +44,8 @@ add_override sema-source sema SEMA_REF
 add_override sema-engine-source sema-engine SEMA_ENGINE_REF
 add_override signal-frame-source signal-frame SIGNAL_FRAME_REF
 add_override signal-sema-source signal-sema SIGNAL_SEMA_REF
+add_override signal-spirit-source signal-spirit SIGNAL_SPIRIT_REF
+add_override meta-signal-spirit-source meta-signal-spirit META_SIGNAL_SPIRIT_REF
 add_override triad-runtime-source triad-runtime TRIAD_RUNTIME_REF
 
 build_result="$(nix build \
