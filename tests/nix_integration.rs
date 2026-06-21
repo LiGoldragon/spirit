@@ -108,8 +108,8 @@ use spirit::schema::meta_signal::{
     ImportedRecord, ImportedRecords, Input as MetaInput, Output as MetaOutput,
 };
 use spirit::schema::signal::{
-    Description, Domains, Entry, GuardianRejectionReason, Kind, Magnitude, Output, OutputRoute,
-    Privacy, RecordIdentifier, SignalRejection, ValidationError,
+    Description, Domains, Entry, Kind, Magnitude, Output, OutputRoute, Privacy, RecordIdentifier,
+    ReferentGuardianRejectionReason, SignalRejection, ValidationError,
 };
 use tempfile::TempDir;
 
@@ -556,17 +556,18 @@ fn nix_built_spirit_cli_records_through_real_socket_to_nix_built_daemon() {
     );
     let output = run_cli_for_output(&binaries, daemon.socket(), &nota_input);
 
-    // SCHEMA-TYPED ASSERTION: the production daemon build requires a guardian.
+    // SCHEMA-TYPED ASSERTION: the production daemon build requires guardians.
     // With no guardian agent configured in this sandbox, working writes fail
-    // closed; privileged test seeding goes through owner-only meta Import below.
+    // closed at the implied referent-registration guardian; privileged test
+    // seeding goes through owner-only meta Import below.
     match output {
-        Output::GuardianRejected(rejection) => {
+        Output::ReferentGuardianRejected(rejection) => {
             assert_eq!(
-                rejection.payload().guardian_rejection_reason,
-                GuardianRejectionReason::HarnessUnavailable
+                rejection.payload().referent_guardian_rejection_reason,
+                ReferentGuardianRejectionReason::HarnessUnavailable
             );
         }
-        other => panic!("expected schema-emitted GuardianRejected, got {other:?}"),
+        other => panic!("expected schema-emitted ReferentGuardianRejected, got {other:?}"),
     }
 }
 
@@ -757,7 +758,8 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     // itself cannot parse, which would silently break tooling.
     //
     // Variants exercised: VersionReported (component version),
-    // GuardianRejected (fail-closed write without configured guardian),
+    // ReferentGuardianRejected (fail-closed implied referent registration
+    // without configured guardian),
     // CertaintyChanged (SEMA mutate on an imported record), Rejected (Signal
     // validation), Error (SEMA missed), RecordsStashed (after Import +
     // Observe). Six typed assertions, all parsed through `Output::from_str`.
@@ -777,7 +779,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     }
     assert_eq!(version.route(), OutputRoute::VersionReported);
 
-    // Variant 2: GuardianRejected.
+    // Variant 2: ReferentGuardianRejected.
     let guarded = run_cli_for_output(
         &binaries,
         daemon.socket(),
@@ -788,15 +790,15 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
         ),
     );
     match &guarded {
-        Output::GuardianRejected(rejection) => assert_eq!(
-            rejection.payload().guardian_rejection_reason,
-            GuardianRejectionReason::HarnessUnavailable
+        Output::ReferentGuardianRejected(rejection) => assert_eq!(
+            rejection.payload().referent_guardian_rejection_reason,
+            ReferentGuardianRejectionReason::HarnessUnavailable
         ),
-        other => panic!("expected GuardianRejected, got {other:?}"),
+        other => panic!("expected ReferentGuardianRejected, got {other:?}"),
     };
     assert_eq!(
         guarded.route(),
-        OutputRoute::GuardianRejected,
+        OutputRoute::ReferentGuardianRejected,
         "schema-emitted OutputRoute round-trips through CLI stdout"
     );
 
