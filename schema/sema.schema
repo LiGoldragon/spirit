@@ -59,7 +59,7 @@
   MigratedRecordCount Integer
   MigratedReferentCount Integer
   Migration { SourceSchemaVersion MigratedRecordCount MigratedReferentCount }
-  RecordsFamily (Family { record StoredRecord table records key Domain })
-  ReferentsFamily (Family { record StoredReferent table referents key Domain })
-  MigrationsFamily (Family { record Migration table migrations key Domain })
+  RecordsFamily (Family { record.StoredRecord table.records key.Domain })
+  ReferentsFamily (Family { record.StoredReferent table.referents key.Domain })
+  MigrationsFamily (Family { record.Migration table.migrations key.Domain })
 }
