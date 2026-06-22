@@ -10,6 +10,8 @@ use std::{
 };
 
 use nota_next::NotaEncode;
+#[cfg(feature = "testing-trace")]
+use nota_next::NotaSource;
 #[cfg(feature = "agent-guardian")]
 use signal_agent::{
     Completion, CompletionText, Input as AgentInput, Output as AgentOutput, StopReasonText,
