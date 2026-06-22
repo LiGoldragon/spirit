@@ -157,7 +157,7 @@ signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch
 # pulled in ONLY by `testing-trace`: signal-introspect carries a non-optional
 # nota-next dependency, so leaving it out of the default daemon build keeps
 # nota-next out of the binary-only runtime tree (the daemon's no-NOTA invariant).
-signal-introspect = { git = "https://github.com/LiGoldragon/signal-introspect.git", branch = "trace-introspect-slice", default-features = false, optional = true }
+signal-introspect = { git = "https://github.com/LiGoldragon/signal-introspect.git", branch = "main", default-features = false, optional = true }
 # The `EngineIdentifier` newtype stamped onto each pushed `ComponentTraceEvent`.
 # It is a public field type of the `signal-introspect` contract records but is
 # not re-exported from that crate's root, so spirit pins the same `signal-persona`

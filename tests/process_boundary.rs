@@ -9,7 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use nota_next::NotaEncode;
+use nota_next::{NotaEncode, NotaSource};
 #[cfg(feature = "agent-guardian")]
 use signal_agent::{
     Completion, CompletionText, Input as AgentInput, Output as AgentOutput, StopReasonText,
@@ -21,7 +21,7 @@ use signal_spirit::{
 };
 use spirit::Configuration;
 #[cfg(feature = "testing-trace")]
-use spirit::TraceEvent;
+use signal_introspect::ComponentTraceEvent;
 #[cfg(feature = "agent-guardian")]
 use spirit::schema::nexus::GuardianVerdict;
 use spirit::schema::signal::{
@@ -417,7 +417,7 @@ fn run_cli(socket_path: &Path, nota_argument: &str) -> Output {
 
 fn record_nota(domains: &str, kind: &str, description: &str) -> String {
     format!(
-        "(Record (({domains} {kind} [{description}] Maximum Minimum Zero []) ([([{description}] None)] [{description}])))"
+        "(Record (({domains} {kind} [{description}] Maximum Minimum Zero [process-boundary-test]) ([([{description}] None)] [{description}])))"
     )
 }
 
@@ -454,19 +454,22 @@ fn collect_removal_candidates_nota(query: &str) -> String {
 
 fn assert_short_record_identifier(identifier: &RecordIdentifier) {
     assert!(
-        (4..=7).contains(&identifier.len()),
-        "record identifier should use a four-to-seven-character code: {identifier}"
+        (4..=7).contains(&identifier.payload().len()),
+        "record identifier should use a four-to-seven-character code: {}",
+        identifier.payload()
     );
     assert!(
         identifier
+            .payload()
             .chars()
             .all(|character| character.is_ascii_digit() || character.is_ascii_lowercase()),
-        "record identifier should be lower-base36: {identifier}"
+        "record identifier should be lower-base36: {}",
+        identifier.payload()
     );
 }
 
 fn record_identifier_argument(identifier: &RecordIdentifier) -> String {
-    identifier.to_string()
+    identifier.payload().clone()
 }
 
 fn test_justification(statement: &str) -> Justification {
@@ -507,13 +510,19 @@ impl TraceCliOutput {
 
     fn assert_trace_sequence(&self, expected: &[&str]) {
         let events = self.trace_events();
-        let actual = events.iter().map(TraceEvent::name).collect::<Vec<_>>();
+        let actual = events
+            .iter()
+            .map(|event| event.event_name.as_str())
+            .collect::<Vec<_>>();
         assert_eq!(actual, expected, "trace lines: {:#?}", self.trace_lines);
     }
 
     fn assert_trace_sequence_after_optional_lifecycle_start(&self, expected: &[&str]) {
         let events = self.trace_events();
-        let mut actual = events.iter().map(TraceEvent::name).collect::<Vec<_>>();
+        let mut actual = events
+            .iter()
+            .map(|event| event.event_name.as_str())
+            .collect::<Vec<_>>();
         let lifecycle_start = ["SemaStarted", "NexusStarted", "SignalStarted"];
         if actual.starts_with(&lifecycle_start) {
             actual.drain(..lifecycle_start.len());
@@ -521,17 +530,19 @@ impl TraceCliOutput {
         assert_eq!(actual, expected, "trace lines: {:#?}", self.trace_lines);
     }
 
-    fn trace_events(&self) -> Vec<TraceEvent> {
+    fn trace_events(&self) -> Vec<ComponentTraceEvent> {
         self.trace_lines
             .iter()
             .map(|line| {
-                let event = TraceEvent::from_str(line).unwrap_or_else(|error| {
-                    panic!("trace CLI line should be generated NOTA {line:?}: {error}")
-                });
+                let event = NotaSource::new(line)
+                    .parse::<ComponentTraceEvent>()
+                    .unwrap_or_else(|error| {
+                        panic!("trace CLI line should be component-trace NOTA {line:?}: {error}")
+                    });
                 assert_eq!(
                     event.to_string(),
                     *line,
-                    "trace CLI line should be canonical NOTA"
+                    "trace CLI line should be canonical component-trace NOTA"
                 );
                 event
             })
@@ -773,7 +784,7 @@ fn cli_and_daemon_resolve_clarification_edits_target_and_removes_standalone() {
         Output::RecordFound(record) => {
             assert_eq!(record.record_identifier, target_identifier);
             assert_eq!(
-                record.entry.description.payload().payload(),
+                record.entry.description.payload(),
                 "clarifications edit target records instead of adding more records"
             );
         }
@@ -932,7 +943,7 @@ fn cli_and_daemon_classify_state_into_provisional_record() {
 
     let looked_up = run_cli(
         &socket_path,
-        &format!("(LookupStash {})", stashed.stash_handle),
+        &format!("(LookupStash {})", stashed.stash_handle.payload()),
     );
     match looked_up {
         Output::RecordsObserved(records) => {
@@ -1117,7 +1128,7 @@ fn cli_and_daemon_change_record_replaces_entry_under_same_identifier() {
     let changed = run_cli(
         &socket_path,
         &format!(
-            "(ChangeRecord ({} ([(Information Documentation)] Correction [replacement record] High Minimum Zero []) ([([replacement record] None)] [replacement record])))",
+            "(ChangeRecord ({} ([(Information Documentation)] Correction [replacement record] High Minimum Zero [process-boundary-test]) ([([replacement record] None)] [replacement record])))",
             record_identifier_argument(&record_identifier)
         ),
     );
@@ -1282,7 +1293,7 @@ fn daemon_persists_sema_file_across_a_restart() {
         }
         other => panic!("expected RecordsStashed after restart, got {other:?}"),
     };
-    let looked_up = run_cli(&socket_path, &format!("(LookupStash {})", stash_handle));
+    let looked_up = run_cli(&socket_path, &format!("(LookupStash {})", stash_handle.payload()));
     match looked_up {
         Output::RecordsObserved(records) => {
             assert_eq!(
@@ -1491,7 +1502,7 @@ fn stashed_descriptions(_socket_path: &Path, output: Output) -> Vec<String> {
                 .payload()
                 .payload()
                 .iter()
-                .map(|record| record.entry.description.payload().payload().clone())
+                .map(|record| record.entry.description.payload().clone())
                 .collect();
             descriptions.sort();
             descriptions
