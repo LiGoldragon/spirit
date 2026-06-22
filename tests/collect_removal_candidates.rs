@@ -24,7 +24,7 @@ fn domains(label: &str) -> Domains {
 }
 
 fn configure_request(archive_database_target: ArchiveDatabaseTarget) -> ConfigureRequest {
-    ConfigureRequest::new(archive_database_target, None)
+    ConfigureRequest::new(archive_database_target, None, None)
 }
 
 fn domain_scopes(label: &str) -> DomainScopes {

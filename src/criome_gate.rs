@@ -24,8 +24,10 @@
 use criome::transport::CriomeClient;
 use sema_engine::EntryDigest;
 use signal_criome::{
-    AuthorizationEvaluation, AuthorizedObjectKind, AuthorizedObjectReference, ComponentKind,
-    ContractDigest, CriomeReply, CriomeRequest, EvaluationDecision, Evidence, ObjectDigest,
+    AttestedMoment, AttestedMomentProposition, AuthorizationEvaluation, AuthorizedObjectKind,
+    AuthorizedObjectReference, ComponentKind, ContractDigest, CriomeReply, CriomeRequest,
+    EvaluationDecision, Evidence, ObjectDigest, OperationDigest, RequiredSignatureThreshold,
+    TimeWindow, TimestampNanos,
 };
 use thiserror::Error;
 
@@ -88,19 +90,33 @@ impl From<&LocalHeadCapture> for AuthorizedObjectReference {
 /// signer-keypair-through-meta-config wiring is the documented remaining step.)
 #[derive(Clone, Debug)]
 pub struct SpiritAttestor {
-    contract: ContractDigest,
-    evidence: Evidence,
+    contract: Option<ContractDigest>,
+    evidence: Option<Evidence>,
 }
 
 impl SpiritAttestor {
     /// Build the attestor from the admitted contract digest and the signed
     /// evidence over the head's operation digest.
     pub fn new(contract: ContractDigest, evidence: Evidence) -> Self {
-        Self { contract, evidence }
+        Self {
+            contract: Some(contract),
+            evidence: Some(evidence),
+        }
     }
 
-    pub fn contract(&self) -> &ContractDigest {
-        &self.contract
+    /// Build the bootstrap attestor used when owner meta Configure supplies a
+    /// local criome socket but no quorum signer material.
+    pub fn unsigned() -> Self {
+        Self {
+            contract: None,
+            evidence: None,
+        }
+    }
+
+    pub fn contract(&self, capture: &LocalHeadCapture) -> ContractDigest {
+        self.contract
+            .clone()
+            .unwrap_or_else(|| ContractDigest::from_bytes(capture.head_digest.bytes()))
     }
 
     /// The full [`AuthorizationEvaluation`] for a captured head: the projected
@@ -109,10 +125,49 @@ impl SpiritAttestor {
     /// fanned head are the same digest.
     pub fn evaluation(&self, capture: &LocalHeadCapture) -> AuthorizationEvaluation {
         AuthorizationEvaluation {
-            contract: self.contract.clone(),
+            contract: self.contract(capture),
             object: AuthorizedObjectReference::from(capture),
-            evidence: self.evidence.clone(),
+            evidence: self
+                .evidence
+                .clone()
+                .unwrap_or_else(|| UnsignedHeadEvidence::from(capture).into_evidence()),
         }
+    }
+}
+
+struct UnsignedHeadEvidence<'capture> {
+    capture: &'capture LocalHeadCapture,
+}
+
+impl<'capture> From<&'capture LocalHeadCapture> for UnsignedHeadEvidence<'capture> {
+    fn from(capture: &'capture LocalHeadCapture) -> Self {
+        Self { capture }
+    }
+}
+
+impl UnsignedHeadEvidence<'_> {
+    fn into_evidence(self) -> Evidence {
+        Evidence::new(
+            self.capture.component,
+            OperationDigest::from_bytes(self.capture.head_digest.bytes()),
+            self.attested_moment(),
+            Vec::new(),
+            Vec::new(),
+        )
+    }
+
+    fn attested_moment(&self) -> AttestedMoment {
+        AttestedMoment::new(
+            AttestedMomentProposition::new(
+                TimeWindow {
+                    opens_at: TimestampNanos::new(0),
+                    closes_at: TimestampNanos::new(u64::MAX),
+                },
+                RequiredSignatureThreshold::new(0),
+                Vec::new(),
+            ),
+            Vec::new(),
+        )
     }
 }
 
@@ -211,6 +266,19 @@ impl CriomeGate {
             socket: socket.into(),
             attestor,
         });
+    }
+
+    /// Configure the gate from owner meta policy with only a local criome
+    /// socket. The evaluation evidence is produced per head and carries no
+    /// signatures; criome AutoApprove authorizes it, while ClientApproval parks
+    /// it for mentci.
+    pub fn configure_socket(&mut self, socket: impl Into<std::path::PathBuf>) {
+        self.arm(socket, SpiritAttestor::unsigned());
+    }
+
+    /// Clear the configured local criome gate.
+    pub fn clear(&mut self) {
+        self.armed = None;
     }
 
     /// Whether a local criome gate is configured and live.

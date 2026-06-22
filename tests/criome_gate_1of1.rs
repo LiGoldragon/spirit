@@ -46,8 +46,8 @@ use signal_criome::{
 use signal_spirit::AuthorizationMode;
 use spirit::criome_gate::{GateDecision, SpiritAttestor};
 use spirit::schema::meta_signal::{
-    ArchiveDatabaseTarget, ConfigureRequest, MirrorAddress, MirrorAddressText, MirrorTarget,
-    Output as MetaOutput,
+    ArchiveDatabaseTarget, ConfigureRequest, CriomeGateTarget, CriomeSocketPathText, MirrorAddress,
+    MirrorAddressText, MirrorTarget, Output as MetaOutput,
 };
 use spirit::schema::sema::RecordFamily;
 use spirit::schema::signal::{
@@ -103,6 +103,10 @@ fn mirror_target(address: SocketAddr) -> MirrorTarget {
     MirrorTarget::Address(MirrorAddress::new(MirrorAddressText::new(
         address.to_string(),
     )))
+}
+
+fn criome_gate_target(path: &std::path::Path) -> CriomeGateTarget {
+    CriomeGateTarget::socket(CriomeSocketPathText::new(path.display().to_string()))
 }
 
 /// Stand up an in-process mirror daemon (real engine, real store, loopback TCP)
@@ -286,6 +290,7 @@ fn armed_spirit_engine(directory: &TempDir, name: &str, mirror_address: SocketAd
     let configured = engine.configure(ConfigureRequest::new(
         ArchiveDatabaseTarget::Default,
         Some(mirror_target(mirror_address)),
+        None,
     ));
     assert!(
         matches!(configured, MetaOutput::Configured(_)),
@@ -293,6 +298,43 @@ fn armed_spirit_engine(directory: &TempDir, name: &str, mirror_address: SocketAd
     );
     assert!(engine.mirror_shipping_armed(), "the shipper is armed");
     engine
+}
+
+#[test]
+fn meta_configure_arms_and_clears_criome_gate_socket() {
+    let directory = tempfile::tempdir().expect("component temp dir");
+    let criome_socket = directory.path().join("criome.sock");
+    let store = Store::open(directory.path().join("source.sema")).expect("open spirit store");
+    let mut engine = Engine::new(store);
+    engine.start().expect("engine starts");
+
+    let configured = engine.configure(ConfigureRequest::new(
+        ArchiveDatabaseTarget::Default,
+        None,
+        Some(criome_gate_target(&criome_socket)),
+    ));
+    assert!(
+        matches!(configured, MetaOutput::Configured(_)),
+        "configure accepted, got {configured:?}"
+    );
+    assert!(
+        engine.criome_gate_armed(),
+        "meta Configure arms criome gate"
+    );
+
+    let cleared = engine.configure(ConfigureRequest::new(
+        ArchiveDatabaseTarget::Default,
+        None,
+        Some(CriomeGateTarget::Default),
+    ));
+    assert!(
+        matches!(cleared, MetaOutput::Configured(_)),
+        "clear configure accepted, got {cleared:?}"
+    );
+    assert!(
+        !engine.criome_gate_armed(),
+        "meta Configure(Default) clears criome gate"
+    );
 }
 
 #[test]

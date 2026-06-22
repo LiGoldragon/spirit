@@ -64,7 +64,7 @@ fn wait_for_socket(path: &Path) {
 }
 
 fn configure_request(archive_database_target: ArchiveDatabaseTarget) -> ConfigureRequest {
-    ConfigureRequest::new(archive_database_target, None)
+    ConfigureRequest::new(archive_database_target, None, None)
 }
 
 fn decision_entry(description: &str) -> Entry {

@@ -531,8 +531,10 @@ impl Engine {
         let ConfigureRequest {
             archive_database_target,
             selected_mirror_target,
+            selected_criome_gate_target,
         } = request;
         let mirror_target = selected_mirror_target.into_payload();
+        let criome_gate_target = selected_criome_gate_target.into_payload();
         self.nexus
             .set_archive_target(archive_database_target.clone());
         // Arm (or disarm) the mirror shipper against the live engine handle.
@@ -551,9 +553,20 @@ impl Engine {
                 database_marker: self.nexus.database_marker(),
             });
         }
+        #[cfg(feature = "mirror-shipper")]
+        match &criome_gate_target {
+            Some(crate::schema::meta_signal::CriomeGateTarget::Socket(socket_path)) => {
+                self.criome_gate
+                    .configure_socket(socket_path.payload().payload().clone());
+            }
+            Some(crate::schema::meta_signal::CriomeGateTarget::Default) | None => {
+                self.criome_gate.clear()
+            }
+        }
         MetaOutput::configured(ConfigureReceipt::new(
             archive_database_target,
             mirror_target,
+            criome_gate_target,
             self.nexus.database_marker(),
         ))
     }

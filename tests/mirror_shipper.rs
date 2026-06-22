@@ -158,6 +158,7 @@ fn configured_mirror_target_ships_commits_and_a_fresh_store_restores_identically
         let configured = engine.configure(ConfigureRequest::new(
             ArchiveDatabaseTarget::Default,
             Some(mirror_target(address)),
+            None,
         ));
         assert!(
             matches!(configured, MetaOutput::Configured(_)),
@@ -250,8 +251,11 @@ fn unconfigured_mirror_target_ships_nothing_and_leaves_behavior_unchanged() {
         engine.start().expect("engine starts");
 
         // No mirror target: the default Configure leaves the shipper unarmed.
-        let configured =
-            engine.configure(ConfigureRequest::new(ArchiveDatabaseTarget::Default, None));
+        let configured = engine.configure(ConfigureRequest::new(
+            ArchiveDatabaseTarget::Default,
+            None,
+            None,
+        ));
         assert!(matches!(configured, MetaOutput::Configured(_)));
         assert!(
             !engine.mirror_shipping_armed(),

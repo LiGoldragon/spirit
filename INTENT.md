@@ -226,6 +226,13 @@ observability/tracing substrate for
 future mentci-mediated acceptance gating, not a separate non-trace production
 watch channel.
 
+*Criome gate target is owner meta policy.* The startup configuration may carry
+the authorization mode, but arming the local criome gate is a meta-signal
+`Configure` operation. Owner meta Configure supplies or clears the local criome
+socket target. In the first bootstrap shape, spirit generates well-formed
+unsigned per-head authorization evaluations; a co-resident criome in AutoApprove
+authorizes them, and a criome in ClientApproval parks them for mentci.
+
 *The daemon configuration carries the meta slot.* Per Spirit record `pb1g`
 (High certainty), every component needs a meta slot because configuration and
 policy authority must not live on the ordinary working signal. Spirit's
