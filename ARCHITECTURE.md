@@ -175,7 +175,10 @@ archive before `spirit-daemon` starts. Production configuration should later
 become another typed binary signal surface differentiated by the root message
 enumerator, not a daemon NOTA side channel.
 
-The binary configuration carries the daemon's meta slot as `meta_socket_path`.
+The binary configuration carries `AuthorizationMode`: `Gating` keeps fan-out
+behind criome's verdict, and `Observing` emits the criome authorization request
+without waiting for the verdict before fan-out. It also carries the daemon's
+meta slot as `meta_socket_path`.
 The field is optional in the data type because the shared
 `BindingSurface` trait asks for `Option<&Path>`, but Spirit treats absence
 as a startup error (`MissingMetaSocket`) and binds no working listener without

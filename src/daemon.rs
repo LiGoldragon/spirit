@@ -138,6 +138,7 @@ impl ComponentDaemon for SpiritDaemon {
         } else {
             engine.require_guardian();
         }
+        engine.set_authorization_mode(configuration.authorization_mode());
         engine.start().map_err(Self::Error::from)?;
         Ok(engine)
     }

@@ -43,6 +43,7 @@ use signal_criome::{
     SignatureScheme, StampedSignatureEnvelope, Threshold, TimeSignature, TimeWindow,
     TimestampNanos,
 };
+use signal_spirit::AuthorizationMode;
 use spirit::criome_gate::{GateDecision, SpiritAttestor};
 use spirit::schema::meta_signal::{
     ArchiveDatabaseTarget, ConfigureRequest, MirrorAddress, MirrorAddressText, MirrorTarget,
@@ -51,7 +52,8 @@ use spirit::schema::meta_signal::{
 use spirit::schema::sema::RecordFamily;
 use spirit::schema::signal::{
     Certainty, Description, Domains, Entry, Importance, Input, Justification, Kind, Magnitude,
-    Output, Privacy, QuoteText, Reasoning, RecordRequest, Referents, Testimony, VerbatimQuote,
+    Output, Privacy, QuoteText, Reasoning, RecordRequest, Referent, Referents, Testimony,
+    VerbatimQuote,
 };
 use spirit::{Engine, Store};
 use tempfile::TempDir;
@@ -410,17 +412,81 @@ fn authorized_head_ships_and_emits_projected_reference_denied_head_does_not_ship
             Durability::QueuedForMirror,
             "a denied head must not ship — the local commit stands, nothing fans out"
         );
-        assert_eq!(
-            denied_handle
+        assert!(
+            !denied_handle
                 .unshipped_outbox()
                 .expect("outbox reads")
-                .len(),
-            1,
+                .is_empty(),
             "the denied write stays unshipped in the outbox"
         );
         drop(link_b);
 
-        // ============ PROOF (c): UNCONFIGURED D does NOT ship ===============
+        // ============ PROOF (c): OBSERVING D emits and still ships ==========
+        let mirror_observing_directory = tempfile::tempdir().expect("mirror observing temp dir");
+        let observing_directory = tempfile::tempdir().expect("observing component temp dir");
+        let (observing_link, observing_mirror_address) =
+            running_mirror(&mirror_observing_directory).await;
+        let mut observing = armed_spirit_engine(
+            &observing_directory,
+            "observing.sema",
+            observing_mirror_address,
+        );
+        observing.set_authorization_mode(AuthorizationMode::Observing);
+        record(
+            &mut observing,
+            "the observing head emits criome authorization and still fans out",
+        )
+        .await;
+
+        let observing_head = observing
+            .versioned_log_head()
+            .expect("versioned head reads")
+            .expect("a committed head exists");
+        let observing_operation = OperationDigest::from_bytes(observing_head.bytes());
+        observing.arm_criome_gate(
+            &criome_socket,
+            SpiritAttestor::new(contract.clone(), policy.evidence(observing_operation, 0)),
+        );
+
+        let observing_handle = observing.store().engine_handle();
+        assert_eq!(
+            observing_handle
+                .store_durability()
+                .expect("durability reads"),
+            Durability::QueuedForMirror
+        );
+
+        let decision = observing
+            .gate_and_ship_head()
+            .await
+            .expect("the observing gate completes without machinery fault")
+            .expect("a head exists to authorize");
+        let GateDecision::Emitted(reference) = decision else {
+            panic!("expected observing mode to emit without waiting, got {decision:?}");
+        };
+        assert_eq!(reference.component, ComponentKind::Spirit);
+        assert_eq!(reference.kind, signal_criome::AuthorizedObjectKind::Head);
+        assert_eq!(
+            reference.digest,
+            ObjectDigest::from_bytes(observing_head.bytes())
+        );
+        assert_eq!(
+            observing_handle
+                .store_durability()
+                .expect("durability reads"),
+            Durability::ServerCommitted,
+            "observing mode ships even when the attestation would not authorize"
+        );
+        assert!(
+            observing_handle
+                .unshipped_outbox()
+                .expect("outbox reads")
+                .is_empty(),
+            "observing mode drains the outbox after emitting the request"
+        );
+        drop(observing_link);
+
+        // ============ PROOF (d): UNCONFIGURED D does NOT ship ===============
         let mirror_c_directory = tempfile::tempdir().expect("mirror C temp dir");
         let unconfigured_directory = tempfile::tempdir().expect("unconfigured component temp dir");
         let (link_c, mirror_address_c) = running_mirror(&mirror_c_directory).await;
@@ -455,12 +521,11 @@ fn authorized_head_ships_and_emits_projected_reference_denied_head_does_not_ship
             Durability::QueuedForMirror,
             "an unconfigured gate must not ship"
         );
-        assert_eq!(
-            unconfigured_handle
+        assert!(
+            !unconfigured_handle
                 .unshipped_outbox()
                 .expect("outbox reads")
-                .len(),
-            1,
+                .is_empty(),
             "the unconfigured write stays unshipped in the outbox"
         );
         drop(link_c);

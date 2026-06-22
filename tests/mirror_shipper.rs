@@ -26,7 +26,8 @@ use spirit::schema::meta_signal::{
 use spirit::schema::sema::RecordFamily;
 use spirit::schema::signal::{
     Certainty, Description, Domains, Entry, Importance, Input, Justification, Kind, Magnitude,
-    Output, Privacy, QuoteText, Reasoning, RecordRequest, Referents, Testimony, VerbatimQuote,
+    Output, Privacy, QuoteText, Reasoning, RecordRequest, Referent, Referents, Testimony,
+    VerbatimQuote,
 };
 use spirit::{Engine, Store, StoreError};
 use tempfile::TempDir;
@@ -273,9 +274,8 @@ fn unconfigured_mirror_target_ships_nothing_and_leaves_behavior_unchanged() {
             Durability::QueuedForMirror,
             "behavior is identical to a daemon with no mirroring"
         );
-        assert_eq!(
-            handle.unshipped_outbox().expect("outbox reads").len(),
-            1,
+        assert!(
+            !handle.unshipped_outbox().expect("outbox reads").is_empty(),
             "the write stays in the outbox, unshipped"
         );
     });

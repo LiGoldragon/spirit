@@ -9,19 +9,19 @@ use std::{
     time::{Duration, Instant},
 };
 
-use nota_next::{NotaEncode, NotaSource};
+use nota_next::NotaEncode;
 #[cfg(feature = "agent-guardian")]
 use signal_agent::{
     Completion, CompletionText, Input as AgentInput, Output as AgentOutput, StopReasonText,
     TokenUsage,
 };
+#[cfg(feature = "testing-trace")]
+use signal_introspect::ComponentTraceEvent;
 #[cfg(feature = "agent-guardian")]
 use signal_spirit::{
     ConfigurationPath, SpiritGuardianAgentConfiguration, SpiritGuardianTimeoutMilliseconds,
 };
 use spirit::Configuration;
-#[cfg(feature = "testing-trace")]
-use signal_introspect::ComponentTraceEvent;
 #[cfg(feature = "agent-guardian")]
 use spirit::schema::nexus::GuardianVerdict;
 use spirit::schema::signal::{
@@ -213,7 +213,7 @@ impl DaemonProcess {
         let guardian_agent = Self::guardian_agent(socket_path);
         #[cfg(not(feature = "agent-guardian"))]
         let request = format!(
-            "(ConfigurationWriteRequest ({} (Some {}) {} None None {}))",
+            "(ConfigurationWriteRequest ({} (Some {}) {} None Gating None {}))",
             nota_path(socket_path),
             nota_path(&meta_socket_path),
             nota_path(database_path),
@@ -221,7 +221,7 @@ impl DaemonProcess {
         );
         #[cfg(feature = "agent-guardian")]
         let request = format!(
-            "(ConfigurationWriteRequest ({} (Some {}) {} None (Some ({} None None 5000 None)) {}))",
+            "(ConfigurationWriteRequest ({} (Some {}) {} None Gating (Some ({} None None 5000 None)) {}))",
             nota_path(socket_path),
             nota_path(&meta_socket_path),
             nota_path(database_path),
@@ -299,7 +299,7 @@ fn configuration_writer_accepts_guardian_without_output_budget() {
     let agent_socket_path = directory.path().join("agent.sock");
     let configuration_path = directory.path().join("spirit.config.rkyv");
     let request = format!(
-        "(ConfigurationWriteRequest ({} (Some {}) {} None (Some ({} (Some {}) (Some {}) 120000 None)) {}))",
+        "(ConfigurationWriteRequest ({} (Some {}) {} None Gating (Some ({} (Some {}) (Some {}) 120000 None)) {}))",
         nota_path(&socket_path),
         nota_path(&meta_socket_path),
         nota_path(&database_path),
@@ -333,6 +333,41 @@ fn configuration_writer_accepts_guardian_without_output_budget() {
     assert_eq!(guardian.model_name(), Some("deepseek-v4-flash"));
     assert_eq!(guardian.timeout_milliseconds(), 120_000);
     assert_eq!(guardian.maximum_output_tokens(), None);
+}
+
+#[test]
+fn configuration_writer_encodes_observing_authorization_mode() {
+    let directory = TempDir::new().expect("tempdir");
+    let socket_path = directory.path().join("spirit.sock");
+    let meta_socket_path = directory.path().join("meta.sock");
+    let database_path = directory.path().join("spirit.sema");
+    let configuration_path = directory.path().join("spirit.config.rkyv");
+    let request = format!(
+        "(ConfigurationWriteRequest ({} (Some {}) {} None Observing None {}))",
+        nota_path(&socket_path),
+        nota_path(&meta_socket_path),
+        nota_path(&database_path),
+        nota_path(&configuration_path)
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_spirit-write-configuration"))
+        .arg(request)
+        .output()
+        .expect("run configuration writer");
+    assert!(
+        output.status.success(),
+        "configuration writer succeeds: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let configuration =
+        Configuration::from_binary_path(&configuration_path).expect("decode binary config");
+
+    assert_eq!(
+        configuration.authorization_mode(),
+        signal_spirit::AuthorizationMode::Observing
+    );
 }
 
 impl SubscriberProcess {
@@ -453,23 +488,21 @@ fn collect_removal_candidates_nota(query: &str) -> String {
 }
 
 fn assert_short_record_identifier(identifier: &RecordIdentifier) {
+    let payload = identifier.payload();
     assert!(
-        (4..=7).contains(&identifier.payload().len()),
-        "record identifier should use a four-to-seven-character code: {}",
-        identifier.payload()
+        (4..=7).contains(&payload.len()),
+        "record identifier should use a four-to-seven-character code: {payload}"
     );
     assert!(
-        identifier
-            .payload()
+        payload
             .chars()
             .all(|character| character.is_ascii_digit() || character.is_ascii_lowercase()),
-        "record identifier should be lower-base36: {}",
-        identifier.payload()
+        "record identifier should be lower-base36: {payload}"
     );
 }
 
 fn record_identifier_argument(identifier: &RecordIdentifier) -> String {
-    identifier.payload().clone()
+    identifier.payload().to_string()
 }
 
 fn test_justification(statement: &str) -> Justification {
@@ -1293,7 +1326,10 @@ fn daemon_persists_sema_file_across_a_restart() {
         }
         other => panic!("expected RecordsStashed after restart, got {other:?}"),
     };
-    let looked_up = run_cli(&socket_path, &format!("(LookupStash {})", stash_handle.payload()));
+    let looked_up = run_cli(
+        &socket_path,
+        &format!("(LookupStash {})", stash_handle.payload()),
+    );
     match looked_up {
         Output::RecordsObserved(records) => {
             assert_eq!(

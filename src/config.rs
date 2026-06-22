@@ -10,7 +10,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use signal_spirit::{ConfigurationPath, SpiritDaemonConfiguration};
+use signal_spirit::{AuthorizationMode, ConfigurationPath, SpiritDaemonConfiguration};
 use thiserror::Error;
 use triad_runtime::BindingSurface;
 
@@ -21,6 +21,7 @@ pub struct Configuration {
     meta_socket_path: Option<PathBuf>,
     database_path: PathBuf,
     trace_socket_path: Option<PathBuf>,
+    authorization_mode: AuthorizationMode,
     #[cfg(feature = "agent-guardian")]
     guardian_agent_configuration: Option<crate::guardian::AgentGuardianConfiguration>,
 }
@@ -53,12 +54,17 @@ impl Configuration {
         )))
     }
 
+    pub fn with_authorization_mode(self, authorization_mode: AuthorizationMode) -> Self {
+        Self::from_raw(self.raw.with_authorization_mode(authorization_mode))
+    }
+
     pub fn from_raw(raw: SpiritDaemonConfiguration) -> Self {
         Self {
             socket_path: PathBuf::from(raw.socket_path()),
             meta_socket_path: raw.meta_socket_path().map(PathBuf::from),
             database_path: PathBuf::from(raw.database_path()),
             trace_socket_path: raw.trace_socket_path().map(PathBuf::from),
+            authorization_mode: raw.authorization_mode(),
             #[cfg(feature = "agent-guardian")]
             guardian_agent_configuration: raw
                 .guardian_agent_configuration()
@@ -85,6 +91,10 @@ impl Configuration {
 
     pub fn trace_socket_path(&self) -> Option<&Path> {
         self.trace_socket_path.as_deref()
+    }
+
+    pub fn authorization_mode(&self) -> AuthorizationMode {
+        self.authorization_mode
     }
 
     #[cfg(feature = "agent-guardian")]

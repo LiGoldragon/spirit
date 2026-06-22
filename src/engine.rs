@@ -303,6 +303,7 @@ impl SignalObjectName {
 pub struct Engine {
     signal_admission: SignalAdmission,
     nexus: Nexus,
+    authorization_mode: signal_spirit::AuthorizationMode,
     // The OFF-by-default mirror gate. Present only under the `mirror-shipper`
     // feature (which the binary-only daemon build excludes to keep nota-next
     // out of its dependency tree). Even when built in, it is unarmed until an
@@ -374,6 +375,7 @@ impl Engine {
             Self {
                 signal_admission: SignalAdmission::default(),
                 nexus: Nexus::new(store),
+                authorization_mode: signal_spirit::AuthorizationMode::Gating,
                 #[cfg(feature = "mirror-shipper")]
                 mirror_shipper: MirrorShipper::new(),
                 #[cfg(feature = "mirror-shipper")]
@@ -397,6 +399,7 @@ impl Engine {
         Self {
             signal_admission: SignalAdmission::with_trace(trace_log.clone()),
             nexus: Nexus::new_with_trace(store, trace_log.clone()),
+            authorization_mode: signal_spirit::AuthorizationMode::Gating,
             #[cfg(feature = "mirror-shipper")]
             mirror_shipper: MirrorShipper::new(),
             #[cfg(feature = "mirror-shipper")]
@@ -420,6 +423,14 @@ impl Engine {
         self.signal_admission.stop();
         NexusEngine::on_stop(&mut self.nexus)?;
         Ok(())
+    }
+
+    pub fn set_authorization_mode(&mut self, authorization_mode: signal_spirit::AuthorizationMode) {
+        self.authorization_mode = authorization_mode;
+    }
+
+    pub fn authorization_mode(&self) -> signal_spirit::AuthorizationMode {
+        self.authorization_mode
     }
 
     /// Run one request through Signal admission, the NexusEngine
@@ -586,18 +597,14 @@ impl Engine {
         self.criome_gate.is_armed()
     }
 
-    /// THE GATE. Capture the post-commit local head `D`, ask the LOCAL criome
-    /// daemon to authorize it, and fan out ONLY on an `Authorized` decision.
+    /// THE GATE. Capture the post-commit local head `D` and apply the configured
+    /// authorization mode.
     ///
     /// Order (report 703-6 Item 1): the working write already committed
-    /// LOCALLY before this runs (`Engine::handle_async`). Here the daemon (a)
-    /// captures `D` from the local versioned log — never `ShipOutcome.head`;
-    /// (b) projects it to the criome `AuthorizedObjectReference` and asks the
-    /// local criome over the per-user Unix socket; (c) ships the outbox and
-    /// returns the projected reference ONLY when criome authorizes. On an
-    /// UNCONFIGURED, DENIED, or UNREACHABLE criome the head does NOT ship — the
-    /// local commit stands and the suffix waits in the outbox for the next
-    /// authorized drain (this inverts the prior best-effort ship).
+    /// LOCALLY before this runs (`Engine::handle_async`). `Gating` mode asks
+    /// local criome over the per-user Unix socket and ships only when criome
+    /// authorizes. `Observing` mode emits the same request and proceeds without
+    /// waiting for criome's verdict.
     ///
     /// Returns the gate decision: `Authorized` carries the emitted reference
     /// (the SAME projection that fed the criome request, so authorized head ==
@@ -611,7 +618,14 @@ impl Engine {
             return Ok(None);
         };
         let capture = crate::criome_gate::LocalHeadCapture::spirit_head(head_digest);
-        let decision = self.criome_gate.authorize_head(&capture).await?;
+        let decision = match self.authorization_mode {
+            signal_spirit::AuthorizationMode::Gating => {
+                self.criome_gate.authorize_head(&capture).await?
+            }
+            signal_spirit::AuthorizationMode::Observing => {
+                self.criome_gate.emit_authorization(&capture)
+            }
+        };
         if decision.ships() {
             self.mirror_shipper.ship_unshipped().await?;
         }

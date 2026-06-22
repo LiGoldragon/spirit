@@ -5,9 +5,10 @@ use std::{
 
 use nota_next::{NotaDecode, NotaDecodeError, NotaEncode, NotaSource};
 use signal_spirit::{
-    ConfigurationPath, SpiritDaemonConfiguration, SpiritDaemonConfigurationArchiveError,
-    SpiritGuardianAgentConfiguration, SpiritGuardianMaximumOutputTokens, SpiritGuardianModelName,
-    SpiritGuardianProviderName, SpiritGuardianTimeoutMilliseconds,
+    AuthorizationMode, ConfigurationPath, SpiritDaemonConfiguration,
+    SpiritDaemonConfigurationArchiveError, SpiritGuardianAgentConfiguration,
+    SpiritGuardianMaximumOutputTokens, SpiritGuardianModelName, SpiritGuardianProviderName,
+    SpiritGuardianTimeoutMilliseconds,
 };
 use thiserror::Error;
 use triad_runtime::{ArgumentError, ComponentArgument, ComponentCommand};
@@ -33,6 +34,7 @@ struct ConfigurationWriteRequest {
     meta_socket_path: Option<ConfigurationWriterPath>,
     database_path: ConfigurationWriterPath,
     trace_socket_path: Option<ConfigurationWriterPath>,
+    authorization_mode: AuthorizationMode,
     guardian_agent_configuration: Option<ConfigurationWriterGuardianAgent>,
     output_path: ConfigurationWriterPath,
 }
@@ -152,6 +154,7 @@ impl ConfigurationWriteRequest {
             configuration =
                 configuration.with_trace_socket_path(trace_socket_path.into_configuration_path());
         }
+        configuration = configuration.with_authorization_mode(self.authorization_mode);
         if let Some(guardian_agent_configuration) = self.guardian_agent_configuration {
             configuration = configuration.with_guardian_agent_configuration(
                 guardian_agent_configuration.into_guardian_agent_configuration(),

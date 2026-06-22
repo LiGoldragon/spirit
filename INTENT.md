@@ -213,6 +213,13 @@ entry point. From version 9 onward the previous store's LOG is the fold input.
 
 *The daemon's single argument is a path to a binary rkyv `SpiritDaemonConfiguration` object from the `signal-spirit` contract.* The packaged `spirit-write-configuration` text-edge helper may create that file from a typed NOTA request for launch/deploy tooling, but the daemon startup path only decodes binary state. The daemon wraps the decoded contract value in its local `Configuration` runtime object so it can implement `BindingSurface` without moving runtime behavior into the contract crate.
 
+*Criome authorization mode is startup policy.* The binary configuration carries
+`AuthorizationMode`. `Gating` is the fail-closed production posture: the local
+criome verdict releases or holds mirror fan-out. `Observing` is the
+production-watch posture: spirit emits the same criome authorization request
+and proceeds without waiting for a verdict so mentci/introspection can observe
+the request stream while local writes continue.
+
 *The daemon configuration carries the meta slot.* Per Spirit record `pb1g`
 (High certainty), every component needs a meta slot because configuration and
 policy authority must not live on the ordinary working signal. Spirit's
