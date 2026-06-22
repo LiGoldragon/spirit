@@ -216,9 +216,12 @@ entry point. From version 9 onward the previous store's LOG is the fold input.
 *Criome authorization mode is startup policy.* The binary configuration carries
 `AuthorizationMode`. `Gating` is the fail-closed production posture: the local
 criome verdict releases or holds mirror fan-out. `Observing` is the
-production-watch posture: spirit emits the same criome authorization request
-and proceeds without waiting for a verdict so mentci/introspection can observe
-the request stream while local writes continue.
+trace-scaffold posture per Spirit record `2st7`: spirit emits the same criome
+authorization request and proceeds without waiting for a verdict so
+mentci/introspection can observe the request stream while local writes
+continue. That emitted request stream is observability/tracing substrate for
+future mentci-mediated acceptance gating, not a separate non-trace production
+watch channel.
 
 *The daemon configuration carries the meta slot.* Per Spirit record `pb1g`
 (High certainty), every component needs a meta slot because configuration and
