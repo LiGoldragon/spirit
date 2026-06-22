@@ -19,6 +19,16 @@ pub enum ObjectName {
     Signal(SignalObjectName),
     Nexus(NexusObjectName),
     Sema(SemaObjectName),
+    Authorization(AuthorizationObjectName),
+}
+
+#[cfg_attr(
+    feature = "nota-text",
+    derive(nota_next::NotaDecode, nota_next::NotaEncode)
+)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AuthorizationObjectName {
+    Observed,
 }
 
 #[cfg_attr(
@@ -34,6 +44,15 @@ impl ObjectName {
             Self::Signal(object_name) => object_name.name(),
             Self::Nexus(object_name) => object_name.name(),
             Self::Sema(object_name) => object_name.name(),
+            Self::Authorization(object_name) => object_name.name(),
+        }
+    }
+}
+
+impl AuthorizationObjectName {
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Observed => "AuthorizationObserved",
         }
     }
 }
@@ -61,6 +80,7 @@ impl From<ObjectName> for TraceLayer {
             ObjectName::Signal(_) => TraceLayer::Signal,
             ObjectName::Nexus(_) => TraceLayer::Nexus,
             ObjectName::Sema(_) => TraceLayer::Sema,
+            ObjectName::Authorization(_) => TraceLayer::Authorization,
         }
     }
 }
@@ -78,10 +98,22 @@ impl From<TraceEvent> for ComponentTraceEvent {
         let object_name = event.object_name();
         ComponentTraceEvent::new(
             EngineIdentifier::new(String::new()),
-            IntrospectionTarget::Signal,
+            IntrospectionTarget::from(object_name),
             TraceLayer::from(object_name),
             TraceEventName::new(object_name.name()),
             TraceSequence::new(0),
         )
+    }
+}
+
+#[cfg(feature = "testing-trace")]
+impl From<ObjectName> for IntrospectionTarget {
+    fn from(object_name: ObjectName) -> Self {
+        match object_name {
+            ObjectName::Authorization(_) => IntrospectionTarget::Spirit,
+            ObjectName::Signal(_) | ObjectName::Nexus(_) | ObjectName::Sema(_) => {
+                IntrospectionTarget::Signal
+            }
+        }
     }
 }

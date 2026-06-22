@@ -421,7 +421,7 @@ fn authorized_head_ships_and_emits_projected_reference_denied_head_does_not_ship
         );
         drop(link_b);
 
-        // ============ PROOF (c): OBSERVING D emits and still ships ==========
+        // ============ PROOF (c): OBSERVING D receives criome's answer and still ships ==========
         let mirror_observing_directory = tempfile::tempdir().expect("mirror observing temp dir");
         let observing_directory = tempfile::tempdir().expect("observing component temp dir");
         let (observing_link, observing_mirror_address) =
@@ -445,7 +445,7 @@ fn authorized_head_ships_and_emits_projected_reference_denied_head_does_not_ship
         let observing_operation = OperationDigest::from_bytes(observing_head.bytes());
         observing.arm_criome_gate(
             &criome_socket,
-            SpiritAttestor::new(contract.clone(), policy.evidence(observing_operation, 0)),
+            SpiritAttestor::new(contract.clone(), policy.evidence(observing_operation, 1)),
         );
 
         let observing_handle = observing.store().engine_handle();
@@ -461,13 +461,15 @@ fn authorized_head_ships_and_emits_projected_reference_denied_head_does_not_ship
             .await
             .expect("the observing gate completes without machinery fault")
             .expect("a head exists to authorize");
-        let GateDecision::Emitted(reference) = decision else {
-            panic!("expected observing mode to emit without waiting, got {decision:?}");
+        let GateDecision::Observed(observed) = decision else {
+            panic!("expected observing mode to receive criome's verdict without blocking fan-out, got {decision:?}");
         };
+        let reference = observed.reference();
+        assert!(observed.authorized());
         assert_eq!(reference.component, ComponentKind::Spirit);
         assert_eq!(reference.kind, signal_criome::AuthorizedObjectKind::Head);
         assert_eq!(
-            reference.digest,
+            reference.digest.clone(),
             ObjectDigest::from_bytes(observing_head.bytes())
         );
         assert_eq!(
@@ -475,7 +477,7 @@ fn authorized_head_ships_and_emits_projected_reference_denied_head_does_not_ship
                 .store_durability()
                 .expect("durability reads"),
             Durability::ServerCommitted,
-            "observing mode ships even when the attestation would not authorize"
+            "observing mode ships after seeing criome's non-blocking authorization"
         );
         assert!(
             observing_handle

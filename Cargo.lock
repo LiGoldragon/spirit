@@ -1412,7 +1412,7 @@ dependencies = [
 [[package]]
 name = "signal-introspect"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/signal-introspect.git?branch=main#a9269952936840c0333a3f30e290ef454c79303a"
+source = "git+https://github.com/LiGoldragon/signal-introspect.git?branch=main#74b020a80d9df77dd23f5c4785b845c4fc7af6ed"
 dependencies = [
  "nota-next",
  "rkyv",

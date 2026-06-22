@@ -1,5 +1,5 @@
 use spirit::{
-    Engine, ObjectName, SignalObjectName, Store, TraceEvent, TraceLog,
+    AuthorizationObjectName, Engine, ObjectName, SignalObjectName, Store, TraceEvent, TraceLog,
     schema::{
         nexus::NexusObjectName,
         sema::SemaObjectName,
@@ -161,6 +161,22 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
         0,
         "trace is attached to a real SEMA write, not a string-presence check"
     );
+}
+
+#[test]
+fn authorization_trace_projects_to_spirit_authorization_event() {
+    let event = TraceEvent::new(ObjectName::Authorization(AuthorizationObjectName::Observed));
+    let projected = signal_introspect::ComponentTraceEvent::from(event);
+
+    assert_eq!(
+        projected.component,
+        signal_introspect::IntrospectionTarget::Spirit
+    );
+    assert_eq!(
+        projected.layer,
+        signal_introspect::TraceLayer::Authorization
+    );
+    assert_eq!(projected.event_name, "AuthorizationObserved");
 }
 
 #[test]

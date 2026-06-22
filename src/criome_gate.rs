@@ -118,16 +118,16 @@ impl SpiritAttestor {
 
 /// The decision the gate returns to the daemon's fan-out point. Gating mode
 /// releases the ship only on [`GateDecision::Authorized`]. Observing mode
-/// releases on [`GateDecision::Emitted`]: the request was sent to criome for
-/// visibility, but spirit does not wait for the verdict.
+/// releases on [`GateDecision::Observed`]: the request completed against
+/// criome and spirit records what would have blocked in gating mode.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum GateDecision {
     /// criome authorized head `D` over a real socket round-trip. Carries the
     /// projected reference so the daemon emits the SAME reference it authorized.
     Authorized(AuthorizedObjectReference),
-    /// The observe-only path emitted the criome request and proceeded without
-    /// waiting for criome's verdict.
-    Emitted(AuthorizedObjectReference),
+    /// The observe-only path received criome's verdict and proceeded without
+    /// applying it as a blocking gate.
+    Observed(ObservedAuthorization),
     /// No local criome socket + attestor are configured. Do not ship: this is
     /// a missing authorization gate, not permission to fan out.
     Unconfigured,
@@ -142,8 +142,45 @@ pub enum GateDecision {
 impl GateDecision {
     /// Whether this decision releases the fan-out.
     pub fn ships(&self) -> bool {
-        matches!(self, GateDecision::Authorized(_) | GateDecision::Emitted(_))
+        matches!(
+            self,
+            GateDecision::Authorized(_) | GateDecision::Observed(_)
+        )
     }
+}
+
+/// The authorization result observed in non-blocking mode.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ObservedAuthorization {
+    reference: AuthorizedObjectReference,
+    decision: EvaluationDecision,
+}
+
+impl ObservedAuthorization {
+    pub fn new(reference: AuthorizedObjectReference, decision: EvaluationDecision) -> Self {
+        Self {
+            reference,
+            decision,
+        }
+    }
+
+    pub fn reference(&self) -> &AuthorizedObjectReference {
+        &self.reference
+    }
+
+    pub fn decision(&self) -> &EvaluationDecision {
+        &self.decision
+    }
+
+    pub fn authorized(&self) -> bool {
+        self.decision == EvaluationDecision::Authorized
+    }
+}
+
+enum AuthorizationObservation {
+    Observed(ObservedAuthorization),
+    Unconfigured,
+    Unreachable,
 }
 
 /// The 1-of-1 LOCAL criome gate. `Off` is the fail-closed default and the only
@@ -204,9 +241,41 @@ impl CriomeGate {
         &self,
         capture: &LocalHeadCapture,
     ) -> Result<GateDecision, CriomeGateError> {
+        Ok(match self.evaluate_authorization(capture).await? {
+            AuthorizationObservation::Observed(observed) => match observed.decision {
+                EvaluationDecision::Authorized => GateDecision::Authorized(observed.reference),
+                other => GateDecision::Denied(other),
+            },
+            AuthorizationObservation::Unconfigured => GateDecision::Unconfigured,
+            AuthorizationObservation::Unreachable => GateDecision::Unreachable,
+        })
+    }
+
+    /// Observe a captured head authorization request against the LOCAL criome
+    /// socket and release fan-out without applying the verdict as a gate.
+    ///
+    /// This is the trace-scaffold mode: criome receives the same
+    /// `EvaluateAuthorization` payload it receives under gating, spirit waits
+    /// long enough to know what criome answered, and later tracing can show
+    /// where a blocking gate would have released or held the head.
+    pub async fn observe_authorization(
+        &self,
+        capture: &LocalHeadCapture,
+    ) -> Result<GateDecision, CriomeGateError> {
+        Ok(match self.evaluate_authorization(capture).await? {
+            AuthorizationObservation::Observed(observed) => GateDecision::Observed(observed),
+            AuthorizationObservation::Unconfigured => GateDecision::Unconfigured,
+            AuthorizationObservation::Unreachable => GateDecision::Unreachable,
+        })
+    }
+
+    async fn evaluate_authorization(
+        &self,
+        capture: &LocalHeadCapture,
+    ) -> Result<AuthorizationObservation, CriomeGateError> {
         let reference = AuthorizedObjectReference::from(capture);
         let Some(armed) = self.armed.as_ref() else {
-            return Ok(GateDecision::Unconfigured);
+            return Ok(AuthorizationObservation::Unconfigured);
         };
         let socket = armed.socket.clone();
         let evaluation = armed.attestor.evaluation(capture);
@@ -219,37 +288,16 @@ impl CriomeGate {
         })?;
         let reply = match send_result {
             Ok(reply) => reply,
-            // A missing or unreachable socket is the liveness-inversion case:
-            // hold the head back rather than fan out an unauthorized commit.
-            Err(_) => return Ok(GateDecision::Unreachable),
+            Err(_) => return Ok(AuthorizationObservation::Unreachable),
         };
         let CriomeReply::AuthorizationEvaluated(evaluated) = reply else {
             return Err(CriomeGateError::UnexpectedReply {
                 reply: format!("{reply:?}"),
             });
         };
-        Ok(match evaluated.decision {
-            EvaluationDecision::Authorized => GateDecision::Authorized(reference),
-            other => GateDecision::Denied(other),
-        })
-    }
-
-    /// Emit a captured head authorization request to the LOCAL criome socket and
-    /// return immediately. This is the observe-only mode: criome receives the
-    /// same `EvaluateAuthorization` payload it would receive under gating, but
-    /// spirit does not wait for, parse, or act on the verdict.
-    pub fn emit_authorization(&self, capture: &LocalHeadCapture) -> GateDecision {
-        let reference = AuthorizedObjectReference::from(capture);
-        let Some(armed) = self.armed.as_ref() else {
-            return GateDecision::Unconfigured;
-        };
-        let socket = armed.socket.clone();
-        let evaluation = armed.attestor.evaluation(capture);
-        let _handle = tokio::task::spawn_blocking(move || {
-            let _ =
-                CriomeClient::new(socket).send(CriomeRequest::EvaluateAuthorization(evaluation));
-        });
-        GateDecision::Emitted(reference)
+        Ok(AuthorizationObservation::Observed(
+            ObservedAuthorization::new(reference, evaluated.decision),
+        ))
     }
 }
 

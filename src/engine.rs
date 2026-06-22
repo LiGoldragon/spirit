@@ -623,7 +623,15 @@ impl Engine {
                 self.criome_gate.authorize_head(&capture).await?
             }
             signal_spirit::AuthorizationMode::Observing => {
-                self.criome_gate.emit_authorization(&capture)
+                let decision = self.criome_gate.observe_authorization(&capture).await?;
+                #[cfg(feature = "testing-trace")]
+                if matches!(decision, crate::criome_gate::GateDecision::Observed(_)) {
+                    self.trace_log
+                        .record(TraceEvent::new(ObjectName::Authorization(
+                            crate::AuthorizationObjectName::Observed,
+                        )));
+                }
+                decision
             }
         };
         if decision.ships() {

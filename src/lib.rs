@@ -111,5 +111,5 @@ pub use shipper::{MirrorShipper, MirrorShipperError};
 pub use store::{Store, StoreError, StoreFamilyDirectory};
 #[cfg(feature = "testing-trace")]
 pub use trace::{TraceClient, TraceError, TraceLog, TraceSocketListener, TraceSocketPath};
-pub use trace_event::{ObjectName, TraceEvent};
+pub use trace_event::{AuthorizationObjectName, ObjectName, TraceEvent};
 pub use transport::{SignalTransport, TransportError};
