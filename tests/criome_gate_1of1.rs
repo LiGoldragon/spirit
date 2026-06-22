@@ -35,16 +35,16 @@ use criome::language::{AttestedMomentStatement, OperationStatement};
 use criome::tables::StoreLocation;
 use criome::transport::CriomeClient;
 use mirror::{Engine as MirrorEngine, Service, ServiceLink};
-use sema_engine::Durability;
+use sema_engine::{Durability, EntryDigest};
 use signal_criome::{
-    AttestedMoment, AttestedMomentProposition, ComponentKind, Contract, ContractDigest,
-    CriomeReply, CriomeRequest, Evidence, Identity, IdentityRegistration, KeyPurpose, ObjectDigest,
-    OperationDigest, PolicyMember, RequiredSignatureThreshold, Rule, SignatureEnvelope,
-    SignatureScheme, StampedSignatureEnvelope, Threshold, TimeSignature, TimeWindow,
-    TimestampNanos,
+    AttestedMoment, AttestedMomentProposition, AuthorizationMode as CriomeAuthorizationMode,
+    ComponentKind, Contract, ContractDigest, CriomeReply, CriomeRequest, Evidence, Identity,
+    IdentityRegistration, KeyPurpose, ObjectDigest, OperationDigest, PolicyMember,
+    RequiredSignatureThreshold, Rule, SignatureEnvelope, SignatureScheme, StampedSignatureEnvelope,
+    Threshold, TimeSignature, TimeWindow, TimestampNanos,
 };
 use signal_spirit::AuthorizationMode;
-use spirit::criome_gate::{GateDecision, SpiritAttestor};
+use spirit::criome_gate::{CriomeGate, GateDecision, LocalHeadCapture, SpiritAttestor};
 use spirit::schema::meta_signal::{
     ArchiveDatabaseTarget, ConfigureRequest, CriomeGateTarget, CriomeSocketPathText, MirrorAddress,
     MirrorAddressText, MirrorTarget, Output as MetaOutput,
@@ -282,6 +282,22 @@ fn spawn_local_criome(directory: &TempDir) -> std::path::PathBuf {
     socket
 }
 
+/// Run a real local criome daemon in AutoApprove mode for the socket-only
+/// production bootstrap path. Approval still means criome returns a signed
+/// `AuthorizationGrant`; the request shape is simple, not the answer.
+fn spawn_auto_approve_criome(directory: &TempDir) -> std::path::PathBuf {
+    let socket = directory.path().join("criome-auto.sock");
+    let store = StoreLocation::new(directory.path().join("criome-auto.sema"));
+    let bound = CriomeDaemon::new(socket.clone(), store)
+        .with_authorization_mode(CriomeAuthorizationMode::AutoApprove)
+        .bind()
+        .expect("criome daemon binds its Unix socket");
+    std::thread::spawn(move || {
+        let _ = bound.serve_forever();
+    });
+    socket
+}
+
 /// Open a fresh spirit engine armed at the in-process mirror.
 fn armed_spirit_engine(directory: &TempDir, name: &str, mirror_address: SocketAddr) -> Engine {
     let store = Store::open(directory.path().join(name)).expect("open spirit store");
@@ -334,6 +350,29 @@ fn meta_configure_arms_and_clears_criome_gate_socket() {
     assert!(
         !engine.criome_gate_armed(),
         "meta Configure(Default) clears criome gate"
+    );
+}
+
+#[test]
+fn socket_only_gate_observes_signed_auto_approved_authorization() {
+    let runtime = runtime();
+    let directory = tempfile::tempdir().expect("criome temp dir");
+    let criome_socket = spawn_auto_approve_criome(&directory);
+    let mut gate = CriomeGate::new();
+    gate.configure_socket(&criome_socket);
+
+    let capture = LocalHeadCapture::spirit_head(EntryDigest::new([42; 32]));
+    let decision = runtime
+        .block_on(gate.observe_authorization(&capture))
+        .expect("socket-only gate observes criome authorization");
+    let GateDecision::Observed(observed) = decision else {
+        panic!("expected observed authorization, got {decision:?}");
+    };
+    assert!(observed.authorized());
+    assert_eq!(observed.reference().component, ComponentKind::Spirit);
+    assert_eq!(
+        observed.reference().digest,
+        ObjectDigest::from_bytes(capture.head_digest().bytes())
     );
 }
 

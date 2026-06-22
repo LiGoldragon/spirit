@@ -218,11 +218,13 @@ entry point. From version 9 onward the previous store's LOG is the fold input.
 criome verdict releases or holds mirror fan-out. `Observing` is the
 trace-scaffold posture per Spirit records `2st7` and `ef6i`: spirit sends the
 same criome authorization request, waits long enough to observe criome's
-returned verdict, emits trace evidence for the authorization-return point, and
-still proceeds without applying that verdict as a blocking gate in the first
-production/demo posture. This lets mentci and introspection observe the request
-stream while local writes continue. That emitted request stream is
-observability/tracing substrate for
+returned authorization answer, emits trace evidence for the
+authorization-return point, and still proceeds without applying that answer as
+a blocking gate in the first production/demo posture. In the socket-only
+bootstrap path the submitted request is simple, but approval is the signed
+`AuthorizationGrant` returned by criome; unsigned request material is not an
+approval artifact. This lets mentci and introspection observe the request stream
+while local writes continue. That emitted request stream is observability/tracing substrate for
 future mentci-mediated acceptance gating, not a separate non-trace production
 watch channel.
 

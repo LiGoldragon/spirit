@@ -24,10 +24,11 @@
 use criome::transport::CriomeClient;
 use sema_engine::EntryDigest;
 use signal_criome::{
-    AttestedMoment, AttestedMomentProposition, AuthorizationEvaluation, AuthorizedObjectKind,
-    AuthorizedObjectReference, ComponentKind, ContractDigest, CriomeReply, CriomeRequest,
-    EvaluationDecision, Evidence, ObjectDigest, OperationDigest, RequiredSignatureThreshold,
-    TimeWindow, TimestampNanos,
+    AttestedMoment, AttestedMomentProposition, AuthorizationEvaluation, AuthorizationScope,
+    AuthorizedObjectKind, AuthorizedObjectReference, ComponentKind, ContractDigest, ContractName,
+    ContractOperationHead, CriomeReply, CriomeRequest, EvaluationDecision, Evidence, Identity,
+    ObjectDigest, OperationDigest, ReplayNonce, RequiredSignatureThreshold,
+    SignalCallAuthorization, TimeWindow, TimestampNanos,
 };
 use thiserror::Error;
 
@@ -80,14 +81,12 @@ impl From<&LocalHeadCapture> for AuthorizedObjectReference {
     }
 }
 
-/// The deploy-config trust material the 1-of-1 gate evaluates a head against:
-/// the admitted contract digest and the signed [`Evidence`] over the head's
-/// operation digest. In a full deployment the spirit signer keypair + the
-/// admitted contract arrive over the authenticated meta-signal config and the
-/// attestor mints fresh evidence per head; THIS milestone ships the gate's
-/// socket round-trip and decision-gated fan-out, and the daemon supplies the
-/// attestor with the per-head evidence it built. (See the module note: the
-/// signer-keypair-through-meta-config wiring is the documented remaining step.)
+/// The deploy-config trust material for the 1-of-1 gate.
+///
+/// A configured policy attestor evaluates a head against an admitted criome
+/// contract. The socket-only bootstrap attestor submits a `SignalCallAuthorization`
+/// and requires criome to return a signed `AuthorizationGrant`; the request may
+/// be simple, but approval is still criome's signed answer.
 #[derive(Clone, Debug)]
 pub struct SpiritAttestor {
     contract: Option<ContractDigest>,
@@ -119,6 +118,10 @@ impl SpiritAttestor {
             .unwrap_or_else(|| ContractDigest::from_bytes(capture.head_digest.bytes()))
     }
 
+    fn has_policy_evidence(&self) -> bool {
+        self.evidence.is_some()
+    }
+
     /// The full [`AuthorizationEvaluation`] for a captured head: the projected
     /// object reference, the admitted contract, and the signed evidence. ONE
     /// projection feeds the request `object`, so the authorized head and the
@@ -132,6 +135,19 @@ impl SpiritAttestor {
                 .clone()
                 .unwrap_or_else(|| UnsignedHeadEvidence::from(capture).into_evidence()),
         }
+    }
+
+    fn signal_call_authorization(&self, capture: &LocalHeadCapture) -> SignalCallAuthorization {
+        let digest = ObjectDigest::from_bytes(capture.head_digest.bytes());
+        SignalCallAuthorization::new(
+            digest.clone(),
+            ContractName::new("spirit-local-head"),
+            ContractOperationHead::new("AuthorizeHead"),
+            AuthorizationScope::new("spirit-head-fanout"),
+            Identity::host("spirit".to_owned()),
+            ReplayNonce::new(digest.as_str().to_owned()),
+            None,
+        )
     }
 }
 
@@ -269,9 +285,8 @@ impl CriomeGate {
     }
 
     /// Configure the gate from owner meta policy with only a local criome
-    /// socket. The evaluation evidence is produced per head and carries no
-    /// signatures; criome AutoApprove authorizes it, while ClientApproval parks
-    /// it for mentci.
+    /// socket. The submitted request is simple bootstrap input; authorization
+    /// is complete only when criome returns its signed grant.
     pub fn configure_socket(&mut self, socket: impl Into<std::path::PathBuf>) {
         self.arm(socket, SpiritAttestor::unsigned());
     }
@@ -346,6 +361,12 @@ impl CriomeGate {
             return Ok(AuthorizationObservation::Unconfigured);
         };
         let socket = armed.socket.clone();
+        if !armed.attestor.has_policy_evidence() {
+            let authorization = armed.attestor.signal_call_authorization(capture);
+            return self
+                .authorize_signal_call(socket, authorization, reference)
+                .await;
+        }
         let evaluation = armed.attestor.evaluation(capture);
         let send_result = tokio::task::spawn_blocking(move || {
             CriomeClient::new(socket).send(CriomeRequest::EvaluateAuthorization(evaluation))
@@ -365,6 +386,38 @@ impl CriomeGate {
         };
         Ok(AuthorizationObservation::Observed(
             ObservedAuthorization::new(reference, evaluated.decision),
+        ))
+    }
+
+    async fn authorize_signal_call(
+        &self,
+        socket: std::path::PathBuf,
+        authorization: SignalCallAuthorization,
+        reference: AuthorizedObjectReference,
+    ) -> Result<AuthorizationObservation, CriomeGateError> {
+        let send_result = tokio::task::spawn_blocking(move || {
+            CriomeClient::new(socket).send(CriomeRequest::AuthorizeSignalCall(authorization))
+        })
+        .await
+        .map_err(|source| CriomeGateError::AuthorizationTask {
+            message: source.to_string(),
+        })?;
+        let reply = match send_result {
+            Ok(reply) => reply,
+            Err(_) => return Ok(AuthorizationObservation::Unreachable),
+        };
+        let CriomeReply::AuthorizationGranted(grant) = reply else {
+            return Err(CriomeGateError::UnexpectedReply {
+                reply: format!("{reply:?}"),
+            });
+        };
+        if grant.authorized_object_digest != reference.digest {
+            return Err(CriomeGateError::UnexpectedReply {
+                reply: format!("{grant:?}"),
+            });
+        }
+        Ok(AuthorizationObservation::Observed(
+            ObservedAuthorization::new(reference, EvaluationDecision::Authorized),
         ))
     }
 }

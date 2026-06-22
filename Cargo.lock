@@ -152,7 +152,7 @@ dependencies = [
 [[package]]
 name = "criome"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/criome.git?branch=main#68b92c66de73ee95274299ede602d6ec33f2dd51"
+source = "git+https://github.com/LiGoldragon/criome.git?branch=main#825cc8ac2f8392158d9aa66ad13fffb88a536578"
 dependencies = [
  "blake3",
  "blst",
@@ -1355,7 +1355,7 @@ dependencies = [
 [[package]]
 name = "signal-criome"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=main#ff9ac192b21cc47a37a2722075bf7d76406943fe"
+source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=main#0125e66e4f292e9dc8d7c4005ef2284ee1beded2"
 dependencies = [
  "blake3",
  "blst",
