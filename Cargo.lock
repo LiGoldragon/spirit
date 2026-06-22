@@ -1233,7 +1233,7 @@ dependencies = [
 [[package]]
 name = "schema-cc"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=schema-help#ece5c380442f90e6f6ec172525f035a4c7fd2362"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=schema-help#5db57b6892276f6ea48594346ffbc8b841eea6cc"
 dependencies = [
  "nota-next",
  "prettyplease",
@@ -1258,7 +1258,7 @@ dependencies = [
 [[package]]
 name = "schema-next"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=schema-help#ece5c380442f90e6f6ec172525f035a4c7fd2362"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=schema-help#5db57b6892276f6ea48594346ffbc8b841eea6cc"
 dependencies = [
  "blake3",
  "nota-next",
@@ -1533,7 +1533,7 @@ dependencies = [
 [[package]]
 name = "signal-spirit"
 version = "0.8.0"
-source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=schema-help#cbe60cf00e5eeeb360e035cc072da1515f3e79c0"
+source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=schema-help#db96b5a5c93b7ec63270f0488d8f393d92def186"
 dependencies = [
  "nota-next",
  "rkyv",

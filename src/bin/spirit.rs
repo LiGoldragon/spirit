@@ -35,7 +35,7 @@ impl SpiritCli {
     fn run(&self) -> Result<(), SpiritCliError> {
         let source = self.source()?;
         if let Some(response) = source.help_response()? {
-            println!("{response}");
+            println!("{}", response.to_schema_text()?);
             return Ok(());
         }
         let input = source.parse_input()?;
