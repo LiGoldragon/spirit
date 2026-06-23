@@ -152,7 +152,7 @@ dependencies = [
 [[package]]
 name = "criome"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/criome.git?branch=main#825cc8ac2f8392158d9aa66ad13fffb88a536578"
+source = "git+https://github.com/LiGoldragon/criome.git?branch=main#86dec2fb4a6a8dcbd5371f0f912227f15f41b82a"
 dependencies = [
  "blake3",
  "blst",
@@ -687,7 +687,7 @@ dependencies = [
 [[package]]
 name = "meta-signal-criome"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-criome.git?branch=main#4940e4b13c573b72bb0492ae53510244f92d7653"
+source = "git+https://github.com/LiGoldragon/meta-signal-criome.git?branch=main#47a27e84cc3f4ac08569ac476ac40d97054280f8"
 dependencies = [
  "rkyv",
  "schema-rust-next",
@@ -699,7 +699,7 @@ dependencies = [
 [[package]]
 name = "meta-signal-mirror"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-mirror.git?branch=main#d69345a882215d2746196bc9e251af420da63624"
+source = "git+https://github.com/LiGoldragon/meta-signal-mirror.git?branch=main#b45e53b7765226fa1d2e64b3ab41beea0a13d7d0"
 dependencies = [
  "nota-next",
  "rkyv",
@@ -745,7 +745,7 @@ dependencies = [
 [[package]]
 name = "mirror"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/mirror.git?branch=main#f2c99bdbc7abb692efb28fd435a54054cf2ba685"
+source = "git+https://github.com/LiGoldragon/mirror.git?branch=main#5e1ea13635dfdd8f052fddce78db57f301844ebe"
 dependencies = [
  "meta-signal-mirror",
  "nota-next",
@@ -1355,7 +1355,7 @@ dependencies = [
 [[package]]
 name = "signal-criome"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=main#0125e66e4f292e9dc8d7c4005ef2284ee1beded2"
+source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=main#e08b07b7a572779d6cdbd9fd4eb0b8a2aeaf3526"
 dependencies = [
  "blake3",
  "blst",
@@ -1426,7 +1426,7 @@ dependencies = [
 [[package]]
 name = "signal-message"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/signal-message.git?branch=main#3c8fa132eafa7e5972c9c7e5a49a287035928f04"
+source = "git+https://github.com/LiGoldragon/signal-message.git?branch=main#1da152936e184d92c9e0c5535bd1ab8bb9aa3e09"
 dependencies = [
  "nota-next",
  "rkyv",
@@ -1450,7 +1450,7 @@ dependencies = [
 [[package]]
 name = "signal-mirror"
 version = "0.1.1"
-source = "git+https://github.com/LiGoldragon/signal-mirror.git?branch=main#e2105eb8a10f865a3768e5f648c84d05d0312152"
+source = "git+https://github.com/LiGoldragon/signal-mirror.git?branch=main#b5a888ac35a55c9fe88efb7ba92c424819985f0c"
 dependencies = [
  "nota-next",
  "rkyv",
@@ -1461,7 +1461,7 @@ dependencies = [
 [[package]]
 name = "signal-persona"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/signal-persona.git?branch=main#c785b9b1c72ae8766304f6bade30bd999f437d93"
+source = "git+https://github.com/LiGoldragon/signal-persona.git?branch=main#ca98a9208dfdb8f6cd6c84172120f922fcfeb4e3"
 dependencies = [
  "nota-next",
  "rkyv",
