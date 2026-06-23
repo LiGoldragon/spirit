@@ -4,7 +4,7 @@
 //! multi-listener binding, accepted-connection context, decode -> execute ->
 //! encode spine, emitted subscription registry + retained-writer publish
 //! wiring, and `ExitReport`-based entry) is emitted into
-//! `src/schema/daemon.rs` by schema-rust-next's daemon emitter. Spirit fills
+//! `src/schema/daemon.rs` by schema-rust's daemon emitter. Spirit fills
 //! only the record-1488 escape hatches through `impl ComponentDaemon for
 //! SpiritDaemon`: how to load its binary `Configuration`, how to open its
 //! Store/Engine (`build_runtime`), how one working `Input` becomes one

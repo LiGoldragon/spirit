@@ -53,19 +53,19 @@ required-features = ["nota-text"]
 
 [features]
 default = []
-nota-text = ["dep:nota-next", "signal-spirit/nota-text", "meta-signal-spirit/nota-text", "signal-introspect?/nota-text"]
+nota-text = ["dep:nota", "signal-spirit/nota-text", "meta-signal-spirit/nota-text", "signal-introspect?/nota-text"]
 agent-guardian = ["nota-text", "dep:signal-agent"]
 production-migration = ["nota-text", "dep:sema-engine-layout3", "dep:sema-engine-previous"]
 testing-trace = ["dep:signal-introspect", "dep:signal-persona"]
 # The gated mirror shipper: ship the versioned log to a sema version-control
 # mirror. OFF by default and deploy-gated. Pulls the `mirror` crate (and its
-# signal-mirror/nota-next transitive surface), so it is excluded from the
+# signal-mirror/nota transitive surface), so it is excluded from the
 # binary-only daemon dependency tree unless explicitly enabled. It also pulls
 # the 1-of-1 LOCAL criome gate: a spirit commit is authorized by the
 # co-resident local criome daemon (Spirit `xhwa`) before it fans out to the
 # mirror. criome brings the `CriomeClient` socket transport; signal-criome
 # brings the typed authorized-object reference + EvaluateAuthorization
-# request/reply. Gating both behind the same feature keeps nota-next and the
+# request/reply. Gating both behind the same feature keeps nota and the
 # whole criome/mirror surface out of the binary-only daemon dependency tree
 # unless an operator builds the shipper in.
 mirror-shipper = ["dep:mirror", "dep:signal-mirror", "dep:criome", "dep:signal-criome"]
@@ -104,15 +104,15 @@ path = "tests/end_to_end_offline_full_chain.rs"
 required-features = ["offline-full-chain-e2e"]
 
 [dependencies]
-nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }
+nota = { package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }
 rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
 blake3 = "1"
 getrandom = "0.3"
 # The reusable component-side mirror shipper. Gated entirely on an
 # owner-configured meta MirrorTarget: with no target, no shipper ever starts.
 # Gated behind the `mirror-shipper` feature (OFF by default). mirror pulls
-# signal-mirror/meta-signal-mirror/nota-next unconditionally, so leaving it out
-# of the default build keeps nota-next out of the binary-only daemon dependency
+# signal-mirror/meta-signal-mirror/nota unconditionally, so leaving it out
+# of the default build keeps nota out of the binary-only daemon dependency
 # tree — the daemon's no-NOTA invariant (INTENT). default-features = false drops
 # mirror's own nota-text codec, which the shipper does not use.
 mirror = { git = "https://github.com/LiGoldragon/mirror.git", branch = "main", default-features = false, optional = true }
@@ -133,7 +133,7 @@ signal-mirror = { git = "https://github.com/LiGoldragon/signal-mirror.git", bran
 # `AuthorizedObjectReference` the gate projects from the post-commit head and
 # the `EvaluateAuthorization` request/reply. Both pin `branch=main`, so Cargo
 # unifies their shared transitive crates (triad-runtime, sema-engine,
-# nota-next, signal-frame) with the mirror leg in one binary. default-features
+# nota, signal-frame) with the mirror leg in one binary. default-features
 # = false on signal-criome drops its nota-text codec, which the daemon gate
 # (binary rkyv only) does not use.
 criome = { git = "https://github.com/LiGoldragon/criome.git", branch = "main", optional = true }
@@ -155,8 +155,8 @@ signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch
 # and pushes that contract type over the testing-trace socket, so introspect
 # decodes the exact archived noun without depending on spirit. Optional and
 # pulled in ONLY by `testing-trace`: signal-introspect carries a non-optional
-# nota-next dependency, so leaving it out of the default daemon build keeps
-# nota-next out of the binary-only runtime tree (the daemon's no-NOTA invariant).
+# nota dependency, so leaving it out of the default daemon build keeps
+# nota out of the binary-only runtime tree (the daemon's no-NOTA invariant).
 signal-introspect = { git = "https://github.com/LiGoldragon/signal-introspect.git", branch = "main", default-features = false, optional = true }
 # The `EngineIdentifier` newtype stamped onto each pushed `ComponentTraceEvent`.
 # It is a public field type of the `signal-introspect` contract records but is
@@ -171,7 +171,7 @@ tokio = { version = "1.47", features = ["io-util", "net", "rt-multi-thread", "sy
 triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }
 
 [build-dependencies]
-schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }
+schema-rust = { package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }
 
 [dev-dependencies]
 agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", features = ["live-provider"] }
@@ -179,7 +179,7 @@ agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", fea
 # gated-shipper test ships to and restores from. Same branches mirror pins, so
 # Cargo unifies them with the `mirror` crate's own dependency instances.
 meta-signal-mirror = { git = "https://github.com/LiGoldragon/meta-signal-mirror.git", branch = "main" }
-schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }
+schema = { package = "schema", git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }
 # Typed `SemaOperation` labels for versioned-log shape witnesses.
 signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main" }
 tempfile = "3"

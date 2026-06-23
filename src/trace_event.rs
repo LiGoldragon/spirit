@@ -12,7 +12,7 @@ use crate::{
 
 #[cfg_attr(
     feature = "nota-text",
-    derive(nota_next::NotaDecode, nota_next::NotaEncode)
+    derive(nota::NotaDecode, nota::NotaEncode)
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ObjectName {
@@ -24,7 +24,7 @@ pub enum ObjectName {
 
 #[cfg_attr(
     feature = "nota-text",
-    derive(nota_next::NotaDecode, nota_next::NotaEncode)
+    derive(nota::NotaDecode, nota::NotaEncode)
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AuthorizationObjectName {
@@ -33,7 +33,7 @@ pub enum AuthorizationObjectName {
 
 #[cfg_attr(
     feature = "nota-text",
-    derive(nota_next::NotaDecode, nota_next::NotaEncode)
+    derive(nota::NotaDecode, nota::NotaEncode)
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TraceEvent(pub ObjectName);

@@ -12,15 +12,15 @@
       url = "github:LiGoldragon/kameo";
       flake = false;
     };
-    nota-next-source = {
+    nota-source = {
       url = "github:LiGoldragon/nota-next";
       flake = false;
     };
-    schema-next-source = {
+    schema-source = {
       url = "git+https://github.com/LiGoldragon/schema-next.git?ref=main";
       flake = false;
     };
-    schema-rust-next-source = {
+    schema-rust-source = {
       url = "git+https://github.com/LiGoldragon/schema-rust-next.git?ref=main";
       flake = false;
     };
@@ -64,6 +64,10 @@
       url = "git+https://github.com/LiGoldragon/signal-criome.git?ref=main";
       flake = false;
     };
+    meta-signal-criome-source = {
+      url = "git+https://github.com/LiGoldragon/meta-signal-criome.git?ref=main";
+      flake = false;
+    };
     signal-spirit-source = {
       url = "github:LiGoldragon/signal-spirit";
       flake = false;
@@ -74,6 +78,10 @@
     };
     signal-agent-source = {
       url = "github:LiGoldragon/signal-agent";
+      flake = false;
+    };
+    signal-introspect-source = {
+      url = "github:LiGoldragon/signal-introspect";
       flake = false;
     };
     meta-signal-agent-source = {
@@ -141,9 +149,9 @@
       flake-utils,
       rust-build,
       kameo-source,
-      nota-next-source,
-      schema-next-source,
-      schema-rust-next-source,
+      nota-source,
+      schema-source,
+      schema-rust-source,
       sema-source,
       sema-engine-source,
       sema-engine-previous-source,
@@ -153,9 +161,11 @@
       triad-runtime-source,
       criome-source,
       signal-criome-source,
+      meta-signal-criome-source,
       signal-spirit-source,
       meta-signal-spirit-source,
       signal-agent-source,
+      signal-introspect-source,
       meta-signal-agent-source,
       agent-source,
       version-projection-source,
@@ -205,9 +215,9 @@
           pkgs.runCommand "spirit-source-with-local-schema-patches"
             {
               kameoSource = kameo-source;
-              notaNextSource = nota-next-source;
-              schemaNextSource = schema-next-source;
-              schemaRustNextSource = schema-rust-next-source;
+              notaNextSource = nota-source;
+              schemaNextSource = schema-source;
+              schemaRustNextSource = schema-rust-source;
               semaSource = sema-source;
               semaEngineSource = sema-engine-source;
               semaEnginePreviousSource = sema-engine-previous-source;
@@ -217,9 +227,11 @@
               triadRuntimeSource = triad-runtime-source;
               criomeSource = criome-source;
               signalCriomeSource = signal-criome-source;
+              metaSignalCriomeSource = meta-signal-criome-source;
               signalSpiritSource = signal-spirit-source;
               metaSignalSpiritSource = meta-signal-spirit-source;
               signalAgentSource = signal-agent-source;
+              signalIntrospectSource = signal-introspect-source;
               metaSignalAgentSource = meta-signal-agent-source;
               agentSource = agent-source;
               versionProjectionSource = version-projection-source;
@@ -240,9 +252,9 @@
               chmod -R u+w $out
               mkdir -p $out/vendor-sources
               cp -R "$kameoSource" $out/vendor-sources/kameo
-              cp -R "$notaNextSource" $out/vendor-sources/nota-next
-              cp -R "$schemaNextSource" $out/vendor-sources/schema-next
-              cp -R "$schemaRustNextSource" $out/vendor-sources/schema-rust-next
+              cp -R "$notaNextSource" $out/vendor-sources/nota
+              cp -R "$schemaNextSource" $out/vendor-sources/schema
+              cp -R "$schemaRustNextSource" $out/vendor-sources/schema-rust
               cp -R "$semaSource" $out/vendor-sources/sema
               cp -R "$semaEngineSource" $out/vendor-sources/sema-engine
               cp -R "$semaEnginePreviousSource" $out/vendor-sources/sema-engine-previous
@@ -252,9 +264,11 @@
               cp -R "$triadRuntimeSource" $out/vendor-sources/triad-runtime
               cp -R "$criomeSource" $out/vendor-sources/criome
               cp -R "$signalCriomeSource" $out/vendor-sources/signal-criome
+              cp -R "$metaSignalCriomeSource" $out/vendor-sources/meta-signal-criome
               cp -R "$signalSpiritSource" $out/vendor-sources/signal-spirit
               cp -R "$metaSignalSpiritSource" $out/vendor-sources/meta-signal-spirit
               cp -R "$signalAgentSource" $out/vendor-sources/signal-agent
+              cp -R "$signalIntrospectSource" $out/vendor-sources/signal-introspect
               cp -R "$metaSignalAgentSource" $out/vendor-sources/meta-signal-agent
               cp -R "$agentSource" $out/vendor-sources/agent
               cp -R "$versionProjectionSource" $out/vendor-sources/version-projection
@@ -288,38 +302,41 @@
               PYEOF
 
               substituteInPlace $out/Cargo.toml \
-                --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota-next = { path = "vendor-sources/nota-next", optional = true }' \
+                --replace-fail 'nota = { package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota = { path = "vendor-sources/nota", optional = true }' \
                 --replace-fail 'mirror = { git = "https://github.com/LiGoldragon/mirror.git", branch = "main", default-features = false, optional = true }' 'mirror = { path = "vendor-sources/mirror", default-features = false, optional = true }' \
                 --replace-fail 'sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main" }' 'sema-engine = { path = "vendor-sources/sema-engine" }' \
                 --replace-fail 'sema-engine-previous = { git = "https://github.com/LiGoldragon/sema-engine.git", rev = "ebee6e44ba6ee4afcb26998007bcfd128641b54c", package = "sema-engine", optional = true }' 'sema-engine-previous = { path = "vendor-sources/sema-engine-previous", package = "sema-engine", optional = true }' \
                 --replace-fail 'sema-engine-layout3 = { git = "https://github.com/LiGoldragon/sema-engine.git", rev = "dbe29427d9a2c6c194909385485ad42b008048b8", package = "sema-engine", optional = true }' 'sema-engine-layout3 = { path = "vendor-sources/sema-engine-layout3", package = "sema-engine", optional = true }' \
                 --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }' 'signal-frame = { path = "vendor-sources/signal-frame" }' \
                 --replace-fail 'signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main", optional = true }' 'signal-agent = { path = "vendor-sources/signal-agent", optional = true }' \
+                --replace-fail 'signal-introspect = { git = "https://github.com/LiGoldragon/signal-introspect.git", branch = "main", default-features = false, optional = true }' 'signal-introspect = { path = "vendor-sources/signal-introspect", default-features = false, optional = true }' \
                 --replace-fail 'signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main" }' 'signal-sema = { path = "vendor-sources/signal-sema" }' \
                 --replace-fail 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main" }' 'signal-spirit = { path = "vendor-sources/signal-spirit" }' \
                 --replace-fail 'meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", branch = "main" }' 'meta-signal-spirit = { path = "vendor-sources/meta-signal-spirit" }' \
                 --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "vendor-sources/triad-runtime" }' \
-                --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust-next = { path = "vendor-sources/schema-rust-next" }' \
+                --replace-fail 'schema-rust = { package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust = { path = "vendor-sources/schema-rust" }' \
                 --replace-fail 'agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", features = ["live-provider"] }' 'agent = { path = "vendor-sources/agent", features = ["live-provider"] }' \
                 --replace-fail 'meta-signal-mirror = { git = "https://github.com/LiGoldragon/meta-signal-mirror.git", branch = "main" }' 'meta-signal-mirror = { path = "vendor-sources/meta-signal-mirror" }' \
                 --replace-fail 'signal-mirror = { git = "https://github.com/LiGoldragon/signal-mirror.git", branch = "main", default-features = false, optional = true }' 'signal-mirror = { path = "vendor-sources/signal-mirror", default-features = false, optional = true }' \
-                --replace-fail 'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema-next = { path = "vendor-sources/schema-next" }' \
+                --replace-fail 'schema = { package = "schema", git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema = { path = "vendor-sources/schema" }' \
                 --replace-fail 'router = { git = "https://github.com/LiGoldragon/router.git", branch = "main", optional = true }' 'router = { path = "vendor-sources/router", optional = true }' \
                 --replace-fail 'criome = { git = "https://github.com/LiGoldragon/criome.git", branch = "main", optional = true }' 'criome = { path = "vendor-sources/criome", optional = true }' \
                 --replace-fail 'signal-criome = { git = "https://github.com/LiGoldragon/signal-criome.git", branch = "main", default-features = false, optional = true }' 'signal-criome = { path = "vendor-sources/signal-criome", default-features = false, optional = true }' \
                 --replace-fail 'signal-standard = { git = "https://github.com/LiGoldragon/signal-standard.git", branch = "main", default-features = false, optional = true }' 'signal-standard = { path = "vendor-sources/signal-standard", default-features = false, optional = true }'
 
-              ${pkgs.python3}/bin/python3 - "$out/vendor-sources/schema-rust-next/Cargo.toml" <<'PYEOF'
+              ${pkgs.python3}/bin/python3 - "$out/vendor-sources/schema-rust/Cargo.toml" <<'PYEOF'
               from pathlib import Path
               import sys
 
               cargo_toml = Path(sys.argv[1])
               text = cargo_toml.read_text()
               replacements = {
-                  'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }': 'schema-next = { path = "../schema-next" }',
-                  'schema-next = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "structural-forms-integration" }': 'schema-next = { path = "../schema-next" }',
-                  'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }': 'nota-next = { path = "../nota-next" }',
-                  'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "structural-forms-integration" }': 'nota-next = { path = "../nota-next" }',
+                  'schema = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }': 'schema = { path = "../schema" }',
+                  'schema = { git = "https://github.com/LiGoldragon/schema-next.git", branch = "structural-forms-integration" }': 'schema = { path = "../schema" }',
+                  'schema = { package = "schema", git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }': 'schema = { path = "../schema" }',
+                  'nota = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }': 'nota = { path = "../nota" }',
+                  'nota = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "structural-forms-integration" }': 'nota = { path = "../nota" }',
+                  'nota = { package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }': 'nota = { path = "../nota" }',
                   'sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "versioned-family-identity" }': 'sema-engine = { path = "../sema-engine" }',
                   'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }': 'signal-frame = { path = "../signal-frame" }',
                   'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }': 'triad-runtime = { path = "../triad-runtime" }',
@@ -329,23 +346,23 @@
                   text = text.replace(original, replacement)
 
               required = (
-                  'schema-next = { path = "../schema-next" }',
-                  'nota-next = { path = "../nota-next" }',
+                  'schema = { path = "../schema" }',
+                  'nota = { path = "../nota" }',
                   'signal-frame = { path = "../signal-frame" }',
                   'triad-runtime = { path = "../triad-runtime" }',
               )
               missing = [line for line in required if line not in text]
               if missing:
-                  raise SystemExit(f"schema-rust-next local dependency patch incomplete: {missing}")
+                  raise SystemExit(f"schema-rust local dependency patch incomplete: {missing}")
               cargo_toml.write_text(text)
               PYEOF
 
-              substituteInPlace $out/vendor-sources/schema-next/Cargo.toml \
-                --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next = { path = "../nota-next" }'
+              substituteInPlace $out/vendor-sources/schema/Cargo.toml \
+                --replace-fail 'nota = { package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota = { path = "../nota" }'
 
-              if [ -f $out/vendor-sources/schema-next/schema-cc/Cargo.toml ]; then
-                substituteInPlace $out/vendor-sources/schema-next/schema-cc/Cargo.toml \
-                  --replace-fail 'nota-next    = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next    = { path = "../../nota-next" }'
+              if [ -f $out/vendor-sources/schema/schema-cc/Cargo.toml ]; then
+                substituteInPlace $out/vendor-sources/schema/schema-cc/Cargo.toml \
+                  --replace-fail 'nota    = { package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota    = { path = "../../nota" }'
               fi
 
               substituteInPlace $out/vendor-sources/sema-engine/Cargo.toml \
@@ -367,48 +384,50 @@
                 --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }' 'signal-frame = { path = "../signal-frame" }'
 
               substituteInPlace $out/vendor-sources/signal-frame/Cargo.toml \
-                --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota-next = { path = "../nota-next", optional = true }' \
-                --replace-fail 'nota-next = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next = { path = "../nota-next" }'
+                --replace-fail 'nota = { package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota = { path = "../nota", optional = true }' \
+                --replace-fail 'nota = { package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota = { path = "../nota" }'
 
               substituteInPlace $out/vendor-sources/signal-sema/Cargo.toml \
-                --replace-fail 'nota-next  = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota-next  = { path = "../nota-next", optional = true }' \
-                --replace-fail 'nota-next  = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next  = { path = "../nota-next" }'
+                --replace-fail 'nota       = { package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota       = { path = "../nota", optional = true }' \
+                --replace-fail 'nota       = { package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota       = { path = "../nota" }'
 
               substituteInPlace $out/vendor-sources/signal-spirit/Cargo.toml \
                 --replace-fail '{ git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main", default-features = false }' '{ path = "../signal-frame", default-features = false }' \
-                --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' '{ path = "../nota-next", optional = true }' \
+                --replace-fail '{ package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' '{ path = "../nota", optional = true }' \
+                --replace-fail '{ package = "schema", git = "https://github.com/LiGoldragon/schema-next.git", branch = "main", optional = true }' '{ path = "../schema", optional = true }' \
                 --replace-fail '{ git = "https://github.com/LiGoldragon/version-projection.git", branch = "main", default-features = false }' '{ path = "../version-projection", default-features = false }' \
-                --replace-fail '{ git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' '{ path = "../schema-rust-next" }' \
-                --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' '{ path = "../nota-next" }'
+                --replace-fail '{ package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' '{ path = "../schema-rust" }' \
+                --replace-fail '{ package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' '{ path = "../nota" }' \
+                --replace-fail '{ package = "schema", git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' '{ path = "../schema" }'
 
               substituteInPlace $out/vendor-sources/meta-signal-spirit/Cargo.toml \
                 --replace-fail '{ git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main", default-features = false }' '{ path = "../signal-frame", default-features = false }' \
                 --replace-fail '{ git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main", default-features = false }' '{ path = "../signal-spirit", default-features = false }' \
-                --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' '{ path = "../nota-next", optional = true }' \
-                --replace-fail '{ git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' '{ path = "../schema-rust-next" }' \
-                --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' '{ path = "../nota-next" }'
+                --replace-fail '{ package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' '{ path = "../nota", optional = true }' \
+                --replace-fail '{ package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' '{ path = "../schema-rust" }' \
+                --replace-fail '{ package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' '{ path = "../nota" }'
 
               substituteInPlace $out/vendor-sources/signal-agent/Cargo.toml \
                 --replace-fail '{ git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main", default-features = false }' '{ path = "../signal-frame", default-features = false }' \
-                --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' '{ path = "../nota-next", optional = true }' \
-                --replace-fail '{ git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' '{ path = "../schema-rust-next" }'
+                --replace-fail '{ package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' '{ path = "../nota", optional = true }' \
+                --replace-fail '{ package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' '{ path = "../schema-rust" }'
 
               substituteInPlace $out/vendor-sources/meta-signal-agent/Cargo.toml \
-                --replace-fail 'nota-next    = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota-next    = { path = "../nota-next", optional = true }' \
+                --replace-fail 'nota         = { package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota         = { path = "../nota", optional = true }' \
                 --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main", default-features = false }' 'signal-frame = { path = "../signal-frame", default-features = false }' \
-                --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust-next = { path = "../schema-rust-next" }'
+                --replace-fail 'schema-rust = { package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust = { path = "../schema-rust" }'
 
               substituteInPlace $out/vendor-sources/agent/Cargo.toml \
-                --replace-fail 'nota-next        = { git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota-next        = { path = "../nota-next" }' \
+                --replace-fail 'nota = { package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' 'nota = { path = "../nota" }' \
                 --replace-fail 'signal-frame     = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }' 'signal-frame     = { path = "../signal-frame" }' \
                 --replace-fail 'signal-agent      = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main" }' 'signal-agent      = { path = "../signal-agent" }' \
                 --replace-fail 'meta-signal-agent = { git = "https://github.com/LiGoldragon/meta-signal-agent.git", branch = "main" }' 'meta-signal-agent = { path = "../meta-signal-agent" }' \
                 --replace-fail 'triad-runtime    = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime    = { path = "../triad-runtime" }' \
-                --replace-fail 'schema-rust-next = { git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust-next = { path = "../schema-rust-next" }'
+                --replace-fail 'schema-rust = { package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust = { path = "../schema-rust" }'
 
               substituteInPlace $out/vendor-sources/version-projection/Cargo.toml \
-                --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' '{ path = "../nota-next", optional = true }' \
-                --replace-fail '{ git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' '{ path = "../nota-next" }'
+                --replace-fail '{ package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' '{ path = "../nota", optional = true }' \
+                --replace-fail '{ package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main" }' '{ path = "../nota" }'
 
               ${pkgs.python3}/bin/python3 - "$out/vendor-sources" <<'PYEOF'
               from pathlib import Path
@@ -422,6 +441,11 @@
                   for path in vendor_sources.iterdir()
                   if path.is_dir() and (path / "Cargo.toml").exists()
               }
+              repository_aliases = {
+                  "nota-next": "nota",
+                  "schema-next": "schema",
+                  "schema-rust-next": "schema-rust",
+              }
 
               def replacement_path(cargo_toml: Path, repository: str) -> str:
                   target = vendor_sources / repository
@@ -429,9 +453,13 @@
 
               for cargo_toml in vendor_sources.rglob("Cargo.toml"):
                   text = cargo_toml.read_text()
-                  for repository in sorted(repository_names, key=len, reverse=True):
-                      escaped = re.escape(repository)
-                      relative = replacement_path(cargo_toml, repository)
+                  git_repositories = set(repository_names) | set(repository_aliases)
+                  for git_repository in sorted(git_repositories, key=len, reverse=True):
+                      vendor_repository = repository_aliases.get(git_repository, git_repository)
+                      if vendor_repository not in repository_names:
+                          continue
+                      escaped = re.escape(git_repository)
+                      relative = replacement_path(cargo_toml, vendor_repository)
                       text = re.sub(
                           rf'git = "https://github\.com/LiGoldragon/{escaped}\.git", branch = "[^"]+"',
                           f'path = "{relative}"',
@@ -447,18 +475,18 @@
 
               cat >> $out/Cargo.toml <<'EOF'
               [patch."https://github.com/LiGoldragon/nota-next.git"]
-              nota-next = { path = "vendor-sources/nota-next" }
-              nota-next-derive = { path = "vendor-sources/nota-next/derive" }
+              nota = { path = "vendor-sources/nota" }
+              nota-derive = { path = "vendor-sources/nota/derive" }
 
               [patch."https://github.com/LiGoldragon/kameo.git"]
               kameo = { path = "vendor-sources/kameo" }
               kameo_macros = { path = "vendor-sources/kameo/macros" }
 
               [patch."https://github.com/LiGoldragon/schema-next.git"]
-              schema-next = { path = "vendor-sources/schema-next" }
+              schema = { path = "vendor-sources/schema" }
 
               [patch."https://github.com/LiGoldragon/schema-rust-next.git"]
-              schema-rust-next = { path = "vendor-sources/schema-rust-next" }
+              schema-rust = { path = "vendor-sources/schema-rust" }
 
               [patch."https://github.com/LiGoldragon/sema.git"]
               sema = { path = "vendor-sources/sema" }
@@ -514,6 +542,12 @@
               [patch."https://github.com/LiGoldragon/signal-criome.git"]
               signal-criome = { path = "vendor-sources/signal-criome" }
 
+              [patch."https://github.com/LiGoldragon/meta-signal-criome.git"]
+              meta-signal-criome = { path = "vendor-sources/meta-signal-criome" }
+
+              [patch."https://github.com/LiGoldragon/signal-introspect.git"]
+              signal-introspect = { path = "vendor-sources/signal-introspect" }
+
               [patch."https://github.com/LiGoldragon/meta-signal-router.git"]
               meta-signal-router = { path = "vendor-sources/meta-signal-router" }
 
@@ -548,23 +582,23 @@
           import re, sys
 
           preferred_reference = {
-              "schema-next": "main",
-              "schema-rust-next": "main",
+              "schema": "main",
+              "schema-rust": "main",
               "triad-runtime": "main",
           }
           preferred_version = {
-              "nota-next": "0.5.0",
-              "nota-next-derive": "0.3.0",
+              "nota": "0.5.1",
+              "nota-derive": "0.3.0",
           }
           path_dependency_names = (
               "kameo",
               "kameo_macros",
               "meta-signal-agent",
               "meta-signal-spirit",
-              "nota-next",
-              "nota-next-derive",
-              "schema-next",
-              "schema-rust-next",
+              "nota",
+              "nota-derive",
+              "schema",
+              "schema-rust",
               "agent",
               "sema",
               "signal-agent",
@@ -580,6 +614,8 @@
               "router",
               "criome",
               "signal-criome",
+              "meta-signal-criome",
+              "signal-introspect",
               "meta-signal-router",
               "signal-router",
               "signal-standard",
@@ -865,7 +901,7 @@
             # runs cargo tree for the binary-only and nota-text surfaces.
             # This check is only the negative guard for daemon-side text
             # decoder leakage.
-            ! grep -R "nota_next" ${src}/src/config.rs ${src}/src/daemon.rs ${src}/src/bin/spirit-daemon.rs
+            ! grep -R "nota" ${src}/src/config.rs ${src}/src/daemon.rs ${src}/src/bin/spirit-daemon.rs
             ! grep -R "NotaSource" ${src}/src/config.rs ${src}/src/daemon.rs ${src}/src/bin/spirit-daemon.rs
             touch $out
           '';

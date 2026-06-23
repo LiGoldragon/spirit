@@ -32,13 +32,13 @@ impl WorkspaceManifest {
 }
 
 #[test]
-fn binary_only_surface_has_no_nota_next_runtime_dependency() {
+fn binary_only_surface_has_no_nota_runtime_dependency() {
     let manifest = WorkspaceManifest::from_environment();
     let tree = manifest.cargo_tree(&["--edges", "normal", "--no-default-features"]);
 
     assert!(
-        !tree.contains("nota-next") && !tree.contains("nota_next"),
-        "binary-only runtime dependency tree must not contain nota-next:\n{tree}"
+        !tree.contains("nota") && !tree.contains("nota"),
+        "binary-only runtime dependency tree must not contain nota:\n{tree}"
     );
 }
 
@@ -59,12 +59,12 @@ fn spirit_has_no_direct_redb_dependency_or_redb_two_runtime_tree() {
 }
 
 #[test]
-fn text_client_surface_has_nota_next_runtime_dependency() {
+fn text_client_surface_has_nota_runtime_dependency() {
     let manifest = WorkspaceManifest::from_environment();
     let tree = manifest.cargo_tree(&["--edges", "normal", "--features", "nota-text"]);
 
     assert!(
-        tree.contains("nota-next"),
-        "nota-text runtime dependency tree must contain nota-next:\n{tree}"
+        tree.contains("nota"),
+        "nota-text runtime dependency tree must contain nota:\n{tree}"
     );
 }

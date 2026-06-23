@@ -53,7 +53,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use nota_next::{NotaDecode, NotaDecodeError, NotaEncode, NotaSource};
+use nota::{NotaDecode, NotaDecodeError, NotaEncode, NotaSource};
 use sema_engine::{
     Engine as CurrentSemaDatabase, EngineOpen as CurrentEngineOpen,
     EngineRecord as CurrentEngineRecord, QueryPlan as CurrentQueryPlan,

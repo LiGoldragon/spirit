@@ -9,9 +9,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use nota_next::NotaEncode;
+use nota::NotaEncode;
 #[cfg(feature = "testing-trace")]
-use nota_next::NotaSource;
+use nota::NotaSource;
 #[cfg(feature = "agent-guardian")]
 use signal_agent::{
     Completion, CompletionText, Input as AgentInput, Output as AgentOutput, StopReasonText,

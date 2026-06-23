@@ -27,23 +27,23 @@ meta-signal-spirit/schema/meta-signal.schema
   -> Spirit meta dependency schema
 schema/{nexus,sema}.schema
   -> build.rs
-  -> schema_rust_next::build::GenerationPlan with dependency schema + daemon-local targets
-  -> schema_rust_next::build::GenerationDriver
-  -> schema-next::SchemaSource typed source objects inside the shared driver
+  -> schema_rust::build::GenerationPlan with dependency schema + daemon-local targets
+  -> schema_rust::build::GenerationDriver
+  -> schema::SchemaSource typed source objects inside the shared driver
   -> rkyv-serializable schema-in-Rust values checked by the shared driver
-  -> schema-rust-next::RustEmitter with opt-in NOTA surface inside the driver
+  -> schema-rust::RustEmitter with opt-in NOTA surface inside the driver
   -> checked-in generated daemon-local modules at src/schema/{nexus,sema,daemon}.rs
   -> engine composer + nexus mail keeper + sema-engine backed store + transport
 ```
 
 Each generated module has one binary floor and one optional text surface.
 `rkyv::Archive` / `Serialize` / `Deserialize` are always emitted because every
-component speaks binary frames. `nota_next::NotaDecode` / `NotaEncode`, root
+component speaks binary frames. `nota::NotaDecode` / `NotaEncode`, root
 `FromStr`, root `Display`, and `to_nota` helpers are emitted behind the
 `nota-text` feature. That lets the CLI crate target parse and print NOTA while
 the daemon target compiles without the NOTA decoder linked into its runtime
 surface. `tests/dependency_surface.rs` is the executable guard: the normal
-dependency tree with `--no-default-features` must contain no `nota-next`, while
+dependency tree with `--no-default-features` must contain no `nota`, while
 the `nota-text` tree must contain it.
 
 `testing-trace` is a second explicit surface, separate from the normal
@@ -123,7 +123,7 @@ implementations.
 
 - From `design-nota-from-schema`: make the recursion floor explicit and keep
   generated source as source, not hidden macro behavior.
-- From operator `schema-rust-next`: schema emits Rust code first; Rust macros
+- From operator `schema-rust`: schema emits Rust code first; Rust macros
   are a later ergonomic surface.
 - From designer Spirit POC: keep actor/runtime boundaries visible, but avoid
   the retracted `EffectTable`/`FanOutTargets` authored-schema path.
@@ -167,7 +167,7 @@ The daemon:
 8. asks generated `Output` to frame itself as binary rkyv;
 9. writes it back.
 
-The daemon does not parse NOTA at startup and does not need `nota-next` for
+The daemon does not parse NOTA at startup and does not need `nota` for
 its binary-only build. `spirit-write-configuration` is the packaged text-edge
 helper for launch/deploy tooling: it accepts a typed
 `ConfigurationWriteRequest` NOTA record and writes the binary configuration
@@ -229,7 +229,7 @@ monotonic rather than uid-derived. The missing-meta case is a startup error,
 not a single-socket compatibility mode. The meta wire codec (an 8-byte short-header frame
 byte-identical to the signal plane's) lives on the generated `Input`/`Output`
 nouns in `src/meta_transport.rs`, because the `WireContract` emission target in
-the current `schema-rust-next` pin emits the per-root `short_header` constants
+the current `schema-rust` pin emits the per-root `short_header` constants
 but not the `encode_signal_frame`/`decode_signal_frame` frame codec.
 
 `SpiritDaemonConfiguration` may also carry a trace socket path. That field is
@@ -695,8 +695,8 @@ artifact rather than an alias of current main.
 
 `scripts/check-local-schema-stack` runs the central local override test for
 this pilot. It rebuilds `spirit` with local checkouts of the whole Li
-dependency graph that can otherwise appear as Cargo git inputs: `nota-next`,
-`nota-codec`, `nota-derive`, `schema`, `schema-next`, `schema-rust-next`,
+dependency graph that can otherwise appear as Cargo git inputs: `nota`,
+`nota-codec`, `nota-derive`, `schema`, `schema`, `schema-rust`,
 `sema`, `sema-engine`, `signal-core`, `signal-frame`, `signal-sema`, and
 `triad-runtime`. The override set is intentionally complete so a Nix cache miss
 does not let Cargo fetch GitHub during the build. This is the intended loop
@@ -705,7 +705,7 @@ triad runtime: edit a substrate repo, run the consumer check here, and prove
 the generated Rust still compiles and crosses the CLI/daemon rkyv boundary.
 
 `build.rs` delegates the build-time schema pipeline to
-`schema_rust_next::build`. The plan imports the dependency schema exposed by
+`schema_rust::build`. The plan imports the dependency schema exposed by
 `signal-spirit` for the ordinary signal/domain contract and the dependency
 schema exposed by `meta-signal-spirit` for the owner-only meta policy contract,
 then emits the daemon-local modules: `schema/nexus.schema` with `NexusRuntime`,

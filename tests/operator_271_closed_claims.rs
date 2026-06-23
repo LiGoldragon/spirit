@@ -24,7 +24,7 @@ const DOMAIN_SCHEMA: &str = signal_spirit::DOMAIN_SCHEMA_SOURCE;
 const NEXUS_SCHEMA: &str = include_str!("../schema/nexus.schema");
 const SEMA_SCHEMA: &str = include_str!("../schema/sema.schema");
 
-use schema_next::SchemaSourceArtifact;
+use schema::SchemaSourceArtifact;
 
 /// Helper noun for schema-source assertions. Owns the source string and
 /// the witness verbs.

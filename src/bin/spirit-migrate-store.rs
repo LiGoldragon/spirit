@@ -1,6 +1,6 @@
 use std::{fs, path::PathBuf};
 
-use nota_next::{NotaDecodeError, NotaEncode, NotaSource};
+use nota::{NotaDecodeError, NotaEncode, NotaSource};
 use spirit::{StoreMigration, StoreMigrationError, StoreMigrationRequest};
 use thiserror::Error;
 use triad_runtime::{ArgumentError, ComponentArgument, ComponentCommand};

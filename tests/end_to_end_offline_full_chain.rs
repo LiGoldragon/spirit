@@ -28,7 +28,7 @@
 //!
 //! Mainline pin unification (operator handoff H4, report 672): the mirror and
 //! router legs now come from their main branches. Their shared transitive crates
-//! (triad-runtime, sema-engine, nota-next, signal-frame) also pin `branch=main`,
+//! (triad-runtime, sema-engine, nota, signal-frame) also pin `branch=main`,
 //! so Cargo unifies every shared crate onto one rev and the legs link in one
 //! binary.
 

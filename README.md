@@ -5,9 +5,9 @@ new schema-derived architecture:
 
 ```text
 schema/{signal,nexus,sema}.schema
-  -> schema-next SchemaSource typed source objects
+  -> schema SchemaSource typed source objects
   -> rkyv-serializable schema-in-Rust values
-  -> schema-rust-next checked-in generated Rust at src/schema/{signal,nexus,sema}.rs
+  -> schema-rust checked-in generated Rust at src/schema/{signal,nexus,sema}.rs
   -> CLI NOTA input
   -> generated Signal frame (short header + rkyv)
   -> daemon SignalActor
@@ -108,7 +108,7 @@ importance predicates or exhaustive stashed results.
 
 ## Remote schema stack check
 
-When editing `nota-next`, `schema-next`, or `schema-rust-next` together with
+When editing `nota`, `schema`, or `schema-rust` together with
 this consumer, commit and push the participating refs, then run the override
 check:
 
@@ -119,5 +119,5 @@ scripts/check-local-schema-stack
 
 It runs `nix flake check` against pushed `github:LiGoldragon/...` refs while
 overriding the schema-stack source inputs to the same remote ref by default.
-Use per-repo variables such as `NOTA_NEXT_REF`, `SCHEMA_NEXT_REF`, and
-`SCHEMA_RUST_NEXT_REF` when the stack does not share one branch or revision.
+Use per-repo variables such as `NOTA_NEXT_REF`, `SCHEMA_REF`, and
+`SCHEMA_RUST_REF` when the stack does not share one branch or revision.

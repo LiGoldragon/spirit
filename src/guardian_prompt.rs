@@ -22,7 +22,7 @@ use signal_agent::{
     ThinkingMode,
 };
 
-use nota_next::NotaEncode;
+use nota::NotaEncode;
 
 use crate::{
     guardian_journal::GuardianOperation,
@@ -405,7 +405,7 @@ const GUARDIAN_FEW_SHOT: &str = include_str!("guardian-prompts/few-shot.md");
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nota_next::NotaSource;
+    use nota::NotaSource;
 
     #[test]
     fn accept_renders_bare_and_round_trips() {

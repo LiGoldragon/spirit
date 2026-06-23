@@ -4,7 +4,7 @@
 //! types come from the generated `signal-spirit` contract, and owner-only meta
 //! types come from the generated `meta-signal-spirit` contract. The daemon-local
 //! Nexus, SEMA, and daemon modules are checked-in generated source through
-//! `schema-next` and `schema-rust-next`. The hand-written code here is the
+//! `schema` and `schema-rust`. The hand-written code here is the
 //! runtime shim around those generated interfaces. `build.rs` verifies the
 //! generated modules are fresh.
 //!

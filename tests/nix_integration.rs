@@ -263,16 +263,16 @@ fn nix_input_overrides() -> Vec<(&'static str, String)> {
 
     vec![
         (
-            "nota-next-source",
+            "nota-source",
             github_source("nota-next", "NOTA_NEXT_REF"),
         ),
         (
-            "schema-next-source",
-            github_source("schema-next", "SCHEMA_NEXT_REF"),
+            "schema-source",
+            github_source("schema-next", "SCHEMA_REF"),
         ),
         (
-            "schema-rust-next-source",
-            github_source("schema-rust-next", "SCHEMA_RUST_NEXT_REF"),
+            "schema-rust-source",
+            github_source("schema-rust-next", "SCHEMA_RUST_REF"),
         ),
         ("sema-source", github_source("sema", "SEMA_REF")),
         (

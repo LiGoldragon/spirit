@@ -120,16 +120,16 @@ impl TraceEventFrame for TraceEvent {
 #[cfg(feature = "nota-text")]
 impl std::fmt::Display for TraceEvent {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str(&<Self as nota_next::NotaEncode>::to_nota(self))
+        formatter.write_str(&<Self as nota::NotaEncode>::to_nota(self))
     }
 }
 
 #[cfg(feature = "nota-text")]
 impl std::str::FromStr for TraceEvent {
-    type Err = nota_next::NotaDecodeError;
+    type Err = nota::NotaDecodeError;
 
     fn from_str(source: &str) -> Result<Self, Self::Err> {
-        nota_next::NotaSource::new(source).parse::<Self>()
+        nota::NotaSource::new(source).parse::<Self>()
     }
 }
 

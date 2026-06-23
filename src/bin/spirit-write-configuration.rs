@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use nota_next::{NotaDecode, NotaDecodeError, NotaEncode, NotaSource};
+use nota::{NotaDecode, NotaDecodeError, NotaEncode, NotaSource};
 use signal_spirit::{
     AuthorizationMode, ConfigurationPath, SpiritDaemonConfiguration,
     SpiritDaemonConfigurationArchiveError, SpiritGuardianAgentConfiguration,

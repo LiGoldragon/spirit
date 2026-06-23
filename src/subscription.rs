@@ -1,7 +1,7 @@
 //! Spirit's stream subscription token.
 //!
 //! The live-subscription registry, the per-subscriber writer map, and the
-//! publish path are EMITTED into `src/schema/daemon.rs` by schema-rust-next's
+//! publish path are EMITTED into `src/schema/daemon.rs` by schema-rust's
 //! daemon emitter (option B): a declared stream becomes emitted daemon
 //! plumbing. The hand-written `SubscriptionHub` that previously lived here is
 //! retired. Spirit keeps only the token newtype that bridges the

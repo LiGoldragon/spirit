@@ -5,7 +5,7 @@ use std::{
     time::Duration,
 };
 
-use nota_next::NotaSource;
+use nota::NotaSource;
 use signal_agent::{CompletionText, Input as AgentInput, Output as AgentOutput, Prompt};
 use signal_spirit::SpiritGuardianAgentConfiguration;
 use thiserror::Error;

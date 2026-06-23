@@ -4,7 +4,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use nota_next::{NotaDecode, NotaDecodeError, NotaEncode, NotaSource};
+use nota::{NotaDecode, NotaDecodeError, NotaEncode, NotaSource};
 use thiserror::Error;
 use triad_runtime::{ArgumentError, ComponentArgument, ComponentCommand};
 

@@ -1,6 +1,6 @@
 use std::{env, fs, path::PathBuf};
 
-use nota_next::NotaDecodeError;
+use nota::NotaDecodeError;
 use spirit::{MetaSignalTransport, MetaTransportError, schema::meta_signal::Input as MetaInput};
 use thiserror::Error;
 use triad_runtime::{ArgumentError, ComponentArgument, ComponentCommand};

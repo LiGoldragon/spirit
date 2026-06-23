@@ -1235,18 +1235,18 @@ fn required_guardian_skips_noop_existing_referent_registration() {
     let mut engine = sema.engine();
 
     let registered = engine.handle(input_register_referent(
-        "schema-next",
-        &["schema-next-alias"],
+        "schema",
+        &["schema-alias"],
     ));
     assert!(matches!(registered.root(), Output::ReferentRegistered(_)));
     assert_eq!(engine.guardian_decision_count(), 0);
 
     engine.require_guardian();
-    let repeated = engine.handle(input_register_referent("schema-next", &[]));
+    let repeated = engine.handle(input_register_referent("schema", &[]));
 
     match repeated.root() {
         Output::ReferentRegistered(receipt) => {
-            assert_eq!(receipt.payload().payload().payload(), "schema-next");
+            assert_eq!(receipt.payload().payload().payload(), "schema");
         }
         other => {
             panic!("expected existing referent registration to bypass guardian, got {other:?}")
@@ -1261,13 +1261,13 @@ fn required_guardian_still_rejects_existing_referent_with_new_alias_when_unconfi
     let sema = SemaFile::new();
     let mut engine = sema.engine();
 
-    let registered = engine.handle(input_register_referent("schema-next", &[]));
+    let registered = engine.handle(input_register_referent("schema", &[]));
     assert!(matches!(registered.root(), Output::ReferentRegistered(_)));
 
     engine.require_guardian();
     let output = engine.handle(input_register_referent(
-        "schema-next",
-        &["schema-next-alias"],
+        "schema",
+        &["schema-alias"],
     ));
 
     match output.root() {
@@ -1425,8 +1425,8 @@ fn agent_guardian_prompt_bundle_stays_bounded_as_corpus_grows() {
     assert!(matches!(
         setup_engine
             .handle(input_register_referent(
-                "schema-next",
-                &["schema-next-alias"]
+                "schema",
+                &["schema-alias"]
             ))
             .root(),
         Output::ReferentRegistered(_)
@@ -1460,7 +1460,7 @@ fn agent_guardian_prompt_bundle_stays_bounded_as_corpus_grows() {
                 domains: Domains::new(vec![Domain::Health(
                     spirit::schema::signal::Health::Medicine,
                 )]),
-                referents: referents_from_slice(&["schema-next"]),
+                referents: referents_from_slice(&["schema"]),
                 ..entry("guardian-referent-neighbor-live")
             }))
             .root(),
@@ -1474,7 +1474,7 @@ fn agent_guardian_prompt_bundle_stays_bounded_as_corpus_grows() {
         domains: Domains::new(vec![Domain::Technology(Technology::Software(
             Software::Quality(Some(spirit::schema::signal::QualityLeaf::Testing)),
         ))]),
-        referents: referents_from_slice(&["schema-next"]),
+        referents: referents_from_slice(&["schema"]),
         ..entry("guardian bounded candidate")
     }));
 
@@ -1564,13 +1564,13 @@ fn agent_guardian_accept_verdict_admits_referent_registration() {
     let mut engine = sema.engine_with_guardian(fake_agent.guardian());
 
     let output = engine.handle(input_register_referent(
-        "schema-next",
-        &["schema-next-alias"],
+        "schema",
+        &["schema-alias"],
     ));
 
     match output.root() {
         Output::ReferentRegistered(receipt) => {
-            assert_eq!(receipt.payload().payload().payload(), "schema-next");
+            assert_eq!(receipt.payload().payload().payload(), "schema");
         }
         other => panic!("expected ReferentRegistered, got {other:?}"),
     }
@@ -1652,7 +1652,7 @@ fn agent_guardian_accepts_embedded_referent_before_guarding_record() {
 
     let output = engine.handle(input_record(entry_with_referents(
         "embedded referent accepted before record",
-        &["schema-next"],
+        &["schema"],
     )));
 
     match output.root() {
@@ -2940,13 +2940,13 @@ fn full_runtime_triad_registers_referent_through_signal_nexus_and_sema() {
     let mut engine = sema.engine();
 
     let registered = engine.handle(input_register_referent(
-        "schema-next",
-        &["schema-next-alias"],
+        "schema",
+        &["schema-alias"],
     ));
 
     match registered.root() {
         Output::ReferentRegistered(receipt) => {
-            assert_eq!(receipt.payload().payload().payload(), "schema-next");
+            assert_eq!(receipt.payload().payload().payload(), "schema");
         }
         other => panic!("expected ReferentRegistered, got {other:?}"),
     }
@@ -2959,7 +2959,7 @@ fn full_runtime_triad_records_and_registers_embedded_referent() {
 
     let output = engine.handle(input_record(entry_with_referents(
         "embedded referent should register",
-        &["schema-next"],
+        &["schema"],
     )));
 
     match output.root() {
@@ -2967,7 +2967,7 @@ fn full_runtime_triad_records_and_registers_embedded_referent() {
         other => panic!("expected RecordAccepted for embedded referent, got {other:?}"),
     }
     let observed = engine.handle(input_observe(Query {
-        referent_selection: ReferentSelection::any_referent(referents_from_slice(&["schema-next"])),
+        referent_selection: ReferentSelection::any_referent(referents_from_slice(&["schema"])),
         ..query()
     }));
     let stash = match observed.root() {
@@ -2994,7 +2994,7 @@ fn full_runtime_triad_proposes_and_registers_embedded_referent() {
 
     let output = engine.handle(input_propose(entry_with_referents(
         "embedded proposal referent should register",
-        &["schema-next"],
+        &["schema"],
     )));
 
     match output.root() {
@@ -3017,7 +3017,7 @@ fn full_runtime_triad_change_record_registers_embedded_referent() {
     };
     let changed = engine.handle(input_change_record(
         record_identifier.clone(),
-        entry_with_referents("record after embedded referent change", &["schema-next"]),
+        entry_with_referents("record after embedded referent change", &["schema"]),
     ));
 
     match changed.root() {
@@ -3034,7 +3034,7 @@ fn full_runtime_triad_change_record_registers_embedded_referent() {
         Output::RecordFound(record) => {
             assert_eq!(
                 record.entry.referents.payload(),
-                &[Referent::new("schema-next")]
+                &[Referent::new("schema")]
             );
         }
         other => panic!("expected RecordFound after embedded referent change, got {other:?}"),
@@ -3046,13 +3046,13 @@ fn full_runtime_triad_canonicalizes_referent_aliases_on_write_and_query() {
     let sema = SemaFile::new();
     let mut engine = sema.engine();
     engine.handle(input_register_referent(
-        "schema-next",
-        &["schema-next-alias"],
+        "schema",
+        &["schema-alias"],
     ));
 
     let recorded = engine.handle(input_record(entry_with_referents(
         "alias referent canonicalizes",
-        &["schema-next-alias"],
+        &["schema-alias"],
     )));
     let identifier = match recorded.into_root() {
         Output::RecordAccepted(receipt) => receipt.payload().clone(),
@@ -3065,7 +3065,7 @@ fn full_runtime_triad_canonicalizes_referent_aliases_on_write_and_query() {
             assert_eq!(record.record_identifier, identifier);
             assert_eq!(
                 record.entry.referents.payload(),
-                &vec![Referent::new("schema-next")]
+                &vec![Referent::new("schema")]
             );
         }
         other => panic!("expected RecordFound, got {other:?}"),
@@ -3073,7 +3073,7 @@ fn full_runtime_triad_canonicalizes_referent_aliases_on_write_and_query() {
 
     let observed = engine.handle(input_observe(Query {
         referent_selection: ReferentSelection::any_referent(referents_from_slice(&[
-            "schema-next-alias",
+            "schema-alias",
         ])),
         ..query()
     }));
@@ -3090,13 +3090,13 @@ fn full_runtime_triad_canonicalizes_referent_aliases_on_propose() {
     let sema = SemaFile::new();
     let mut engine = sema.engine();
     engine.handle(input_register_referent(
-        "schema-next",
-        &["schema-next-alias"],
+        "schema",
+        &["schema-alias"],
     ));
 
     let proposed = engine.handle(input_propose(entry_with_referents(
         "alias referent canonicalizes on proposal",
-        &["schema-next-alias"],
+        &["schema-alias"],
     )));
     let identifier = match proposed.into_root() {
         Output::Proposed(receipt) => receipt.payload().clone(),
@@ -3109,7 +3109,7 @@ fn full_runtime_triad_canonicalizes_referent_aliases_on_propose() {
             assert_eq!(record.record_identifier, identifier);
             assert_eq!(
                 record.entry.referents.payload(),
-                &vec![Referent::new("schema-next")]
+                &vec![Referent::new("schema")]
             );
         }
         other => panic!("expected RecordFound, got {other:?}"),

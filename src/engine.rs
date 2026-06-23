@@ -97,7 +97,7 @@ pub struct SignalResponse<Root> {
 
 #[cfg_attr(
     feature = "nota-text",
-    derive(nota_next::NotaDecode, nota_next::NotaEncode)
+    derive(nota::NotaDecode, nota::NotaEncode)
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SignalObjectName {
@@ -305,7 +305,7 @@ pub struct Engine {
     nexus: Nexus,
     authorization_mode: signal_spirit::AuthorizationMode,
     // The OFF-by-default mirror gate. Present only under the `mirror-shipper`
-    // feature (which the binary-only daemon build excludes to keep nota-next
+    // feature (which the binary-only daemon build excludes to keep nota
     // out of its dependency tree). Even when built in, it is unarmed until an
     // owner `Configure` carries a `MirrorTarget::Address`, so a daemon that
     // never receives a mirror target behaves identically to one built before

@@ -1,6 +1,6 @@
 use std::{env, fs, io::ErrorKind, os::unix::net::UnixStream, path::PathBuf};
 
-use nota_next::NotaDecodeError;
+use nota::NotaDecodeError;
 use spirit::{
     SignalTransport, TransportError,
     schema::signal::{Input, Output},
