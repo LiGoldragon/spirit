@@ -19,8 +19,8 @@
 set -euo pipefail
 
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-stack_reference="${SPIRIT_STACK_REF:-main}"
-target_reference="${SPIRIT_TARGET_REF:-$stack_reference}"
+stack_reference="${SPIRIT_STACK_REF:-}"
+target_reference="${SPIRIT_TARGET_REF:-$(git -C "$repo_root" rev-parse HEAD)}"
 github_owner=LiGoldragon
 
 override_args=()
@@ -32,6 +32,10 @@ add_override() {
   local environment_key="$3"
   local explicit_reference="${!environment_key:-}"
   local reference="${explicit_reference:-$stack_reference}"
+
+  if [[ -z "$reference" ]]; then
+    return
+  fi
 
   override_args+=(--override-input "$input" "github:$github_owner/$repository?ref=$reference")
   export_args+=("$environment_key=$reference")
@@ -60,8 +64,10 @@ fi
 
 printf 'using Nix-built binaries at %s\n' "$build_result"
 export SPIRIT_NIX_BUILD_RESULT="$build_result"
-export SPIRIT_STACK_REF="$stack_reference"
 export SPIRIT_TARGET_REF="$target_reference"
+if [[ -n "$stack_reference" ]]; then
+  export SPIRIT_STACK_REF="$stack_reference"
+fi
 for assignment in "${export_args[@]}"; do
   export "$assignment"
 done

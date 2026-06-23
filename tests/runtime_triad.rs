@@ -1234,10 +1234,7 @@ fn required_guardian_skips_noop_existing_referent_registration() {
     let sema = SemaFile::new();
     let mut engine = sema.engine();
 
-    let registered = engine.handle(input_register_referent(
-        "schema",
-        &["schema-alias"],
-    ));
+    let registered = engine.handle(input_register_referent("schema", &["schema-alias"]));
     assert!(matches!(registered.root(), Output::ReferentRegistered(_)));
     assert_eq!(engine.guardian_decision_count(), 0);
 
@@ -1265,10 +1262,7 @@ fn required_guardian_still_rejects_existing_referent_with_new_alias_when_unconfi
     assert!(matches!(registered.root(), Output::ReferentRegistered(_)));
 
     engine.require_guardian();
-    let output = engine.handle(input_register_referent(
-        "schema",
-        &["schema-alias"],
-    ));
+    let output = engine.handle(input_register_referent("schema", &["schema-alias"]));
 
     match output.root() {
         Output::ReferentGuardianRejected(rejection) => {
@@ -1424,10 +1418,7 @@ fn agent_guardian_prompt_bundle_stays_bounded_as_corpus_grows() {
     let mut setup_engine = sema.engine();
     assert!(matches!(
         setup_engine
-            .handle(input_register_referent(
-                "schema",
-                &["schema-alias"]
-            ))
+            .handle(input_register_referent("schema", &["schema-alias"]))
             .root(),
         Output::ReferentRegistered(_)
     ));
@@ -1563,10 +1554,7 @@ fn agent_guardian_accept_verdict_admits_referent_registration() {
     let fake_agent = FakeGuardianAgent::spawn_referent(ReferentGuardianVerdict::Accept);
     let mut engine = sema.engine_with_guardian(fake_agent.guardian());
 
-    let output = engine.handle(input_register_referent(
-        "schema",
-        &["schema-alias"],
-    ));
+    let output = engine.handle(input_register_referent("schema", &["schema-alias"]));
 
     match output.root() {
         Output::ReferentRegistered(receipt) => {
@@ -2939,10 +2927,7 @@ fn full_runtime_triad_registers_referent_through_signal_nexus_and_sema() {
     let sema = SemaFile::new();
     let mut engine = sema.engine();
 
-    let registered = engine.handle(input_register_referent(
-        "schema",
-        &["schema-alias"],
-    ));
+    let registered = engine.handle(input_register_referent("schema", &["schema-alias"]));
 
     match registered.root() {
         Output::ReferentRegistered(receipt) => {
@@ -3032,10 +3017,7 @@ fn full_runtime_triad_change_record_registers_embedded_referent() {
     let found = engine.handle(Input::lookup(record_identifier));
     match found.root() {
         Output::RecordFound(record) => {
-            assert_eq!(
-                record.entry.referents.payload(),
-                &[Referent::new("schema")]
-            );
+            assert_eq!(record.entry.referents.payload(), &[Referent::new("schema")]);
         }
         other => panic!("expected RecordFound after embedded referent change, got {other:?}"),
     }
@@ -3045,10 +3027,7 @@ fn full_runtime_triad_change_record_registers_embedded_referent() {
 fn full_runtime_triad_canonicalizes_referent_aliases_on_write_and_query() {
     let sema = SemaFile::new();
     let mut engine = sema.engine();
-    engine.handle(input_register_referent(
-        "schema",
-        &["schema-alias"],
-    ));
+    engine.handle(input_register_referent("schema", &["schema-alias"]));
 
     let recorded = engine.handle(input_record(entry_with_referents(
         "alias referent canonicalizes",
@@ -3089,10 +3068,7 @@ fn full_runtime_triad_canonicalizes_referent_aliases_on_write_and_query() {
 fn full_runtime_triad_canonicalizes_referent_aliases_on_propose() {
     let sema = SemaFile::new();
     let mut engine = sema.engine();
-    engine.handle(input_register_referent(
-        "schema",
-        &["schema-alias"],
-    ));
+    engine.handle(input_register_referent("schema", &["schema-alias"]));
 
     let proposed = engine.handle(input_propose(entry_with_referents(
         "alias referent canonicalizes on proposal",

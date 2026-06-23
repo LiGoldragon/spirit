@@ -103,8 +103,8 @@ use spirit::schema::meta_signal::{
     ImportedRecord, ImportedRecords, Input as MetaInput, Output as MetaOutput,
 };
 use spirit::schema::signal::{
-    Description, Domains, Entry, GuardianRejectionReason, Kind, Magnitude, Output, OutputRoute,
-    Privacy, RecordIdentifier, SignalRejection, ValidationError,
+    Description, Domains, Entry, Kind, Magnitude, Output, OutputRoute, Privacy, RecordIdentifier,
+    ReferentGuardianRejectionReason, SignalRejection, ValidationError,
 };
 use tempfile::TempDir;
 
@@ -141,7 +141,7 @@ fn nota_text(value: &str) -> String {
 fn record_nota(domains: &str, kind: &str, description: &str) -> String {
     let description = nota_text(description);
     format!(
-        "(Record (({domains} {kind} {description} Maximum Minimum Zero []) ([({description} None)] {description})))"
+        "(Record (({domains} {kind} {description} Maximum Minimum Zero [spirit]) ([({description} None)] {description})))"
     )
 }
 
@@ -256,20 +256,17 @@ fn repo_root() -> PathBuf {
 }
 
 fn nix_input_overrides() -> Vec<(&'static str, String)> {
-    fn github_source(repository: &'static str, environment_key: &str) -> String {
-        let reference_name = env::var(environment_key).unwrap_or_else(|_| stack_reference());
-        format!("github:LiGoldragon/{repository}?ref={reference_name}")
+    fn github_source(repository: &'static str, environment_key: &str) -> Option<String> {
+        env::var(environment_key)
+            .ok()
+            .or_else(|| env::var("SPIRIT_STACK_REF").ok())
+            .map(|reference_name| format!("github:LiGoldragon/{repository}?ref={reference_name}"))
     }
 
-    vec![
-        (
-            "nota-source",
-            github_source("nota-next", "NOTA_NEXT_REF"),
-        ),
-        (
-            "schema-source",
-            github_source("schema-next", "SCHEMA_REF"),
-        ),
+    let mut overrides = Vec::new();
+    for (input, source) in [
+        ("nota-source", github_source("nota-next", "NOTA_NEXT_REF")),
+        ("schema-source", github_source("schema-next", "SCHEMA_REF")),
         (
             "schema-rust-source",
             github_source("schema-rust-next", "SCHEMA_RUST_REF"),
@@ -291,15 +288,43 @@ fn nix_input_overrides() -> Vec<(&'static str, String)> {
             "triad-runtime-source",
             github_source("triad-runtime", "TRIAD_RUNTIME_REF"),
         ),
-    ]
+    ] {
+        if let Some(source) = source {
+            overrides.push((input, source));
+        }
+    }
+    overrides
 }
 
-fn stack_reference() -> String {
-    env::var("SPIRIT_STACK_REF").unwrap_or_else(|_| String::from("main"))
+struct GitHead {
+    repository: PathBuf,
+}
+
+impl GitHead {
+    fn new(repository: PathBuf) -> Self {
+        Self { repository }
+    }
+
+    fn commit(&self) -> Option<String> {
+        let output = Command::new("git")
+            .arg("rev-parse")
+            .arg("HEAD")
+            .current_dir(&self.repository)
+            .output()
+            .ok()?;
+        output
+            .status
+            .success()
+            .then(|| String::from_utf8_lossy(&output.stdout).trim().to_owned())
+            .filter(|reference| !reference.is_empty())
+    }
 }
 
 fn target_reference() -> String {
-    env::var("SPIRIT_TARGET_REF").unwrap_or_else(|_| stack_reference())
+    env::var("SPIRIT_TARGET_REF")
+        .ok()
+        .or_else(|| GitHead::new(repo_root()).commit())
+        .unwrap_or_else(|| String::from("main"))
 }
 
 // ---------------------------------------------------------------------------
@@ -517,13 +542,13 @@ fn nix_built_spirit_cli_records_through_real_socket_to_nix_built_daemon() {
     // With no guardian agent configured in this sandbox, working writes fail
     // closed; privileged test seeding goes through owner-only meta Import below.
     match output {
-        Output::GuardianRejected(rejection) => {
+        Output::ReferentGuardianRejected(rejection) => {
             assert_eq!(
-                rejection.payload().guardian_rejection_reason,
-                GuardianRejectionReason::HarnessUnavailable
+                rejection.payload().referent_guardian_rejection_reason,
+                ReferentGuardianRejectionReason::HarnessUnavailable
             );
         }
-        other => panic!("expected schema-emitted GuardianRejected, got {other:?}"),
+        other => panic!("expected schema-emitted ReferentGuardianRejected, got {other:?}"),
     }
 }
 
@@ -714,7 +739,8 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     // itself cannot parse, which would silently break tooling.
     //
     // Variants exercised: VersionReported (component version),
-    // GuardianRejected (fail-closed write without configured guardian),
+    // ReferentGuardianRejected (fail-closed referent registration without
+    // configured guardian),
     // CertaintyChanged (SEMA mutate on an imported record), Rejected (Signal
     // validation), Error (SEMA missed), RecordsStashed (after Import +
     // Observe). Six typed assertions, all parsed through `Output::from_str`.
@@ -734,7 +760,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     }
     assert_eq!(version.route(), OutputRoute::VersionReported);
 
-    // Variant 2: GuardianRejected.
+    // Variant 2: ReferentGuardianRejected.
     let guarded = run_cli_for_output(
         &binaries,
         daemon.socket(),
@@ -745,15 +771,15 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
         ),
     );
     match &guarded {
-        Output::GuardianRejected(rejection) => assert_eq!(
-            rejection.payload().guardian_rejection_reason,
-            GuardianRejectionReason::HarnessUnavailable
+        Output::ReferentGuardianRejected(rejection) => assert_eq!(
+            rejection.payload().referent_guardian_rejection_reason,
+            ReferentGuardianRejectionReason::HarnessUnavailable
         ),
-        other => panic!("expected GuardianRejected, got {other:?}"),
+        other => panic!("expected ReferentGuardianRejected, got {other:?}"),
     };
     assert_eq!(
         guarded.route(),
-        OutputRoute::GuardianRejected,
+        OutputRoute::ReferentGuardianRejected,
         "schema-emitted OutputRoute round-trips through CLI stdout"
     );
 

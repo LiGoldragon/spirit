@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-stack_reference="${SPIRIT_STACK_REF:-main}"
-target_reference="${SPIRIT_TARGET_REF:-$stack_reference}"
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+stack_reference="${SPIRIT_STACK_REF:-}"
+target_reference="${SPIRIT_TARGET_REF:-$(git -C "$repo_root" rev-parse HEAD)}"
 github_owner=LiGoldragon
 
 args=(nix flake check "github:$github_owner/spirit?ref=$target_reference")
@@ -13,6 +14,10 @@ add_override() {
   local environment_key="$3"
   local explicit_reference="${!environment_key:-}"
   local reference="${explicit_reference:-$stack_reference}"
+
+  if [[ -z "$reference" ]]; then
+    return
+  fi
 
   args+=(--override-input "$input" "github:$github_owner/$repository?ref=$reference")
 }
