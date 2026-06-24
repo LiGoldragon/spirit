@@ -122,6 +122,18 @@ identifiable existing record, the guardian rejects the fresh record and remands
 the agent to `Clarify`, `Supersede`, `ChangeRecord`, `ResolveClarification`,
 `Retire`, or `Remove` as appropriate.
 
+*Guardian testimony and advocacy are distinct.* Per Spirit records `mrsy`,
+`dfii`, and `vjye`, explicit psyche declarations are primary evidence for the
+declared intent value or metadata rung, while agent reasoning is advocacy that
+may supply context, architectural centrality, recurrence, blast radius, blocking
+effect, and operation-fit analysis. A psyche-named certainty, importance, or
+privacy rung supports that named rung directly. Agent advocacy may also support
+an elevated rung when the evidence genuinely warrants it. If a psyche declaration
+conflicts with active records, the guardian does not admit a standalone sibling
+record that leaves the conflict live; it rejects and names the coherent repair
+shape, such as `Clarify`, `ChangeRecord`, `Supersede`, `ResolveClarification`,
+`Retire`, or `Remove`.
+
 *Settled referent registrations do not need guardian judgment.* Per Spirit
 record `bwxn`, when a referent registration request names a referent and aliases
 that already resolve to one registered referent, the registry itself settles the

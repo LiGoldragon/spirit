@@ -101,15 +101,18 @@ impl GuardianRejectionReasonPromptExt for GuardianRejectionReason {
                 "the reasoning and quotes do not license THIS submission: on-point words that do \
                  not argue this point, or a destructive op (Supersede / Retire / meaning-changing \
                  ChangeRecord / certainty downgrade) carrying no verbatim psyche authorization, \
-                 or a fresh Record whose evidence warrants editing an existing target instead.",
+                 or a fresh Record whose evidence warrants editing an existing target or resolving \
+                 a live conflict through maintenance instead.",
             ),
             Self::Overstated => Some(
                 "the claimed Certainty outruns the quote's modal strength (e.g. High claimed on \
                  could / maybe / I think). Read modality off the QUOTE, never the agent's framing.",
             ),
             Self::ImportanceUnsupported => Some(
-                "the Importance rung is not justified from its OWN evidence (recurrence, blast \
-                 radius, keeps-coming-up). Confident tone is not evidence of importance.",
+                "the Importance rung is not justified from its OWN evidence (direct psyche \
+                 declaration, recurrence, architectural centrality, blast radius, \
+                 keeps-coming-up, or blocks-other-work). Confident tone is not evidence of \
+                 importance.",
             ),
             Self::NonIntent => Some(
                 "task chatter, a status update, or a transient reaction — not durable intent that \
@@ -137,7 +140,8 @@ impl GuardianRejectionReasonPromptExt for GuardianRejectionReason {
             ),
             Self::Contradiction => Some(
                 "the candidate negates a live psyche arrow without a verbatim psyche quote \
-                 authorizing the reversal. Remand: file a Supersede carrying that authorization.",
+                 authorizing the reversal. Remand: provide authorizing testimony, then file the \
+                 coherent maintenance operation instead of a conflicting sibling Record.",
             ),
             Self::ClarifyTramples => Some(
                 "a Clarify or ChangeRecord redirects, inverts, or hardens the original arrow \
@@ -469,6 +473,25 @@ mod tests {
             assert!(
                 prompt.contains(marker),
                 "assembled prompt is missing section marker {marker:?} — an include_str! prompt file is empty or mis-wired"
+            );
+        }
+    }
+
+    #[test]
+    fn assembled_system_prompt_names_metadata_evidence_and_repair_shapes() {
+        let prompt = GuardianPromptBuilder::intent_guardian_system_prompt();
+        for marker in [
+            "direct psyche declaration naming the Certainty rung supports that declared rung",
+            "direct psyche declaration naming the Importance rung supports that declared rung",
+            "recurrence, architectural centrality, blast radius, keeps-coming-up, or blocks-other-work",
+            "direct psyche declaration naming a Privacy rung supports that declared privacy level",
+            "do not admit a sibling fresh Record",
+            "remand for Supersede, ChangeRecord, Clarify, Retire, Remove, or ResolveClarification",
+            "metadata rungs",
+        ] {
+            assert!(
+                prompt.contains(marker),
+                "assembled prompt is missing guardian alignment marker {marker:?}"
             );
         }
     }
