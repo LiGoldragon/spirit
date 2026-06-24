@@ -21,8 +21,8 @@ use spirit::{
     AgentGuardian, AgentGuardianConfiguration, Engine, Store,
     schema::signal::{
         Antecedent, Description, Domains, Entry, GuardianRejectionReason, Importance, Input, Kind,
-        Magnitude, Output, Privacy, Proposal, QuoteText, Reasoning, RecordRequest, Referents,
-        Testimony, VerbatimQuote,
+        Magnitude, Output, Privacy, Proposal, QuoteText, Reasoning, RecordRequest, Referent,
+        Referents, Testimony, VerbatimQuote,
     },
 };
 use tempfile::TempDir;
@@ -300,6 +300,30 @@ fn scenarios() -> Vec<GuardianScenario> {
             "The guardian should judge the Entry itself; the justification is evidence for it, not a second intent.",
             "The quote distinguishes candidate Entry from evidentiary justification; Medium matches should.",
         ),
+        GuardianScenario::accepts_with_justification(
+            "direct declared metadata is evidence",
+            entry_with_magnitudes(
+                &["software", "spirit"],
+                "Spirit guardian prompt alignment treats direct psyche-declared metadata rungs as primary evidence for those rungs.",
+                Magnitude::Medium,
+                Magnitude::High,
+                Magnitude::Maximum,
+            ),
+            "the guardian prompt alignment rule is that direct psyche-declared metadata rungs are primary evidence for those rungs; this rule is Medium certainty, High importance, and Maximum privacy",
+            "The psyche states the durable arrow and directly names Medium certainty, High importance, and Maximum privacy, so the entry and metadata rungs are supported by testimony.",
+        ),
+        GuardianScenario::accepts_with_justification(
+            "argued centrality supports high importance",
+            entry_with_magnitudes(
+                &["software", "spirit"],
+                "Spirit guardian keeps verbatim psyche testimony separate from agent reasoning.",
+                Magnitude::Medium,
+                Magnitude::High,
+                Magnitude::Zero,
+            ),
+            "the guardian should keep testimony and reasoning separate",
+            "The quote supports the durable arrow. High importance is argued from architectural centrality: this split controls every guarded Spirit write, protects the intent layer from agent advocacy replacing psyche authority, and blocks the prompt-alignment work.",
+        ),
         GuardianScenario::rejects_with_justification(
             "duplicate provider secret policy",
             entry(
@@ -311,15 +335,15 @@ fn scenarios() -> Vec<GuardianScenario> {
             &[GuardianRejectionReason::Duplicate],
         ),
         GuardianScenario::rejects_with_justification(
-            "nota quotation contradiction",
+            "nota quotation conflict needs maintenance operation",
             entry_with_certainty(
                 &["software", "nota"],
                 "NOTA strings should use quotation marks as the canonical representation.",
                 Magnitude::High,
             ),
             "let us make quotation marks the canonical NOTA string form",
-            "Contradicts the seeded NOTA bracket-form rule.",
-            &[GuardianRejectionReason::Contradiction],
+            "The quote authorizes replacing the seeded bracket-form rule, but this is submitted as a fresh Record that would leave the conflicting old arrow live. The repair shape is Supersede or ChangeRecord.",
+            &[GuardianRejectionReason::InsufficientWarrant],
         ),
         GuardianScenario::rejects_with_justification(
             "compound agent and deployment intent",
@@ -330,6 +354,19 @@ fn scenarios() -> Vec<GuardianScenario> {
             "resolve the keys through gopass and also deploy the guardian right away",
             "Contains two separable arrows: key resolution and deployment.",
             &[GuardianRejectionReason::Compound],
+        ),
+        GuardianScenario::rejects_with_justification(
+            "unsupported high importance",
+            entry_with_magnitudes(
+                &["software", "spirit"],
+                "Running two guardian models in parallel might be interesting.",
+                Magnitude::VeryLow,
+                Magnitude::High,
+                Magnitude::Zero,
+            ),
+            "maybe two guardian models could be interesting",
+            "This is high importance.",
+            &[GuardianRejectionReason::ImportanceUnsupported],
         ),
         GuardianScenario::rejects_with_justification(
             "non-intent uncertainty",
@@ -363,13 +400,29 @@ fn medium_entry(domains: &[&str], description: &str) -> Entry {
 }
 
 fn entry_with_certainty(domains: &[&str], description: &str, certainty: Magnitude) -> Entry {
+    entry_with_magnitudes(
+        domains,
+        description,
+        certainty,
+        Magnitude::Minimum,
+        Magnitude::Zero,
+    )
+}
+
+fn entry_with_magnitudes(
+    domains: &[&str],
+    description: &str,
+    certainty: Magnitude,
+    importance: Magnitude,
+    privacy: Magnitude,
+) -> Entry {
     Entry {
         domains: Domains::from_strings(domains.iter().map(|domain| (*domain).to_owned()).collect()),
         kind: Kind::Decision,
         description: Description::new(description),
         certainty: certainty.into(),
-        importance: Magnitude::Minimum.into(),
-        privacy: Privacy::new(Magnitude::Zero),
+        importance: Importance::new(importance),
+        privacy: Privacy::new(privacy),
         referents: Referents::new(vec![Referent::new("spirit")]),
     }
 }

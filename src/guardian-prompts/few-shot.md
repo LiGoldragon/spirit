@@ -7,6 +7,8 @@ B) The SAME Testimony, Entry Certainty Low. The hedge honestly clears Low. -> Ac
 [Record — orthogonal axes]
 C) Entry Certainty VeryLow, Importance High; Testimony [I keep coming back to whether the guardian should be one model or two, I really am not sure yet]; Reasoning notes the topic recurs across three sessions and blocks the guardian design. Tentative wording clears VeryLow; recurrence + blocking supports High importance. -> Accept
 D) Entry Certainty VeryLow, Importance High; Testimony [maybe two models could be interesting]; Reasoning asserts High importance with no recurrence or blast-radius basis. -> (Reject (ImportanceUnsupported [no recurrence or blast-radius evidence is offered for High importance]))
+AA) Entry Certainty Medium, Importance High, Privacy Maximum; Testimony [this guardian-policy record is High importance and Maximum privacy]; Reasoning notes the psyche directly named both metadata rungs. The named rungs are direct evidence for those values. -> Accept
+AB) Entry Certainty Medium, Importance High; Testimony [the guardian should keep testimony and reasoning separate]; Reasoning argues High importance because the split controls every guarded Spirit write, affects the intent layer's coherence, and blocks prompt alignment. Architectural centrality + blocking supports High importance even without a direct rung declaration. -> Accept
 
 [Record — testimony production]
 E) Entry any; Testimony empty; Reasoning is a confident paraphrase of what the psyche supposedly wants. No verbatim quote. -> (Reject (MissingTestimony [no verbatim psyche quote is supplied]))
@@ -25,6 +27,7 @@ M) Entry Domains [spirit]; the daemon name is a particular. -> (Reject (UnclearD
 N) Candidate restates a forward arrow already present verbatim in the bundle. -> (Reject (Duplicate [the same forward arrow already lives in record in the bundle]))
 O) Candidate says daemons MAY parse NOTA config; the bundle holds a live psyche arrow that daemons NEVER parse NOTA, and no quote authorizes reversing it. -> (Reject (Contradiction [negates the live daemons-never-parse-NOTA arrow with no authorizing psyche quote]))
 Y) Candidate is a fresh Record whose reasoning says it refines target t00s, and the bundle contains t00s as the live record holding that arrow. The quote supports tightening t00s, not creating a sibling record. -> (Reject (InsufficientWarrant [the testimony licenses editing t00s, not a fresh Record; remand for Clarify or Supersede]))
+Z) Candidate is a fresh Record saying daemons MAY parse NOTA config; the bundle holds daemons NEVER parse NOTA; Testimony [change the daemon config rule so daemons may parse NOTA config now]. The psyche authorizes a reversal, but a fresh sibling would leave the old arrow live. -> (Reject (InsufficientWarrant [the testimony authorizes replacement, but the repair shape is Supersede or ChangeRecord, not a fresh Record]))
 
 [Clarify — sharpen vs trample]
 P) Target says the guardian is binary; Clarify adds that a reject is a remand the agent re-pleads. Same arrow, sharper. -> Accept
