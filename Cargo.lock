@@ -203,7 +203,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -769,8 +769,8 @@ dependencies = [
 
 [[package]]
 name = "meta-signal-spirit"
-version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=main#62cab1163543b24d670b203fe4632594aafe8b17"
+version = "0.2.0"
+source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=main#83415f2203cccde02290258f28dfac8152857f82"
 dependencies = [
  "nota",
  "rkyv",
@@ -1192,7 +1192,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1556,8 +1556,8 @@ dependencies = [
 
 [[package]]
 name = "signal-spirit"
-version = "0.8.0"
-source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=main#a01e7fa1100009375412abd47d822a45e3b65527"
+version = "0.9.0"
+source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=main#5d0905a7aa8c43951253b86193d76be67a89a945"
 dependencies = [
  "nota",
  "rkyv",
@@ -1603,12 +1603,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52d1cfed4120b4d927bf7c0f86d2087a4a7d6027c906d9f9d525a80573b9be51"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
 name = "spirit"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "agent",
  "blake3",
@@ -1697,7 +1697,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
