@@ -30,6 +30,8 @@ use signal_criome::{
     ObjectDigest, OperationDigest, ReplayNonce, RequiredSignatureThreshold,
     SignalCallAuthorization, TimeWindow, TimestampNanos,
 };
+#[cfg(feature = "agent-guardian")]
+use signal_criome::{SpiritAuthorizationContext, SpiritProcessKey};
 use thiserror::Error;
 
 /// The post-commit local head the gate authorizes BEFORE fan-out — the
@@ -269,6 +271,20 @@ struct ArmedGate {
     attestor: SpiritAttestor,
 }
 
+#[cfg(feature = "agent-guardian")]
+#[derive(Clone, Debug)]
+pub struct SpiritOperationAuthorizer {
+    socket: Option<std::path::PathBuf>,
+    process_key: SpiritProcessKey,
+}
+
+#[cfg(feature = "agent-guardian")]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SpiritOperationAuthorization {
+    Allowed,
+    Blocked(String),
+}
+
 impl CriomeGate {
     /// An unarmed gate: no local criome configured, so fan-out does not ship.
     pub fn new() -> Self {
@@ -419,6 +435,147 @@ impl CriomeGate {
         Ok(AuthorizationObservation::Observed(
             ObservedAuthorization::new(reference, EvaluationDecision::Authorized),
         ))
+    }
+}
+
+#[cfg(feature = "agent-guardian")]
+impl SpiritOperationAuthorizer {
+    pub fn new() -> Self {
+        Self {
+            socket: None,
+            process_key: SpiritProcessKey::new("spirit-process-main"),
+        }
+    }
+
+    pub fn configure_socket(&mut self, socket: impl Into<std::path::PathBuf>) {
+        self.socket = Some(socket.into());
+    }
+
+    pub fn clear(&mut self) {
+        self.socket = None;
+    }
+
+    pub fn process_key(&self) -> SpiritProcessKey {
+        self.process_key.clone()
+    }
+
+    pub async fn authorize(
+        &self,
+        context: SpiritAuthorizationContext,
+        mode: signal_spirit::AuthorizationMode,
+    ) -> Result<SpiritOperationAuthorization, CriomeGateError> {
+        let Some(socket) = self.socket.clone() else {
+            return Ok(SpiritOperationAuthorization::Allowed);
+        };
+        let request_digest = ObjectDigest::from_bytes(context.raw_payload.payload().as_bytes());
+        let authorization = self.signal_call_authorization(context, request_digest.clone());
+        let send_result = tokio::task::spawn_blocking(move || {
+            CriomeClient::new(socket).send(CriomeRequest::AuthorizeSignalCall(authorization))
+        })
+        .await
+        .map_err(|source| CriomeGateError::AuthorizationTask {
+            message: source.to_string(),
+        })?;
+        let reply = match send_result {
+            Ok(reply) => reply,
+            Err(_) => {
+                return Ok(SpiritOperationAuthorization::Blocked(
+                    "criome operation authorization unreachable".to_owned(),
+                ));
+            }
+        };
+        self.authorization_from_reply(reply, request_digest, mode)
+    }
+
+    fn signal_call_authorization(
+        &self,
+        context: SpiritAuthorizationContext,
+        request_digest: ObjectDigest,
+    ) -> SignalCallAuthorization {
+        SignalCallAuthorization::new(
+            request_digest,
+            ContractName::new("signal-spirit"),
+            ContractOperationHead::new(context.operation_name.payload().clone()),
+            AuthorizationScope::new("spirit-operation"),
+            Identity::host("spirit".to_owned()),
+            self.replay_nonce(),
+            None,
+        )
+        .with_spirit_context(context)
+    }
+
+    fn replay_nonce(&self) -> ReplayNonce {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or_default();
+        ReplayNonce::new(format!("spirit-operation-{nanos}"))
+    }
+
+    fn authorization_from_reply(
+        &self,
+        reply: CriomeReply,
+        request_digest: ObjectDigest,
+        mode: signal_spirit::AuthorizationMode,
+    ) -> Result<SpiritOperationAuthorization, CriomeGateError> {
+        match mode {
+            signal_spirit::AuthorizationMode::Observing => {
+                self.validate_observed_reply(reply, request_digest)?;
+                Ok(SpiritOperationAuthorization::Allowed)
+            }
+            signal_spirit::AuthorizationMode::Gating => match reply {
+                CriomeReply::AuthorizationGranted(grant) => {
+                    if grant.authorized_object_digest == request_digest {
+                        Ok(SpiritOperationAuthorization::Allowed)
+                    } else {
+                        Err(CriomeGateError::UnexpectedReply {
+                            reply: format!("{grant:?}"),
+                        })
+                    }
+                }
+                CriomeReply::AuthorizationPending(_)
+                | CriomeReply::AuthorizationDenied(_)
+                | CriomeReply::AuthorizationExpired(_)
+                | CriomeReply::AuthorizationUnavailable(_) => {
+                    Ok(SpiritOperationAuthorization::Blocked(format!("{reply:?}")))
+                }
+                other => Err(CriomeGateError::UnexpectedReply {
+                    reply: format!("{other:?}"),
+                }),
+            },
+        }
+    }
+
+    fn validate_observed_reply(
+        &self,
+        reply: CriomeReply,
+        request_digest: ObjectDigest,
+    ) -> Result<(), CriomeGateError> {
+        match reply {
+            CriomeReply::AuthorizationGranted(grant) => {
+                if grant.authorized_object_digest == request_digest {
+                    Ok(())
+                } else {
+                    Err(CriomeGateError::UnexpectedReply {
+                        reply: format!("{grant:?}"),
+                    })
+                }
+            }
+            CriomeReply::AuthorizationPending(_)
+            | CriomeReply::AuthorizationDenied(_)
+            | CriomeReply::AuthorizationExpired(_)
+            | CriomeReply::AuthorizationUnavailable(_) => Ok(()),
+            other => Err(CriomeGateError::UnexpectedReply {
+                reply: format!("{other:?}"),
+            }),
+        }
+    }
+}
+
+#[cfg(feature = "agent-guardian")]
+impl Default for SpiritOperationAuthorizer {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

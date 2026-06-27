@@ -41,6 +41,9 @@ pub enum StoreError {
 
     #[error("duplicate record vanished during guardian proposal handling: {0}")]
     DuplicateRecordVanished(String),
+
+    #[error("criome operation authorization blocked: {0}")]
+    CriomeAuthorization(String),
 }
 
 /// The spirit-specific remediation tail appended to a wrapped engine error's

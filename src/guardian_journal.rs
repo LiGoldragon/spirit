@@ -5,6 +5,8 @@ use sema_engine::{
     SchemaHash, SchemaVersion, TableDescriptor, TableName, TableReference,
 };
 
+#[cfg(feature = "mirror-shipper")]
+use crate::schema::signal::Input;
 use crate::{
     schema::{
         nexus::{GuardianVerdict, ReferentGuardianVerdict, Reject, RejectReferent},
@@ -151,6 +153,39 @@ impl GuardianOperation {
             Self::Remove(_) => "Remove",
             Self::ChangeRecord(_) => "ChangeRecord",
             Self::CollectRemovalCandidates(_) => "CollectRemovalCandidates",
+        }
+    }
+
+    #[cfg(feature = "mirror-shipper")]
+    pub(crate) fn authorization_context(
+        &self,
+        target_key: signal_criome::SpiritProcessKey,
+    ) -> signal_criome::SpiritAuthorizationContext {
+        signal_criome::SpiritAuthorizationContext {
+            operation_name: signal_criome::SpiritOperationName::new(self.name()),
+            raw_payload: signal_criome::RawSpiritOperationPayload::new(nota::NotaEncode::to_nota(
+                &self.as_signal_input(),
+            )),
+            target_key,
+        }
+    }
+
+    #[cfg(feature = "mirror-shipper")]
+    fn as_signal_input(&self) -> Input {
+        match self {
+            Self::Record(request) => Input::record(request.clone()),
+            Self::Propose(proposal) => Input::propose(proposal.clone()),
+            Self::Clarify(clarification) => Input::clarify(clarification.clone()),
+            Self::ResolveClarification(resolution) => {
+                Input::resolve_clarification(resolution.clone())
+            }
+            Self::Supersede(supersession) => Input::supersede(supersession.clone()),
+            Self::Retire(retirement) => Input::retire(retirement.clone()),
+            Self::Remove(removal) => Input::remove(removal.clone()),
+            Self::ChangeRecord(change) => Input::change_record(change.clone()),
+            Self::CollectRemovalCandidates(collection) => {
+                Input::collect_removal_candidates(collection.clone())
+            }
         }
     }
 }

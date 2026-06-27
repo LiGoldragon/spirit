@@ -196,6 +196,10 @@ pub struct Nexus {
     guardian: Option<crate::guardian::AgentGuardian>,
     #[cfg(feature = "agent-guardian")]
     guardian_required: bool,
+    #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+    operation_authorizer: crate::criome_gate::SpiritOperationAuthorizer,
+    #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+    operation_authorization_mode: signal_spirit::AuthorizationMode,
     subscription_token_issuer: SubscriptionTokenIssuer,
     #[cfg(feature = "testing-trace")]
     trace_log: TraceLog,
@@ -275,6 +279,10 @@ impl Nexus {
                 guardian: None,
                 #[cfg(feature = "agent-guardian")]
                 guardian_required: false,
+                #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+                operation_authorizer: crate::criome_gate::SpiritOperationAuthorizer::new(),
+                #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+                operation_authorization_mode: signal_spirit::AuthorizationMode::Gating,
                 subscription_token_issuer: SubscriptionTokenIssuer::default(),
             }
         }
@@ -292,6 +300,10 @@ impl Nexus {
             guardian: None,
             #[cfg(feature = "agent-guardian")]
             guardian_required: false,
+            #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+            operation_authorizer: crate::criome_gate::SpiritOperationAuthorizer::new(),
+            #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+            operation_authorization_mode: signal_spirit::AuthorizationMode::Gating,
             subscription_token_issuer: SubscriptionTokenIssuer::default(),
             trace_log,
         }
@@ -345,6 +357,24 @@ impl Nexus {
     #[cfg(feature = "agent-guardian")]
     pub fn require_guardian(&mut self) {
         self.guardian_required = true;
+    }
+
+    #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+    pub fn set_operation_authorization_mode(
+        &mut self,
+        authorization_mode: signal_spirit::AuthorizationMode,
+    ) {
+        self.operation_authorization_mode = authorization_mode;
+    }
+
+    #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+    pub fn configure_operation_authorizer(&mut self, socket: impl Into<std::path::PathBuf>) {
+        self.operation_authorizer.configure_socket(socket);
+    }
+
+    #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+    pub fn clear_operation_authorizer(&mut self) {
+        self.operation_authorizer.clear();
     }
 
     pub fn intent_recorded_event(
@@ -404,7 +434,7 @@ impl Nexus {
 
     /// Apply a Nexus-local effect, producing the matching effect result
     /// that the runner re-enters as `NexusWork::EffectCompleted`.
-    fn apply_effect(&mut self, command: NexusEffectCommand) -> NexusEffectResult {
+    async fn apply_effect(&mut self, command: NexusEffectCommand) -> NexusEffectResult {
         match command {
             NexusEffectCommand::ClassifyState(statement) => {
                 let record_request = self
@@ -414,9 +444,10 @@ impl Nexus {
             }
             NexusEffectCommand::RecordWithImpliedReferents(record) => {
                 self.apply_record_with_implied_referents(record.into_payload())
+                    .await
             }
             NexusEffectCommand::GuardRecord(record) => {
-                match self.guard_record(record.into_payload()) {
+                match self.guard_record(record.into_payload()).await {
                     Ok(Ok(receipt)) => {
                         #[cfg(feature = "testing-trace")]
                         self.trace_direct_sema_write();
@@ -428,9 +459,10 @@ impl Nexus {
             }
             NexusEffectCommand::ProposeWithImpliedReferents(propose) => {
                 self.apply_propose_with_implied_referents(propose.into_payload())
+                    .await
             }
             NexusEffectCommand::Propose(propose) => {
-                match self.guard_propose(propose.into_payload()) {
+                match self.guard_propose(propose.into_payload()).await {
                     Ok(Ok(receipt)) => {
                         #[cfg(feature = "testing-trace")]
                         self.trace_direct_sema_write();
@@ -441,7 +473,7 @@ impl Nexus {
                 }
             }
             NexusEffectCommand::Clarify(clarify) => {
-                match self.guard_clarify(clarify.into_payload()) {
+                match self.guard_clarify(clarify.into_payload()).await {
                     Ok(Ok(Some(receipt))) => {
                         #[cfg(feature = "testing-trace")]
                         self.trace_direct_sema_write();
@@ -453,7 +485,10 @@ impl Nexus {
                 }
             }
             NexusEffectCommand::ResolveClarification(resolution) => {
-                match self.guard_resolve_clarification(resolution.into_payload()) {
+                match self
+                    .guard_resolve_clarification(resolution.into_payload())
+                    .await
+                {
                     Ok(Ok(Some(receipt))) => {
                         #[cfg(feature = "testing-trace")]
                         self.trace_direct_sema_write();
@@ -468,9 +503,10 @@ impl Nexus {
             }
             NexusEffectCommand::SupersedeWithImpliedReferents(supersede) => {
                 self.apply_supersede_with_implied_referents(supersede.into_payload())
+                    .await
             }
             NexusEffectCommand::Supersede(supersede) => {
-                match self.guard_supersede(supersede.into_payload()) {
+                match self.guard_supersede(supersede.into_payload()).await {
                     Ok(Ok(Some(receipt))) => {
                         #[cfg(feature = "testing-trace")]
                         self.trace_direct_sema_write();
@@ -481,18 +517,20 @@ impl Nexus {
                     Err(error) => self.operation_failed(error.to_string()),
                 }
             }
-            NexusEffectCommand::Retire(retire) => match self.guard_retire(retire.into_payload()) {
-                Ok(Ok(Some(receipt))) => {
-                    #[cfg(feature = "testing-trace")]
-                    self.trace_direct_sema_write();
-                    NexusEffectResult::retired(receipt)
+            NexusEffectCommand::Retire(retire) => {
+                match self.guard_retire(retire.into_payload()).await {
+                    Ok(Ok(Some(receipt))) => {
+                        #[cfg(feature = "testing-trace")]
+                        self.trace_direct_sema_write();
+                        NexusEffectResult::retired(receipt)
+                    }
+                    Ok(Ok(None)) => self.operation_failed("record not found"),
+                    Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
+                    Err(error) => self.operation_failed(error.to_string()),
                 }
-                Ok(Ok(None)) => self.operation_failed("record not found"),
-                Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
-                Err(error) => self.operation_failed(error.to_string()),
-            },
+            }
             NexusEffectCommand::GuardRemove(remove) => {
-                match self.guard_remove(remove.into_payload()) {
+                match self.guard_remove(remove.into_payload()).await {
                     Ok(Ok(Some(receipt))) => {
                         #[cfg(feature = "testing-trace")]
                         self.trace_direct_sema_write();
@@ -505,9 +543,10 @@ impl Nexus {
             }
             NexusEffectCommand::ChangeRecordWithImpliedReferents(change) => {
                 self.apply_change_record_with_implied_referents(change.into_payload())
+                    .await
             }
             NexusEffectCommand::GuardChangeRecord(change) => {
-                match self.guard_change_record(change.into_payload()) {
+                match self.guard_change_record(change.into_payload()).await {
                     Ok(Ok(Some(receipt))) => {
                         #[cfg(feature = "testing-trace")]
                         self.trace_direct_sema_write();
@@ -519,7 +558,10 @@ impl Nexus {
                 }
             }
             NexusEffectCommand::GuardReferentRegistration(register) => {
-                match self.guard_referent_registration(register.into_payload()) {
+                match self
+                    .guard_referent_registration(register.into_payload())
+                    .await
+                {
                     Ok(Ok(receipt)) => NexusEffectResult::referent_registered(receipt),
                     Ok(Err(rejection)) => NexusEffectResult::referent_guardian_rejected(rejection),
                     Err(error) => self.operation_failed(error.to_string()),
@@ -541,6 +583,7 @@ impl Nexus {
             }
             NexusEffectCommand::CollectRemovalCandidates(collection) => {
                 self.collect_removal_candidates(collection.into_payload())
+                    .await
             }
             NexusEffectCommand::OpenObserverTap(filter) => {
                 let (token, observer_filter, observed_operations) =
@@ -565,28 +608,43 @@ impl Nexus {
         }
     }
 
-    fn apply_record_with_implied_referents(&mut self, request: RecordRequest) -> NexusEffectResult {
-        match self.register_implied_referents(&request.entry, &request.justification) {
+    async fn apply_record_with_implied_referents(
+        &mut self,
+        request: RecordRequest,
+    ) -> NexusEffectResult {
+        match self
+            .register_implied_referents(&request.entry, &request.justification)
+            .await
+        {
             Ok(Ok(())) => NexusEffectResult::record_referents_settled(request),
             Ok(Err(rejection)) => NexusEffectResult::referent_guardian_rejected(rejection),
             Err(error) => self.operation_failed(error.to_string()),
         }
     }
 
-    fn apply_propose_with_implied_referents(&mut self, proposal: Proposal) -> NexusEffectResult {
-        match self.register_implied_referents(&proposal.entry, &proposal.justification) {
+    async fn apply_propose_with_implied_referents(
+        &mut self,
+        proposal: Proposal,
+    ) -> NexusEffectResult {
+        match self
+            .register_implied_referents(&proposal.entry, &proposal.justification)
+            .await
+        {
             Ok(Ok(())) => NexusEffectResult::propose_referents_settled(proposal),
             Ok(Err(rejection)) => NexusEffectResult::referent_guardian_rejected(rejection),
             Err(error) => self.operation_failed(error.to_string()),
         }
     }
 
-    fn apply_supersede_with_implied_referents(
+    async fn apply_supersede_with_implied_referents(
         &mut self,
         supersession: Supersession,
     ) -> NexusEffectResult {
         for replacement in supersession.replacements.payload().clone() {
-            match self.register_implied_referents(&replacement, &supersession.justification) {
+            match self
+                .register_implied_referents(&replacement, &supersession.justification)
+                .await
+            {
                 Ok(Ok(())) => {}
                 Ok(Err(rejection)) => {
                     return NexusEffectResult::referent_guardian_rejected(rejection);
@@ -597,11 +655,14 @@ impl Nexus {
         NexusEffectResult::supersede_referents_settled(supersession)
     }
 
-    fn apply_change_record_with_implied_referents(
+    async fn apply_change_record_with_implied_referents(
         &mut self,
         change: RecordChange,
     ) -> NexusEffectResult {
-        match self.register_implied_referents(&change.entry, &change.justification) {
+        match self
+            .register_implied_referents(&change.entry, &change.justification)
+            .await
+        {
             Ok(Ok(())) => NexusEffectResult::change_record_referents_settled(change),
             Ok(Err(rejection)) => NexusEffectResult::referent_guardian_rejected(rejection),
             Err(error) => self.operation_failed(error.to_string()),
@@ -609,7 +670,7 @@ impl Nexus {
     }
 
     #[cfg(not(feature = "agent-guardian"))]
-    fn guard_record(
+    async fn guard_record(
         &mut self,
         request: RecordRequest,
     ) -> Result<Result<SemaReceipt, GuardianRejection>, StoreError> {
@@ -617,20 +678,23 @@ impl Nexus {
     }
 
     #[cfg(feature = "agent-guardian")]
-    fn guard_record(
+    async fn guard_record(
         &mut self,
         request: RecordRequest,
     ) -> Result<Result<SemaReceipt, GuardianRejection>, StoreError> {
         let entry = request.entry.clone();
         let operation = GuardianOperation::record(request);
+        let authorization_operation = operation.clone();
         if let Some(rejection) = self.guard_model(operation)? {
             return Ok(Err(self.duplicate_rejection_if_needed(&entry, rejection)?));
         }
+        self.authorize_guardian_operation(&authorization_operation)
+            .await?;
         Ok(Ok(self.store.record_entry(entry)?))
     }
 
     #[cfg(not(feature = "agent-guardian"))]
-    fn guard_propose(
+    async fn guard_propose(
         &mut self,
         proposal: Proposal,
     ) -> Result<Result<SemaReceipt, GuardianRejection>, StoreError> {
@@ -638,7 +702,7 @@ impl Nexus {
     }
 
     #[cfg(feature = "agent-guardian")]
-    fn guard_propose(
+    async fn guard_propose(
         &mut self,
         proposal: Proposal,
     ) -> Result<Result<SemaReceipt, GuardianRejection>, StoreError> {
@@ -647,14 +711,17 @@ impl Nexus {
         }
         let entry = proposal.entry.clone();
         let operation = GuardianOperation::propose(proposal);
+        let authorization_operation = operation.clone();
         if let Some(rejection) = self.guard_model(operation)? {
             return Ok(Err(self.duplicate_rejection_if_needed(&entry, rejection)?));
         }
+        self.authorize_guardian_operation(&authorization_operation)
+            .await?;
         Ok(Ok(self.store.propose(entry)?))
     }
 
     #[cfg(not(feature = "agent-guardian"))]
-    fn guard_clarify(
+    async fn guard_clarify(
         &mut self,
         clarification: Clarification,
     ) -> Result<Result<Option<ClarificationReceipt>, GuardianRejection>, StoreError> {
@@ -662,19 +729,22 @@ impl Nexus {
     }
 
     #[cfg(feature = "agent-guardian")]
-    fn guard_clarify(
+    async fn guard_clarify(
         &mut self,
         clarification: Clarification,
     ) -> Result<Result<Option<ClarificationReceipt>, GuardianRejection>, StoreError> {
         let operation = GuardianOperation::clarify(clarification.clone());
+        let authorization_operation = operation.clone();
         if let Some(rejection) = self.guard_model(operation)? {
             return Ok(Err(rejection));
         }
+        self.authorize_guardian_operation(&authorization_operation)
+            .await?;
         Ok(Ok(self.store.clarify(clarification)?))
     }
 
     #[cfg(not(feature = "agent-guardian"))]
-    fn guard_resolve_clarification(
+    async fn guard_resolve_clarification(
         &mut self,
         resolution: ClarificationResolution,
     ) -> Result<Result<Option<ClarificationResolutionReceipt>, GuardianRejection>, StoreError> {
@@ -682,19 +752,22 @@ impl Nexus {
     }
 
     #[cfg(feature = "agent-guardian")]
-    fn guard_resolve_clarification(
+    async fn guard_resolve_clarification(
         &mut self,
         resolution: ClarificationResolution,
     ) -> Result<Result<Option<ClarificationResolutionReceipt>, GuardianRejection>, StoreError> {
         let operation = GuardianOperation::resolve_clarification(resolution.clone());
+        let authorization_operation = operation.clone();
         if let Some(rejection) = self.guard_model(operation)? {
             return Ok(Err(rejection));
         }
+        self.authorize_guardian_operation(&authorization_operation)
+            .await?;
         Ok(Ok(self.store.resolve_clarification(resolution)?))
     }
 
     #[cfg(not(feature = "agent-guardian"))]
-    fn guard_supersede(
+    async fn guard_supersede(
         &mut self,
         supersession: Supersession,
     ) -> Result<Result<Option<SupersessionReceipt>, GuardianRejection>, StoreError> {
@@ -702,19 +775,22 @@ impl Nexus {
     }
 
     #[cfg(feature = "agent-guardian")]
-    fn guard_supersede(
+    async fn guard_supersede(
         &mut self,
         supersession: Supersession,
     ) -> Result<Result<Option<SupersessionReceipt>, GuardianRejection>, StoreError> {
         let operation = GuardianOperation::supersede(supersession.clone());
+        let authorization_operation = operation.clone();
         if let Some(rejection) = self.guard_model(operation)? {
             return Ok(Err(rejection));
         }
+        self.authorize_guardian_operation(&authorization_operation)
+            .await?;
         Ok(Ok(self.store.supersede(supersession)?))
     }
 
     #[cfg(not(feature = "agent-guardian"))]
-    fn guard_retire(
+    async fn guard_retire(
         &mut self,
         retirement: Retirement,
     ) -> Result<Result<Option<RetirementReceipt>, GuardianRejection>, StoreError> {
@@ -722,7 +798,7 @@ impl Nexus {
     }
 
     #[cfg(not(feature = "agent-guardian"))]
-    fn guard_remove(
+    async fn guard_remove(
         &mut self,
         removal: Removal,
     ) -> Result<Result<Option<RemoveReceipt>, GuardianRejection>, StoreError> {
@@ -730,19 +806,22 @@ impl Nexus {
     }
 
     #[cfg(feature = "agent-guardian")]
-    fn guard_remove(
+    async fn guard_remove(
         &mut self,
         removal: Removal,
     ) -> Result<Result<Option<RemoveReceipt>, GuardianRejection>, StoreError> {
         let operation = GuardianOperation::remove(removal.clone());
+        let authorization_operation = operation.clone();
         if let Some(rejection) = self.guard_model(operation)? {
             return Ok(Err(rejection));
         }
+        self.authorize_guardian_operation(&authorization_operation)
+            .await?;
         Ok(Ok(self.store.remove_record(removal)?))
     }
 
     #[cfg(not(feature = "agent-guardian"))]
-    fn guard_change_record(
+    async fn guard_change_record(
         &mut self,
         change: RecordChange,
     ) -> Result<Result<Option<RecordChangeReceipt>, GuardianRejection>, StoreError> {
@@ -750,26 +829,32 @@ impl Nexus {
     }
 
     #[cfg(feature = "agent-guardian")]
-    fn guard_change_record(
+    async fn guard_change_record(
         &mut self,
         change: RecordChange,
     ) -> Result<Result<Option<RecordChangeReceipt>, GuardianRejection>, StoreError> {
         let operation = GuardianOperation::change_record(change.clone());
+        let authorization_operation = operation.clone();
         if let Some(rejection) = self.guard_model(operation)? {
             return Ok(Err(rejection));
         }
+        self.authorize_guardian_operation(&authorization_operation)
+            .await?;
         Ok(Ok(self.store.change_record(change)?))
     }
 
     #[cfg(feature = "agent-guardian")]
-    fn guard_retire(
+    async fn guard_retire(
         &mut self,
         retirement: Retirement,
     ) -> Result<Result<Option<RetirementReceipt>, GuardianRejection>, StoreError> {
         let operation = GuardianOperation::retire(retirement.clone());
+        let authorization_operation = operation.clone();
         if let Some(rejection) = self.guard_model(operation)? {
             return Ok(Err(rejection));
         }
+        self.authorize_guardian_operation(&authorization_operation)
+            .await?;
         Ok(Ok(self.store.retire(retirement)?))
     }
 
@@ -815,7 +900,7 @@ impl Nexus {
     }
 
     #[cfg(not(feature = "agent-guardian"))]
-    fn guard_referent_registration(
+    async fn guard_referent_registration(
         &mut self,
         registration: ReferentRegistration,
     ) -> Result<Result<ReferentRegistrationReceipt, ReferentGuardianRejection>, StoreError> {
@@ -823,7 +908,7 @@ impl Nexus {
     }
 
     #[cfg(feature = "agent-guardian")]
-    fn guard_referent_registration(
+    async fn guard_referent_registration(
         &mut self,
         registration: ReferentRegistration,
     ) -> Result<Result<ReferentRegistrationReceipt, ReferentGuardianRejection>, StoreError> {
@@ -880,7 +965,7 @@ impl Nexus {
         }
     }
 
-    fn register_implied_referents(
+    async fn register_implied_referents(
         &mut self,
         entry: &Entry,
         justification: &Justification,
@@ -891,7 +976,7 @@ impl Nexus {
                 aliases: Referents::new(Vec::new()),
                 justification: justification.clone(),
             };
-            if let Err(rejection) = self.guard_referent_registration(registration)? {
+            if let Err(rejection) = self.guard_referent_registration(registration).await? {
                 return Ok(Err(rejection));
             }
         }
@@ -919,16 +1004,24 @@ impl Nexus {
     /// owner-configured target and remove them from the live log. On a store
     /// error the effect surfaces an empty collection so the caller still gets a
     /// typed reply rather than a dropped request.
-    fn collect_removal_candidates(
+    async fn collect_removal_candidates(
         &mut self,
         collection: RemovalCandidateCollection,
     ) -> NexusEffectResult {
         #[cfg(feature = "agent-guardian")]
         {
             let operation = GuardianOperation::collect_removal_candidates(collection.clone());
+            let authorization_operation = operation.clone();
             match self.guard_model(operation) {
                 Ok(Some(rejection)) => return NexusEffectResult::guardian_rejected(rejection),
-                Ok(None) => {}
+                Ok(None) => {
+                    if let Err(error) = self
+                        .authorize_guardian_operation(&authorization_operation)
+                        .await
+                    {
+                        return self.operation_failed(error.to_string());
+                    }
+                }
                 Err(error) => return self.operation_failed(error.to_string()),
             }
         }
@@ -945,6 +1038,33 @@ impl Nexus {
 
     fn operation_failed(&self, message: impl Into<String>) -> NexusEffectResult {
         NexusEffectResult::operation_failed(ErrorReport::new(ErrorMessage::new(message.into())))
+    }
+
+    #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+    async fn authorize_guardian_operation(
+        &self,
+        operation: &GuardianOperation,
+    ) -> Result<(), StoreError> {
+        let context = operation.authorization_context(self.operation_authorizer.process_key());
+        match self
+            .operation_authorizer
+            .authorize(context, self.operation_authorization_mode)
+            .await
+            .map_err(|error| StoreError::CriomeAuthorization(error.to_string()))?
+        {
+            crate::criome_gate::SpiritOperationAuthorization::Allowed => Ok(()),
+            crate::criome_gate::SpiritOperationAuthorization::Blocked(reason) => {
+                Err(StoreError::CriomeAuthorization(reason))
+            }
+        }
+    }
+
+    #[cfg(all(feature = "agent-guardian", not(feature = "mirror-shipper")))]
+    async fn authorize_guardian_operation(
+        &self,
+        _operation: &GuardianOperation,
+    ) -> Result<(), StoreError> {
+        Ok(())
     }
 
     #[cfg(feature = "testing-trace")]
@@ -984,19 +1104,9 @@ impl Nexus {
         }
     }
 
-    /// Run effect work with the same async-runtime boundary as SEMA work.
-    ///
-    /// Agent-backed Guardian calls use blocking Unix sockets; on a
-    /// multi-thread Tokio runtime they must not occupy the async worker that
-    /// owns the Nexus mailbox for the full model round-trip.
-    fn apply_effect_operation(&mut self, command: NexusEffectCommand) -> NexusEffectResult {
-        match Handle::current().runtime_flavor() {
-            RuntimeFlavor::MultiThread => {
-                tokio::task::block_in_place(|| self.apply_effect(command))
-            }
-            RuntimeFlavor::CurrentThread => self.apply_effect(command),
-            _ => self.apply_effect(command),
-        }
+    /// Run effect work inside the async Nexus loop.
+    async fn apply_effect_operation(&mut self, command: NexusEffectCommand) -> NexusEffectResult {
+        self.apply_effect(command).await
     }
 
     pub async fn execute_to_reply(
@@ -1036,7 +1146,7 @@ impl Nexus {
                 }
                 NexusAction::CommandEffect(command) => {
                     let Err(exhausted) = budget.spend_next_step() else {
-                        let output = self.apply_effect_operation(command);
+                        let output = self.apply_effect_operation(command).await;
                         work = NexusWork::effect_completed(output);
                         continue;
                     };
@@ -1109,7 +1219,7 @@ impl NexusEngine for Nexus {
     }
 
     async fn run_effect(&mut self, input: NexusEffectCommand) -> NexusEffectResult {
-        self.apply_effect_operation(input)
+        self.apply_effect_operation(input).await
     }
 
     fn budget_exhausted_reply(&self, exhausted: ContinuationExhausted) -> Output {

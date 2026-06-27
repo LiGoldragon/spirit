@@ -27,6 +27,21 @@ use spirit::{
 };
 use tempfile::TempDir;
 
+#[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+use {
+    criome::transport::CriomeFrameCodec,
+    signal_criome::{
+        AuthorizationObservationToken, AuthorizationPending, AuthorizationRequestSlot, CriomeReply,
+        CriomeRequest, ObjectDigest,
+    },
+    spirit::schema::meta_signal::{
+        ArchiveDatabaseTarget, ConfigureRequest, CriomeGateTarget, CriomeSocketPathText,
+        Output as MetaOutput,
+    },
+    std::io::ErrorKind,
+    std::time::Instant,
+};
+
 #[cfg(feature = "agent-guardian")]
 use {
     signal_agent::{
@@ -84,6 +99,14 @@ impl SemaFile {
 
 struct SentHookProbe {
     events: Vec<MailLedgerEvent>,
+}
+
+#[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+struct FakeCriomeAuthorizationSocket {
+    _directory: TempDir,
+    socket_path: std::path::PathBuf,
+    captured_requests: Arc<Mutex<Vec<CriomeRequest>>>,
+    thread: thread::JoinHandle<()>,
 }
 
 #[cfg(feature = "agent-guardian")]
@@ -202,6 +225,81 @@ impl FakeGuardianAgent {
     }
 }
 
+#[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+impl FakeCriomeAuthorizationSocket {
+    fn spawn_pending() -> Self {
+        let directory = TempDir::new().expect("criome fake tempdir");
+        let socket_path = directory.path().join("criome.sock");
+        let listener = UnixListener::bind(&socket_path).expect("bind fake criome socket");
+        listener
+            .set_nonblocking(true)
+            .expect("fake criome listener nonblocking");
+        let captured_requests = Arc::new(Mutex::new(Vec::new()));
+        let thread_requests = Arc::clone(&captured_requests);
+        let thread = thread::spawn(move || {
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while Instant::now() < deadline {
+                match listener.accept() {
+                    Ok((mut stream, _)) => {
+                        let codec = CriomeFrameCodec::default();
+                        let request = codec
+                            .read_request(&mut stream)
+                            .expect("fake criome reads request");
+                        let reply = Self::pending_reply(&request);
+                        thread_requests
+                            .lock()
+                            .expect("fake criome captured requests")
+                            .push(request);
+                        codec
+                            .write_reply(&mut stream, reply)
+                            .expect("fake criome writes reply");
+                        return;
+                    }
+                    Err(error) if error.kind() == ErrorKind::WouldBlock => {
+                        thread::sleep(Duration::from_millis(5));
+                    }
+                    Err(error) => panic!("fake criome accept failed: {error}"),
+                }
+            }
+        });
+        Self {
+            _directory: directory,
+            socket_path,
+            captured_requests,
+            thread,
+        }
+    }
+
+    fn pending_reply(request: &CriomeRequest) -> CriomeReply {
+        let request_digest = match request {
+            CriomeRequest::AuthorizeSignalCall(authorization) => {
+                authorization.request_digest.clone()
+            }
+            _ => ObjectDigest::from_bytes(b"unexpected-spirit-operation-request"),
+        };
+        let slot = AuthorizationRequestSlot::new("fake-spirit-slot");
+        CriomeReply::AuthorizationPending(AuthorizationPending::new(
+            slot.clone(),
+            request_digest,
+            Vec::new(),
+            AuthorizationObservationToken::new(slot),
+        ))
+    }
+
+    fn socket_path(&self) -> &std::path::Path {
+        &self.socket_path
+    }
+
+    fn join(self) -> Vec<CriomeRequest> {
+        let captured_requests = Arc::clone(&self.captured_requests);
+        self.thread.join().expect("join fake criome");
+        captured_requests
+            .lock()
+            .expect("fake criome captured requests")
+            .clone()
+    }
+}
+
 impl MessageSentHook for SentHookProbe {
     type Error = std::convert::Infallible;
 
@@ -226,6 +324,19 @@ fn entry_with_domains(domains: &[&str], description: &str) -> Entry {
         referents: spirit::schema::signal::Referents::new(vec![
             spirit::schema::signal::Referent::new("spirit"),
         ]),
+    }
+}
+
+#[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+fn entry_without_referents(description: &str) -> Entry {
+    Entry {
+        domains: domains_from_slice(&["runtime-triad"]),
+        kind: Kind::Decision,
+        description: Description::new(description),
+        certainty: Magnitude::Zero.into(),
+        importance: Magnitude::Minimum.into(),
+        privacy: Privacy::new(Magnitude::Zero),
+        referents: Referents::new(Vec::new()),
     }
 }
 
@@ -1157,6 +1268,85 @@ fn agent_guardian_reject_verdict_blocks_proposal() {
     assert_eq!(engine.record_count(), 0);
     assert_eq!(engine.guardian_decision_count(), 1);
     fake_agent.join();
+}
+
+#[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+#[test]
+fn guardian_rejection_does_not_contact_criome_operation_authorizer() {
+    let sema = SemaFile::new();
+    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::reject(Reject {
+        guardian_rejection_reason: GuardianRejectionReason::NonIntent,
+        explanation: spirit::schema::signal::Explanation::new("not settled intent"),
+    }));
+    let fake_criome = FakeCriomeAuthorizationSocket::spawn_pending();
+    let mut engine = sema.engine_with_guardian(fake_agent.guardian());
+    let configured = engine.configure(ConfigureRequest::new(
+        ArchiveDatabaseTarget::Default,
+        None,
+        Some(CriomeGateTarget::socket(CriomeSocketPathText::new(
+            fake_criome.socket_path().display().to_string(),
+        ))),
+    ));
+    assert!(matches!(configured, MetaOutput::Configured(_)));
+
+    let output = engine.handle(input_record(entry_without_referents(
+        "guardian denial happens before criome interception",
+    )));
+
+    assert!(matches!(output.root(), Output::GuardianRejected(_)));
+    assert_eq!(engine.record_count(), 0);
+    fake_agent.join();
+    assert!(
+        fake_criome.join().is_empty(),
+        "guardian denial must stop before criome receives an authorization request"
+    );
+}
+
+#[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+#[test]
+fn guardian_acceptance_sends_spirit_context_to_criome_before_write() {
+    let sema = SemaFile::new();
+    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::Accept);
+    let fake_criome = FakeCriomeAuthorizationSocket::spawn_pending();
+    let mut engine = sema.engine_with_guardian(fake_agent.guardian());
+    let configured = engine.configure(ConfigureRequest::new(
+        ArchiveDatabaseTarget::Default,
+        None,
+        Some(CriomeGateTarget::socket(CriomeSocketPathText::new(
+            fake_criome.socket_path().display().to_string(),
+        ))),
+    ));
+    assert!(matches!(configured, MetaOutput::Configured(_)));
+
+    let output = engine.handle(input_record(entry_without_referents(
+        "guardian allow sends raw Spirit payload to criome",
+    )));
+
+    assert!(
+        matches!(output.root(), Output::Error(_)),
+        "fake criome parks the request, so gating blocks the write"
+    );
+    assert_eq!(engine.record_count(), 0);
+    fake_agent.join();
+    let requests = fake_criome.join();
+    assert_eq!(requests.len(), 1);
+    let CriomeRequest::AuthorizeSignalCall(authorization) = &requests[0] else {
+        panic!("expected AuthorizeSignalCall, got {:?}", requests[0]);
+    };
+    assert_eq!(authorization.contract.payload(), "signal-spirit");
+    assert_eq!(authorization.operation.payload(), "Record");
+    let context = authorization
+        .spirit_context()
+        .expect("Spirit authorization context");
+    assert_eq!(context.operation_name.payload(), "Record");
+    assert_eq!(context.target_key.payload(), "spirit-process-main");
+    assert!(
+        context
+            .raw_payload
+            .payload()
+            .contains("guardian allow sends raw Spirit payload to criome"),
+        "raw payload should preserve the submitted Spirit operation"
+    );
 }
 
 #[cfg(feature = "agent-guardian")]

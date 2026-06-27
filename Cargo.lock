@@ -1196,7 +1196,7 @@ checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 [[package]]
 name = "schema"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#b3d9826a04d09d13007c72dfbb47fff90540d7d4"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#dea9b555d76a37f099db2477ead1c758a7517f37"
 dependencies = [
  "blake3",
  "nota",
@@ -1208,7 +1208,7 @@ dependencies = [
 [[package]]
 name = "schema-cc"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#b3d9826a04d09d13007c72dfbb47fff90540d7d4"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#dea9b555d76a37f099db2477ead1c758a7517f37"
 dependencies = [
  "nota",
  "prettyplease",
@@ -1221,14 +1221,16 @@ dependencies = [
 [[package]]
 name = "schema-rust"
 version = "0.5.3"
-source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#06eec0d13e84184f2d721e53b9619a049023a4a3"
+source = "git+https://github.com/LiGoldragon/schema-rust-next.git?branch=main#abd31f48197c7e4db1da4b04a1c75cafd7276d3a"
 dependencies = [
+ "nota",
  "prettyplease",
  "proc-macro2",
  "quote",
  "schema",
  "syn",
  "thiserror",
+ "triad-runtime",
 ]
 
 [[package]]
@@ -1354,8 +1356,8 @@ dependencies = [
 
 [[package]]
 name = "signal-criome"
-version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=main#182036acc4e763b9ef6c763082f6c277785f86b3"
+version = "0.5.0"
+source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=main#478d6cca0d31b670fc7aabf54994ebffa41527c4"
 dependencies = [
  "blake3",
  "blst",
@@ -1543,7 +1545,7 @@ dependencies = [
 
 [[package]]
 name = "spirit"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "agent",
  "blake3",

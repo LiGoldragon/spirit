@@ -424,6 +424,9 @@ impl Engine {
 
     pub fn set_authorization_mode(&mut self, authorization_mode: signal_spirit::AuthorizationMode) {
         self.authorization_mode = authorization_mode;
+        #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+        self.nexus
+            .set_operation_authorization_mode(authorization_mode);
     }
 
     pub fn authorization_mode(&self) -> signal_spirit::AuthorizationMode {
@@ -555,9 +558,14 @@ impl Engine {
             Some(crate::schema::meta_signal::CriomeGateTarget::Socket(socket_path)) => {
                 self.criome_gate
                     .configure_socket(socket_path.payload().payload().clone());
+                #[cfg(feature = "agent-guardian")]
+                self.nexus
+                    .configure_operation_authorizer(socket_path.payload().payload().clone());
             }
             Some(crate::schema::meta_signal::CriomeGateTarget::Default) | None => {
-                self.criome_gate.clear()
+                self.criome_gate.clear();
+                #[cfg(feature = "agent-guardian")]
+                self.nexus.clear_operation_authorizer();
             }
         }
         MetaOutput::configured(ConfigureReceipt::new(
