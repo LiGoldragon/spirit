@@ -543,10 +543,12 @@ impl Store {
             .map(|stem| stem.to_string_lossy().into_owned())
             .unwrap_or_else(|| String::from("spirit"));
         // The version suffix tracks GUARDIAN_JOURNAL_SCHEMA_VERSION: a
-        // journal-schema change (v4: the sema-engine storage-layout-5 break)
-        // lands a fresh file rather than reading an incompatible layout. The
-        // older file stays on disk untouched, readable by the previous engine.
-        self.path.with_file_name(format!("{stem}.guardian.v4.sema"))
+        // journal-schema change (v5: GuardianRejectionReason gained Matter and
+        // GuardianOperation dropped its removal arms, shifting the rkyv
+        // positional discriminants the journal persists) lands a fresh file
+        // rather than reading an incompatible layout. The older v4 file stays
+        // on disk untouched, orphaned and ignored by this engine.
+        self.path.with_file_name(format!("{stem}.guardian.v5.sema"))
     }
 
     #[cfg(feature = "agent-guardian")]

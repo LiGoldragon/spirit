@@ -198,6 +198,11 @@ name = "guardian_live_scenarios"
 path = "tests/guardian_live_scenarios.rs"
 required-features = ["agent-guardian"]
 
+[[test]]
+name = "guardian_journal_upgrade"
+path = "tests/guardian_journal_upgrade.rs"
+required-features = ["agent-guardian"]
+
 [lints.rust]
 unsafe_code = "forbid"
 unused      = { level = "warn", priority = -1 }
