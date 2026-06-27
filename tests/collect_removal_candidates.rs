@@ -376,8 +376,7 @@ fn wait_for_socket(path: &Path) {
 }
 
 fn record_over_socket(working_socket: &Path, entry: Entry) {
-    let mut transport =
-        SignalTransport::connect(working_socket).expect("connect working socket");
+    let mut transport = SignalTransport::connect(working_socket).expect("connect working socket");
     let (_route, output) = transport
         .exchange(&Input::record(record_request(entry)))
         .expect("exchange record");
