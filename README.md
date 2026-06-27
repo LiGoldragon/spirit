@@ -60,11 +60,13 @@ SPIRIT_SOCKET=/tmp/spirit.sock \
   spirit "(PublicTextSearch [routing protocol])"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Remove (1 ([remove obsolete record] None)))"
-
-SPIRIT_SOCKET=/tmp/spirit.sock \
   spirit Version
 ```
+
+Physical deletion is an owner-only meta operation, not a working verb. The
+owner archives-then-removes matching exact-Zero-certainty records by issuing
+`CollectRemovalCandidates` over the meta socket (the same socket that carries
+`Configure`/`Import`); there is no working hard-delete path.
 
 The CLI accepts NOTA. The daemon socket carries length-prefixed rkyv bytes
 with an 8-byte short header.

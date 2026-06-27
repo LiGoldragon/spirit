@@ -54,8 +54,6 @@ pub use signal_spirit::schema::signal::SupersessionReceipt as SupersessionReceip
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::RetirementReceipt as RetirementReceipt;
 #[rustfmt::skip]
-pub use signal_spirit::schema::signal::RemoveReceipt as RemoveReceipt;
-#[rustfmt::skip]
 pub use signal_spirit::schema::signal::RecordChangeReceipt as RecordChangeReceipt;
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::GuardianRejection as GuardianRejection;
@@ -78,8 +76,6 @@ pub use signal_spirit::schema::signal::IntentSubscription as IntentSubscription;
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::RecordIdentifier as RecordIdentifier;
 #[rustfmt::skip]
-pub use signal_spirit::schema::signal::Removal as Removal;
-#[rustfmt::skip]
 pub use signal_spirit::schema::signal::CertaintyChange as CertaintyChange;
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::ImportanceBump as ImportanceBump;
@@ -89,10 +85,6 @@ pub use signal_spirit::schema::signal::RecordChange as RecordChange;
 pub use signal_spirit::schema::signal::ReferentRegistration as ReferentRegistration;
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::ReferentRegistrationReceipt as ReferentRegistrationReceipt;
-#[rustfmt::skip]
-pub use signal_spirit::schema::signal::RemovalCandidateCollection as RemovalCandidateCollection;
-#[rustfmt::skip]
-pub use signal_spirit::schema::signal::RemovalCandidatesCollection as RemovalCandidatesCollection;
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::ObserverFilter as ObserverFilter;
 #[rustfmt::skip]
@@ -139,7 +131,6 @@ pub enum Action<Reply, Write, Read, Effect, Continuation> {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum CommandSemaWrite {
     Record(Record),
-    Remove(Remove),
     ChangeCertainty(ChangeCertainty),
     BumpImportance(BumpImportance),
     ChangeRecord(ChangeRecord),
@@ -153,14 +144,6 @@ pub enum CommandSemaWrite {
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Record(Entry);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Remove(Removal);
 
 #[rustfmt::skip]
 #[cfg_attr(
@@ -239,12 +222,10 @@ pub enum NexusEffectCommand {
     Supersede(Supersede),
     Retire(Retire),
     ResolveClarification(ResolveClarification),
-    GuardRemove(GuardRemove),
     ChangeRecordWithImpliedReferents(ChangeRecordWithImpliedReferents),
     GuardChangeRecord(GuardChangeRecord),
     GuardReferentRegistration(GuardReferentRegistration),
     OpenIntentSubscription(OpenIntentSubscription),
-    CollectRemovalCandidates(CollectRemovalCandidates),
     OpenObserverTap(OpenObserverTap),
     CloseObserverTap(CloseObserverTap),
 }
@@ -343,14 +324,6 @@ pub struct ResolveClarification(ClarificationResolution);
     derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct GuardRemove(Removal);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ChangeRecordWithImpliedReferents(RecordChange);
 
 #[rustfmt::skip]
@@ -376,14 +349,6 @@ pub struct GuardReferentRegistration(ReferentRegistration);
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct OpenIntentSubscription(Query);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct CollectRemovalCandidates(RemovalCandidateCollection);
 
 #[rustfmt::skip]
 #[cfg_attr(
@@ -420,14 +385,12 @@ pub enum NexusEffectResult {
     Superseded(Superseded),
     Retired(Retired),
     ClarificationResolved(ClarificationResolved),
-    Removed(Removed),
     RecordChanged(RecordChanged),
     GuardianRejected(GuardianRejected),
     ReferentRegistered(ReferentRegistered),
     ReferentGuardianRejected(ReferentGuardianRejected),
     OperationFailed(OperationFailed),
     IntentSubscriptionOpened(IntentSubscriptionOpened),
-    RemovalCandidatesCollected(RemovalCandidatesCollected),
     ObserverTapOpened(ObserverTapOpened),
     ObserverTapClosed(ObserverTapClosed),
 }
@@ -534,14 +497,6 @@ pub struct ClarificationResolved(ClarificationResolutionReceipt);
     derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Removed(RemoveReceipt);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct RecordChanged(RecordChangeReceipt);
 
 #[rustfmt::skip]
@@ -583,14 +538,6 @@ pub struct OperationFailed(ErrorReport);
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct IntentSubscriptionOpened(IntentSubscription);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct RemovalCandidatesCollected(RemovalCandidatesCollection);
 
 #[rustfmt::skip]
 #[cfg_attr(
@@ -718,25 +665,6 @@ impl Record {
 #[rustfmt::skip]
 impl From<Entry> for Record {
     fn from(payload: Entry) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl Remove {
-    pub fn new(payload: Removal) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &Removal {
-        &self.0
-    }
-    pub fn into_payload(self) -> Removal {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<Removal> for Remove {
-    fn from(payload: Removal) -> Self {
         Self::new(payload)
     }
 }
@@ -1027,25 +955,6 @@ impl From<ClarificationResolution> for ResolveClarification {
 }
 
 #[rustfmt::skip]
-impl GuardRemove {
-    pub fn new(payload: Removal) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &Removal {
-        &self.0
-    }
-    pub fn into_payload(self) -> Removal {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<Removal> for GuardRemove {
-    fn from(payload: Removal) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
 impl ChangeRecordWithImpliedReferents {
     pub fn new(payload: RecordChange) -> Self {
         Self(payload)
@@ -1117,25 +1026,6 @@ impl OpenIntentSubscription {
 #[rustfmt::skip]
 impl From<Query> for OpenIntentSubscription {
     fn from(payload: Query) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl CollectRemovalCandidates {
-    pub fn new(payload: RemovalCandidateCollection) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &RemovalCandidateCollection {
-        &self.0
-    }
-    pub fn into_payload(self) -> RemovalCandidateCollection {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<RemovalCandidateCollection> for CollectRemovalCandidates {
-    fn from(payload: RemovalCandidateCollection) -> Self {
         Self::new(payload)
     }
 }
@@ -1407,25 +1297,6 @@ impl From<ClarificationResolutionReceipt> for ClarificationResolved {
 }
 
 #[rustfmt::skip]
-impl Removed {
-    pub fn new(payload: RemoveReceipt) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &RemoveReceipt {
-        &self.0
-    }
-    pub fn into_payload(self) -> RemoveReceipt {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<RemoveReceipt> for Removed {
-    fn from(payload: RemoveReceipt) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
 impl RecordChanged {
     pub fn new(payload: RecordChangeReceipt) -> Self {
         Self(payload)
@@ -1540,25 +1411,6 @@ impl From<IntentSubscription> for IntentSubscriptionOpened {
 }
 
 #[rustfmt::skip]
-impl RemovalCandidatesCollected {
-    pub fn new(payload: RemovalCandidatesCollection) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &RemovalCandidatesCollection {
-        &self.0
-    }
-    pub fn into_payload(self) -> RemovalCandidatesCollection {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<RemovalCandidatesCollection> for RemovalCandidatesCollected {
-    fn from(payload: RemovalCandidatesCollection) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
 impl ObserverTapOpened {
     pub fn new(payload: ObserverSubscription) -> Self {
         Self(payload)
@@ -1600,9 +1452,6 @@ impl From<ObserverRetraction> for ObserverTapClosed {
 impl CommandSemaWrite {
     pub fn record(payload: Entry) -> Self {
         Self::Record(Record::new(payload))
-    }
-    pub fn remove(payload: Removal) -> Self {
-        Self::Remove(Remove::new(payload))
     }
     pub fn change_certainty(payload: CertaintyChange) -> Self {
         Self::ChangeCertainty(ChangeCertainty::new(payload))
@@ -1688,9 +1537,6 @@ impl NexusEffectCommand {
     pub fn resolve_clarification(payload: ClarificationResolution) -> Self {
         Self::ResolveClarification(ResolveClarification::new(payload))
     }
-    pub fn guard_remove(payload: Removal) -> Self {
-        Self::GuardRemove(GuardRemove::new(payload))
-    }
     pub fn change_record_with_implied_referents(payload: RecordChange) -> Self {
         Self::ChangeRecordWithImpliedReferents(
             ChangeRecordWithImpliedReferents::new(payload),
@@ -1704,9 +1550,6 @@ impl NexusEffectCommand {
     }
     pub fn open_intent_subscription(payload: Query) -> Self {
         Self::OpenIntentSubscription(OpenIntentSubscription::new(payload))
-    }
-    pub fn collect_removal_candidates(payload: RemovalCandidateCollection) -> Self {
-        Self::CollectRemovalCandidates(CollectRemovalCandidates::new(payload))
     }
     pub fn open_observer_tap(payload: ObserverFilter) -> Self {
         Self::OpenObserverTap(OpenObserverTap::new(payload))
@@ -1754,9 +1597,6 @@ impl NexusEffectResult {
     pub fn clarification_resolved(payload: ClarificationResolutionReceipt) -> Self {
         Self::ClarificationResolved(ClarificationResolved::new(payload))
     }
-    pub fn removed(payload: RemoveReceipt) -> Self {
-        Self::Removed(Removed::new(payload))
-    }
     pub fn record_changed(payload: RecordChangeReceipt) -> Self {
         Self::RecordChanged(RecordChanged::new(payload))
     }
@@ -1774,9 +1614,6 @@ impl NexusEffectResult {
     }
     pub fn intent_subscription_opened(payload: IntentSubscription) -> Self {
         Self::IntentSubscriptionOpened(IntentSubscriptionOpened::new(payload))
-    }
-    pub fn removal_candidates_collected(payload: RemovalCandidatesCollection) -> Self {
-        Self::RemovalCandidatesCollected(RemovalCandidatesCollected::new(payload))
     }
     pub fn observer_tap_opened(payload: ObserverSubscription) -> Self {
         Self::ObserverTapOpened(ObserverTapOpened::new(payload))
@@ -1839,13 +1676,6 @@ impl Output {
 impl From<Record> for CommandSemaWrite {
     fn from(payload: Record) -> Self {
         Self::Record(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl From<Remove> for CommandSemaWrite {
-    fn from(payload: Remove) -> Self {
-        Self::Remove(payload)
     }
 }
 
@@ -2018,13 +1848,6 @@ impl From<ResolveClarification> for NexusEffectCommand {
 }
 
 #[rustfmt::skip]
-impl From<GuardRemove> for NexusEffectCommand {
-    fn from(payload: GuardRemove) -> Self {
-        Self::GuardRemove(payload)
-    }
-}
-
-#[rustfmt::skip]
 impl From<ChangeRecordWithImpliedReferents> for NexusEffectCommand {
     fn from(payload: ChangeRecordWithImpliedReferents) -> Self {
         Self::ChangeRecordWithImpliedReferents(payload)
@@ -2049,13 +1872,6 @@ impl From<GuardReferentRegistration> for NexusEffectCommand {
 impl From<OpenIntentSubscription> for NexusEffectCommand {
     fn from(payload: OpenIntentSubscription) -> Self {
         Self::OpenIntentSubscription(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl From<CollectRemovalCandidates> for NexusEffectCommand {
-    fn from(payload: CollectRemovalCandidates) -> Self {
-        Self::CollectRemovalCandidates(payload)
     }
 }
 
@@ -2158,13 +1974,6 @@ impl From<ClarificationResolved> for NexusEffectResult {
 }
 
 #[rustfmt::skip]
-impl From<Removed> for NexusEffectResult {
-    fn from(payload: Removed) -> Self {
-        Self::Removed(payload)
-    }
-}
-
-#[rustfmt::skip]
 impl From<RecordChanged> for NexusEffectResult {
     fn from(payload: RecordChanged) -> Self {
         Self::RecordChanged(payload)
@@ -2203,13 +2012,6 @@ impl From<OperationFailed> for NexusEffectResult {
 impl From<IntentSubscriptionOpened> for NexusEffectResult {
     fn from(payload: IntentSubscriptionOpened) -> Self {
         Self::IntentSubscriptionOpened(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl From<RemovalCandidatesCollected> for NexusEffectResult {
-    fn from(payload: RemovalCandidatesCollected) -> Self {
-        Self::RemovalCandidatesCollected(payload)
     }
 }
 

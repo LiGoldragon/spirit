@@ -458,13 +458,6 @@ fn record_nota(domains: &str, kind: &str, description: &str) -> String {
     )
 }
 
-fn remove_nota(identifier: &RecordIdentifier) -> String {
-    format!(
-        "(Remove ({} ([([remove record] None)] [remove record])))",
-        record_identifier_argument(identifier)
-    )
-}
-
 fn resolve_clarification_nota(
     clarification_identifier: RecordIdentifier,
     target_identifier: RecordIdentifier,
@@ -481,12 +474,6 @@ fn resolve_clarification_nota(
         justification: test_justification("a clarification means edit the target, not add more"),
     })
     .to_nota()
-}
-
-fn collect_removal_candidates_nota(query: &str) -> String {
-    format!(
-        "(CollectRemovalCandidates ({query} ([([collect removal candidates] None)] [collect removal candidates])))"
-    )
 }
 
 fn assert_short_record_identifier(identifier: &RecordIdentifier) {
@@ -648,10 +635,9 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
             "schema creates the interface",
         ),
     );
-    let record_identifier = match recorded {
+    match recorded {
         Output::RecordAccepted(receipt) => {
             assert_short_record_identifier(receipt.payload());
-            receipt.payload().clone()
         }
         other => panic!("expected RecordAccepted, got {other:?}"),
     };
@@ -665,21 +651,6 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
     assert!(
         matches!(observed, Output::RecordsStashed(_)),
         "the daemon stashes and returns the observed records, got {observed:?}"
-    );
-
-    let removed = run_cli(&socket_path, &remove_nota(&record_identifier));
-    assert!(
-        matches!(removed, Output::RecordRemoved(_)),
-        "the daemon removes the recorded entry, got {removed:?}"
-    );
-
-    let missing_after_remove = run_cli(
-        &socket_path,
-        "(Observe ((Full [(Information Documentation)]) Any Any Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))",
-    );
-    assert!(
-        matches!(missing_after_remove, Output::Error(_)),
-        "the removed entry is no longer observable, got {missing_after_remove:?}"
     );
 
     let rejected = run_cli(
@@ -1081,58 +1052,6 @@ fn cli_and_daemon_change_certainty_without_changing_record_identifier() {
             assert_eq!(record.entry.certainty, Magnitude::Zero);
         }
         other => panic!("expected changed record lookup, got {other:?}"),
-    }
-}
-
-#[test]
-fn cli_collect_removal_candidates_accepts_direct_query_shorthand() {
-    let temp = TempDir::new().expect("tempdir");
-    let socket_path = temp.path().join("collect-direct.sock");
-    let database_path = temp.path().join("collect-direct.sema");
-
-    let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
-
-    let accepted = run_cli(
-        &socket_path,
-        &record_nota(
-            "[(Information Documentation)]",
-            "Correction",
-            "direct collection target",
-        ),
-    );
-    let record_identifier = match accepted {
-        Output::RecordAccepted(receipt) => receipt.payload().clone(),
-        other => panic!("expected RecordAccepted before collection, got {other:?}"),
-    };
-
-    let changed = run_cli(
-        &socket_path,
-        &format!(
-            "(ChangeCertainty ({} Zero))",
-            record_identifier_argument(&record_identifier)
-        ),
-    );
-    assert!(
-        matches!(changed, Output::CertaintyChanged(_)),
-        "record becomes an exact-zero collection candidate, got {changed:?}"
-    );
-
-    let collected = run_cli(
-        &socket_path,
-        &collect_removal_candidates_nota(
-            "((Full [(Information Documentation)]) Any Any Any (Some Correction) (Exact Zero) (ExactCertainty Zero) Any)",
-        ),
-    );
-    match collected {
-        Output::RemovalCandidatesCollected(report) => {
-            let collection = report.payload();
-            assert_eq!(collection.removal_archive_records.payload().len(), 1);
-            assert_eq!(
-                collection.removed_identifiers.payload()[0].payload(),
-                &record_identifier
-            );
-        }
-        other => panic!("expected direct collection shorthand to collect record, got {other:?}"),
     }
 }
 

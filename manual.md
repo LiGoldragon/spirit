@@ -216,11 +216,12 @@ intent, the right move is an edit, not a second record that future readers must
 reconcile with the first. Clarify edits one record's description while keeping
 its identity. Supersede atomically retires one or more old records and installs
 their replacements, checked as a whole by the guardian. Retire deactivates a
-record without a replacement. Change rewrites a record's entry. Remove deletes
-it entirely, used after review when nothing should remain. Because conflicting
-psyche declarations are remanded as maintenance edits (section 4), the active
-store is kept coherent around current direction rather than layered with
-contradictions.
+record without a replacement. Change rewrites a record's entry. Physical
+deletion is not a working verb: the owner archives-then-removes matching records
+through the meta `CollectRemovalCandidates` operation, used after review when
+nothing should remain in the live log. Because conflicting psyche declarations
+are remanded as maintenance edits (section 4), the active store is kept coherent
+around current direction rather than layered with contradictions.
 
 **Maintenance through a Spirit subagent.** Intent-led orchestration and
 grilling leads periodically dispatch a dedicated Spirit-maintenance subagent to

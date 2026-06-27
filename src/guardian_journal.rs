@@ -13,8 +13,8 @@ use crate::{
         signal::{
             Clarification, ClarificationResolution, DatabaseMarker, Entry, Explanation,
             GuardianRejectionReason, Proposal, RecordChange, RecordRequest, RecordSet,
-            ReferentGuardianRejectionReason, ReferentRegistration, RegisteredReferents, Removal,
-            RemovalCandidateCollection, Retirement, Supersession,
+            ReferentGuardianRejectionReason, ReferentRegistration, RegisteredReferents, Retirement,
+            Supersession,
         },
     },
     store::StoreError,
@@ -40,9 +40,7 @@ pub(crate) enum GuardianOperation {
     ResolveClarification(ClarificationResolution),
     Supersede(Supersession),
     Retire(Retirement),
-    Remove(Removal),
     ChangeRecord(RecordChange),
-    CollectRemovalCandidates(RemovalCandidateCollection),
 }
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -97,16 +95,8 @@ impl GuardianOperation {
         Self::Retire(retirement)
     }
 
-    pub(crate) fn remove(removal: Removal) -> Self {
-        Self::Remove(removal)
-    }
-
     pub(crate) fn change_record(change: RecordChange) -> Self {
         Self::ChangeRecord(change)
-    }
-
-    pub(crate) fn collect_removal_candidates(collection: RemovalCandidateCollection) -> Self {
-        Self::CollectRemovalCandidates(collection)
     }
 
     /// Whether the operation's justification carries no verbatim testimony at
@@ -121,9 +111,7 @@ impl GuardianOperation {
             Self::ResolveClarification(resolution) => &resolution.justification,
             Self::Supersede(supersession) => &supersession.justification,
             Self::Retire(retirement) => &retirement.justification,
-            Self::Remove(removal) => &removal.justification,
             Self::ChangeRecord(change) => &change.justification,
-            Self::CollectRemovalCandidates(collection) => &collection.justification,
         };
         justification.testimony.payload().is_empty()
     }
@@ -134,11 +122,7 @@ impl GuardianOperation {
             Self::Propose(proposal) => vec![&proposal.entry],
             Self::Supersede(supersession) => supersession.replacements.payload().iter().collect(),
             Self::ChangeRecord(change) => vec![&change.entry],
-            Self::Clarify(_)
-            | Self::ResolveClarification(_)
-            | Self::Retire(_)
-            | Self::Remove(_)
-            | Self::CollectRemovalCandidates(_) => Vec::new(),
+            Self::Clarify(_) | Self::ResolveClarification(_) | Self::Retire(_) => Vec::new(),
         }
     }
 
@@ -150,9 +134,7 @@ impl GuardianOperation {
             Self::ResolveClarification(_) => "ResolveClarification",
             Self::Supersede(_) => "Supersede",
             Self::Retire(_) => "Retire",
-            Self::Remove(_) => "Remove",
             Self::ChangeRecord(_) => "ChangeRecord",
-            Self::CollectRemovalCandidates(_) => "CollectRemovalCandidates",
         }
     }
 
@@ -181,11 +163,7 @@ impl GuardianOperation {
             }
             Self::Supersede(supersession) => Input::supersede(supersession.clone()),
             Self::Retire(retirement) => Input::retire(retirement.clone()),
-            Self::Remove(removal) => Input::remove(removal.clone()),
             Self::ChangeRecord(change) => Input::change_record(change.clone()),
-            Self::CollectRemovalCandidates(collection) => {
-                Input::collect_removal_candidates(collection.clone())
-            }
         }
     }
 }

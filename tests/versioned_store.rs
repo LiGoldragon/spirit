@@ -19,7 +19,7 @@ use spirit::{
         },
         signal::{
             Certainty, CertaintyChange, Description, Domain, Domains, Entry, Importance, Kind,
-            Magnitude, Privacy, Referent, ReferentRegistration, Referents, Removal,
+            Magnitude, Privacy, Referent, ReferentRegistration, Referents, Retirement,
         },
     },
 };
@@ -246,7 +246,7 @@ fn versioned_log_witnesses_mutation_payloads() {
 #[test]
 fn versioned_log_witnesses_retraction_tombstones() {
     let fixture = Fixture::new();
-    let mut store = Store::open(fixture.database_path("retracted")).expect("open store");
+    let store = Store::open(fixture.database_path("retracted")).expect("open store");
 
     let kept = store
         .record_entry(entry("kept neighbor", Vec::new()))
@@ -255,22 +255,18 @@ fn versioned_log_witnesses_retraction_tombstones() {
         .record_entry(entry("removal target", Vec::new()))
         .expect("record removal target");
 
-    let removal = SemaEngine::apply(
-        &mut store,
-        sema_write(
-            SemaWriteInput::remove(Removal {
-                record_identifier: removed.record_identifier.clone(),
-                justification: justification("witness removal"),
-            }),
-            1,
-        ),
-    );
-    match removal.root() {
-        SemaWriteOutput::Removed(receipt) => {
-            assert_eq!(receipt.payload().payload(), &removed.record_identifier);
-        }
-        other => panic!("expected Removed receipt, got {other:?}"),
-    }
+    // Retire is now the surviving retraction path (the hard-delete SEMA `Remove`
+    // write was removed; physical deletion is the owner-only meta
+    // `CollectRemovalCandidates` op). Retire archives then retracts through the
+    // same low-level keyed tombstone, so the versioned-log witness still holds.
+    let receipt = store
+        .retire(Retirement {
+            record_identifier: removed.record_identifier.clone(),
+            justification: justification("witness removal"),
+        })
+        .expect("retire removal target")
+        .expect("removal target was present");
+    assert_eq!(receipt.payload(), &removed.record_identifier);
 
     let log = store.versioned_log().expect("read versioned log");
     let retractions: Vec<_> = log

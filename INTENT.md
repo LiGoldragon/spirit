@@ -110,7 +110,13 @@ what the component does, what spelling/name/contract is canonical, or what
 boundary holds. When a proposed record's operative guidance is framed primarily
 as an exclusion, prohibition, forbidden wording list, or definition by negation,
 the guardian rejects it with `NegativeGuideline` so the submitting agent can
-re-plead the affirmative rule.
+re-plead the affirmative rule. A record captures what the psyche wants, not
+concrete matter: when a proposed record's substance describes what Spirit, the
+guardian, the system, or a process IS, or how to use or interpret it — code, an
+architecture, a manual entry, a specification, a mechanism, or a bead — the
+guardian rejects it with `Matter` and names the proper repository home, since
+that material belongs written in the repository rather than captured in the
+intent log.
 
 *Guardian approval is a high bar across the whole operation.* Per Spirit record
 `7xnx`, the guardian is a strict admission-control gate for every working-signal
@@ -119,8 +125,8 @@ domain, privacy, collision with active intent, affirmative framing, and
 operation fit as one case. A fresh `Record` is admitted only when it is genuinely
 new; if the psyche statement refines, narrows, corrects, or explains an
 identifiable existing record, the guardian rejects the fresh record and remands
-the agent to `Clarify`, `Supersede`, `ChangeRecord`, `ResolveClarification`,
-`Retire`, or `Remove` as appropriate.
+the agent to `Clarify`, `Supersede`, `ChangeRecord`, `ResolveClarification`, or
+`Retire` as appropriate.
 
 *Guardian testimony and advocacy are distinct.* Per Spirit records `mrsy`,
 `dfii`, and `vjye`, explicit psyche declarations are primary evidence for the
@@ -132,7 +138,7 @@ an elevated rung when the evidence genuinely warrants it. If a psyche declaratio
 conflicts with active records, the guardian does not admit a standalone sibling
 record that leaves the conflict live; it rejects and names the coherent repair
 shape, such as `Clarify`, `ChangeRecord`, `Supersede`, `ResolveClarification`,
-`Retire`, or `Remove`.
+or `Retire`.
 
 *Settled referent registrations do not need guardian judgment.* Per Spirit
 record `bwxn`, when a referent registration request names a referent and aliases
@@ -188,7 +194,7 @@ subscription registry / retained writer plumbing. Spirit owns only binary
 configuration decoding, engine construction, one working-input hook, the
 owner-only meta request hook, and stream filter/event policy.
 
-*SEMA is durable.* `Store` maps generated SEMA roots onto `sema-engine` keyed-record operations over a `.sema` file. Record identifiers are production-compatible short/base36 string keys, not sequential numeric counters; migration imports production identifiers unchanged, and fresh records mint unused short keys. Each `Record` asserts a keyed `StoredRecord`, each `ChangeCertainty` and `ChangeRecord` mutates the same key, each `Remove` retracts that key, and `Observe`/`Count` read through sema-engine query plans while `Lookup` bypasses filters by exact key. SEMA keeps `DatabaseMarker` as internal/database introspection; the public Signal surface exposes it only through `Marker`.
+*SEMA is durable.* `Store` maps generated SEMA roots onto `sema-engine` keyed-record operations over a `.sema` file. Record identifiers are production-compatible short/base36 string keys, not sequential numeric counters; migration imports production identifiers unchanged, and fresh records mint unused short keys. Each `Record` asserts a keyed `StoredRecord`, each `ChangeCertainty` and `ChangeRecord` mutates the same key, and `Observe`/`Count` read through sema-engine query plans while `Lookup` bypasses filters by exact key. The SEMA `WriteInput` carries no delete variant; keyed retraction comes from `Retire` and the owner-only meta `CollectRemovalCandidates`, both through the low-level `Store::remove` retract. SEMA keeps `DatabaseMarker` as internal/database introspection; the public Signal surface exposes it only through `Marker`.
 
 *The store is a fold of its versioned log.* Per Spirit record `iir4` (Decision,
 High certainty): [The versioned operation log is the authoritative source of

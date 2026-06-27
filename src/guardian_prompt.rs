@@ -59,7 +59,7 @@ struct GuardianOperationPrompt<'operation> {
 /// excluded because the model never emits them — they are set on transport
 /// failure. `GuardianRejectionReason::admission_gloss` is exhaustive, so adding
 /// a variant to the enum forces a decision here.
-const MODEL_REASONS: [GuardianRejectionReason; 16] = [
+const MODEL_REASONS: [GuardianRejectionReason; 17] = [
     GuardianRejectionReason::MissingTestimony,
     GuardianRejectionReason::TestimonyFabricated,
     GuardianRejectionReason::InsufficientWarrant,
@@ -67,6 +67,7 @@ const MODEL_REASONS: [GuardianRejectionReason; 16] = [
     GuardianRejectionReason::ImportanceUnsupported,
     GuardianRejectionReason::NonIntent,
     GuardianRejectionReason::NegativeGuideline,
+    GuardianRejectionReason::Matter,
     GuardianRejectionReason::Compound,
     GuardianRejectionReason::UnclearDomain,
     GuardianRejectionReason::UnclearPrivacy,
@@ -122,6 +123,16 @@ impl GuardianRejectionReasonPromptExt for GuardianRejectionReason {
                 "the candidate's operative guidance is framed primarily as an exclusion, \
                  prohibition, forbidden wording, or definition-by-negation. Remand: state the \
                  affirmative shape to follow.",
+            ),
+            Self::Matter => Some(
+                "durable, but not the psyche's intent — it is concrete matter (code, an \
+                 architecture, a manual entry, a specification, a mechanism, or a bead) that \
+                 describes what Spirit / the guardian / the system / a process IS, or how to use \
+                 or interpret it, rather than recording what the psyche wants. Such matter belongs \
+                 written in the repository, not captured in the intent database. Remand: name its \
+                 proper home (the repo file, ARCHITECTURE doc, skill, or bead) and record it \
+                 there. When a record mixes a thin directive with such matter, treat the whole \
+                 thing as Matter — the directive can be re-captured cleanly on its own later.",
             ),
             Self::Compound => {
                 Some("the Entry bundles several separable arrows that belong in distinct records.")
@@ -368,20 +379,10 @@ impl<'operation> GuardianOperationPrompt<'operation> {
                  psyche authorization):\n{}",
                 retirement.to_nota()
             ),
-            GuardianOperation::Remove(removal) => {
-                format!(
-                    "Remove request (hard removal of a record):\n{}",
-                    removal.to_nota()
-                )
-            }
             GuardianOperation::ChangeRecord(change) => format!(
                 "ChangeRecord request (edit a record in place under the same identifier; a \
                  correction, not a redirect):\n{}",
                 change.to_nota()
-            ),
-            GuardianOperation::CollectRemovalCandidates(collection) => format!(
-                "CollectRemovalCandidates request (archive and remove the matching records):\n{}",
-                collection.to_nota()
             ),
         }
     }
@@ -448,7 +449,7 @@ mod tests {
                 "model reason {reason:?} must carry a gloss"
             );
         }
-        assert_eq!(MODEL_REASONS.len(), 16);
+        assert_eq!(MODEL_REASONS.len(), 17);
         assert!(
             GuardianRejectionReason::HarnessMalformed
                 .admission_gloss()
@@ -486,7 +487,7 @@ mod tests {
             "recurrence, architectural centrality, blast radius, keeps-coming-up, or blocks-other-work",
             "direct psyche declaration naming a Privacy rung supports that declared privacy level",
             "do not admit a sibling fresh Record",
-            "remand for Supersede, ChangeRecord, Clarify, Retire, Remove, or ResolveClarification",
+            "remand for Supersede, ChangeRecord, Clarify, Retire, or ResolveClarification",
             "metadata rungs",
         ] {
             assert!(

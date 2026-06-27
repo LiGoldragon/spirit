@@ -1,15 +1,19 @@
-//! Peer-callable `CollectRemovalCandidates` working operation, library level.
+//! Owner-only meta `CollectRemovalCandidates` operation, library level.
 //!
-//! Proves the locked design's authority split: the OWNER configures WHERE the
-//! SEPARATE archive database lives (meta `Configure`), and a PEER does the
-//! archiving (working `CollectRemovalCandidates`). The operation archives the
-//! matching records into the separate archive database at the configured
-//! target, removes them from the live log, and replies
-//! `RemovalCandidatesCollected { removal_archive_records, removed_identifiers,
-//! skipped_candidates }`. Non-matching records are left in the live log; the
-//! archive database is a distinct `*.sema` file from the live intent log.
+//! Proves the locked design: physical deletion is an OWNER-ONLY meta-plane op
+//! with NO guardian, mirroring `Import`/`Configure`. The owner configures WHERE
+//! the SEPARATE archive database lives (meta `Configure`), then the owner issues
+//! the meta `CollectRemovalCandidates`. The operation archives the matching
+//! records into the separate archive database at the configured target, removes
+//! them from the live log, and replies meta
+//! `RemovalCandidatesCollected { removal_candidates_collection { removal_archive_records,
+//! removed_identifiers, skipped_candidates } }`. Non-matching records are left in
+//! the live log; the archive database is a distinct `*.sema` file from the live
+//! intent log. There is no working-socket physical-deletion path.
 
-use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest};
+use spirit::schema::meta_signal::{
+    ArchiveDatabaseTarget, CollectRemovalCandidatesRequest, ConfigureRequest, Output as MetaOutput,
+};
 use spirit::schema::signal::{
     CertaintySelection, Description, DomainMatch, DomainScopes, Domains, Entry,
     ImportanceSelection, Input, Justification, Kind, Magnitude, Output, Privacy, PrivacySelection,
@@ -145,15 +149,14 @@ fn collect_removal_candidates_archives_to_separate_db_and_removes_from_live() {
         entry("meaning", "intent that must remain live"),
     );
 
-    // PEER collects the removal candidates matching the `Governing` query.
+    // OWNER collects the removal candidates matching the `Governing` query via
+    // the owner-only meta plane — there is no working-socket deletion path.
     let collection = removal_candidate_collection("governing");
-    let reply = engine
-        .handle(Input::collect_removal_candidates(collection))
-        .into_root();
-    let Output::RemovalCandidatesCollected(collected) = reply else {
+    let reply = engine.collect_removal_candidates(CollectRemovalCandidatesRequest::new(collection));
+    let MetaOutput::RemovalCandidatesCollected(collected) = reply else {
         panic!("expected RemovalCandidatesCollected, got {reply:?}")
     };
-    let collected = collected.payload();
+    let collected = &collected.payload().removal_candidates_collection;
 
     // CORRECT REPLY: one archived record, one removed identifier, no skips.
     assert_eq!(
@@ -242,13 +245,11 @@ fn collect_removal_candidates_with_no_matches_archives_nothing() {
     );
 
     let collection = removal_candidate_collection("governing");
-    let reply = engine
-        .handle(Input::collect_removal_candidates(collection))
-        .into_root();
-    let Output::RemovalCandidatesCollected(collected) = reply else {
+    let reply = engine.collect_removal_candidates(CollectRemovalCandidatesRequest::new(collection));
+    let MetaOutput::RemovalCandidatesCollected(collected) = reply else {
         panic!("expected RemovalCandidatesCollected, got {reply:?}")
     };
-    let collected = collected.payload();
+    let collected = &collected.payload().removal_candidates_collection;
     assert!(
         collected.removal_archive_records.payload().is_empty(),
         "nothing matched, so nothing was archived"
@@ -292,13 +293,11 @@ fn collect_removal_candidates_requires_zero_certainty() {
     );
 
     let collection = removal_candidate_collection("governing");
-    let reply = engine
-        .handle(Input::collect_removal_candidates(collection))
-        .into_root();
-    let Output::RemovalCandidatesCollected(collected) = reply else {
+    let reply = engine.collect_removal_candidates(CollectRemovalCandidatesRequest::new(collection));
+    let MetaOutput::RemovalCandidatesCollected(collected) = reply else {
         panic!("expected RemovalCandidatesCollected, got {reply:?}")
     };
-    let collected = collected.payload();
+    let collected = &collected.payload().removal_candidates_collection;
     assert!(
         collected.removal_archive_records.payload().is_empty(),
         "nonzero certainty is not a removal candidate"
