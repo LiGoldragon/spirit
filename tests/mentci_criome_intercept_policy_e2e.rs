@@ -31,9 +31,10 @@ use signal_agent::{
     TokenUsage,
 };
 use signal_criome::{
-    AuthorizationMode, CriomeReply, ExpiryAction, InterceptPolicyProposal, InterceptTargetSelector,
-    MentciSessionSlot, ParkedRequestOutcome, ParkedRequestQuery, PolicyDurationNanos,
-    PolicyOverlapMode, PolicyPriority, SpiritOperationName, SpiritOperationNames, SpiritProcessKey,
+    AuthorizationMode, AuthorizationStatus, CriomeReply, ExpiryAction, InterceptPolicyProposal,
+    InterceptTargetSelector, MentciSessionSlot, ParkedRequestOutcome, ParkedRequestQuery,
+    PolicyDurationNanos, PolicyOverlapMode, PolicyPriority, SpiritOperationName,
+    SpiritOperationNames, SpiritProcessKey,
 };
 use signal_frame::{
     ExchangeIdentifier, ExchangeLane, LaneSequence, Reply, RequestPayload, SessionEpoch, SubReply,
@@ -318,12 +319,40 @@ fn guardian_allowed_spirit_operation_parks_in_criome_and_is_approved_through_men
     };
     assert!(snapshot.requests().is_empty());
 
-    if let Some(spirit_output) = spirit_cli.finish(Duration::from_secs(1)) {
-        assert!(
-            matches!(spirit_output, Output::Error(_)),
-            "gating Spirit operation should block on the parked criome request, got {spirit_output:?}"
-        );
-    }
+    let mut spirit_cli = spirit_cli;
+    let early_spirit_output = spirit_cli.try_finish(Duration::from_secs(1));
+    assert!(
+        early_spirit_output.is_none(),
+        "gating Spirit operation should still be waiting for criome observation after approval, got {early_spirit_output:?}"
+    );
+
+    let observed_after_approval = criome
+        .serve_next()
+        .expect("serve Spirit authorization observation after approval");
+    let CriomeReply::AuthorizationObservationSnapshot(observed_after_approval) =
+        observed_after_approval
+    else {
+        panic!("expected AuthorizationObservationSnapshot, got {observed_after_approval:?}");
+    };
+    let authorization_states = observed_after_approval.into_states();
+    assert_eq!(authorization_states.len(), 1);
+    assert_eq!(authorization_states[0].status, AuthorizationStatus::Granted);
+
+    let implied_referent_authorization = criome
+        .serve_next()
+        .expect("serve implied referent authorization after approved record");
+    assert!(
+        matches!(
+            implied_referent_authorization,
+            CriomeReply::AuthorizationGranted(_)
+        ),
+        "expected implied referent authorization grant, got {implied_referent_authorization:?}"
+    );
+    let spirit_output = spirit_cli.finish(Duration::from_secs(5));
+    assert!(
+        matches!(spirit_output, Output::RecordAccepted(_)),
+        "gating Spirit operation should resume after parked approval, got {spirit_output:?}"
+    );
 
     mentci.shutdown().expect("shutdown mentci");
     criome.shutdown().expect("shutdown criome");
@@ -458,22 +487,29 @@ fn spawn_spirit_cli(socket_path: &Path, nota_argument: &str) -> SpiritCliProcess
 }
 
 impl SpiritCliProcess {
-    fn finish(mut self, timeout: Duration) -> Option<Output> {
-        let mut child = self.child.take().expect("Spirit CLI child already waited");
+    fn try_finish(&mut self, timeout: Duration) -> Option<Output> {
         let deadline = Instant::now() + timeout;
         while Instant::now() < deadline {
+            let child = self
+                .child
+                .as_mut()
+                .expect("Spirit CLI child already waited");
             if child.try_wait().expect("poll Spirit CLI").is_some() {
+                let child = self.child.take().expect("Spirit CLI child already waited");
                 return Some(parse_spirit_cli_output(
                     child.wait_with_output().expect("collect Spirit CLI output"),
                 ));
             }
             thread::sleep(Duration::from_millis(10));
         }
-        let _ = child.kill();
-        let _output = child
-            .wait_with_output()
-            .expect("collect stopped Spirit CLI output");
         None
+    }
+
+    fn finish(mut self, timeout: Duration) -> Output {
+        if let Some(output) = self.try_finish(timeout) {
+            return output;
+        }
+        panic!("Spirit CLI did not finish within {timeout:?}");
     }
 }
 

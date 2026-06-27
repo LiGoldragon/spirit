@@ -151,8 +151,8 @@ dependencies = [
 
 [[package]]
 name = "criome"
-version = "0.4.0"
-source = "git+https://github.com/LiGoldragon/criome.git?branch=main#c405e579b9281599f24ba7a6f4529b7d7aef7ff8"
+version = "0.4.2"
+source = "git+https://github.com/LiGoldragon/criome.git?branch=main#6b6683da14600441338c2b1db206facf6f5d97d8"
 dependencies = [
  "blake3",
  "blst",
@@ -1608,7 +1608,7 @@ dependencies = [
 
 [[package]]
 name = "spirit"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "agent",
  "blake3",

@@ -24,7 +24,9 @@
 use criome::transport::CriomeClient;
 use sema_engine::EntryDigest;
 use signal_criome::{
-    AttestedMoment, AttestedMomentProposition, AuthorizationEvaluation, AuthorizationScope,
+    AttestedMoment, AttestedMomentProposition, AuthorizationEvaluation,
+    AuthorizationObservation as SignalAuthorizationObservation, AuthorizationPending,
+    AuthorizationRequestSlot, AuthorizationScope, AuthorizationStateRecord, AuthorizationStatus,
     AuthorizedObjectKind, AuthorizedObjectReference, ComponentKind, ContractDigest, ContractName,
     ContractOperationHead, CriomeReply, CriomeRequest, EvaluationDecision, Evidence, Identity,
     ObjectDigest, OperationDigest, ReplayNonce, RequiredSignatureThreshold,
@@ -33,6 +35,13 @@ use signal_criome::{
 #[cfg(feature = "agent-guardian")]
 use signal_criome::{SpiritAuthorizationContext, SpiritProcessKey};
 use thiserror::Error;
+
+#[cfg(feature = "agent-guardian")]
+const PARKED_AUTHORIZATION_OBSERVATION_INTERVAL: std::time::Duration =
+    std::time::Duration::from_millis(100);
+#[cfg(feature = "agent-guardian")]
+const PARKED_AUTHORIZATION_OBSERVATION_TIMEOUT: std::time::Duration =
+    std::time::Duration::from_secs(300);
 
 /// The post-commit local head the gate authorizes BEFORE fan-out — the
 /// content-addressed identity `D` of the latest versioned-log entry, captured
@@ -469,8 +478,9 @@ impl SpiritOperationAuthorizer {
         };
         let request_digest = ObjectDigest::from_bytes(context.raw_payload.payload().as_bytes());
         let authorization = self.signal_call_authorization(context, request_digest.clone());
+        let client_socket = socket.clone();
         let send_result = tokio::task::spawn_blocking(move || {
-            CriomeClient::new(socket).send(CriomeRequest::AuthorizeSignalCall(authorization))
+            CriomeClient::new(client_socket).send(CriomeRequest::AuthorizeSignalCall(authorization))
         })
         .await
         .map_err(|source| CriomeGateError::AuthorizationTask {
@@ -484,6 +494,13 @@ impl SpiritOperationAuthorizer {
                 ));
             }
         };
+        if mode == signal_spirit::AuthorizationMode::Gating
+            && let CriomeReply::AuthorizationPending(pending) = reply
+        {
+            return self
+                .wait_for_pending_authorization(socket, pending, request_digest)
+                .await;
+        }
         self.authorization_from_reply(reply, request_digest, mode)
     }
 
@@ -546,6 +563,109 @@ impl SpiritOperationAuthorizer {
         }
     }
 
+    async fn wait_for_pending_authorization(
+        &self,
+        socket: std::path::PathBuf,
+        pending: AuthorizationPending,
+        request_digest: ObjectDigest,
+    ) -> Result<SpiritOperationAuthorization, CriomeGateError> {
+        let deadline = std::time::Instant::now() + PARKED_AUTHORIZATION_OBSERVATION_TIMEOUT;
+        loop {
+            if std::time::Instant::now() >= deadline {
+                return Ok(SpiritOperationAuthorization::Blocked(format!(
+                    "criome operation authorization timed out waiting for parked request {}",
+                    pending.request_slot.payload()
+                )));
+            }
+            match self
+                .observe_pending_authorization(
+                    socket.clone(),
+                    pending.request_slot.clone(),
+                    request_digest.clone(),
+                )
+                .await?
+            {
+                PendingAuthorizationObservation::Waiting => {}
+                PendingAuthorizationObservation::Allowed => {
+                    return Ok(SpiritOperationAuthorization::Allowed);
+                }
+                PendingAuthorizationObservation::Blocked(reason) => {
+                    return Ok(SpiritOperationAuthorization::Blocked(reason));
+                }
+            }
+        }
+    }
+
+    async fn observe_pending_authorization(
+        &self,
+        socket: std::path::PathBuf,
+        request_slot: AuthorizationRequestSlot,
+        request_digest: ObjectDigest,
+    ) -> Result<PendingAuthorizationObservation, CriomeGateError> {
+        let send_result = tokio::task::spawn_blocking(move || {
+            std::thread::sleep(PARKED_AUTHORIZATION_OBSERVATION_INTERVAL);
+            CriomeClient::new(socket).send(CriomeRequest::ObserveAuthorization(
+                SignalAuthorizationObservation::new(request_slot),
+            ))
+        })
+        .await
+        .map_err(|source| CriomeGateError::AuthorizationTask {
+            message: source.to_string(),
+        })?;
+        let reply = match send_result {
+            Ok(reply) => reply,
+            Err(_) => {
+                return Ok(PendingAuthorizationObservation::Blocked(
+                    "criome operation authorization unreachable while waiting".to_owned(),
+                ));
+            }
+        };
+        let CriomeReply::AuthorizationObservationSnapshot(snapshot) = reply else {
+            return Err(CriomeGateError::UnexpectedReply {
+                reply: format!("{reply:?}"),
+            });
+        };
+        let Some(state) = snapshot.states().first() else {
+            return Ok(PendingAuthorizationObservation::Waiting);
+        };
+        self.pending_authorization_from_state(state, request_digest)
+    }
+
+    fn pending_authorization_from_state(
+        &self,
+        state: &AuthorizationStateRecord,
+        request_digest: ObjectDigest,
+    ) -> Result<PendingAuthorizationObservation, CriomeGateError> {
+        if state.request_digest != request_digest {
+            return Err(CriomeGateError::UnexpectedReply {
+                reply: format!("{state:?}"),
+            });
+        }
+        match state.status {
+            AuthorizationStatus::Granted => match state.grant() {
+                Some(grant) if grant.authorized_object_digest == request_digest => {
+                    Ok(PendingAuthorizationObservation::Allowed)
+                }
+                _ => Err(CriomeGateError::UnexpectedReply {
+                    reply: format!("{state:?}"),
+                }),
+            },
+            AuthorizationStatus::Denied => Ok(PendingAuthorizationObservation::Blocked(format!(
+                "criome operation authorization denied: {:?}",
+                state.denial()
+            ))),
+            AuthorizationStatus::Expired => Ok(PendingAuthorizationObservation::Blocked(
+                "criome operation authorization expired".to_owned(),
+            )),
+            AuthorizationStatus::Unavailable => Ok(PendingAuthorizationObservation::Blocked(
+                "criome operation authorization unavailable".to_owned(),
+            )),
+            AuthorizationStatus::Pending
+            | AuthorizationStatus::Signing
+            | AuthorizationStatus::Parked => Ok(PendingAuthorizationObservation::Waiting),
+        }
+    }
+
     fn validate_observed_reply(
         &self,
         reply: CriomeReply,
@@ -570,6 +690,13 @@ impl SpiritOperationAuthorizer {
             }),
         }
     }
+}
+
+#[cfg(feature = "agent-guardian")]
+enum PendingAuthorizationObservation {
+    Waiting,
+    Allowed,
+    Blocked(String),
 }
 
 #[cfg(feature = "agent-guardian")]
