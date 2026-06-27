@@ -231,7 +231,7 @@ impl<'configuration> GuardianPromptBuilder<'configuration> {
     }
 
     /// The full intent-guardian system prompt: role, the record and justification
-    /// shapes, the burden-of-proof ladder, the directed 9-gate checklist, the
+    /// shapes, the burden-of-proof ladder, the directed 11-gate checklist, the
     /// closed reason set and verdict grammar rendered from the enum, the NOTA
     /// output discipline, and the over-trained few-shot.
     fn intent_guardian_system_prompt() -> String {
