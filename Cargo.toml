@@ -136,7 +136,7 @@ signal-mirror = { git = "https://github.com/LiGoldragon/signal-mirror.git", bran
 # nota, signal-frame) with the mirror leg in one binary. default-features
 # = false on signal-criome drops its nota-text codec, which the daemon gate
 # (binary rkyv only) does not use.
-criome = { git = "https://github.com/LiGoldragon/criome.git", branch = "main", optional = true }
+criome = { git = "https://github.com/LiGoldragon/criome.git", branch = "criome-authorization-push", optional = true }
 signal-criome = { git = "https://github.com/LiGoldragon/signal-criome.git", branch = "main", default-features = false, optional = true }
 # The router leg of the OFFLINE full-chain e2e, behind the opt-in
 # `offline-full-chain-e2e` feature (NOT the production gate path). Optional so

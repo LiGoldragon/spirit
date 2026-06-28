@@ -152,7 +152,7 @@ dependencies = [
 [[package]]
 name = "criome"
 version = "0.4.2"
-source = "git+https://github.com/LiGoldragon/criome.git?branch=main#6b6683da14600441338c2b1db206facf6f5d97d8"
+source = "git+https://github.com/LiGoldragon/criome.git?branch=criome-authorization-push#5964e45a66b21296d3565c692ef2f0918f801e3f"
 dependencies = [
  "blake3",
  "blst",
