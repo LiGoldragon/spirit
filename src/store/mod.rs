@@ -12,13 +12,13 @@ use std::{
     sync::Arc,
 };
 
+#[cfg(feature = "mirror-shipper")]
+use sema_engine::PortableCheckpoint;
 use sema_engine::{
     Assertion, Checkpoint, CheckpointReceipt, CommitSequence, Engine as SemaDatabase, EngineOpen,
-    EngineRecord, Mutation, QueryPlan, RecordKey, Retraction, SchemaVersion, TableReference,
-    VersionedCommitLogEntry,
+    EngineRecord, EntryDigest, Mutation, QueryPlan, RecordKey, Retraction, SchemaVersion,
+    TableReference, VersionedCommitLogEntry,
 };
-#[cfg(feature = "mirror-shipper")]
-use sema_engine::{EntryDigest, PortableCheckpoint};
 
 pub(crate) use archive::ArchiveDatabase;
 pub use error::StoreError;
@@ -412,7 +412,11 @@ impl Store {
     /// head `D` the criome gate authorizes BEFORE fan-out — read straight from
     /// the local log after the working commit, never from `ShipOutcome.head`
     /// (which exists only after a ship has happened).
-    #[cfg(feature = "mirror-shipper")]
+    ///
+    /// Always available, not gated behind the mirror shipper: the head is a
+    /// fundamental property of the durable log, read both by the criome gate's
+    /// fan-out path AND by the owner-only meta `ObserveHead` query, so an
+    /// operator can read the real content head of a seeded record.
     pub fn versioned_log_head(&self) -> Result<Option<EntryDigest>, StoreError> {
         Ok(self
             .versioned_log()?

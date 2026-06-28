@@ -165,7 +165,7 @@ signal-introspect = { git = "https://github.com/LiGoldragon/signal-introspect.gi
 # Optional and pulled in only by `testing-trace`, for the same no-NOTA reason.
 signal-persona = { git = "https://github.com/LiGoldragon/signal-persona.git", branch = "main", optional = true }
 signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main" }
-meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", branch = "main" }
+meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", branch = "criome-auth-witness" }
 thiserror = "2"
 tokio = { version = "1.47", features = ["io-util", "net", "rt-multi-thread", "sync"] }
 triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }

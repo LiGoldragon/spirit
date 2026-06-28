@@ -7,8 +7,9 @@ use crate::{
     schema::{
         meta_signal::{
             CollectRemovalCandidatesRequest, ConfigureReceipt, ConfigureRejection,
-            ConfigureRejectionReason, ConfigureRequest, ImportReceipt, ImportRequest,
-            Output as MetaOutput, RemovalCandidatesCollectedReceipt,
+            ConfigureRejectionReason, ConfigureRequest, HeadDigestHex, ImportReceipt,
+            ImportRequest, Output as MetaOutput, RemovalCandidatesCollectedReceipt,
+            SelectedHeadDigest, VersionedLogHead,
         },
         nexus::{self as nexus_schema, NexusAction, NexusEngine, NexusWork},
         sema::ErrorReport,
@@ -703,6 +704,38 @@ impl Engine {
 
     pub async fn import_async(&mut self, request: ImportRequest) -> MetaOutput {
         self.import(request)
+    }
+
+    /// Owner-only meta `ObserveHead`: report the store's current versioned-log
+    /// head — the content-addressed `EntryDigest` of the last durable entry,
+    /// the SAME head [`CriomeGate`](crate::criome_gate::CriomeGate) captures via
+    /// [`LocalHeadCapture::spirit_head`](crate::criome_gate::LocalHeadCapture::spirit_head)
+    /// and authorizes for fan-out, and the SAME head the mirror durably lands.
+    /// It is a pure read (no SEMA write, no guardian), so a guardian-required
+    /// fail-closed daemon still answers it. The digest is carried as a
+    /// `(Bytes 32)` `FixedBytes<32>`, NOTA-encoded as 64 lowercase hex
+    /// characters — the exact form the router-forward-witness ingests as
+    /// `HEAD_DIGEST_HEX`, and the SAME encoding criome's `ObjectDigest` carries.
+    /// The hex comes from `EntryDigest`'s own `Display`, so spirit forwards its
+    /// real content-addressing, not a re-hash. An empty log honestly reports no
+    /// head (`None`).
+    pub fn observe_head(&self) -> MetaOutput {
+        match self.nexus.store().versioned_log_head() {
+            Ok(head) => MetaOutput::head_observed(VersionedLogHead {
+                database_marker: self.nexus.database_marker(),
+                selected_head_digest: SelectedHeadDigest::new(
+                    head.map(|digest| HeadDigestHex::new(digest.to_string())),
+                ),
+            }),
+            Err(_) => MetaOutput::rejected(ConfigureRejection {
+                configure_rejection_reason: ConfigureRejectionReason::InternalError,
+                database_marker: self.nexus.database_marker(),
+            }),
+        }
+    }
+
+    pub async fn observe_head_async(&self) -> MetaOutput {
+        self.observe_head()
     }
 
     /// Owner-only meta-socket `CollectRemovalCandidates`: archive every record

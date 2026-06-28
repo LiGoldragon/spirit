@@ -198,6 +198,7 @@ impl ComponentDaemon for SpiritDaemon {
                     .collect_removal_candidates_async(request.into_payload())
                     .await
             }
+            MetaInput::ObserveHead => engine.observe_head_async().await,
         };
         LengthPrefixedCodec::default()
             .write_body_async(

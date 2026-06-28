@@ -190,15 +190,16 @@
     "meta-signal-spirit-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1782542823,
-        "narHash": "sha256-XnEFFRyFqc9+C6vOZqV1jFs20sA6vClVW/+hWTNQZZs=",
+        "lastModified": 1782689316,
+        "narHash": "sha256-BxSsfC5rBE+DHb61xdcnJpeHQCrPHxIiul7G9QUY6Lo=",
         "owner": "LiGoldragon",
         "repo": "meta-signal-spirit",
-        "rev": "83415f2203cccde02290258f28dfac8152857f82",
+        "rev": "783cd5024507bbf339bd92dad3bba38cd64cb40d",
         "type": "github"
       },
       "original": {
         "owner": "LiGoldragon",
+        "ref": "criome-auth-witness",
         "repo": "meta-signal-spirit",
         "type": "github"
       }
