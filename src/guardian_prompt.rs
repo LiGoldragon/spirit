@@ -59,7 +59,7 @@ struct GuardianOperationPrompt<'operation> {
 /// excluded because the model never emits them — they are set on transport
 /// failure. `GuardianRejectionReason::admission_gloss` is exhaustive, so adding
 /// a variant to the enum forces a decision here.
-const MODEL_REASONS: [GuardianRejectionReason; 16] = [
+const MODEL_REASONS: [GuardianRejectionReason; 17] = [
     GuardianRejectionReason::MissingTestimony,
     GuardianRejectionReason::TestimonyFabricated,
     GuardianRejectionReason::InsufficientWarrant,
@@ -67,6 +67,7 @@ const MODEL_REASONS: [GuardianRejectionReason; 16] = [
     GuardianRejectionReason::ImportanceUnsupported,
     GuardianRejectionReason::NonIntent,
     GuardianRejectionReason::NegativeGuideline,
+    GuardianRejectionReason::Matter,
     GuardianRejectionReason::Compound,
     GuardianRejectionReason::UnclearDomain,
     GuardianRejectionReason::UnclearPrivacy,
@@ -122,6 +123,20 @@ impl GuardianRejectionReasonPromptExt for GuardianRejectionReason {
                 "the candidate's operative guidance is framed primarily as an exclusion, \
                  prohibition, forbidden wording, or definition-by-negation. Remand: state the \
                  affirmative shape to follow.",
+            ),
+            Self::Matter => Some(
+                "durable, but not the psyche's intent. Intent is a durable UNIVERSAL RULE the \
+                 psyche wants — a standing direction about the work or the world, and it is rare. \
+                 Matter is concrete content instead: (a) scoped to a single mechanism, component, \
+                 or one-off architectural decision — code, an architecture, a specification, a \
+                 mechanism, a manual entry, or what Spirit / the guardian / the system / a process \
+                 IS; or (b) Spirit-usage / agent-training material — any rule about how to use, \
+                 operate, or interpret Spirit itself. STRIP TEST: an action performed on or with \
+                 Spirit is matter; a general work-or-world behavior Spirit merely records is \
+                 intent. Matter belongs written in the repository — a repo file, ARCHITECTURE doc, \
+                 skill, or bead — not the intent database. Remand: name its proper home and record \
+                 it there. When a record mixes a thin directive with such matter, treat the whole \
+                 thing as Matter — the directive can be re-captured cleanly on its own later.",
             ),
             Self::Compound => {
                 Some("the Entry bundles several separable arrows that belong in distinct records.")
@@ -220,7 +235,7 @@ impl<'configuration> GuardianPromptBuilder<'configuration> {
     }
 
     /// The full intent-guardian system prompt: role, the record and justification
-    /// shapes, the burden-of-proof ladder, the directed 9-gate checklist, the
+    /// shapes, the burden-of-proof ladder, the directed 11-gate checklist, the
     /// closed reason set and verdict grammar rendered from the enum, the NOTA
     /// output discipline, and the over-trained few-shot.
     fn intent_guardian_system_prompt() -> String {
@@ -368,20 +383,10 @@ impl<'operation> GuardianOperationPrompt<'operation> {
                  psyche authorization):\n{}",
                 retirement.to_nota()
             ),
-            GuardianOperation::Remove(removal) => {
-                format!(
-                    "Remove request (hard removal of a record):\n{}",
-                    removal.to_nota()
-                )
-            }
             GuardianOperation::ChangeRecord(change) => format!(
                 "ChangeRecord request (edit a record in place under the same identifier; a \
                  correction, not a redirect):\n{}",
                 change.to_nota()
-            ),
-            GuardianOperation::CollectRemovalCandidates(collection) => format!(
-                "CollectRemovalCandidates request (archive and remove the matching records):\n{}",
-                collection.to_nota()
             ),
         }
     }
@@ -448,7 +453,7 @@ mod tests {
                 "model reason {reason:?} must carry a gloss"
             );
         }
-        assert_eq!(MODEL_REASONS.len(), 16);
+        assert_eq!(MODEL_REASONS.len(), 17);
         assert!(
             GuardianRejectionReason::HarnessMalformed
                 .admission_gloss()
@@ -486,7 +491,7 @@ mod tests {
             "recurrence, architectural centrality, blast radius, keeps-coming-up, or blocks-other-work",
             "direct psyche declaration naming a Privacy rung supports that declared privacy level",
             "do not admit a sibling fresh Record",
-            "remand for Supersede, ChangeRecord, Clarify, Retire, Remove, or ResolveClarification",
+            "remand for Supersede, ChangeRecord, Clarify, Retire, or ResolveClarification",
             "metadata rungs",
         ] {
             assert!(

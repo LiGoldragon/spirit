@@ -17,7 +17,7 @@ use spirit::{
             ImportanceBump, ImportanceSelection, Information, Input, Justification, Keyword,
             KeywordMatch, Keywords, Kind, Magnitude, Output, Privacy, PrivacySelection, Proposal,
             Query, QuoteText, Reasoning, RecordChange, RecordIdentifier, RecordRequest,
-            RecordSelection, Referent, ReferentRegistration, ReferentSelection, Referents, Removal,
+            RecordSelection, Referent, ReferentRegistration, ReferentSelection, Referents,
             Replacements, RetiredIdentifier, RetiredIdentifiers, Retirement, SearchText,
             SelectedKind, SemaReceipt, SignalRejection, Software, StashHandle, Statement,
             StatementText, Supersession, Technology, Testimony, TextMatch, ValidationError,
@@ -671,13 +671,6 @@ fn nexus_signal_arrived(input: Input) -> NexusWork {
 
 fn sema_record(entry: Entry) -> SemaWriteInput {
     SemaWriteInput::record(entry)
-}
-
-fn sema_remove(record_identifier: RecordIdentifier) -> SemaWriteInput {
-    SemaWriteInput::remove(Removal {
-        record_identifier,
-        justification: justification("remove record"),
-    })
 }
 
 fn sema_change_certainty(
@@ -2785,39 +2778,6 @@ fn sema_engine_observes_through_shared_reference_for_parallel_readers() {
             assert!(matches!(observed.root(), SemaReadOutput::Observed(_)));
         }
     });
-}
-
-#[test]
-fn sema_engine_removes_records_and_advances_database_work_marker() {
-    let sema = SemaFile::new();
-    let mut store = sema.open_store();
-    let recorded = SemaEngine::apply(
-        &mut store,
-        sema_write_message(sema_record(entry("remove target")), 1),
-    );
-    let record_identifier = match recorded.into_root() {
-        SemaWriteOutput::Recorded(receipt) => receipt.record_identifier.clone(),
-        other => panic!("expected initial Recorded receipt, got {other:?}"),
-    };
-
-    let removed = SemaEngine::apply(
-        &mut store,
-        sema_write_message(sema_remove(record_identifier.clone()), 2),
-    );
-    match removed.root() {
-        SemaWriteOutput::Removed(receipt) => {
-            assert_eq!(receipt.payload().payload(), &record_identifier);
-        }
-        other => panic!("expected Removed receipt, got {other:?}"),
-    };
-
-    let observed = SemaEngine::observe(&store, sema_read_message(sema_observe(query()), 3));
-    assert!(
-        matches!(observed.root(), SemaReadOutput::Missed(_)),
-        "removed record should not be observed again"
-    );
-    assert_eq!(store.len(), 0);
-    assert_ne!(store.database_marker().state_digest.payload(), &0);
 }
 
 #[test]

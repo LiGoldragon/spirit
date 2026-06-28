@@ -25,12 +25,10 @@ use crate::{
             ObserverRetraction, ObserverSubscription, OperationKind, Output, Privacy, Proposal,
             QuoteText, Reasoning, RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier,
             RecordRequest, RecordSet, Records, Referent, ReferentGuardianRejection,
-            ReferentRegistration, ReferentRegistrationReceipt, Referents, Removal,
-            RemovalArchiveRecords, RemovalCandidateCollection, RemovalCandidatesCollection,
-            RemoveReceipt, RemovedIdentifiers, Replacements, Retirement, RetirementReceipt,
-            SemaReceipt, SignalRejection, SkippedRemovalCandidates, StashHandle,
-            StashedObservation, Statement, SubscriptionToken, Supersession, SupersessionReceipt,
-            Testimony, ValidationError, VerbatimQuote, VersionReport, VersionText,
+            ReferentRegistration, ReferentRegistrationReceipt, Referents, Replacements, Retirement,
+            RetirementReceipt, SemaReceipt, SignalRejection, StashHandle, StashedObservation,
+            Statement, SubscriptionToken, Supersession, SupersessionReceipt, Testimony,
+            ValidationError, VerbatimQuote, VersionReport, VersionText,
         },
     },
     store::{Store, StoreError},
@@ -247,7 +245,6 @@ impl CommandSemaWrite {
     fn into_sema_write_input(self) -> SemaWriteInput {
         match self {
             Self::Record(record) => SemaWriteInput::record(record.into_payload()),
-            Self::Remove(remove) => SemaWriteInput::remove(remove.into_payload()),
             Self::ChangeCertainty(change) => {
                 SemaWriteInput::change_certainty(change.into_payload())
             }
@@ -529,18 +526,6 @@ impl Nexus {
                     Err(error) => self.operation_failed(error.to_string()),
                 }
             }
-            NexusEffectCommand::GuardRemove(remove) => {
-                match self.guard_remove(remove.into_payload()).await {
-                    Ok(Ok(Some(receipt))) => {
-                        #[cfg(feature = "testing-trace")]
-                        self.trace_direct_sema_write();
-                        NexusEffectResult::removed(receipt)
-                    }
-                    Ok(Ok(None)) => self.operation_failed("record not found"),
-                    Ok(Err(rejection)) => NexusEffectResult::guardian_rejected(rejection),
-                    Err(error) => self.operation_failed(error.to_string()),
-                }
-            }
             NexusEffectCommand::ChangeRecordWithImpliedReferents(change) => {
                 self.apply_change_record_with_implied_referents(change.into_payload())
                     .await
@@ -580,10 +565,6 @@ impl Nexus {
                 NexusEffectResult::intent_subscription_opened(IntentSubscription::new(
                     SubscriptionToken::new(token.value()),
                 ))
-            }
-            NexusEffectCommand::CollectRemovalCandidates(collection) => {
-                self.collect_removal_candidates(collection.into_payload())
-                    .await
             }
             NexusEffectCommand::OpenObserverTap(filter) => {
                 let (token, observer_filter, observed_operations) =
@@ -798,29 +779,6 @@ impl Nexus {
     }
 
     #[cfg(not(feature = "agent-guardian"))]
-    async fn guard_remove(
-        &mut self,
-        removal: Removal,
-    ) -> Result<Result<Option<RemoveReceipt>, GuardianRejection>, StoreError> {
-        Ok(Ok(self.store.remove_record(removal)?))
-    }
-
-    #[cfg(feature = "agent-guardian")]
-    async fn guard_remove(
-        &mut self,
-        removal: Removal,
-    ) -> Result<Result<Option<RemoveReceipt>, GuardianRejection>, StoreError> {
-        let operation = GuardianOperation::remove(removal.clone());
-        let authorization_operation = operation.clone();
-        if let Some(rejection) = self.guard_model(operation)? {
-            return Ok(Err(rejection));
-        }
-        self.authorize_guardian_operation(&authorization_operation)
-            .await?;
-        Ok(Ok(self.store.remove_record(removal)?))
-    }
-
-    #[cfg(not(feature = "agent-guardian"))]
     async fn guard_change_record(
         &mut self,
         change: RecordChange,
@@ -997,43 +955,6 @@ impl Nexus {
         } else {
             Ok(rejection)
         }
-    }
-
-    /// Run the `CollectRemovalCandidates` working operation: archive the
-    /// matching records into the SEPARATE archive database at the
-    /// owner-configured target and remove them from the live log. On a store
-    /// error the effect surfaces an empty collection so the caller still gets a
-    /// typed reply rather than a dropped request.
-    async fn collect_removal_candidates(
-        &mut self,
-        collection: RemovalCandidateCollection,
-    ) -> NexusEffectResult {
-        #[cfg(feature = "agent-guardian")]
-        {
-            let operation = GuardianOperation::collect_removal_candidates(collection.clone());
-            let authorization_operation = operation.clone();
-            match self.guard_model(operation) {
-                Ok(Some(rejection)) => return NexusEffectResult::guardian_rejected(rejection),
-                Ok(None) => {
-                    if let Err(error) = self
-                        .authorize_guardian_operation(&authorization_operation)
-                        .await
-                    {
-                        return self.operation_failed(error.to_string());
-                    }
-                }
-                Err(error) => return self.operation_failed(error.to_string()),
-            }
-        }
-        let result = self
-            .store
-            .collect_removal_candidates(collection)
-            .unwrap_or_else(|_error| RemovalCandidatesCollection {
-                removal_archive_records: RemovalArchiveRecords::new(Vec::new()),
-                removed_identifiers: RemovedIdentifiers::new(Vec::new()),
-                skipped_removal_candidates: SkippedRemovalCandidates::new(Vec::new()),
-            });
-        NexusEffectResult::removal_candidates_collected(result)
     }
 
     fn operation_failed(&self, message: impl Into<String>) -> NexusEffectResult {
@@ -1312,18 +1233,6 @@ impl Nexus {
             Input::Count(count) => {
                 NexusAction::command_sema_read(SemaReadInput::count(count.into_payload()))
             }
-            Input::Remove(remove) => {
-                #[cfg(feature = "agent-guardian")]
-                {
-                    NexusAction::command_effect(NexusEffectCommand::guard_remove(
-                        remove.into_payload(),
-                    ))
-                }
-                #[cfg(not(feature = "agent-guardian"))]
-                {
-                    NexusAction::command_sema_write(CommandSemaWrite::remove(remove.into_payload()))
-                }
-            }
             Input::ChangeCertainty(change) => NexusAction::command_sema_write(
                 CommandSemaWrite::change_certainty(change.into_payload()),
             ),
@@ -1346,9 +1255,6 @@ impl Nexus {
                     ValidationError::StashHandleNotFound,
                 ))),
             },
-            Input::CollectRemovalCandidates(collection) => NexusAction::command_effect(
-                NexusEffectCommand::collect_removal_candidates(collection.into_payload()),
-            ),
             Input::Tap(filter) => NexusAction::command_effect(
                 NexusEffectCommand::open_observer_tap(filter.into_payload()),
             ),
@@ -1372,9 +1278,6 @@ impl Nexus {
             SemaWriteOutput::Recorded(receipt) => NexusAction::reply_to_signal(
                 Output::record_accepted(receipt.into_payload().record_identifier),
             ),
-            SemaWriteOutput::Removed(receipt) => {
-                NexusAction::reply_to_signal(Output::record_removed(receipt.into_payload()))
-            }
             SemaWriteOutput::CertaintyChanged(receipt) => {
                 NexusAction::reply_to_signal(Output::certainty_changed(receipt.into_payload()))
             }
@@ -1477,9 +1380,6 @@ impl Nexus {
             NexusEffectResult::Retired(receipt) => {
                 NexusAction::reply_to_signal(Output::retired(receipt.into_payload()))
             }
-            NexusEffectResult::Removed(receipt) => {
-                NexusAction::reply_to_signal(Output::record_removed(receipt.into_payload()))
-            }
             NexusEffectResult::RecordChanged(receipt) => {
                 NexusAction::reply_to_signal(Output::record_changed(receipt.into_payload()))
             }
@@ -1511,11 +1411,6 @@ impl Nexus {
             NexusEffectResult::IntentSubscriptionOpened(subscription) => {
                 NexusAction::reply_to_signal(Output::subscription_started(
                     subscription.into_payload(),
-                ))
-            }
-            NexusEffectResult::RemovalCandidatesCollected(collection) => {
-                NexusAction::reply_to_signal(Output::removal_candidates_collected(
-                    collection.into_payload(),
                 ))
             }
             NexusEffectResult::ObserverTapOpened(subscription) => NexusAction::reply_to_signal(

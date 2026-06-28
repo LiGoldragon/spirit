@@ -80,9 +80,15 @@ fn signal_schema_input_uses_exported_object_variant_names() {
 
     // The active production Input enum body — compact exported objects.
     witness.must_contain(
-        "[State Record Propose Clarify Supersede Retire ResolveClarification Observe PublicTextSearch PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version Marker]",
+        "[State Record Propose Clarify Supersede Retire ResolveClarification Observe PublicTextSearch PublicRecords PrivateRecords Lookup Count ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version Marker]",
         "4",
     );
+    // The working hard-delete `Remove` and the working `CollectRemovalCandidates`
+    // are retired: physical deletion is the owner-only meta op, no working verb.
+    witness.must_not_contain(" Remove ", "4");
+    witness.must_not_contain(" CollectRemovalCandidates ", "4");
+    witness.must_not_contain("Remove Removal", "4");
+    witness.must_not_contain("CollectRemovalCandidates RemovalCandidateCollection", "4");
     witness.must_contain("State Statement", "4");
     witness.must_contain("Record RecordRequest", "4");
     witness.must_contain("Propose Proposal", "4");
@@ -96,7 +102,6 @@ fn signal_schema_input_uses_exported_object_variant_names() {
     witness.must_contain("PrivateRecords RecordSelection", "4");
     witness.must_contain("Lookup RecordIdentifier", "4");
     witness.must_contain("Count Query", "4");
-    witness.must_contain("Remove Removal", "4");
     witness.must_contain("ChangeCertainty CertaintyChange", "4");
     witness.must_contain("BumpImportance ImportanceBump", "4");
     witness.must_contain("ChangeRecord RecordChange", "4");
@@ -171,9 +176,12 @@ fn signal_schema_output_uses_exported_object_variant_names() {
 
     // The active production Output enum body.
     witness.must_contain(
-        "[RecordAccepted Proposed Clarified Superseded Retired ClarificationResolved GuardianRejected ReferentGuardianRejected RecordsObserved RecordsStashed RecordFound RecordsCounted RecordRemoved CertaintyChanged ImportanceBumped RecordChanged ReferentRegistered RemovalCandidatesCollected ObservationTapped ObservationUntapped SubscriptionStarted VersionReported MarkerReported (Event IntentEvent) Error Rejected]",
+        "[RecordAccepted Proposed Clarified Superseded Retired ClarificationResolved GuardianRejected ReferentGuardianRejected RecordsObserved RecordsStashed RecordFound RecordsCounted CertaintyChanged ImportanceBumped RecordChanged ReferentRegistered ObservationTapped ObservationUntapped SubscriptionStarted VersionReported MarkerReported (Event IntentEvent) Error Rejected]",
         "4",
     );
+    witness.must_not_contain("RecordRemoved", "4");
+    witness.must_not_contain("RemovalCandidatesCollected", "4");
+    witness.must_not_contain("RecordRemoved RemoveReceipt", "4");
     witness.must_contain("RecordAccepted RecordIdentifier", "4");
     witness.must_contain("Proposed RecordIdentifier", "4");
     witness.must_contain("Clarified ClarificationReceipt", "4");
@@ -185,7 +193,6 @@ fn signal_schema_output_uses_exported_object_variant_names() {
     witness.must_contain("RecordsObserved ObservedRecords", "4");
     witness.must_contain("RecordFound FoundRecord", "4");
     witness.must_contain("RecordsCounted CountedRecords", "4");
-    witness.must_contain("RecordRemoved RemoveReceipt", "4");
     witness.must_contain("CertaintyChanged CertaintyChangeReceipt", "4");
     witness.must_contain("ImportanceBumped ImportanceBumpReceipt", "4");
     witness.must_contain("RecordChanged RecordChangeReceipt", "4");
@@ -265,7 +272,7 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     sema_witness.must_round_trip_as_schema_source();
 
     signal_witness.must_contain(
-        "[State Record Propose Clarify Supersede Retire ResolveClarification Observe PublicTextSearch PublicRecords PrivateRecords Lookup Count Remove ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash CollectRemovalCandidates Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version Marker]",
+        "[State Record Propose Clarify Supersede Retire ResolveClarification Observe PublicTextSearch PublicRecords PrivateRecords Lookup Count ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version Marker]",
         "4",
     );
     signal_witness.must_contain("State Statement", "4");
@@ -284,16 +291,18 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     signal_witness.must_contain("Marker", "4");
     sema_witness.must_contain("[WriteInput ReadInput]", "4");
     sema_witness.must_contain(
-        "WriteInput [(Record) (Remove) (ChangeCertainty) (BumpImportance) (ChangeRecord) (RegisterReferent)]",
+        "WriteInput [(Record) (ChangeCertainty) (BumpImportance) (ChangeRecord) (RegisterReferent)]",
         "4",
     );
+    sema_witness.must_not_contain("(Remove)", "4");
     sema_witness.must_contain("Recorded SemaReceipt", "4");
     sema_witness.must_contain(
-        "WriteOutput [(Recorded) (Removed) (CertaintyChanged) (ImportanceBumped) (RecordChanged) (ReferentRegistered) (Missed)]",
+        "WriteOutput [(Recorded) (CertaintyChanged) (ImportanceBumped) (RecordChanged) (ReferentRegistered) (Missed)]",
         "4",
     );
+    sema_witness.must_not_contain("(Removed)", "4");
     nexus_witness.must_contain(
-        "CommandSemaWrite [(Record) (Remove) (ChangeCertainty) (BumpImportance) (ChangeRecord) (RegisterReferent)]",
+        "CommandSemaWrite [(Record) (ChangeCertainty) (BumpImportance) (ChangeRecord) (RegisterReferent)]",
         "4",
     );
     nexus_witness.must_contain("(| Work Event WriteDone ReadDone EffectDone |)", "4");
@@ -307,9 +316,11 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
         "4",
     );
     nexus_witness.must_contain(
-        "NexusEffectCommand [(Stash) (ClassifyState) (RecordWithImpliedReferents) (GuardRecord) (ProposeWithImpliedReferents) (Propose) (Clarify) (SupersedeWithImpliedReferents) (Supersede) (Retire) (ResolveClarification) (GuardRemove) (ChangeRecordWithImpliedReferents) (GuardChangeRecord) (GuardReferentRegistration) (OpenIntentSubscription) (CollectRemovalCandidates) (OpenObserverTap) (CloseObserverTap)]",
+        "NexusEffectCommand [(Stash) (ClassifyState) (RecordWithImpliedReferents) (GuardRecord) (ProposeWithImpliedReferents) (Propose) (Clarify) (SupersedeWithImpliedReferents) (Supersede) (Retire) (ResolveClarification) (ChangeRecordWithImpliedReferents) (GuardChangeRecord) (GuardReferentRegistration) (OpenIntentSubscription) (OpenObserverTap) (CloseObserverTap)]",
         "4",
     );
+    nexus_witness.must_not_contain("(GuardRemove)", "4");
+    nexus_witness.must_not_contain("(CollectRemovalCandidates)", "4");
     nexus_witness.must_contain("ClassifyState Statement", "4");
     nexus_witness.must_contain("RecordWithImpliedReferents RecordRequest", "4");
     nexus_witness.must_contain("GuardRecord RecordRequest", "4");
@@ -320,15 +331,17 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     nexus_witness.must_contain("SupersedeWithImpliedReferents Supersession", "4");
     nexus_witness.must_contain("Supersede Supersession", "4");
     nexus_witness.must_contain("Retire Retirement", "4");
-    nexus_witness.must_contain("GuardRemove Removal", "4");
+    nexus_witness.must_not_contain("GuardRemove Removal", "4");
     nexus_witness.must_contain("ChangeRecordWithImpliedReferents RecordChange", "4");
     nexus_witness.must_contain("GuardChangeRecord RecordChange", "4");
     nexus_witness.must_contain("GuardReferentRegistration ReferentRegistration", "4");
     nexus_witness.must_contain("OpenIntentSubscription Query", "4");
     nexus_witness.must_contain(
-        "NexusEffectResult [(Stashed) (StateClassified) (RecordReferentsSettled) (ProposeReferentsSettled) (SupersedeReferentsSettled) (ChangeRecordReferentsSettled) (Recorded) (Proposed) (Clarified) (Superseded) (Retired) (ClarificationResolved) (Removed) (RecordChanged) (GuardianRejected) (ReferentRegistered) (ReferentGuardianRejected) (OperationFailed) (IntentSubscriptionOpened) (RemovalCandidatesCollected) (ObserverTapOpened) (ObserverTapClosed)]",
+        "NexusEffectResult [(Stashed) (StateClassified) (RecordReferentsSettled) (ProposeReferentsSettled) (SupersedeReferentsSettled) (ChangeRecordReferentsSettled) (Recorded) (Proposed) (Clarified) (Superseded) (Retired) (ClarificationResolved) (RecordChanged) (GuardianRejected) (ReferentRegistered) (ReferentGuardianRejected) (OperationFailed) (IntentSubscriptionOpened) (ObserverTapOpened) (ObserverTapClosed)]",
         "4",
     );
+    nexus_witness.must_not_contain("(Removed)", "4");
+    nexus_witness.must_not_contain("(RemovalCandidatesCollected)", "4");
     nexus_witness.must_contain("StateClassified RecordRequest", "4");
     nexus_witness.must_contain("RecordReferentsSettled RecordRequest", "4");
     nexus_witness.must_contain("ProposeReferentsSettled Proposal", "4");
@@ -379,7 +392,8 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     signal_witness.must_contain("PrivateRecords(PrivateRecords)", "4");
     signal_witness.must_contain("Lookup(Lookup)", "4");
     signal_witness.must_contain("Count(Count)", "4");
-    signal_witness.must_contain("Remove(Remove)", "4");
+    signal_witness.must_not_contain("Remove(Remove)", "4");
+    signal_witness.must_not_contain("CollectRemovalCandidates(CollectRemovalCandidates)", "4");
     signal_witness.must_contain("ChangeCertainty(ChangeCertainty)", "4");
     signal_witness.must_contain("BumpImportance(BumpImportance)", "4");
     signal_witness.must_contain("RegisterReferent(RegisterReferent)", "4");
@@ -396,7 +410,11 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     signal_witness.must_contain("RecordsStashed(RecordsStashed)", "4");
     signal_witness.must_contain("RecordFound(RecordFound)", "4");
     signal_witness.must_contain("RecordsCounted(RecordsCounted)", "4");
-    signal_witness.must_contain("RecordRemoved(RecordRemoved)", "4");
+    signal_witness.must_not_contain("RecordRemoved(RecordRemoved)", "4");
+    signal_witness.must_not_contain(
+        "RemovalCandidatesCollected(RemovalCandidatesCollected)",
+        "4",
+    );
     signal_witness.must_contain("CertaintyChanged(CertaintyChanged)", "4");
     signal_witness.must_contain("ImportanceBumped(ImportanceBumped)", "4");
     signal_witness.must_contain("ReferentRegistered(ReferentRegistered)", "4");
@@ -422,7 +440,8 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
         "pub struct SupersedeWithImpliedReferents(Supersession);",
         "4",
     );
-    nexus_witness.must_contain("pub struct GuardRemove(Removal);", "4");
+    nexus_witness.must_not_contain("pub struct GuardRemove(Removal);", "4");
+    nexus_witness.must_not_contain("pub struct CollectRemovalCandidates(", "4");
     nexus_witness.must_contain(
         "pub struct ChangeRecordWithImpliedReferents(RecordChange);",
         "4",
@@ -439,7 +458,7 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     // The split SEMA module carries plane-local roots and imported payload nouns.
     sema_witness.must_contain("pub enum WriteInput {", "4");
     sema_witness.must_contain("Record(Record)", "4");
-    sema_witness.must_contain("Remove(Remove)", "4");
+    sema_witness.must_not_contain("Remove(Remove)", "4");
     sema_witness.must_contain("ChangeCertainty(ChangeCertainty)", "4");
     sema_witness.must_contain("BumpImportance(BumpImportance)", "4");
     sema_witness.must_contain("RegisterReferent(RegisterReferent)", "4");

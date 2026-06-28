@@ -193,6 +193,11 @@ impl ComponentDaemon for SpiritDaemon {
         let reply = match input {
             MetaInput::Configure(request) => engine.configure_async(request.into_payload()).await,
             MetaInput::Import(request) => engine.import_async(request.into_payload()).await,
+            MetaInput::CollectRemovalCandidates(request) => {
+                engine
+                    .collect_removal_candidates_async(request.into_payload())
+                    .await
+            }
         };
         LengthPrefixedCodec::default()
             .write_body_async(
@@ -224,13 +229,11 @@ impl ComponentDaemon for SpiritDaemon {
             | Input::PrivateRecords(_)
             | Input::Lookup(_)
             | Input::Count(_)
-            | Input::Remove(_)
             | Input::ChangeCertainty(_)
             | Input::BumpImportance(_)
             | Input::ChangeRecord(_)
             | Input::RegisterReferent(_)
             | Input::LookupStash(_)
-            | Input::CollectRemovalCandidates(_)
             | Input::Tap(_)
             | Input::Untap(_)
             | Input::Version

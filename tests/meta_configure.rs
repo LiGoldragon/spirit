@@ -152,6 +152,9 @@ fn configure_sets_archive_target_and_leaves_live_database_unchanged() {
         MetaOutput::Imported(imported) => {
             panic!("configure unexpectedly imported records: {imported:?}")
         }
+        MetaOutput::RemovalCandidatesCollected(collected) => {
+            panic!("configure unexpectedly collected removal candidates: {collected:?}")
+        }
     }
 
     // CORE PROOF (2): the LIVE database is UNCHANGED by Configure. A record

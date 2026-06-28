@@ -22,8 +22,6 @@ pub use signal_spirit::schema::signal::Referents as Referents;
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::SearchText as SearchText;
 #[rustfmt::skip]
-pub use signal_spirit::schema::signal::Removal as Removal;
-#[rustfmt::skip]
 pub use signal_spirit::schema::signal::CertaintyChange as CertaintyChange;
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::ImportanceBump as ImportanceBump;
@@ -33,8 +31,6 @@ pub use signal_spirit::schema::signal::RecordChange as RecordChange;
 pub use signal_spirit::schema::signal::ReferentRegistration as ReferentRegistration;
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::SemaReceipt as SemaReceipt;
-#[rustfmt::skip]
-pub use signal_spirit::schema::signal::RemoveReceipt as RemoveReceipt;
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::CertaintyChangeReceipt as CertaintyChangeReceipt;
 #[rustfmt::skip]
@@ -64,7 +60,6 @@ pub use nota::{NotaDecodeError, NotaEncode, NotaSource};
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum WriteInput {
     Record(Record),
-    Remove(Remove),
     ChangeCertainty(ChangeCertainty),
     BumpImportance(BumpImportance),
     ChangeRecord(ChangeRecord),
@@ -78,14 +73,6 @@ pub enum WriteInput {
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Record(Entry);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Remove(Removal);
 
 #[rustfmt::skip]
 #[cfg_attr(
@@ -172,7 +159,6 @@ pub struct Count(Query);
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum WriteOutput {
     Recorded(Recorded),
-    Removed(Removed),
     CertaintyChanged(CertaintyChanged),
     ImportanceBumped(ImportanceBumped),
     RecordChanged(RecordChanged),
@@ -187,14 +173,6 @@ pub enum WriteOutput {
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Recorded(SemaReceipt);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Removed(RemoveReceipt);
 
 #[rustfmt::skip]
 #[cfg_attr(
@@ -382,25 +360,6 @@ impl From<Entry> for Record {
 }
 
 #[rustfmt::skip]
-impl Remove {
-    pub fn new(payload: Removal) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &Removal {
-        &self.0
-    }
-    pub fn into_payload(self) -> Removal {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<Removal> for Remove {
-    fn from(payload: Removal) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
 impl ChangeCertainty {
     pub fn new(payload: CertaintyChange) -> Self {
         Self(payload)
@@ -567,25 +526,6 @@ impl Recorded {
 #[rustfmt::skip]
 impl From<SemaReceipt> for Recorded {
     fn from(payload: SemaReceipt) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl Removed {
-    pub fn new(payload: RemoveReceipt) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &RemoveReceipt {
-        &self.0
-    }
-    pub fn into_payload(self) -> RemoveReceipt {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<RemoveReceipt> for Removed {
-    fn from(payload: RemoveReceipt) -> Self {
         Self::new(payload)
     }
 }
@@ -823,9 +763,6 @@ impl WriteInput {
     pub fn record(payload: Entry) -> Self {
         Self::Record(Record::new(payload))
     }
-    pub fn remove(payload: Removal) -> Self {
-        Self::Remove(Remove::new(payload))
-    }
     pub fn change_certainty(payload: CertaintyChange) -> Self {
         Self::ChangeCertainty(ChangeCertainty::new(payload))
     }
@@ -860,9 +797,6 @@ impl ReadInput {
 impl WriteOutput {
     pub fn recorded(payload: SemaReceipt) -> Self {
         Self::Recorded(Recorded::new(payload))
-    }
-    pub fn removed(payload: RemoveReceipt) -> Self {
-        Self::Removed(Removed::new(payload))
     }
     pub fn certainty_changed(payload: CertaintyChangeReceipt) -> Self {
         Self::CertaintyChanged(CertaintyChanged::new(payload))
@@ -928,13 +862,6 @@ impl From<Record> for WriteInput {
 }
 
 #[rustfmt::skip]
-impl From<Remove> for WriteInput {
-    fn from(payload: Remove) -> Self {
-        Self::Remove(payload)
-    }
-}
-
-#[rustfmt::skip]
 impl From<ChangeCertainty> for WriteInput {
     fn from(payload: ChangeCertainty) -> Self {
         Self::ChangeCertainty(payload)
@@ -994,13 +921,6 @@ impl From<Count> for ReadInput {
 impl From<Recorded> for WriteOutput {
     fn from(payload: Recorded) -> Self {
         Self::Recorded(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl From<Removed> for WriteOutput {
-    fn from(payload: Removed) -> Self {
-        Self::Removed(payload)
     }
 }
 
@@ -1304,7 +1224,6 @@ impl RecordFamily {
 )]
 pub enum WriteInputRoute {
     Record,
-    Remove,
     ChangeCertainty,
     BumpImportance,
     ChangeRecord,
@@ -1316,7 +1235,6 @@ impl WriteInput {
     pub fn route(&self) -> WriteInputRoute {
         match self {
             Self::Record(_) => WriteInputRoute::Record,
-            Self::Remove(_) => WriteInputRoute::Remove,
             Self::ChangeCertainty(_) => WriteInputRoute::ChangeCertainty,
             Self::BumpImportance(_) => WriteInputRoute::BumpImportance,
             Self::ChangeRecord(_) => WriteInputRoute::ChangeRecord,
@@ -1376,7 +1294,6 @@ impl ReadInput {
 )]
 pub enum WriteOutputRoute {
     Recorded,
-    Removed,
     CertaintyChanged,
     ImportanceBumped,
     RecordChanged,
@@ -1389,7 +1306,6 @@ impl WriteOutput {
     pub fn route(&self) -> WriteOutputRoute {
         match self {
             Self::Recorded(_) => WriteOutputRoute::Recorded,
-            Self::Removed(_) => WriteOutputRoute::Removed,
             Self::CertaintyChanged(_) => WriteOutputRoute::CertaintyChanged,
             Self::ImportanceBumped(_) => WriteOutputRoute::ImportanceBumped,
             Self::RecordChanged(_) => WriteOutputRoute::RecordChanged,
@@ -1467,7 +1383,6 @@ impl SemaObjectName {
             Self::WriteInput(route) => {
                 match route {
                     WriteInputRoute::Record => "SemaWriteInputRecord",
-                    WriteInputRoute::Remove => "SemaWriteInputRemove",
                     WriteInputRoute::ChangeCertainty => "SemaWriteInputChangeCertainty",
                     WriteInputRoute::BumpImportance => "SemaWriteInputBumpImportance",
                     WriteInputRoute::ChangeRecord => "SemaWriteInputChangeRecord",
@@ -1485,7 +1400,6 @@ impl SemaObjectName {
             Self::WriteOutput(route) => {
                 match route {
                     WriteOutputRoute::Recorded => "SemaWriteOutputRecorded",
-                    WriteOutputRoute::Removed => "SemaWriteOutputRemoved",
                     WriteOutputRoute::CertaintyChanged => {
                         "SemaWriteOutputCertaintyChanged"
                     }

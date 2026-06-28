@@ -187,14 +187,15 @@ owner-only meta-signal surface — distinct from the ordinary working socket, so
 policy and configuration authority have a component-owned home apart from the
 peer-callable working signal. The meta contract is imported from the
 `meta-signal-spirit` contract crate, generated from
-`meta-signal-spirit/schema/meta-signal.schema`: it carries the `Configure` and
-`Import` `Input` roots, the `Configured`/`Imported`/`Rejected` `Output` roots,
+`meta-signal-spirit/schema/meta-signal.schema`: it carries the `Configure`,
+`Import`, and `CollectRemovalCandidates` `Input` roots, the
+`Configured`/`Imported`/`RemovalCandidatesCollected`/`Rejected` `Output` roots,
 their records, and the rkyv derives — no Nexus/SEMA planes and no engine
 traits. The first owner-only operation is
 `Configure(ConfigureRequest { ArchiveDatabaseTarget })`, where
 `ArchiveDatabaseTarget` is the ported `[Default | Path(ArchivePath)]` enum. It
-sets WHERE the SEPARATE archive database lives — the destination the
-peer-callable `CollectRemovalCandidates` working operation archives into. The
+sets WHERE the SEPARATE archive database lives — the destination the owner-only
+`CollectRemovalCandidates` meta operation archives into. The
 archive database is a distinct `*.sema` file from the live intent log;
 `Configure` does NOT open, move, or touch the live database. The daemon applies
 it through `Engine::configure` (an owner-config effect under the same
@@ -212,11 +213,23 @@ socket; the working signal stays fully gated. It aborts to `Rejected` on the
 first store error so a partial import is loud. The `meta-spirit` CLI is the
 owner-only client for these operations — the privileged sibling of `spirit`.
 
-The authority split is load-bearing: the OWNER configures WHERE archives go
-(meta `Configure`); a PEER does the archiving (working
-`CollectRemovalCandidates`). The earlier `set_archive_target` re-opened the LIVE
-`SemaDatabase` at the new path — that was the bug; the live log is now never
-disturbed by a reconfigure.
+The third owner-only operation is
+`CollectRemovalCandidates(CollectRemovalCandidatesRequest { RemovalCandidateCollection })`:
+it archives every record matching the supplied query into the SEPARATE archive
+database at the configured target, then physically retracts it from the live
+log, replying `RemovalCandidatesCollected` with the archived / removed / skipped
+triple. It runs with NO guardian, mirroring `Import` and `Configure`
+(`Engine::collect_removal_candidates` over the unchanged
+`Store::collect_removal_candidates` archive-then-retract primitive). This is the
+ONLY physical-deletion path in the component: there is no working-socket delete
+operation. `&mut self` on the meta op gives it the same single-flight
+serialisation against every working write that `Import`/`Configure` rely on.
+
+The authority split is load-bearing: physical deletion is owner-only. The OWNER
+configures WHERE archives go (meta `Configure`) and issues the deletion (meta
+`CollectRemovalCandidates`); no peer can physically remove a record. The earlier
+`set_archive_target` re-opened the LIVE `SemaDatabase` at the new path — that was
+the bug; the live log is now never disturbed by a reconfigure.
 
 The daemon binds both sockets through
 `triad_runtime::AsyncMultiListenerDaemon`, tagging each accepted connection
@@ -333,7 +346,7 @@ communication boundary.
 
 Nexus write commands are feature-specific. `CommandSemaWrite` is not a raw
 pass-through alias for the whole SEMA write enum; it is a Nexus-plane enum with
-visible `Record`, `Remove`, `ChangeCertainty`, and `ChangeRecord` objects. The
+visible `Record`, `ChangeCertainty`, and `ChangeRecord` objects. The
 generated runner still treats it as the fixed `SemaWrite` outcome, but the
 component schema keeps each internal write feature readable in
 `schema/nexus.schema`.
@@ -386,20 +399,22 @@ exact `Zero` privacy, private means `AtLeast Minimum` privacy. This keeps
 friendly working-signal verbs visible while preserving the full `Query`
 predicate for structured/exhaustive reads.
 
-`CollectRemovalCandidates` is the peer-callable archiving operation ported from
-old persona-spirit. Signal admits a `RemovalCandidateCollection { RecordQuery }`
-(the peer supplies only the candidate selection; the destination comes from
-owner config). Nexus emits the schema-declared
-`CommandEffect(CollectRemovalCandidates(...))`; the effect calls
-`Store::collect_removal_candidates`, which opens the SEPARATE archive database on
-demand at the owner-configured `ArchiveDatabaseTarget` (a distinct `ArchiveDatabase`
-noun over its own `*.sema` file, resolving `Default` to a `<live-stem>.archive.sema`
-sibling), asserts each exact-zero-certainty matching `Entry` into it, retracts
-the original from the live log, and returns `RemovalCandidatesCollection {
-archived_records, removed_identifiers, skipped_removal_candidates,
-database_marker }`. A record that fails to archive stays in the live log and is reported as a
-`SkippedRemovalCandidate(ArchiveFailed)`; one that vanishes mid-collection is
-`RecordAlreadyRemoved`. Nexus replies `Output::RemovalCandidatesCollected`.
+`CollectRemovalCandidates` is the owner-only archiving operation on the meta
+socket — the component's only physical-deletion path, ported from old
+persona-spirit but moved off the working signal. The meta request carries a
+`RemovalCandidateCollection { RecordQuery }` (the candidate selection; the
+destination comes from owner config). It runs with NO guardian and NO Nexus
+effect: `Engine::collect_removal_candidates` calls
+`Store::collect_removal_candidates` directly, which opens the SEPARATE archive
+database on demand at the owner-configured `ArchiveDatabaseTarget` (a distinct
+`ArchiveDatabase` noun over its own `*.sema` file, resolving `Default` to a
+`<live-stem>.archive.sema` sibling), asserts each exact-zero-certainty matching
+`Entry` into it, retracts the original from the live log, and returns
+`RemovalCandidatesCollection { archived_records, removed_identifiers,
+skipped_removal_candidates, database_marker }`. A record that fails to archive
+stays in the live log and is reported as a `SkippedRemovalCandidate(ArchiveFailed)`;
+one that vanishes mid-collection is `RecordAlreadyRemoved`. The meta op replies
+`Output::RemovalCandidatesCollected`.
 
 `Tap`/`Untap` port old persona-spirit's observer (meta-observation) stream as a
 request/reply surface. Every admitted working operation is recorded in the
@@ -455,6 +470,18 @@ definition by negation is rejected with the typed
 `GuardianRejectionReason::NegativeGuideline`; the agent then re-pleads the
 positive rule. This is a semantic guardian judgment, not a deterministic
 substring filter.
+
+The prompt also includes a subject-matter boundary. A record captures what the
+psyche WANTS; it is not a place to store concrete matter. Content that describes
+what Spirit, the guardian, the system, or a process IS, or how to use or
+interpret it — code, an architecture, a manual entry, a specification, a
+mechanism, or a bead — is rejected at admission with the typed
+`GuardianRejectionReason::Matter`, and the remand names its proper home (a repo
+file, an `ARCHITECTURE` doc, a skill, or a bead). When a record mixes a thin
+directive with such matter, the aggressive lean treats the whole record as
+`Matter` so the directive can be re-captured cleanly on its own later. This is
+admission-boundary enforcement only — it governs what enters the intent log and
+does not touch records already stored.
 
 ### SEMA
 
@@ -516,9 +543,11 @@ uses `sema-engine` over a `*.sema` file:
   `RecordIdentifier`, persists the `Entry`, and advances the durable
   `CommitSequence`. A production migration can instead import a copied
   production identifier unchanged. `ChangeCertainty` and `ChangeRecord` mutate
-  the stored `Entry` at that same key and advance the durable sequence once. A
-  `Remove` retracts that key and advances the same durable sequence when a
-  record was present.
+  the stored `Entry` at that same key and advance the durable sequence once. The
+  SEMA `WriteInput` carries no delete variant; keyed retraction comes from
+  `Store::retire` and the owner-only meta `CollectRemovalCandidates`, both
+  through the low-level `Store::remove` retract, which advances the same durable
+  sequence when a record was present.
 - `SemaEngine::observe(sema::Sema<sema::ReadInput>) ->
   sema::Sema<sema::ReadOutput>` is the read surface. `Observe(Query)` reads
   keyed records through sema-engine and applies Spirit's schema-specific
@@ -534,7 +563,8 @@ uses `sema-engine` over a `*.sema` file:
   `RegisterReferent` stores a canonical atom plus aliases, writes canonicalize
   aliases before persistence, and queries canonicalize alias filters before
   matching. Privacy is a directional `Magnitude`: `Zero` is open/public, and
-  higher magnitudes narrow the intended audience. Certainty is a directional
+  higher magnitudes narrow the intended audience — a nominal level only, not a
+  security boundary (see Known limits). Certainty is a directional
   `Magnitude`: `Zero` is the recoverable removal-candidate state. Importance is
   a separate directional `Magnitude` for importance/repetition; observation
   sorts higher importance first. Queries carry `DomainMatch::{Partial,Full}`,
@@ -634,7 +664,7 @@ attaches behavior to those nouns or to state-owning runtime objects:
 - `nexus::Nexus<nexus::Work>` becomes generated
   `nexus::Nexus<nexus::Action>`.
 - `nexus::Action::CommandSemaWrite` carries the Nexus-plane
-  `CommandSemaWrite` feature enum (`Record`, `Remove`, `ChangeCertainty`);
+  `CommandSemaWrite` feature enum (`Record`, `ChangeCertainty`, `ChangeRecord`);
   `nexus::Action::CommandSemaRead` carries the generated `sema::ReadInput`.
 - `sema::Sema<sema::WriteInput>` is applied by `Store` through generated
   `SemaEngine::apply`, writing the durable `.sema` database through
@@ -764,6 +794,15 @@ socket rejection tests.
 
 ## Known limits
 
+- Privacy is NOMINAL / name-only, not a security boundary. The `Privacy`
+  `Magnitude` records a level — `Zero` is public, any nonzero is private —
+  inside ONE database with no real security fail-safe: no encryption, no
+  storage segregation, no enforced access gate. Treat all Spirit data as
+  potentially exposed. Genuinely sensitive content goes to actually-private
+  storage (private repositories), not Spirit; the privacy level only narrows
+  the intended audience, it does not protect it. The feature may later be
+  implemented as secure-private; until then a nonzero rung is a label, not a
+  seal.
 - The mail ledger is still in-memory (it is observability, not durable state):
   the `MailLedgerEvent` history resets on daemon restart. Only the SEMA records
   and commit ledger are durable.

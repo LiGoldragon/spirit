@@ -19,8 +19,8 @@ use thiserror::Error;
 use triad_runtime::{FrameBody as LengthPrefixedFrameBody, FrameError, LengthPrefixedCodec};
 
 pub use crate::schema::meta_signal::{
-    Configure, Input as MetaInput, InputRoute as MetaInputRoute, Output as MetaOutput,
-    OutputRoute as MetaOutputRoute, SignalFrameError as MetaFrameError,
+    CollectRemovalCandidates, Configure, Input as MetaInput, InputRoute as MetaInputRoute,
+    Output as MetaOutput, OutputRoute as MetaOutputRoute, SignalFrameError as MetaFrameError,
 };
 
 #[derive(Debug, Error)]
@@ -70,6 +70,15 @@ where
         request: Configure,
     ) -> Result<(MetaOutputRoute, MetaOutput), MetaTransportError> {
         self.exchange(&MetaInput::configure(request.into_payload()))
+    }
+
+    pub fn collect_removal_candidates(
+        &mut self,
+        request: CollectRemovalCandidates,
+    ) -> Result<(MetaOutputRoute, MetaOutput), MetaTransportError> {
+        self.exchange(&MetaInput::collect_removal_candidates(
+            request.into_payload(),
+        ))
     }
 
     pub fn write_input(&mut self, request: &MetaInput) -> Result<(), MetaTransportError> {

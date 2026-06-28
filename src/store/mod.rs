@@ -46,10 +46,10 @@ use crate::schema::{
         ImportanceSelection, Keyword, KeywordMatch, Keywords, Magnitude, ObservedRecord,
         ObservedRecords, Privacy, PrivacySelection, Query, RecordChange, RecordChangeReceipt,
         RecordCount, RecordIdentifier, RecordIdentifiers, RecordSet, Referent,
-        ReferentRegistration, ReferentRegistrationReceipt, ReferentSelection, Referents, Removal,
+        ReferentRegistration, ReferentRegistrationReceipt, ReferentSelection, Referents,
         RemovalArchiveRecord, RemovalArchiveRecords, RemovalCandidateCollection,
-        RemovalCandidatesCollection, RemoveReceipt, RemovedIdentifier, RemovedIdentifiers,
-        Retirement, RetirementReceipt, SearchText, SemaReceipt, SkippedRemovalCandidate,
+        RemovalCandidatesCollection, RemovedIdentifier, RemovedIdentifiers, Retirement,
+        RetirementReceipt, SearchText, SemaReceipt, SkippedRemovalCandidate,
         SkippedRemovalCandidates, Supersession, SupersessionReceipt, TextMatch,
     },
 };
@@ -191,18 +191,6 @@ impl SemaEngine for Store {
                     SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(error.to_string())))
                 }
             },
-            SemaWriteInput::Remove(remove) => {
-                let record_identifier = remove.into_payload().record_identifier;
-                match self.remove(record_identifier.payload()) {
-                    Ok(true) => SemaWriteOutput::removed(RemoveReceipt::new(record_identifier)),
-                    Ok(false) => SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(
-                        "record not found",
-                    ))),
-                    Err(error) => SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(
-                        error.to_string(),
-                    ))),
-                }
-            }
             SemaWriteInput::ChangeCertainty(change) => {
                 match self.change_certainty(change.into_payload()) {
                     Ok(Some(receipt)) => SemaWriteOutput::certainty_changed(receipt),
@@ -555,10 +543,12 @@ impl Store {
             .map(|stem| stem.to_string_lossy().into_owned())
             .unwrap_or_else(|| String::from("spirit"));
         // The version suffix tracks GUARDIAN_JOURNAL_SCHEMA_VERSION: a
-        // journal-schema change (v4: the sema-engine storage-layout-5 break)
-        // lands a fresh file rather than reading an incompatible layout. The
-        // older file stays on disk untouched, readable by the previous engine.
-        self.path.with_file_name(format!("{stem}.guardian.v4.sema"))
+        // journal-schema change (v5: GuardianRejectionReason gained Matter and
+        // GuardianOperation dropped its removal arms, shifting the rkyv
+        // positional discriminants the journal persists) lands a fresh file
+        // rather than reading an incompatible layout. The older v4 file stays
+        // on disk untouched, orphaned and ignored by this engine.
+        self.path.with_file_name(format!("{stem}.guardian.v5.sema"))
     }
 
     #[cfg(feature = "agent-guardian")]
@@ -908,23 +898,12 @@ impl Store {
                     bundle.insert(current);
                 }
             }
-            GuardianOperation::Remove(removal) => {
-                if let Some(current) =
-                    self.observed_record_by_identifier(removal.record_identifier.payload())?
-                {
-                    bundle.insert(current);
-                }
-            }
             GuardianOperation::ChangeRecord(change) => {
                 if let Some(current) =
                     self.observed_record_by_identifier(change.record_identifier.payload())?
                 {
                     bundle.insert(current);
                 }
-            }
-            GuardianOperation::CollectRemovalCandidates(collection) => {
-                let records = self.observe(collection.record_query.payload())?;
-                bundle.extend(RecordSet::new(records));
             }
             GuardianOperation::Record(_) | GuardianOperation::Propose(_) => {}
         }
@@ -1030,17 +1009,6 @@ impl Store {
             Err(sema_engine::Error::RecordNotFound { .. }) => Ok(false),
             Err(engine_error) => Err(StoreError::Database { engine_error }),
         }
-    }
-
-    pub(crate) fn remove_record(
-        &self,
-        removal: Removal,
-    ) -> Result<Option<RemoveReceipt>, StoreError> {
-        let record_identifier = removal.record_identifier;
-        if !self.remove(record_identifier.payload())? {
-            return Ok(None);
-        }
-        Ok(Some(RemoveReceipt::new(record_identifier)))
     }
 
     pub fn retire(&self, retirement: Retirement) -> Result<Option<RetirementReceipt>, StoreError> {

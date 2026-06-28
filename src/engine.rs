@@ -6,8 +6,9 @@ use crate::{
     nexus::Nexus,
     schema::{
         meta_signal::{
-            ConfigureReceipt, ConfigureRejection, ConfigureRejectionReason, ConfigureRequest,
-            ImportReceipt, ImportRequest, Output as MetaOutput,
+            CollectRemovalCandidatesRequest, ConfigureReceipt, ConfigureRejection,
+            ConfigureRejectionReason, ConfigureRequest, ImportReceipt, ImportRequest,
+            Output as MetaOutput, RemovalCandidatesCollectedReceipt,
         },
         nexus::{self as nexus_schema, NexusAction, NexusEngine, NexusWork},
         sema::ErrorReport,
@@ -704,6 +705,45 @@ impl Engine {
         self.import(request)
     }
 
+    /// Owner-only meta-socket `CollectRemovalCandidates`: archive every record
+    /// matching the supplied query into the SEPARATE archive database at the
+    /// owner-configured target, then physically retract it from the live log.
+    /// This is the ONLY physical-deletion path; it runs with NO guardian, on the
+    /// owner-only meta plane, mirroring `Import` — `&mut self` gives the
+    /// schema-emitted `EngineActor` mailbox the same serialised exclusivity
+    /// against every working write, without any component-internal lock. It
+    /// reuses the store's `collect_removal_candidates` archive-then-retract
+    /// primitive unchanged, and reports the archived / removed / skipped triple
+    /// with the live database marker.
+    pub fn collect_removal_candidates(
+        &mut self,
+        request: CollectRemovalCandidatesRequest,
+    ) -> MetaOutput {
+        match self
+            .nexus
+            .store()
+            .collect_removal_candidates(request.into_payload())
+        {
+            Ok(removal_candidates_collection) => {
+                MetaOutput::removal_candidates_collected(RemovalCandidatesCollectedReceipt {
+                    removal_candidates_collection,
+                    database_marker: self.nexus.database_marker(),
+                })
+            }
+            Err(_) => MetaOutput::rejected(ConfigureRejection {
+                configure_rejection_reason: ConfigureRejectionReason::InternalError,
+                database_marker: self.nexus.database_marker(),
+            }),
+        }
+    }
+
+    pub async fn collect_removal_candidates_async(
+        &mut self,
+        request: CollectRemovalCandidatesRequest,
+    ) -> MetaOutput {
+        self.collect_removal_candidates(request)
+    }
+
     pub fn intent_recorded_event(
         &self,
         record_identifier: &signal_schema::RecordIdentifier,
@@ -973,14 +1013,6 @@ impl nexus_schema::nexus::Nexus<NexusAction> {
 
 impl std::ops::Deref for crate::schema::sema::Recorded {
     type Target = SemaReceipt;
-
-    fn deref(&self) -> &Self::Target {
-        self.payload()
-    }
-}
-
-impl std::ops::Deref for crate::schema::sema::Removed {
-    type Target = signal_schema::RemoveReceipt;
 
     fn deref(&self) -> &Self::Target {
         self.payload()

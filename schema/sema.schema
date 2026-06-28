@@ -5,13 +5,11 @@
   Referent signal-spirit:signal:Referent
   Referents signal-spirit:signal:Referents
   SearchText signal-spirit:signal:SearchText
-  Removal signal-spirit:signal:Removal
   CertaintyChange signal-spirit:signal:CertaintyChange
   ImportanceBump signal-spirit:signal:ImportanceBump
   RecordChange signal-spirit:signal:RecordChange
   ReferentRegistration signal-spirit:signal:ReferentRegistration
   SemaReceipt signal-spirit:signal:SemaReceipt
-  RemoveReceipt signal-spirit:signal:RemoveReceipt
   CertaintyChangeReceipt signal-spirit:signal:CertaintyChangeReceipt
   ImportanceBumpReceipt signal-spirit:signal:ImportanceBumpReceipt
   RecordChangeReceipt signal-spirit:signal:RecordChangeReceipt
@@ -24,9 +22,8 @@
 [WriteInput ReadInput]
 [WriteOutput ReadOutput]
 {
-  WriteInput [(Record) (Remove) (ChangeCertainty) (BumpImportance) (ChangeRecord) (RegisterReferent)]
+  WriteInput [(Record) (ChangeCertainty) (BumpImportance) (ChangeRecord) (RegisterReferent)]
   Record Entry
-  Remove Removal
   ChangeCertainty CertaintyChange
   BumpImportance ImportanceBump
   ChangeRecord RecordChange
@@ -38,9 +35,8 @@
   Lookup RecordIdentifier
   Count Query
 
-  WriteOutput [(Recorded) (Removed) (CertaintyChanged) (ImportanceBumped) (RecordChanged) (ReferentRegistered) (Missed)]
+  WriteOutput [(Recorded) (CertaintyChanged) (ImportanceBumped) (RecordChanged) (ReferentRegistered) (Missed)]
   Recorded SemaReceipt
-  Removed RemoveReceipt
   CertaintyChanged CertaintyChangeReceipt
   ImportanceBumped ImportanceBumpReceipt
   RecordChanged RecordChangeReceipt
