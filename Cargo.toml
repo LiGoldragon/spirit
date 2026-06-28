@@ -95,11 +95,6 @@ name = "criome_gate_1of1"
 path = "tests/criome_gate_1of1.rs"
 required-features = ["mirror-shipper"]
 
-[[test]]
-name = "mentci_criome_intercept_policy_e2e"
-path = "tests/mentci_criome_intercept_policy_e2e.rs"
-required-features = ["agent-guardian", "mirror-shipper"]
-
 # The OFFLINE full-chain e2e: spirit source engine records → ships to mirror A
 # → criome authorizes the shipped head → router fans the typed head reference
 # → mirror latest restore is accepted or rejected by the delivered digest.
@@ -180,15 +175,11 @@ schema-rust = { package = "schema-rust", git = "https://github.com/LiGoldragon/s
 
 [dev-dependencies]
 agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", features = ["live-provider"] }
-mentci = { git = "https://github.com/LiGoldragon/mentci", branch = "main" }
-meta-signal-criome = { git = "https://github.com/LiGoldragon/meta-signal-criome", branch = "main" }
-meta-signal-mentci = { git = "https://github.com/LiGoldragon/meta-signal-mentci", branch = "main" }
 # The mirror working/meta contracts, for the in-process mirror fixture the
 # gated-shipper test ships to and restores from. Same branches mirror pins, so
 # Cargo unifies them with the `mirror` crate's own dependency instances.
 meta-signal-mirror = { git = "https://github.com/LiGoldragon/meta-signal-mirror.git", branch = "main" }
 schema = { package = "schema", git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }
-signal-mentci = { git = "https://github.com/LiGoldragon/signal-mentci", branch = "main", features = ["nota-text"] }
 # Typed `SemaOperation` labels for versioned-log shape witnesses.
 signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main" }
 tempfile = "3"

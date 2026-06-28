@@ -673,42 +673,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "88904434abc2901f197fe8cc55f0445e7ded921dba5911dad2e2b39b48e663c4"
 
 [[package]]
-name = "mentci"
-version = "0.4.1"
-source = "git+https://github.com/LiGoldragon/mentci?branch=main#082b14810993b22649593290fe85e76f7f0bf16a"
-dependencies = [
- "criome",
- "kameo",
- "mentci-lib",
- "meta-signal-criome",
- "meta-signal-mentci",
- "nota",
- "rkyv",
- "signal-criome",
- "signal-frame",
- "signal-harness",
- "signal-introspect",
- "signal-mentci",
- "signal-persona",
- "thiserror",
- "tokio",
-]
-
-[[package]]
-name = "mentci-lib"
-version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/mentci-lib?branch=main#16af712a3d9851f366d30f18c5156fa8d367fa76"
-dependencies = [
- "meta-signal-criome",
- "meta-signal-mentci",
- "nota",
- "signal-criome",
- "signal-frame",
- "signal-mentci",
- "thiserror",
-]
-
-[[package]]
 name = "meta-signal-agent"
 version = "0.2.0"
 source = "git+https://github.com/LiGoldragon/meta-signal-agent.git?branch=main#d7378752368bb2fd108e49b497b3e5ab7298dd3a"
@@ -723,24 +687,11 @@ dependencies = [
 [[package]]
 name = "meta-signal-criome"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-criome?branch=main#4814625aa23dcb0e3cee19580914ccc1a3b4aadc"
+source = "git+https://github.com/LiGoldragon/meta-signal-criome.git?branch=main#4814625aa23dcb0e3cee19580914ccc1a3b4aadc"
 dependencies = [
- "nota",
  "rkyv",
  "schema-rust",
  "signal-criome",
- "signal-frame",
- "thiserror",
-]
-
-[[package]]
-name = "meta-signal-mentci"
-version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-mentci?branch=main#240adb1d74ab8ece1335da69de99c7381cc44efb"
-dependencies = [
- "nota",
- "rkyv",
- "schema-rust",
  "signal-frame",
  "thiserror",
 ]
@@ -1410,7 +1361,6 @@ source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=main#478d6
 dependencies = [
  "blake3",
  "blst",
- "nota",
  "rkyv",
  "schema-rust",
  "signal-frame",
@@ -1473,19 +1423,6 @@ dependencies = [
  "signal-persona",
  "thiserror",
  "triad-runtime",
-]
-
-[[package]]
-name = "signal-mentci"
-version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/signal-mentci?branch=main#8376ee421d7d6949052b84134bf2966ea4d5d476"
-dependencies = [
- "nota",
- "rkyv",
- "schema-rust",
- "signal-criome",
- "signal-frame",
- "thiserror",
 ]
 
 [[package]]
@@ -1614,9 +1551,6 @@ dependencies = [
  "blake3",
  "criome",
  "getrandom 0.3.4",
- "mentci",
- "meta-signal-criome",
- "meta-signal-mentci",
  "meta-signal-mirror",
  "meta-signal-spirit",
  "mirror",
@@ -1632,7 +1566,6 @@ dependencies = [
  "signal-criome",
  "signal-frame",
  "signal-introspect",
- "signal-mentci",
  "signal-mirror",
  "signal-persona",
  "signal-sema",
