@@ -128,6 +128,29 @@ const SPIRIT_STORE_V10_LIVE_JUNE19_REFERENTS_FAMILY: [u8; 32] = [
     59, 31, 217, 119, 192, 51, 0, 231, 184, 226, 27, 216, 243, 155, 185, 14, 181, 217, 16, 174,
     156, 53, 105, 145, 174, 107, 88, 19, 140, 85, 162, 41,
 ];
+// The records family written by spirit 0.16.0
+// (`dbe53794165406eed13655088f478afdd968d6e22a6be10a54377042eb219f08`) and its
+// matching referents family
+// (`bcaffff3761998227018db6ebb4e4e22761673e0ca52545bbbce16aa48cf6ddf`). The
+// live production store carries these two identities under a schema-10,
+// layout-5 header: a half-step where the storage header advanced to schema 10
+// while the families still held the 0.16.0 content-hashes. The rows already
+// carry the current `StoredRecord`/`StoredReferent` byte layout — the family
+// content-hash last changed at 0.17.0 for a pure toolchain/representation
+// rename (schema-rust-next→schema-rust, nota-next→nota, `Vec`→`Vector`, dotted
+// family syntax), which moved the closure hashes to the current
+// `family_identity` values without touching the stored rkyv bytes. Folding a
+// `dbe53794` store is therefore a pure RELABEL into the current families — no
+// field transformation, exactly like the other schema-10 legacy-family
+// half-steps.
+const SPIRIT_STORE_V10_RELEASE_SIXTEEN_RECORDS_FAMILY: [u8; 32] = [
+    219, 229, 55, 148, 22, 84, 6, 238, 209, 54, 85, 8, 143, 71, 138, 253, 217, 104, 214, 226, 42,
+    107, 225, 10, 84, 55, 112, 66, 235, 33, 159, 8,
+];
+const SPIRIT_STORE_V10_RELEASE_SIXTEEN_REFERENTS_FAMILY: [u8; 32] = [
+    188, 175, 255, 243, 118, 25, 152, 34, 112, 24, 219, 110, 187, 78, 78, 34, 118, 22, 115, 224,
+    202, 82, 84, 91, 187, 206, 22, 170, 72, 207, 109, 223,
+];
 
 #[derive(Debug, Clone, PartialEq, Eq, NotaDecode, NotaEncode)]
 pub struct StoreMigrationRequest {
@@ -760,7 +783,7 @@ mod store_version_nine {
                 certainty,
                 importance,
                 privacy,
-                referents: Referents::new(vec![Referent::new("migrated-record")]),
+                referents: Referents::new(vec![super::Referent::new("migrated-record")]),
             }
         }
     }
@@ -2723,6 +2746,13 @@ impl SpiritStoreV10LegacyFamilyCurrentLiveDatabase {
                 SPIRIT_STORE_V9_REFERENTS_FAMILY,
             )
         })
+        .or_else(|_| {
+            Self::open_with_family_identity(
+                path,
+                SPIRIT_STORE_V10_RELEASE_SIXTEEN_RECORDS_FAMILY,
+                SPIRIT_STORE_V10_RELEASE_SIXTEEN_REFERENTS_FAMILY,
+            )
+        })
     }
 
     fn open_with_family_identity(
@@ -2781,6 +2811,12 @@ impl SpiritStoreV10LegacyFamilyCurrentArchiveDatabase {
                 )
             })
             .or_else(|_| Self::open_with_family_identity(path, SPIRIT_STORE_V9_RECORDS_FAMILY))
+            .or_else(|_| {
+                Self::open_with_family_identity(
+                    path,
+                    SPIRIT_STORE_V10_RELEASE_SIXTEEN_RECORDS_FAMILY,
+                )
+            })
     }
 
     fn open_with_family_identity(
@@ -3114,7 +3150,9 @@ mod tests {
         SPIRIT_STORE_V9_SCHEMA_VERSION, SPIRIT_STORE_V10_LIVE_JUNE19_RECORDS_FAMILY,
         SPIRIT_STORE_V10_LIVE_JUNE19_REFERENTS_FAMILY,
         SPIRIT_STORE_V10_PRE_STANDARD_IMPL_RECORDS_FAMILY,
-        SPIRIT_STORE_V10_PRE_STANDARD_IMPL_REFERENTS_FAMILY, SPIRIT_STORE_V10_SCHEMA_VERSION,
+        SPIRIT_STORE_V10_PRE_STANDARD_IMPL_REFERENTS_FAMILY,
+        SPIRIT_STORE_V10_RELEASE_SIXTEEN_RECORDS_FAMILY,
+        SPIRIT_STORE_V10_RELEASE_SIXTEEN_REFERENTS_FAMILY, SPIRIT_STORE_V10_SCHEMA_VERSION,
         SpiritStoreV7Entry, SpiritStoreV7Record, SpiritStoreV7Referent, SpiritStoreV8Record,
         SpiritStoreV8Referent, SpiritStoreV9Record, StoreMigration, StoreMigrationOutput,
         StoreMigrationRequest, store_version_nine, store_version_seven,
@@ -3401,6 +3439,77 @@ mod tests {
                 },
             ))
             .expect("seed live-june19 archive record");
+    }
+
+    fn seed_version_ten_release_sixteen_family_store(
+        live_path: &std::path::Path,
+        archive_path: &std::path::Path,
+    ) {
+        let mut live = CurrentSemaDatabase::open(
+            CurrentEngineOpen::new(live_path, SPIRIT_STORE_V10_SCHEMA_VERSION).with_versioning(
+                CurrentVersioningPolicy::new(CurrentVersionedStoreName::new("spirit:sema")),
+            ),
+        )
+        .expect("open release-sixteen schema ten live store");
+        let records = live
+            .register_table(CurrentTableDescriptor::new(
+                CURRENT_RECORDS_TABLE,
+                CurrentFamilyName::new("RecordsFamily"),
+                CurrentSchemaHash::new(SPIRIT_STORE_V10_RELEASE_SIXTEEN_RECORDS_FAMILY),
+            ))
+            .expect("register release-sixteen records table");
+        let referents = live
+            .register_table(CurrentTableDescriptor::new(
+                CURRENT_REFERENTS_TABLE,
+                CurrentFamilyName::new("ReferentsFamily"),
+                CurrentSchemaHash::new(SPIRIT_STORE_V10_RELEASE_SIXTEEN_REFERENTS_FAMILY),
+            ))
+            .expect("register release-sixteen referents table");
+        live.assert(CurrentAssertion::new(
+            referents,
+            StoredReferent {
+                referent: Referent::new("release-sixteen"),
+                aliases: Referents::new(vec![Referent::new("release sixteen")]),
+            },
+        ))
+        .expect("seed release-sixteen referent");
+        live.assert(CurrentAssertion::new(
+            records,
+            StoredRecord {
+                record_identifier: RecordIdentifier::new("v10-release-sixteen"),
+                entry: version_eight_entry(
+                    "schema ten release sixteen record survives the relabel",
+                    vec![Referent::new("release-sixteen")],
+                ),
+            },
+        ))
+        .expect("seed release-sixteen record");
+        drop(live);
+
+        let mut archive = CurrentSemaDatabase::open(CurrentEngineOpen::new(
+            archive_path,
+            SPIRIT_STORE_V10_SCHEMA_VERSION,
+        ))
+        .expect("open release-sixteen archive store");
+        let archive_records = archive
+            .register_table(CurrentTableDescriptor::new(
+                CURRENT_RECORDS_TABLE,
+                CurrentFamilyName::new("RecordsFamily"),
+                CurrentSchemaHash::new(SPIRIT_STORE_V10_RELEASE_SIXTEEN_RECORDS_FAMILY),
+            ))
+            .expect("register release-sixteen archive records table");
+        archive
+            .assert(CurrentAssertion::new(
+                archive_records,
+                StoredRecord {
+                    record_identifier: RecordIdentifier::new("old10-release-sixteen"),
+                    entry: version_eight_entry(
+                        "schema ten release sixteen archive survives the relabel",
+                        Vec::new(),
+                    ),
+                },
+            ))
+            .expect("seed release-sixteen archive record");
     }
 
     fn seed_version_ten_layout_three_store(
@@ -3889,6 +3998,59 @@ mod tests {
             .expect("second live-june19 migration run");
         let StoreMigrationOutput::Current(completed) = second else {
             panic!("already-migrated live-june19 store must report Current, got {second:?}");
+        };
+        assert_eq!(completed.record_count(), 1);
+    }
+
+    /// The release-0.16 relabel witness: a schema-10, layout-5 store whose
+    /// `records`/`referents` tables still carry the 0.16.0 family identities
+    /// (`dbe53794…` / `bcaffff3…`) migrates by pure relabel into the current
+    /// families. The stored rkyv bytes are already the current
+    /// `StoredRecord`/`StoredReferent` shapes, so the rows survive intact with
+    /// no field transformation — mirroring the pre-standard-impl and live-june19
+    /// half-steps. This is the exact shape of the live production store the
+    /// migration was extended to read.
+    #[test]
+    fn migrates_version_ten_release_sixteen_family_to_current_family() {
+        let temporary = tempfile::tempdir().expect("create migration sandbox");
+        let database_path = temporary.path().join("store.sema");
+        let archive_path = temporary.path().join("store.archive.sema");
+        seed_version_ten_release_sixteen_family_store(&database_path, &archive_path);
+
+        let request = StoreMigrationRequest::new(database_path.display().to_string());
+        let output = StoreMigration::new(request.clone())
+            .run()
+            .expect("run release-sixteen schema ten migration");
+        let StoreMigrationOutput::Migrated(completed) = output else {
+            panic!("release-sixteen schema ten store must migrate, got {output:?}");
+        };
+        assert_eq!(completed.record_count(), 1);
+        assert_eq!(completed.referent_count(), 1);
+
+        let migrated =
+            Store::open(&database_path).expect("open migrated release-sixteen schema ten store");
+        let entry = migrated
+            .entry_by_identifier("v10-release-sixteen")
+            .expect("query migrated release-sixteen entry")
+            .expect("migrated release-sixteen entry exists");
+        assert_eq!(
+            entry.description.payload(),
+            "schema ten release sixteen record survives the relabel"
+        );
+        assert_eq!(
+            entry.referents.payload(),
+            &vec![Referent::new("release-sixteen")]
+        );
+        let migrations = migrated.migrations().expect("read migration markers");
+        assert_eq!(migrations.len(), 1);
+        assert_eq!(*migrations[0].source_schema_version.payload(), 10);
+        drop(migrated);
+
+        let second = StoreMigration::new(request)
+            .run()
+            .expect("second release-sixteen migration run");
+        let StoreMigrationOutput::Current(completed) = second else {
+            panic!("already-migrated release-sixteen store must report Current, got {second:?}");
         };
         assert_eq!(completed.record_count(), 1);
     }
