@@ -151,8 +151,8 @@ dependencies = [
 
 [[package]]
 name = "criome"
-version = "0.4.2"
-source = "git+https://github.com/LiGoldragon/criome.git?branch=main#6b6683da14600441338c2b1db206facf6f5d97d8"
+version = "0.4.3"
+source = "git+https://github.com/LiGoldragon/criome.git?branch=criome-authorization-push#2dde85a2e7afee99520b82ec76a7d1885f485579"
 dependencies = [
  "blake3",
  "blst",
@@ -203,7 +203,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -687,7 +687,7 @@ dependencies = [
 [[package]]
 name = "meta-signal-criome"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-criome.git?branch=main#4814625aa23dcb0e3cee19580914ccc1a3b4aadc"
+source = "git+https://github.com/LiGoldragon/meta-signal-criome.git?branch=main#1fc655bc6eaad11cb27a99d6cb28cf9e7d1bbe8e"
 dependencies = [
  "rkyv",
  "schema-rust",
@@ -1143,7 +1143,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1540,7 +1540,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52d1cfed4120b4d927bf7c0f86d2087a4a7d6027c906d9f9d525a80573b9be51"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1630,7 +1630,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

@@ -34,16 +34,16 @@
     "criome-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1781879884,
-        "narHash": "sha256-1GqBUO1hFXQyscz99l/Vx6NB7+nNSOz2MiRwJLUrrgM=",
-        "ref": "main",
-        "rev": "6c75804cb23deeffee64542c5f70fa7c8d2692b6",
-        "revCount": 123,
+        "lastModified": 1782745556,
+        "narHash": "sha256-7E2JG0ezA7/UEz4CJgXWE2pJWzoGKXlNHs922/hVEnA=",
+        "ref": "criome-authorization-push",
+        "rev": "2dde85a2e7afee99520b82ec76a7d1885f485579",
+        "revCount": 149,
         "type": "git",
         "url": "https://github.com/LiGoldragon/criome.git"
       },
       "original": {
-        "ref": "main",
+        "ref": "criome-authorization-push",
         "type": "git",
         "url": "https://github.com/LiGoldragon/criome.git"
       }

@@ -57,7 +57,7 @@
       flake = false;
     };
     criome-source = {
-      url = "git+https://github.com/LiGoldragon/criome.git?ref=main";
+      url = "git+https://github.com/LiGoldragon/criome.git?ref=criome-authorization-push";
       flake = false;
     };
     signal-criome-source = {
@@ -321,7 +321,7 @@
                 --replace-fail 'signal-mirror = { git = "https://github.com/LiGoldragon/signal-mirror.git", branch = "main", default-features = false, optional = true }' 'signal-mirror = { path = "vendor-sources/signal-mirror", default-features = false, optional = true }' \
                 --replace-fail 'schema = { package = "schema", git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema = { path = "vendor-sources/schema" }' \
                 --replace-fail 'router = { git = "https://github.com/LiGoldragon/router.git", branch = "main", optional = true }' 'router = { path = "vendor-sources/router", optional = true }' \
-                --replace-fail 'criome = { git = "https://github.com/LiGoldragon/criome.git", branch = "main", optional = true }' 'criome = { path = "vendor-sources/criome", optional = true }' \
+                --replace-fail 'criome = { git = "https://github.com/LiGoldragon/criome.git", branch = "criome-authorization-push", optional = true }' 'criome = { path = "vendor-sources/criome", optional = true }' \
                 --replace-fail 'signal-criome = { git = "https://github.com/LiGoldragon/signal-criome.git", branch = "main", default-features = false, optional = true }' 'signal-criome = { path = "vendor-sources/signal-criome", default-features = false, optional = true }' \
                 --replace-fail 'signal-standard = { git = "https://github.com/LiGoldragon/signal-standard.git", branch = "main", default-features = false, optional = true }' 'signal-standard = { path = "vendor-sources/signal-standard", default-features = false, optional = true }'
 
