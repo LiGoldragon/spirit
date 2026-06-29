@@ -151,8 +151,8 @@ dependencies = [
 
 [[package]]
 name = "criome"
-version = "0.4.2"
-source = "git+https://github.com/LiGoldragon/criome.git?branch=main#6b6683da14600441338c2b1db206facf6f5d97d8"
+version = "0.4.3"
+source = "git+https://github.com/LiGoldragon/criome.git?branch=main#4c820a057c3c46eb8d17c5ef55c4468bfc22d85e"
 dependencies = [
  "blake3",
  "blst",
@@ -687,7 +687,7 @@ dependencies = [
 [[package]]
 name = "meta-signal-criome"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-criome.git?branch=main#4814625aa23dcb0e3cee19580914ccc1a3b4aadc"
+source = "git+https://github.com/LiGoldragon/meta-signal-criome.git?branch=main#1fc655bc6eaad11cb27a99d6cb28cf9e7d1bbe8e"
 dependencies = [
  "rkyv",
  "schema-rust",
@@ -744,8 +744,8 @@ dependencies = [
 
 [[package]]
 name = "mirror"
-version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/mirror.git?branch=main#b7e39e0db1a858ca29bd28e59e23ea563db3edda"
+version = "0.1.2"
+source = "git+https://github.com/LiGoldragon/mirror.git?branch=main#5102f5ed87d10d6a7386358b3b10214a04fdf89d"
 dependencies = [
  "meta-signal-mirror",
  "nota",
@@ -1106,7 +1106,7 @@ dependencies = [
 [[package]]
 name = "router"
 version = "0.4.1"
-source = "git+https://github.com/LiGoldragon/router.git?branch=main#70b79603c8cf879ec2064b73eb5f242f61fdc8b6"
+source = "git+https://github.com/LiGoldragon/router.git?branch=main#14ed682b47bf399aeb25ea8dea674275e15aa7a4"
 dependencies = [
  "kameo",
  "meta-signal-router",
@@ -1474,7 +1474,7 @@ dependencies = [
 [[package]]
 name = "signal-router"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/signal-router.git?branch=main#277bd153a7141f92e7bd83f7525568d9e137e595"
+source = "git+https://github.com/LiGoldragon/signal-router.git?branch=main#289c7de47d58432f41c8295b7852da2a94f84475"
 dependencies = [
  "rkyv",
  "schema-rust",
