@@ -203,7 +203,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -698,8 +698,8 @@ dependencies = [
 
 [[package]]
 name = "meta-signal-mirror"
-version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-mirror.git?branch=main#9d2aeddf11d0a87ff23fbcc7f22a55869ffe06b2"
+version = "0.2.0"
+source = "git+https://github.com/LiGoldragon/meta-signal-mirror.git?branch=main#44dfac6c4de9ed2e45517ee72c1fd39513e9182b"
 dependencies = [
  "nota",
  "rkyv",
@@ -744,8 +744,8 @@ dependencies = [
 
 [[package]]
 name = "mirror"
-version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/mirror.git?branch=main#b7e39e0db1a858ca29bd28e59e23ea563db3edda"
+version = "0.2.0"
+source = "git+https://github.com/LiGoldragon/mirror.git?branch=main#c3cb9c59c84c7f26cf856f2d84301e9c81fafa03"
 dependencies = [
  "meta-signal-mirror",
  "nota",
@@ -1143,7 +1143,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1540,7 +1540,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52d1cfed4120b4d927bf7c0f86d2087a4a7d6027c906d9f9d525a80573b9be51"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1630,7 +1630,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

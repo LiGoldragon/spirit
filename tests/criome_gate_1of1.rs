@@ -127,9 +127,10 @@ async fn running_mirror(directory: &TempDir) -> (ServiceLink, SocketAddr) {
         .expect("the tailnet ingress is bound");
     let registered = link
         .meta(meta_signal_mirror::Input::RegisterStore(
-            meta_signal_mirror::StoreRegistration::new(meta_signal_mirror::StoreName::new(
-                STORE_NAME.to_owned(),
-            )),
+            meta_signal_mirror::StoreRegistration {
+                store: meta_signal_mirror::StoreName::new(STORE_NAME.to_owned()),
+                addressing: meta_signal_mirror::ContentAddressing::Opaque,
+            },
         ))
         .await
         .expect("meta register");
