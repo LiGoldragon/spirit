@@ -190,11 +190,11 @@
     "meta-signal-spirit-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1782689316,
-        "narHash": "sha256-BxSsfC5rBE+DHb61xdcnJpeHQCrPHxIiul7G9QUY6Lo=",
+        "lastModified": 1782721763,
+        "narHash": "sha256-fzlOx/kVNDjNu2gUrh8GXJphk5IjPaBTs99JApZtuBY=",
         "owner": "LiGoldragon",
         "repo": "meta-signal-spirit",
-        "rev": "783cd5024507bbf339bd92dad3bba38cd64cb40d",
+        "rev": "98704a3573cd22aec80349b6b16b82fb2ada6499",
         "type": "github"
       },
       "original": {

@@ -199,6 +199,7 @@ impl ComponentDaemon for SpiritDaemon {
                     .await
             }
             MetaInput::ObserveHead => engine.observe_head_async().await,
+            MetaInput::ObserveHeadObject => engine.observe_head_object_async().await,
         };
         LengthPrefixedCodec::default()
             .write_body_async(

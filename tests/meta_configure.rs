@@ -158,6 +158,9 @@ fn configure_sets_archive_target_and_leaves_live_database_unchanged() {
         MetaOutput::HeadObserved(head) => {
             panic!("configure unexpectedly observed a head: {head:?}")
         }
+        MetaOutput::HeadObjectObserved(object) => {
+            panic!("configure unexpectedly observed a head object: {object:?}")
+        }
     }
 
     // CORE PROOF (2): the LIVE database is UNCHANGED by Configure. A record

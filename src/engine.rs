@@ -7,9 +7,9 @@ use crate::{
     schema::{
         meta_signal::{
             CollectRemovalCandidatesRequest, ConfigureReceipt, ConfigureRejection,
-            ConfigureRejectionReason, ConfigureRequest, HeadDigestHex, ImportReceipt,
-            ImportRequest, Output as MetaOutput, RemovalCandidatesCollectedReceipt,
-            SelectedHeadDigest, VersionedLogHead,
+            ConfigureRejectionReason, ConfigureRequest, HeadDigestHex, HeadObjectHex,
+            ImportReceipt, ImportRequest, Output as MetaOutput, RemovalCandidatesCollectedReceipt,
+            SelectedHeadDigest, SelectedHeadObject, VersionedLogHead, VersionedLogHeadObject,
         },
         nexus::{self as nexus_schema, NexusAction, NexusEngine, NexusWork},
         sema::ErrorReport,
@@ -736,6 +736,41 @@ impl Engine {
 
     pub async fn observe_head_async(&self) -> MetaOutput {
         self.observe_head()
+    }
+
+    /// Owner-only meta `ObserveHeadObject`: report the head entry's full wire
+    /// BODY — the `rkyv` octets of the head `VersionedCommitLogEntry`, lowercase
+    /// hex — beside the database marker. This is the exact body the production
+    /// `ComponentShipper::envelope_for_entry` ships and the criome-auth forward
+    /// carries (`versioned_log_head_object` reuses the same serialization), so
+    /// the witness sources the REAL record body from Spirit instead of a
+    /// placeholder. Surfaced as a hex `String` newtype, not `Bytes`, so the lean
+    /// default meta-signal tree stays free of `nota` — the same constraint the
+    /// sibling `HeadDigestHex` choice navigates. Decoding the hex and
+    /// reconstructing through `VersionedCommitLogEntry::new` reproduces the
+    /// `ObserveHead` digest, so head and body are consistent by construction.
+    pub fn observe_head_object(&self) -> MetaOutput {
+        match self.nexus.store().versioned_log_head_object() {
+            Ok(object) => MetaOutput::head_object_observed(VersionedLogHeadObject {
+                database_marker: self.nexus.database_marker(),
+                selected_head_object: SelectedHeadObject::new(object.map(|octets| {
+                    HeadObjectHex::new(
+                        octets
+                            .iter()
+                            .map(|byte| format!("{byte:02x}"))
+                            .collect::<String>(),
+                    )
+                })),
+            }),
+            Err(_) => MetaOutput::rejected(ConfigureRejection {
+                configure_rejection_reason: ConfigureRejectionReason::InternalError,
+                database_marker: self.nexus.database_marker(),
+            }),
+        }
+    }
+
+    pub async fn observe_head_object_async(&self) -> MetaOutput {
+        self.observe_head_object()
     }
 
     /// Owner-only meta-socket `CollectRemovalCandidates`: archive every record

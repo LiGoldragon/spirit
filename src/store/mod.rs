@@ -424,6 +424,28 @@ impl Store {
             .map(VersionedCommitLogEntry::entry_digest))
     }
 
+    /// The current versioned-log head entry serialized as its wire BODY: the
+    /// `rkyv` octets of the head `VersionedCommitLogEntry`, or `None` when the
+    /// store has never committed a versioned entry. These are byte-for-byte the
+    /// octets the production `mirror::ComponentShipper::envelope_for_entry`
+    /// ships for this entry — the same `rkyv::to_bytes::<rancor::Error>` call —
+    /// so the value the owner-only meta `ObserveHeadObject` query surfaces is
+    /// exactly the body the criome-auth forward carries and the mirror lands.
+    /// Re-decoding it (`rkyv::from_bytes::<VersionedCommitLogEntry>`) and
+    /// reconstructing through `VersionedCommitLogEntry::new` reproduces the
+    /// `versioned_log_head` digest, so the body is genuinely content-addressed,
+    /// never an invented format.
+    pub fn versioned_log_head_object(&self) -> Result<Option<Vec<u8>>, StoreError> {
+        match self.versioned_log()?.last() {
+            None => Ok(None),
+            Some(entry) => Ok(Some(
+                rkyv::to_bytes::<rkyv::rancor::Error>(entry)
+                    .map_err(|_| StoreError::ArchiveEncode)?
+                    .to_vec(),
+            )),
+        }
+    }
+
     /// The versioned-log suffix strictly after `sequence`, in commit order —
     /// the entries an importer ingests on top of a checkpoint.
     pub fn versioned_log_from(
