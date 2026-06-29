@@ -339,6 +339,55 @@ impl FakeCriomeAuthorizationSocket {
         }
     }
 
+    fn spawn_granted_snapshot() -> Self {
+        let directory = TempDir::new().expect("criome fake tempdir");
+        let socket_path = directory.path().join("criome.sock");
+        let listener = UnixListener::bind(&socket_path).expect("bind fake criome socket");
+        listener
+            .set_nonblocking(true)
+            .expect("fake criome listener nonblocking");
+        let captured_requests = Arc::new(Mutex::new(Vec::new()));
+        let thread_requests = Arc::clone(&captured_requests);
+        let thread = thread::spawn(move || {
+            let codec = CriomeFrameCodec::default();
+            let mut stream = Self::accept(&listener);
+            let request = codec
+                .read_request(&mut stream)
+                .expect("fake criome reads authorization request");
+            let CriomeRequest::AuthorizeSignalCall(authorization) = request.clone() else {
+                panic!("expected AuthorizeSignalCall, got {request:?}");
+            };
+            let slot = Self::slot();
+            thread_requests
+                .lock()
+                .expect("fake criome captured requests")
+                .push(request);
+            let granted = AuthorizationStateRecord::new(
+                slot.clone(),
+                authorization.request_digest.clone(),
+                AuthorizationStatus::Granted,
+                Vec::new(),
+                Some(Self::grant(slot, &authorization)),
+                None,
+            )
+            .with_signal_authorization(authorization);
+            codec
+                .write_reply(
+                    &mut stream,
+                    CriomeReply::AuthorizationObservationSnapshot(
+                        AuthorizationObservationSnapshot::from_states(vec![granted]),
+                    ),
+                )
+                .expect("fake criome writes granted observation snapshot");
+        });
+        Self {
+            _directory: directory,
+            socket_path,
+            captured_requests,
+            thread,
+        }
+    }
+
     fn accept(listener: &UnixListener) -> UnixStream {
         let deadline = Instant::now() + Duration::from_secs(5);
         while Instant::now() < deadline {
@@ -1475,6 +1524,40 @@ fn pending_criome_authorization_resumes_from_pushed_stream_update() {
     assert!(
         matches!(output.root(), Output::RecordAccepted(_)),
         "pushed criome grant should allow the same Spirit request to finish"
+    );
+    assert_eq!(engine.record_count(), 1);
+    fake_agent.join();
+    let requests = fake_criome.join();
+    assert_eq!(requests.len(), 1);
+    let CriomeRequest::AuthorizeSignalCall(authorization) = &requests[0] else {
+        panic!("expected AuthorizeSignalCall, got {:?}", requests[0]);
+    };
+    assert_eq!(authorization.operation.payload(), "Record");
+}
+
+#[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+#[test]
+fn immediate_criome_authorization_resumes_from_submit_snapshot() {
+    let sema = SemaFile::new();
+    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::Accept);
+    let fake_criome = FakeCriomeAuthorizationSocket::spawn_granted_snapshot();
+    let mut engine = sema.engine_with_guardian(fake_agent.guardian());
+    let configured = engine.configure(ConfigureRequest::new(
+        ArchiveDatabaseTarget::Default,
+        None,
+        Some(CriomeGateTarget::socket(CriomeSocketPathText::new(
+            fake_criome.socket_path().display().to_string(),
+        ))),
+    ));
+    assert!(matches!(configured, MetaOutput::Configured(_)));
+
+    let output = engine.handle(input_record(entry_without_referents(
+        "immediate criome authorization resumes from submit snapshot",
+    )));
+
+    assert!(
+        matches!(output.root(), Output::RecordAccepted(_)),
+        "submit-returned criome grant snapshot should allow the same Spirit request to finish"
     );
     assert_eq!(engine.record_count(), 1);
     fake_agent.join();

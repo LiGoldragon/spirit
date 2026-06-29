@@ -1,9 +1,10 @@
 //! The 1-of-1 LOCAL criome gate witness (Spirit `xhwa`, report 703-6 Item 1).
 //!
 //! This proves the PRODUCTION daemon gate end to end through a REAL local
-//! criome Unix socket — the gate's `CriomeClient::send` does a genuine socket
-//! round-trip to a criome daemon (`BoundCriomeDaemon::serve_forever` on its own
-//! OS thread), not an in-process `ActorRef` ask. The spirit side is the real
+//! criome Unix socket — the gate's `CriomeClient::authorize_signal_call` opens
+//! the submit-returned criome stream over a genuine socket round-trip to a
+//! criome daemon (`BoundCriomeDaemon::serve_forever` on its own OS thread), not
+//! an in-process `ActorRef` ask. The spirit side is the real
 //! `Engine::gate_and_ship_head` the daemon's `handle_working_input` calls, armed
 //! against a live in-process mirror so the FAN-OUT is observable.
 //!

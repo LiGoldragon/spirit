@@ -131,17 +131,17 @@ signal-mirror = { git = "https://github.com/LiGoldragon/signal-mirror.git", bran
 # criome brings the `CriomeClient` synchronous Unix-socket transport spirit's
 # gate wraps in `spawn_blocking`; signal-criome brings the typed
 # `AuthorizedObjectReference` the gate projects from the post-commit head and
-# the `EvaluateAuthorization` request/reply. Both pin `branch=main`, so Cargo
-# unifies their shared transitive crates (triad-runtime, sema-engine,
+# the authorization submit stream. Both pins stay on the authorization-push
+# integration line, so Cargo unifies their shared transitive crates (triad-runtime, sema-engine,
 # nota, signal-frame) with the mirror leg in one binary. default-features
 # = false on signal-criome drops its nota-text codec, which the daemon gate
 # (binary rkyv only) does not use.
 criome = { git = "https://github.com/LiGoldragon/criome.git", branch = "criome-authorization-push", optional = true }
-signal-criome = { git = "https://github.com/LiGoldragon/signal-criome.git", branch = "main", default-features = false, optional = true }
+signal-criome = { git = "https://github.com/LiGoldragon/signal-criome.git", branch = "criome-authorization-push", default-features = false, optional = true }
 # The router leg of the OFFLINE full-chain e2e, behind the opt-in
 # `offline-full-chain-e2e` feature (NOT the production gate path). Optional so
 # the default test build does not compile router's currently-lagging source.
-router = { git = "https://github.com/LiGoldragon/router.git", branch = "main", optional = true }
+router = { git = "https://github.com/LiGoldragon/router.git", branch = "criome-authorization-push", optional = true }
 signal-standard = { git = "https://github.com/LiGoldragon/signal-standard.git", branch = "main", default-features = false, optional = true }
 signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main", optional = true }
 # The shared wire contract for the tracing -> introspect slice (report 716):

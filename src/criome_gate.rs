@@ -25,13 +25,13 @@ use criome::transport::CriomeClient;
 use sema_engine::EntryDigest;
 use signal_criome::{
     AttestedMoment, AttestedMomentProposition, AuthorizationEvaluation, AuthorizationScope,
-    AuthorizationStateRecord, AuthorizationStatus, AuthorizedObjectKind, AuthorizedObjectReference,
-    ComponentKind, ContractDigest, ContractName, ContractOperationHead, CriomeReply, CriomeRequest,
+    AuthorizationStatus, AuthorizedObjectKind, AuthorizedObjectReference, ComponentKind,
+    ContractDigest, ContractName, ContractOperationHead, CriomeReply, CriomeRequest,
     EvaluationDecision, Evidence, Identity, ObjectDigest, OperationDigest, ReplayNonce,
     RequiredSignatureThreshold, SignalCallAuthorization, TimeWindow, TimestampNanos,
 };
 #[cfg(feature = "agent-guardian")]
-use signal_criome::{SpiritAuthorizationContext, SpiritProcessKey};
+use signal_criome::{AuthorizationStateRecord, SpiritAuthorizationContext, SpiritProcessKey};
 use thiserror::Error;
 
 #[cfg(feature = "agent-guardian")]
@@ -416,28 +416,53 @@ impl CriomeGate {
         reference: AuthorizedObjectReference,
     ) -> Result<AuthorizationObservation, CriomeGateError> {
         let send_result = tokio::task::spawn_blocking(move || {
-            CriomeClient::new(socket).send(CriomeRequest::AuthorizeSignalCall(authorization))
+            let mut session = match CriomeClient::new(socket).authorize_signal_call(authorization) {
+                Ok(session) => session,
+                Err(_) => return Ok(AuthorizationObservation::Unreachable),
+            };
+            Self::observed_authorization_from_submit_stream(&mut session, reference)
         })
         .await
         .map_err(|source| CriomeGateError::AuthorizationTask {
             message: source.to_string(),
         })?;
-        let reply = match send_result {
-            Ok(reply) => reply,
-            Err(_) => return Ok(AuthorizationObservation::Unreachable),
-        };
-        let CriomeReply::AuthorizationGranted(grant) = reply else {
+        send_result
+    }
+
+    fn observed_authorization_from_submit_stream(
+        session: &mut criome::transport::CriomeAuthorizationObservationSession,
+        reference: AuthorizedObjectReference,
+    ) -> Result<AuthorizationObservation, CriomeGateError> {
+        let Some(state) = session.snapshot().states().first() else {
             return Err(CriomeGateError::UnexpectedReply {
-                reply: format!("{reply:?}"),
+                reply: format!("{:?}", session.snapshot()),
             });
         };
-        if grant.authorized_object_digest != reference.digest {
+        if state.request_digest != reference.digest {
             return Err(CriomeGateError::UnexpectedReply {
-                reply: format!("{grant:?}"),
+                reply: format!("{state:?}"),
             });
         }
+        let decision = match state.status {
+            AuthorizationStatus::Granted => match state.grant() {
+                Some(grant) if grant.authorized_object_digest == reference.digest => {
+                    EvaluationDecision::Authorized
+                }
+                _ => {
+                    return Err(CriomeGateError::UnexpectedReply {
+                        reply: format!("{state:?}"),
+                    });
+                }
+            },
+            AuthorizationStatus::Pending
+            | AuthorizationStatus::Signing
+            | AuthorizationStatus::Parked
+            | AuthorizationStatus::Denied
+            | AuthorizationStatus::Expired
+            | AuthorizationStatus::Unavailable => EvaluationDecision::Deferred,
+        };
         Ok(AuthorizationObservation::Observed(
-            ObservedAuthorization::new(reference, EvaluationDecision::Authorized),
+            ObservedAuthorization::new(reference, decision),
         ))
     }
 }

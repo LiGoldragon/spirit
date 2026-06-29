@@ -152,7 +152,7 @@ dependencies = [
 [[package]]
 name = "criome"
 version = "0.4.3"
-source = "git+https://github.com/LiGoldragon/criome.git?branch=criome-authorization-push#2dde85a2e7afee99520b82ec76a7d1885f485579"
+source = "git+https://github.com/LiGoldragon/criome.git?branch=criome-authorization-push#4b027f7a6d63c14c5a76cbe82fc38f7ece8b7b5d"
 dependencies = [
  "blake3",
  "blst",
@@ -203,7 +203,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -687,7 +687,7 @@ dependencies = [
 [[package]]
 name = "meta-signal-criome"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-criome.git?branch=main#1fc655bc6eaad11cb27a99d6cb28cf9e7d1bbe8e"
+source = "git+https://github.com/LiGoldragon/meta-signal-criome.git?branch=criome-authorization-push#acd203e7e07191ff83dfedcafbc9ecb2da9f87ea"
 dependencies = [
  "rkyv",
  "schema-rust",
@@ -1106,7 +1106,7 @@ dependencies = [
 [[package]]
 name = "router"
 version = "0.4.1"
-source = "git+https://github.com/LiGoldragon/router.git?branch=main#70b79603c8cf879ec2064b73eb5f242f61fdc8b6"
+source = "git+https://github.com/LiGoldragon/router.git?branch=criome-authorization-push#484fba804e4f47e9699d652243d684adfb2fc815"
 dependencies = [
  "kameo",
  "meta-signal-router",
@@ -1143,7 +1143,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1357,7 +1357,7 @@ dependencies = [
 [[package]]
 name = "signal-criome"
 version = "0.6.0"
-source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=main#5976b2870e0231742dc1a8bf4db17fd98f8f6b61"
+source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=criome-authorization-push#2986f8f8ec83de14546cf8ce286738bc2aba77c9"
 dependencies = [
  "blake3",
  "blst",
@@ -1540,7 +1540,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52d1cfed4120b4d927bf7c0f86d2087a4a7d6027c906d9f9d525a80573b9be51"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -1630,7 +1630,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
