@@ -844,6 +844,17 @@
               cargoExtraArgs = "--features nota-text";
             }
           );
+          # The owner-only meta ObserveHeadObject surfaces the head entry's rkyv
+          # body as hex; decoding it and reconstructing through
+          # VersionedCommitLogEntry::new reproduces the head ObserveHead returns —
+          # the REAL record body the two-VM criome-auth witness forwards and lands.
+          spirit-observe-head-object-rehashes-to-head = craneLib.cargoTest (
+            commonArguments
+            // {
+              cargoArtifacts = notaTextCargoArtifacts;
+              cargoExtraArgs = "--features nota-text --test observe_head_object";
+            }
+          );
           test-configuration-writer-process-boundary = craneLib.cargoTest (
             commonArguments
             // {
