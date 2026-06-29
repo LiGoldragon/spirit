@@ -712,8 +712,8 @@ impl Engine {
     /// [`LocalHeadCapture::spirit_head`](crate::criome_gate::LocalHeadCapture::spirit_head)
     /// and authorizes for fan-out, and the SAME head the mirror durably lands.
     /// It is a pure read (no SEMA write, no guardian), so a guardian-required
-    /// fail-closed daemon still answers it. The digest is carried as a
-    /// `(Bytes 32)` `FixedBytes<32>`, NOTA-encoded as 64 lowercase hex
+    /// fail-closed daemon still answers it. The head is carried as a
+    /// `HeadDigestHex` String — 64 lowercase hex
     /// characters — the exact form the router-forward-witness ingests as
     /// `HEAD_DIGEST_HEX`, and the SAME encoding criome's `ObjectDigest` carries.
     /// The hex comes from `EntryDigest`'s own `Display`, so spirit forwards its

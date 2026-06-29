@@ -141,11 +141,11 @@
     "meta-signal-criome-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1782232742,
-        "narHash": "sha256-qMsz6WDobk1B92DsM31elhesAaoD9OWuyo2irpJLsI4=",
+        "lastModified": 1782728192,
+        "narHash": "sha256-byASZ5YFDv2SMsyOqiSAlqddZr/vNJsCbX0FIatpitM=",
         "ref": "main",
-        "rev": "507c56f570807ee1062a7e702b222b4c7691532e",
-        "revCount": 15,
+        "rev": "1fc655bc6eaad11cb27a99d6cb28cf9e7d1bbe8e",
+        "revCount": 19,
         "type": "git",
         "url": "https://github.com/LiGoldragon/meta-signal-criome.git"
       },
@@ -199,7 +199,6 @@
       },
       "original": {
         "owner": "LiGoldragon",
-        "ref": "criome-auth-witness",
         "repo": "meta-signal-spirit",
         "type": "github"
       }
@@ -466,11 +465,11 @@
     "signal-criome-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1782230987,
-        "narHash": "sha256-Rn+bcESC/xfXBVIsamWTlRIlRE9Rq9JTX43AtfXPu7I=",
+        "lastModified": 1782663839,
+        "narHash": "sha256-tArxV+UkKTAGj3obbFKVeEpEdCjpNdeqouGKawbQzHQ=",
         "ref": "main",
-        "rev": "182036acc4e763b9ef6c763082f6c277785f86b3",
-        "revCount": 70,
+        "rev": "5976b2870e0231742dc1a8bf4db17fd98f8f6b61",
+        "revCount": 73,
         "type": "git",
         "url": "https://github.com/LiGoldragon/signal-criome.git"
       },
@@ -483,11 +482,11 @@
     "signal-frame-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1782230058,
-        "narHash": "sha256-K0pxouO1U8+CyW2ad7vsj5Ed1AE2LMZPTS6ggL9fmh0=",
+        "lastModified": 1782545367,
+        "narHash": "sha256-jftKhvUPV3jm3Ule+mdsX8Msll2g68/I9tA/szDQgx0=",
         "ref": "main",
-        "rev": "d0dd5c0b66a90c1af72d45920e31c2b3049437f9",
-        "revCount": 67,
+        "rev": "b78c80775c7fb7f80dee7ea3a8a30cc14dfac442",
+        "revCount": 68,
         "type": "git",
         "url": "https://github.com/LiGoldragon/signal-frame.git"
       },

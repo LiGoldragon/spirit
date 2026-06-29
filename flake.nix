@@ -73,7 +73,7 @@
       flake = false;
     };
     meta-signal-spirit-source = {
-      url = "github:LiGoldragon/meta-signal-spirit/criome-auth-witness";
+      url = "github:LiGoldragon/meta-signal-spirit";
       flake = false;
     };
     signal-agent-source = {
@@ -313,7 +313,7 @@
                 --replace-fail 'signal-persona = { git = "https://github.com/LiGoldragon/signal-persona.git", branch = "main", optional = true }' 'signal-persona = { path = "vendor-sources/signal-persona", optional = true }' \
                 --replace-fail 'signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main" }' 'signal-sema = { path = "vendor-sources/signal-sema" }' \
                 --replace-fail 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main" }' 'signal-spirit = { path = "vendor-sources/signal-spirit" }' \
-                --replace-fail 'meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", branch = "criome-auth-witness" }' 'meta-signal-spirit = { path = "vendor-sources/meta-signal-spirit" }' \
+                --replace-fail 'meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", branch = "main" }' 'meta-signal-spirit = { path = "vendor-sources/meta-signal-spirit" }' \
                 --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "vendor-sources/triad-runtime" }' \
                 --replace-fail 'schema-rust = { package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust = { path = "vendor-sources/schema-rust" }' \
                 --replace-fail 'agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", features = ["live-provider"] }' 'agent = { path = "vendor-sources/agent", features = ["live-provider"] }' \

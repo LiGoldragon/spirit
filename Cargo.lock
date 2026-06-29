@@ -721,7 +721,7 @@ dependencies = [
 [[package]]
 name = "meta-signal-spirit"
 version = "0.4.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=criome-auth-witness#98704a3573cd22aec80349b6b16b82fb2ada6499"
+source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=main#98704a3573cd22aec80349b6b16b82fb2ada6499"
 dependencies = [
  "nota",
  "rkyv",
@@ -1356,8 +1356,8 @@ dependencies = [
 
 [[package]]
 name = "signal-criome"
-version = "0.5.0"
-source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=main#478d6cca0d31b670fc7aabf54994ebffa41527c4"
+version = "0.6.0"
+source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=main#5976b2870e0231742dc1a8bf4db17fd98f8f6b61"
 dependencies = [
  "blake3",
  "blst",
@@ -1545,7 +1545,7 @@ dependencies = [
 
 [[package]]
 name = "spirit"
-version = "0.18.1"
+version = "0.19.0"
 dependencies = [
  "agent",
  "blake3",
