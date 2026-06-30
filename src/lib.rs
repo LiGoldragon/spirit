@@ -96,6 +96,7 @@ pub use engine::{
 pub use guardian::{
     AgentGuardian, AgentGuardianConfiguration, AgentGuardianError, AgentGuardianRejection,
 };
+#[cfg(feature = "agent-guardian")]
 pub use guardian_prompt::GuardianPromptSource;
 pub use meta_transport::{
     MetaFrameError, MetaInputRoute, MetaOutputRoute, MetaSignalTransport, MetaTransportError,

@@ -241,7 +241,7 @@ impl<'configuration> GuardianPromptBuilder<'configuration> {
     /// shapes, the burden-of-proof ladder, the directed 11-gate checklist, the
     /// closed reason set and verdict grammar rendered from the enum, the NOTA
     /// output discipline, and the over-trained few-shot.
-    fn intent_guardian_system_prompt(&self) -> String {
+    pub(crate) fn intent_guardian_system_prompt(&self) -> String {
         format!(
             "{role}\n\n{record}\n\n{justification}\n\n{ladder}\n\n{checklist}\n\n{reasons}\n\n{nota}\n\n{few_shot}",
             role = self.prompt_source.section(GuardianPromptSection::Role),
@@ -421,16 +421,14 @@ const GUARDIAN_CHECKLIST: &str = include_str!("guardian-prompts/checklist.md");
 /// measured ablation that regresses neither verdict nor reason match.
 const GUARDIAN_FEW_SHOT: &str = include_str!("guardian-prompts/few-shot.md");
 
-/// One prose section of the guardian prompt. Each variant binds its runtime
-/// filename to the verbatim section baked into the binary at compile time. The
-/// compiled-in copy is the FALLBACK, not a second code path: `compiled_default`
-/// is the prose under `src/guardian-prompts/<file_name>` embedded with
-/// `include_str!`, so a runtime override that drops a same-named file in the
-/// prompt directory swaps that section without a rebuild, and an absent or empty
-/// file is exactly the compiled-in case. Only the prose sections live here; the
-/// closed rejection-reason catalogue and the NOTA verdict grammar stay
-/// enum-rendered in code so the prompt can never drift from the wire type the
-/// daemon parses.
+/// One prose section of the guardian prompt. Each variant binds to the verbatim
+/// section baked into the binary at compile time via `compiled_default`
+/// (`include_str!` over `src/guardian-prompts/<section>`). The compiled-in copy
+/// is the default the daemon ships and starts on; a runtime override supplied by
+/// the owner through the meta `Configure` path replaces the `Role` section
+/// without a rebuild. Only prose sections live here; the closed
+/// rejection-reason catalogue and the NOTA verdict grammar stay enum-rendered in
+/// code so the prompt can never drift from the wire type the daemon parses.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum GuardianPromptSection {
     Role,
@@ -443,20 +441,6 @@ pub(crate) enum GuardianPromptSection {
 }
 
 impl GuardianPromptSection {
-    /// The runtime override filename, identical to the checked-in source file
-    /// under `src/guardian-prompts/` so an operator overlays sections by name.
-    fn file_name(self) -> &'static str {
-        match self {
-            Self::Role => "role.md",
-            Self::Referent => "referent.md",
-            Self::RecordShape => "record-shape.md",
-            Self::JustificationShape => "justification-shape.md",
-            Self::BurdenLadder => "burden-ladder.md",
-            Self::Checklist => "checklist.md",
-            Self::FewShot => "few-shot.md",
-        }
-    }
-
     /// The verbatim section baked into the binary at compile time, used whenever
     /// no runtime override is present for this section.
     fn compiled_default(self) -> &'static str {
@@ -472,72 +456,64 @@ impl GuardianPromptSection {
     }
 }
 
-/// Where the guardian's prose sections are read from at render time. An
-/// override directory makes the prompt runtime-swappable: each section is read
-/// fresh from `<directory>/<section file name>` on every prompt render, so
-/// editing a file under the directory changes the live guardian without a
-/// rebuild or a config redeploy. When the directory is absent, or a particular
-/// section file is missing, unreadable, or blank, the compiled-in default for
-/// that section is used — so a partial overlay (e.g. only `role.md`) is a
-/// first-class, supported state, and the default daemon with no override
-/// behaves exactly as the compiled-in prompt.
+/// Where the guardian's prose sections are resolved from at render time.
+///
+/// `Compiled` is the daemon's resting state: every section renders from its
+/// `include_str!` compiled-in default, so a freshly started daemon always runs
+/// the acknowledged strict-bar role with no external input. `RoleOverride`
+/// carries an owner-supplied role section delivered live through the
+/// meta-signal-spirit `Configure` path (`GuardianPromptTarget::Prompt`): the
+/// `Role` section renders from that text and every other section still renders
+/// from its compiled-in default. Swapping the role this way needs no rebuild and
+/// no config-archive redeploy — the owner re-sends `Configure`.
+///
+/// The override is deliberately scoped to the role section: it is the
+/// psyche-facing prose, and confining the override there keeps the
+/// wire-coupled sections (reason catalogue, verdict grammar) code-rendered so an
+/// override can never shift the verdict vocabulary the daemon parses. An empty
+/// or whitespace-only override is treated as absent, falling back to the
+/// compiled-in role rather than rendering a hole into the guardian's
+/// instructions.
 #[derive(Clone, Debug, Eq, PartialEq, Default)]
-pub struct GuardianPromptSource {
-    override_directory: Option<std::path::PathBuf>,
+pub enum GuardianPromptSource {
+    /// Every section renders from its compiled-in default.
+    #[default]
+    Compiled,
+    /// The `Role` section renders from this owner-supplied text; every other
+    /// section renders from its compiled-in default.
+    RoleOverride(String),
 }
 
 impl GuardianPromptSource {
-    /// The environment variable naming the runtime prompt-override directory.
-    /// It mirrors the crate's existing `SPIRIT_SOCKET` / `SPIRIT_META_SOCKET`
-    /// deploy-set path convention: the deployment sets it once on the daemon
-    /// unit, after which the prose files under it can be swapped without a
-    /// rebuild or a config redeploy.
-    pub const PROMPT_DIRECTORY_VARIABLE: &'static str = "SPIRIT_GUARDIAN_PROMPT_DIR";
-
     /// A source with no override: every section resolves to its compiled-in
-    /// default. This is the daemon's behaviour when no prompt directory is set.
+    /// default. This is the daemon's behaviour at startup and whenever no owner
+    /// override is active.
     pub fn compiled_in() -> Self {
-        Self {
-            override_directory: None,
+        Self::Compiled
+    }
+
+    /// A source whose `Role` section renders from the owner-supplied `role`
+    /// text. A blank text resolves to the compiled-in source so the live
+    /// guardian is never left with an empty role.
+    pub fn role_override(role: impl Into<String>) -> Self {
+        let role = role.into();
+        if role.trim().is_empty() {
+            Self::Compiled
+        } else {
+            Self::RoleOverride(role)
         }
     }
 
-    /// Resolve the source from the environment: an override directory when
-    /// `SPIRIT_GUARDIAN_PROMPT_DIR` is set to a non-empty value, otherwise the
-    /// compiled-in source. The path is not probed here — a missing directory or
-    /// file falls back per section at render time, so a stale or not-yet-created
-    /// directory never breaks admission.
-    pub fn from_environment() -> Self {
-        match std::env::var(Self::PROMPT_DIRECTORY_VARIABLE) {
-            Ok(directory) if !directory.trim().is_empty() => {
-                Self::with_override_directory(std::path::PathBuf::from(directory))
-            }
-            _ => Self::compiled_in(),
-        }
-    }
-
-    /// A source that overlays sections from `directory`, falling back per
-    /// section to the compiled-in default.
-    pub fn with_override_directory(directory: std::path::PathBuf) -> Self {
-        Self {
-            override_directory: Some(directory),
-        }
-    }
-
-    /// Resolve one section: the runtime override file if it exists and carries
-    /// non-blank prose, otherwise the verbatim compiled-in default. A read
-    /// error or an empty file is treated as absent (fail safe to the baked
-    /// prompt) rather than rendering a hole into the guardian's instructions.
+    /// Resolve one section: the owner-supplied role text when this source
+    /// overrides the role and the requested section is `Role`, otherwise the
+    /// verbatim compiled-in default for that section.
     fn section(&self, section: GuardianPromptSection) -> std::borrow::Cow<'static, str> {
-        if let Some(directory) = self.override_directory.as_deref() {
-            let path = directory.join(section.file_name());
-            if let Ok(contents) = std::fs::read_to_string(&path)
-                && !contents.trim().is_empty()
-            {
-                return std::borrow::Cow::Owned(contents);
+        match (self, section) {
+            (Self::RoleOverride(role), GuardianPromptSection::Role) => {
+                std::borrow::Cow::Owned(role.clone())
             }
+            _ => std::borrow::Cow::Borrowed(section.compiled_default()),
         }
-        std::borrow::Cow::Borrowed(section.compiled_default())
     }
 }
 
@@ -655,66 +631,58 @@ mod tests {
     }
 
     #[test]
-    fn runtime_override_directory_swaps_the_role_section_without_rebuild() {
-        let directory = std::env::temp_dir().join(format!(
-            "spirit-guardian-prompt-override-{}",
-            std::process::id()
-        ));
-        std::fs::create_dir_all(&directory).expect("create override directory");
+    fn role_override_swaps_the_role_section_without_rebuild() {
         let overridden_role = "OVERRIDE ROLE: the runtime guardian role prose for this test.";
-        std::fs::write(directory.join("role.md"), overridden_role).expect("write override role");
-
-        let source = GuardianPromptSource::with_override_directory(directory.clone());
+        let source = GuardianPromptSource::role_override(overridden_role);
         let prompt = compiled_in_builder(&source).intent_guardian_system_prompt();
 
         assert!(
             prompt.contains(overridden_role),
-            "an override role.md in the prompt directory must replace the compiled-in role section"
+            "an owner role override must replace the compiled-in role section"
         );
         assert!(
             !prompt.contains("THE ONE TEST"),
             "the overridden role replaces the compiled-in role prose"
         );
-        // Sections with no override file still come from the compiled-in default.
+        // Sections other than the role still come from the compiled-in default.
         assert!(
             prompt.contains("THE CHECKLIST"),
-            "sections without an override file must fall back to the compiled-in default"
+            "non-role sections must keep their compiled-in default under a role override"
         );
-        // The enum-rendered wire grammar is never sourced from a file.
+        // The enum-rendered wire grammar is never sourced from the override.
         assert!(
             prompt.contains("NOTA OUTPUT"),
-            "the verdict grammar stays code-rendered regardless of the override directory"
+            "the verdict grammar stays code-rendered regardless of a role override"
         );
-
-        std::fs::remove_dir_all(&directory).ok();
     }
 
     #[test]
-    fn absent_override_directory_falls_back_to_the_compiled_in_prompt() {
-        let missing = std::env::temp_dir().join("spirit-guardian-prompt-does-not-exist-xyz");
-        let overridden = GuardianPromptSource::with_override_directory(missing);
+    fn compiled_in_source_renders_exactly_the_baked_prompt() {
         let compiled = GuardianPromptSource::compiled_in();
         assert_eq!(
-            compiled_in_builder(&overridden).intent_guardian_system_prompt(),
-            compiled_in_builder(&compiled).intent_guardian_system_prompt(),
-            "an override directory that does not exist must render exactly the compiled-in prompt"
+            compiled,
+            GuardianPromptSource::default(),
+            "the compiled-in source is the default, so a daemon with no override behaves as the baked prompt"
+        );
+        let prompt = compiled_in_builder(&compiled).intent_guardian_system_prompt();
+        assert!(
+            prompt.contains("THE ONE TEST"),
+            "the compiled-in source must render the baked strict-bar role"
         );
     }
 
     #[test]
-    fn blank_override_file_falls_back_to_the_compiled_in_section() {
-        let directory = std::env::temp_dir().join(format!(
-            "spirit-guardian-prompt-blank-{}",
-            std::process::id()
-        ));
-        std::fs::create_dir_all(&directory).expect("create override directory");
-        std::fs::write(directory.join("role.md"), "   \n\t  \n").expect("write blank override");
-        let source = GuardianPromptSource::with_override_directory(directory.clone());
+    fn blank_role_override_falls_back_to_the_compiled_in_role() {
+        let source = GuardianPromptSource::role_override("   \n\t  \n");
+        assert_eq!(
+            source,
+            GuardianPromptSource::Compiled,
+            "a blank role override must resolve to the compiled-in source"
+        );
         let prompt = compiled_in_builder(&source).intent_guardian_system_prompt();
         assert!(
             prompt.contains("THE ONE TEST"),
-            "a blank override file must fall back to the compiled-in section, not render a hole"
+            "a blank role override must fall back to the compiled-in role, not render a hole"
         );
-        std::fs::remove_dir_all(&directory).ok();
     }
 }

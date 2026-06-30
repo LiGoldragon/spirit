@@ -308,6 +308,7 @@ fn armed_spirit_engine(directory: &TempDir, name: &str, mirror_address: SocketAd
         ArchiveDatabaseTarget::Default,
         Some(mirror_target(mirror_address)),
         None,
+        None,
     ));
     assert!(
         matches!(configured, MetaOutput::Configured(_)),
@@ -329,6 +330,7 @@ fn meta_configure_arms_and_clears_criome_gate_socket() {
         ArchiveDatabaseTarget::Default,
         None,
         Some(criome_gate_target(&criome_socket)),
+        None,
     ));
     assert!(
         matches!(configured, MetaOutput::Configured(_)),
@@ -343,6 +345,7 @@ fn meta_configure_arms_and_clears_criome_gate_socket() {
         ArchiveDatabaseTarget::Default,
         None,
         Some(CriomeGateTarget::Default),
+        None,
     ));
     assert!(
         matches!(cleared, MetaOutput::Configured(_)),

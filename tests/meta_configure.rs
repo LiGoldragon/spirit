@@ -16,12 +16,16 @@ use std::time::{Duration, Instant};
 
 use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest, Output as MetaOutput};
 #[cfg(feature = "agent-guardian")]
+use spirit::schema::meta_signal::{GuardianPromptTarget, GuardianPromptText};
+#[cfg(feature = "agent-guardian")]
 use spirit::schema::signal::GuardianRejectionReason;
 use spirit::schema::signal::{
     Description, DomainMatch, DomainScopes, Domains, Entry, ImportanceSelection, Input,
     Justification, Kind, Magnitude, Output, Privacy, Query, QuoteText, Reasoning, RecordRequest,
     SelectedKind, Testimony, VerbatimQuote,
 };
+#[cfg(feature = "agent-guardian")]
+use spirit::{AgentGuardian, AgentGuardianConfiguration, Engine, Store};
 use spirit::{
     Configuration, Daemon, DaemonError, MetaSignalTransport, SignalTransport, SpiritDaemon,
 };
@@ -64,7 +68,7 @@ fn wait_for_socket(path: &Path) {
 }
 
 fn configure_request(archive_database_target: ArchiveDatabaseTarget) -> ConfigureRequest {
-    ConfigureRequest::new(archive_database_target, None, None)
+    ConfigureRequest::new(archive_database_target, None, None, None)
 }
 
 fn decision_entry(description: &str) -> Entry {
@@ -289,5 +293,83 @@ fn daemon_rejects_missing_meta_socket_before_serving() {
             Err(DaemonError::<SpiritDaemon>::MissingMetaSocket)
         ),
         "a daemon without the meta slot must fail before serving"
+    );
+}
+
+/// The owner `Configure` path swaps the live guardian's role section without a
+/// rebuild, and `Default` restores the compiled-in acknowledged role. No model
+/// call is made — the override changes which role the next verdict would render.
+#[cfg(feature = "agent-guardian")]
+#[test]
+fn meta_configure_guardian_prompt_target_swaps_and_restores_the_live_role() {
+    let temp = TempDir::new().expect("tempdir");
+    let store = Store::open(temp.path().join("intent.sema")).expect("open spirit store");
+    let mut engine = Engine::new(store);
+    engine.set_guardian(AgentGuardian::new(AgentGuardianConfiguration::new(
+        temp.path().join("guardian-agent.sock"),
+        None,
+        None,
+        Duration::from_secs(120),
+        None,
+    )));
+    engine.start().expect("engine starts");
+
+    // A fresh guardian starts on the compiled-in acknowledged strict-bar role.
+    let baked = engine
+        .guardian_intent_system_prompt()
+        .expect("guardian installed");
+    assert!(
+        baked.contains("THE ONE TEST"),
+        "the installed guardian starts on the compiled-in strict-bar role"
+    );
+
+    // An owner Configure carrying a Prompt target swaps the live role section.
+    let overridden_role = "OVERRIDE ROLE: an owner-supplied guardian role for this run.";
+    let prompt_configure = ConfigureRequest::new(
+        ArchiveDatabaseTarget::Default,
+        None,
+        None,
+        Some(GuardianPromptTarget::prompt(GuardianPromptText::new(
+            overridden_role,
+        ))),
+    );
+    assert!(matches!(
+        engine.configure(prompt_configure),
+        MetaOutput::Configured(_)
+    ));
+    let swapped = engine
+        .guardian_intent_system_prompt()
+        .expect("guardian installed");
+    assert!(
+        swapped.contains(overridden_role),
+        "the owner role override is the live guardian's role after Configure"
+    );
+    assert!(
+        !swapped.contains("THE ONE TEST"),
+        "the override replaces the compiled-in role prose"
+    );
+    // The wire-coupled sections stay code-rendered regardless of the override.
+    assert!(
+        swapped.contains("NOTA OUTPUT") && swapped.contains("THE CHECKLIST"),
+        "the verdict grammar and non-role sections survive a role override"
+    );
+
+    // A Default target restores the compiled-in acknowledged role.
+    let default_configure = ConfigureRequest::new(
+        ArchiveDatabaseTarget::Default,
+        None,
+        None,
+        Some(GuardianPromptTarget::Default),
+    );
+    assert!(matches!(
+        engine.configure(default_configure),
+        MetaOutput::Configured(_)
+    ));
+    let restored = engine
+        .guardian_intent_system_prompt()
+        .expect("guardian installed");
+    assert!(
+        restored.contains("THE ONE TEST") && !restored.contains(overridden_role),
+        "a Default guardian-prompt target restores the compiled-in strict-bar role"
     );
 }

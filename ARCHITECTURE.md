@@ -202,6 +202,10 @@ it through `Engine::configure` (an owner-config effect under the same
 single-flight Nexus mutex the working path uses, NOT a SEMA log write), which
 stores the target on the SEMA `Store` (`Store::set_archive_target`, a field +
 accessor) and replies with the now-active target plus the live database marker.
+`ConfigureRequest` also carries the optional mirror, local-criome-gate, and
+guardian-prompt targets the same operation arms in one owner round-trip; each is
+runtime policy applied to the live engine, not a SEMA log write, and echoed in
+the `Configured` receipt.
 
 The second owner-only operation is `Import(ImportRequest { [ImportedRecord] })`,
 each `ImportedRecord { RecordIdentifier, Entry }`: it writes pre-vetted records
@@ -464,19 +468,24 @@ filled by `.replace`. A regression test
 section is empty or mis-wired, and `assembled_system_prompt_carries_the_strict_bar_role`
 fails if the active role prose drifts from the acknowledged text.
 
-**The prose is runtime-overridable without a rebuild or a config redeploy.** A
-`GuardianPromptSource` resolves each prose section either from a runtime override
-directory or from the compiled-in default. When the deploy sets
-`SPIRIT_GUARDIAN_PROMPT_DIR` on the daemon unit, the guardian reads each section
-fresh from `<directory>/<section file name>` on every render, so editing a file
-under that directory swaps the live guardian prompt with no rebuild and no
-regenerated `*.config.rkyv`. An absent directory, a missing section file, an
-unreadable file, or a blank file falls back per section to the compiled-in
-default — so the default daemon (no variable set) behaves exactly as the baked
-prompt, and a partial overlay (for example only `role.md`) is a first-class
-state. Only the prose sections are overridable; the closed rejection-reason
-catalogue and the NOTA verdict grammar stay enum-rendered in code so the prompt
-can never drift from the wire type the daemon parses. The judge runs at
+**The role prompt is owner-swappable at runtime without a rebuild or a config
+redeploy, through the meta `Configure` path.** A `GuardianPromptSource` is either
+`Compiled` (every section renders from its `include_str!` default) or
+`RoleOverride(role)` (the `Role` section renders from owner-supplied text, every
+other section from its compiled-in default). A freshly built daemon always starts
+`Compiled`, so it runs the acknowledged strict-bar role with no external input.
+An owner swaps the live role by sending `Configure` with a
+`GuardianPromptTarget`: `Prompt(text)` installs the override on the running
+guardian (`Engine::configure` -> `Nexus::set_guardian_prompt_source` ->
+`AgentGuardian::set_prompt_source`), `Default` restores the compiled-in role.
+The next verdict renders the new role; no rebuild and no regenerated
+`*.config.rkyv` are involved. Like the other Configure targets this is runtime
+policy, not durable state, so a restarted daemon returns to the compiled-in role
+until the owner re-sends `Configure`; a blank override text resolves to
+`Compiled` so the live guardian is never left with an empty role. The override is
+scoped to the role section: the closed rejection-reason catalogue and the NOTA
+verdict grammar stay enum-rendered in code, so an override can never shift the
+verdict vocabulary the daemon parses. The judge runs at
 temperature 0 with DeepSeek thinking enabled at high reasoning effort (threaded
 through the typed `ReasoningEffort` / `ThinkingMode` controls on the agent
 contract), with two format-correction retries before failing closed. The

@@ -92,11 +92,12 @@ impl AgentGuardianConfiguration {
             model_name: configuration.model_name().map(ToOwned::to_owned),
             timeout: Duration::from_millis(configuration.timeout_milliseconds()),
             maximum_output_tokens: configuration.maximum_output_tokens(),
-            // The contract carries no prompt field, so the runtime prompt
-            // directory is the one deploy-set knob resolved from the
-            // environment at config load. Absent the variable, the guardian
-            // uses its compiled-in prompt — the daemon's default behaviour.
-            prompt_source: GuardianPromptSource::from_environment(),
+            // The startup configuration archive carries no prompt field: a
+            // freshly built guardian always starts on its compiled-in
+            // (acknowledged strict-bar) role. An owner swaps the role live
+            // through the meta `Configure` path, which calls `set_prompt_source`
+            // on the installed guardian — no rebuild, no config-archive redeploy.
+            prompt_source: GuardianPromptSource::compiled_in(),
         }
     }
 
@@ -132,6 +133,14 @@ impl AgentGuardianConfiguration {
 impl AgentGuardian {
     pub fn new(configuration: AgentGuardianConfiguration) -> Self {
         Self { configuration }
+    }
+
+    /// Swap the live guardian's prompt source. The engine calls this when an
+    /// owner `Configure` carries a `GuardianPromptTarget`, so the role section
+    /// the next verdict renders changes without a rebuild. The next
+    /// `prompt_builder` reads the new source; no in-flight verdict is affected.
+    pub fn set_prompt_source(&mut self, prompt_source: GuardianPromptSource) {
+        self.configuration.prompt_source = prompt_source;
     }
 
     pub(crate) fn guard(
@@ -277,6 +286,13 @@ impl AgentGuardian {
             self.configuration.maximum_output_tokens,
             &self.configuration.prompt_source,
         )
+    }
+
+    /// The intent-guardian system prompt this guardian will currently send. A
+    /// diagnostic affordance over the live prompt source, so the active role
+    /// after a `set_prompt_source` swap is observable without a live model call.
+    pub(crate) fn intent_guardian_system_prompt(&self) -> String {
+        self.prompt_builder().intent_guardian_system_prompt()
     }
 
     fn parse_verdict(

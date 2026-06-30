@@ -1279,6 +1279,7 @@ fn guardian_rejection_does_not_contact_criome_operation_authorizer() {
         Some(CriomeGateTarget::socket(CriomeSocketPathText::new(
             fake_criome.socket_path().display().to_string(),
         ))),
+        None,
     ));
     assert!(matches!(configured, MetaOutput::Configured(_)));
 
@@ -1308,6 +1309,7 @@ fn guardian_acceptance_sends_spirit_context_to_criome_before_write() {
         Some(CriomeGateTarget::socket(CriomeSocketPathText::new(
             fake_criome.socket_path().display().to_string(),
         ))),
+        None,
     ));
     assert!(matches!(configured, MetaOutput::Configured(_)));
 
