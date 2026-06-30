@@ -363,9 +363,8 @@ branch. The effect implementation applies the fallback classification policy
 (`unclassified`, `Clarification`, `Minimum`, `Zero`) and returns
 `EffectCompleted(StateClassified(...))`; the next Nexus decision emits
 `CommandSemaWrite(Record(...))`. SEMA then persists the generated `Entry`
-through the same write root used by ordinary `Record` input. This ports one
-deployed `persona-spirit` behavior without reviving the old actor tree in the
-daemon.
+through the same write root used by ordinary `Record` input. The daemon keeps
+that behavior in the generated Signal/Nexus/SEMA flow.
 
 `SubscribeIntent` follows the same Nexus visibility rule. Signal admits the
 query, Nexus emits `CommandEffect(OpenIntentSubscription(Query))`, the effect
@@ -404,8 +403,7 @@ friendly working-signal verbs visible while preserving the full `Query`
 predicate for structured/exhaustive reads.
 
 `CollectRemovalCandidates` is the owner-only archiving operation on the meta
-socket — the component's only physical-deletion path, ported from old
-persona-spirit but moved off the working signal. The meta request carries a
+socket and the component's only physical-deletion path. The meta request carries a
 `RemovalCandidateCollection { RecordQuery }` (the candidate selection; the
 destination comes from owner config). It runs with NO guardian and NO Nexus
 effect: `Engine::collect_removal_candidates` calls
@@ -420,19 +418,18 @@ stays in the live log and is reported as a `SkippedRemovalCandidate(ArchiveFaile
 one that vanishes mid-collection is `RecordAlreadyRemoved`. The meta op replies
 `Output::RemovalCandidatesCollected`.
 
-`Tap`/`Untap` port old persona-spirit's observer (meta-observation) stream as a
-request/reply surface. Every admitted working operation is recorded in the
+`Tap`/`Untap` expose the observer stream as a request/reply surface. Every
+admitted working operation is recorded in the
 `ObserverTapTable` operation log as a typed `OperationKind`. `Tap(ObserverFilter)`
 emits `CommandEffect(OpenObserverTap(...))`, mints an observer token, and replies
 `ObservationTapped(ObserverSubscription)` carrying the operations observed so far
 filtered by the `[All | OperationsOnly | EffectsOnly]` filter. `Untap(token)`
 emits `CommandEffect(CloseObserverTap(...))` and replies
 `ObservationUntapped(ObserverRetraction)` with the tap's final filtered
-observations, retiring the subscription. `Watch`/`Unwatch` reconciliation:
-old `Watch` (records subscription) is already covered by `SubscribeIntent`; the
-un-covered half — token-based cancellation — is what `Untap` restores. The
-observer event push-stream (`OperationReceived`/`EffectEmitted` as live frames)
-is not wired because the generated streaming `Frame` carries a single event type
+observations, retiring the subscription. `SubscribeIntent` covers records
+subscription, and `Untap` provides token-based cancellation. The observer event
+push-stream (`OperationReceived`/`EffectEmitted` as live frames) is not wired
+because the generated streaming `Frame` carries a single event type
 (`IntentEvent`); the operation history is the load-bearing observer content and
 is delivered request/reply.
 

@@ -216,23 +216,22 @@ replayable versioned log entry, checkpoints with payload restore through the
 engine-owned import session, and the daemon-level query surface of a restored
 store is identical to the original.
 
-*Migration is a logged fold; the copy-everything binaries retired.* Per Spirit
-record `t0tu` (Decision, High certainty): [Spirit's next schema bump is the
+*Migration is a logged fold.* Per Spirit record `t0tu` (Decision, High
+certainty): [Spirit's next schema bump is the
 pilot for migration as a logged fold: replay the previous store's versioned
 operation log through the version From-chain into a store at the next schema,
-recording a typed migration entry. The copy-everything migration binaries
-retire; migration becomes a fold the version-control system records rather
-than an unlogged database rewrite.] Schema version 9 is that pilot's bootstrap
-case: versions 7 and 8 carry no versioned log, so `StoreMigration` reads
+recording a typed migration entry. Migration becomes a fold the version-control
+system records rather than an unlogged database rewrite.] Schema version 9 is
+that pilot's bootstrap case: versions 7 and 8 carry no versioned log, so
+`StoreMigration` reads
 them with `sema-engine-previous` (the generation that wrote them), converts
 through the historical `From`-chain, and writes every record, referent, and
 the typed `Migration` marker into the fresh version-9 store through the
 ordinary logged choke points — the migrated store's log is the first complete
 history a spirit store has carried. No pre-version-7 store exists anywhere
 (psyche decision), so a probed version below 7 is rejected outright rather
-than folded forward. `spirit-migrate-production` and
-`spirit-upgrade-store` retired; `spirit-migrate-store` is the one migration
-entry point. From version 9 onward the previous store's LOG is the fold input.
+than folded forward. `spirit-migrate-store` is the one migration entry point.
+From version 9 onward the previous store's LOG is the fold input.
 
 *The daemon's single argument is a path to a binary rkyv `SpiritDaemonConfiguration` object from the `signal-spirit` contract.* The packaged `spirit-write-configuration` text-edge helper may create that file from a typed NOTA request for launch/deploy tooling, but the daemon startup path only decodes binary state. The daemon wraps the decoded contract value in its local `Configuration` runtime object so it can implement `BindingSurface` without moving runtime behavior into the contract crate.
 
