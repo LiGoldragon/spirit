@@ -17,6 +17,11 @@ center that the rest of the design exists to serve. Everything else (the CLI
 edge, the daemon, the store, the schema machinery) is in service of keeping
 that intent layer clean, queryable, and true to the psyche's direction.
 
+Spirit is a universal intent tool for every human, not bespoke to one psyche or
+workspace. Its overriding design goal is to stay maximally clutter-free — a
+curated, pristine intent store rather than a capture-everything log. Every
+discipline in this manual exists to protect that goal.
+
 Because the data is precious, judgment is concentrated in one place. The Spirit
 guardian is the single locus of semantic judgment: the model checks everything
 that requires meaning — consistency, duplication, trampling of existing intent,
@@ -72,6 +77,23 @@ context. "Refresh intent" is a read, not a write: it does not mean editing a
 repo's `INTENT.md` or architecture files. Those file edits happen only when the
 psyche explicitly asks for them.
 
+**Observe is routine, not a flag-triggered exception.** Running a Spirit Observe
+is standard practice, not optional. Agents observe recent records as a matter of
+course — proactively at the start of and during substantive work — to let
+recorded intent guide the work, rather than only when the guardian flags intent
+as unclear. Treat it as a working guide you read yourself, not an open decision
+to present to the psyche.
+
+**Educate yourself in the domain before submitting.** An agent reads the
+domain's existing intent before it records, proposes, clarifies, or supersedes:
+the candidate's domain and the broader domains above it, plus records sharing
+the candidate's referents. Done well, most submissions resolve to a duplicate, a
+merge, or a clarify rather than a guardian refusal — the guardian is the
+fallback, not the agent's first read. A subagent that needs to understand a
+domain, referent, or unknown named thing begins by querying Spirit; when the
+exact referent is unknown, it searches public text over the relevant terms
+before relying on local inference.
+
 **Classify, then act.** A candidate statement resolves to one of: no capture
 (a question, tangent, task-only order, or current-state reaction with no
 durable rule); observe (read existing records for context); ask (the durable
@@ -88,6 +110,15 @@ practice the operator lane (Codex) responds faster than the designer lane
 gap-checks the capture and fills only a genuine omission rather than writing a
 parallel record. Both lanes engaging with the substance is correct; both lanes
 logging the same record is the duplicate failure this rule prevents.
+
+Concurrent capture of the same prompt across separate agent windows is handled
+by a lock, so two agents do not both record one intent. Capture calls are
+asynchronous and non-blocking — a lane that loses the lock is not stalled; it
+later receives a reply naming which records were accepted or refused during the
+lock and why, recognizes the duplicate as coming from the same prompt, and
+either accepts it or argues for a better wording. This depends on agents
+recording their own originating prompt so Spirit can deduplicate captures by
+prompt.
 
 ## 4. The Guardian Gate
 
@@ -114,12 +145,35 @@ rejection set, parse-and-retry, and a shape test. A clean-context, specialized
 guardian outperforms the submitting agent even when it runs on a weaker model,
 precisely because its context is uncluttered and its job is narrow.
 
+The judge is not under-resourced. Intent is too important, so the gate runs a
+strong model (open-weight where Spirit is self-hosted). Relevance, duplication,
+and contradiction are model-only semantic judgments, so the judge sees the full
+evidence bundle; relevance is computed once at write time and stored as a
+referent for cheap scoped reuse, bounded by referent and domain scoping. A Spirit
+with no configured guardian fails closed — it refuses rather than admitting an
+ungated write.
+
+**Capture is a court of law.** The submitting agent advocates, the psyche's
+verbatim quotes (asterisk-bracketed spans) are testimony, and the guardian is
+the judge rendering a binary verdict. The justification is a strongly-typed
+argued case — typed testimony with optional antecedents plus reasoning for why
+the certainty, domain, kind, and importance fit — never a stringly blob; the
+claim itself is the operation's own entry. Certainty is the burden of proof the
+quotes must clear on modal strength: an over-claimed certainty is rejected back
+to the agent to reword, and the guardian never silently lowers it, preserving
+the psyche's modality. A bare affirmation like "yes" carries no meaning alone, so
+it must travel with the statement it answered.
+
 **Atomic accept or reject, including referents.** An entry and the new
 referents it introduces are decided together as one accept/reject, so no orphan
 referent survives a refused entry; referent registration is gated exactly like
 records. Intent-resolution operations are typed, combined actions the guardian
 resolves in a single atomic call — for example, adding a record while
-deprecating named records by identifier in the same move.
+deprecating named records by identifier in the same move. The guardian is not
+called for a referent that is already registered: a registration request naming
+an existing canonical referent is settled by the registry from existing state,
+with no model judgment. Only a new alias or new referent is a real registry
+change that stays gated.
 
 **Judged against the psyche's actual words.** The guardian judges a proposed
 change against the verbatim words of the psyche and their context, not only
@@ -198,7 +252,10 @@ agglomerated, the merge preserves source provenance and may preserve
 accumulated importance (through the weight axis where it exists), but it does
 not automatically raise certainty. Certainty rises only when the synthesized
 statement is itself better supported, or stated with higher confidence, than
-its parts were.
+its parts were. If a separate weight axis is ever added to preserve accumulated
+importance after source mentions vanish, it uses the same qualitative Magnitude
+ladder (Zero through Maximum) on its own axis distinct from certainty — never an
+integer count — keeping the whole contract qualitative.
 
 ## 6. Record Lifecycle
 
@@ -222,6 +279,31 @@ through the meta `CollectRemovalCandidates` operation, used after review when
 nothing should remain in the live log. Because conflicting psyche declarations
 are remanded as maintenance edits (section 4), the active store is kept coherent
 around current direction rather than layered with contradictions.
+
+**Provenance through a relations field.** Provenance and agglomeration are
+carried by a relations field on a record — a vector of short non-colliding
+record-id references pointing to source or related records (a Correction relates
+to what it corrects) — not a dedicated Composite record kind. This lets repeated
+or related intent be merged into a newer, stronger record without losing
+provenance; refreshing several intents may yield one merged record or two or
+three records of different kinds. The refreshing judgment itself is agent
+behavior trained through the intent-maintenance skill, not engine logic: the
+relations field is the only supporting machinery, and agents learn to refresh
+many related intents into fewer stronger records.
+
+**Removal is psyche-authorized and conservative.** Deployed Spirit can remove
+records, superseding the old append-only / flag-only constraint, but every
+removal needs a justifying psyche statement (a changed mind is enough; no
+replacement arrow is required for a deletion). Clean the log by removing records
+a newer record, `ARCHITECTURE.md`, or skill has absorbed, and working orders
+that fail the after-the-task test. When removability is uncertain, flag rather
+than remove: over-removal is worse than under-removal. An automated auditor can
+auto-propose refreshes and surface low-confidence records by magnitude, but the
+psyche confirms the retire of source records — automated discovery, human-gated
+removal. The in-place mutation path edits a record's content rather than
+removing and recreating it, so identity and provenance survive an edit; hard
+deletion remains a deliberate planned decision on a long timeline, not a
+forbidden state.
 
 **Maintenance through a Spirit subagent.** Intent-led orchestration and
 grilling leads periodically dispatch a dedicated Spirit-maintenance subagent to
@@ -254,10 +336,36 @@ slice of intent they need. Referents — the named particulars a record is about
 records that share a referent with a candidate, which is why entries are tagged
 with the real particulars they concern.
 
+`All` is a complete leaf domain value available at every level of the domain
+tree, meaning all alternatives at that level. It is symmetric across querying and
+assignment: a record may be tagged `All` at any level, and a query may request
+`All` at any level. `All` is the explicit name for an early stop — the
+all-of-`Software` value is written by stopping at `All` under `Software` — so the
+representation is unified rather than carrying an implicit optional stop. A
+domain-based query returns, alongside the specific matches, the `All`-tagged
+records of every parent level along the queried path, so the top-level `All`
+maxims surface for any specific query; this ancestor-`All` inclusion is a
+configurable shorthand, with a plain mode that does not fold the parent records
+in. A registered but undelegated domain name returns a typed no-records result
+rather than an error.
+
+For ordinary public search the `PublicTextSearch` verb is the short path: it
+takes one text payload and ranks active public records by description and
+referent text, instead of forcing agents through the full eight-field `Observe`
+query. Agents can also run a catch-up query from a recorded time to retrieve
+intent added since their last read, without depending on numeric identifier
+order.
+
 ## 8. CLI Basics and Reply Conventions
 
 A handful of conventions govern how the CLI and its replies behave:
 
+- **Invocations default to inline NOTA.** A Spirit call passes its argument as
+  inline NOTA wrapped in shell double quotes; the bracket-string notation keeps
+  the NOTA itself double-quote-free so the whole object passes as one shell
+  argument. A temp-file NOTA path is reserved for genuine need — binary
+  signal-encoded paths, or shell metacharacters too painful to escape — not for
+  ordinary multi-line context fields.
 - **Version is a bare selector.** A versioned CLI needs a way to ask which
   version is active. Spirit exposes this as the bare NOTA input `Version`
   (`spirit Version`) — not a Unix-style flag and not a parenthesized empty
@@ -266,12 +374,110 @@ A handful of conventions govern how the CLI and its replies behave:
   reply displays the shortest collision-free lowercase identifier prefix, with
   a minimum length of four characters, rather than the full stored identifier.
   Cite and pass that short code.
+- **Writes acknowledge cheaply.** A creation returns only the new record's short
+  identifier, not a receipt bundling the identifier with a database marker, and
+  an acknowledgement never echoes the submitted intent content back.
 - **Replies stay clean of markers by default.** Ordinary agent-facing replies
   do not include database markers. The durable database marker is returned only
   by an explicit operation that asks for marker state.
+- **Outcomes are typed NOTA, not status prose.** An operation reports its result
+  with self-describing NOTA enums and structs wherever the state can be typed
+  data, rather than a long free-text status message.
 - **Timestamps are daemon-stamped.** Clients never supply a time; the Spirit
   daemon stamps each record. There is no client time field on an entry.
 
 These conventions keep the everyday surface terse: a write returns a short
 identifier and nothing the reader did not ask for, and the machinery (markers,
 timestamps, full identifiers) stays available behind explicit requests.
+
+**Short-form operations for the common path.** `Record` stays the canonical
+full-fidelity write, but a `RecordDefault` short form takes only the
+commonly-customized fields (topics, kind, description, magnitude) and injects
+defaults for the rest — privacy `Zero` (open/public), daemon-stamped time. A
+named private short form (such as `RecordPrivate`) lowers to a normal record with
+an elevated privacy Magnitude, making private capture one deliberate,
+unmissable ritual while ordinary shorthands stay public by default. Privacy of an
+existing record can be moved in place through a `ChangePrivacy` operation that
+mirrors `ChangeCertainty`, preserving identifier and timestamp instead of
+forcing a remove-and-re-record. Content-extracting operations such as
+`CollectRemovalCandidates` take a customizable output-target enum as their final
+field — `Stdout`, `Stderr`, or `File(path)`, where `Stderr` is a normal output
+option, not an error channel — so the wire surface stays uniform across present
+and future export operations.
+
+Records themselves stay dense. A record carries one clarified description and no
+verbatim field; capture preserves the clarified intent without large verbatim
+blocks that bloat output and become lossy to work with.
+
+## 9. Topics and Domains
+
+Topics are user-creatable single strings — broad atomic single-word concepts,
+not compound hyphenated phrases. Prefer two topics (`intent logging`) over one
+glued phrase (`intent-log`), and let a multi-concept record carry several topic
+words. Reuse an existing topic word when it covers the substance; invent a new
+one only when none fits, so records stay discoverable by either concept and the
+vocabulary does not explode into near-synonyms.
+
+Domains are the broad-routing layer, a curated and openly growing vocabulary
+that may reach hundreds of specific grounded domains rather than a small fixed
+abstract set. The closed domain taxonomy carries only the broad routing;
+fine-grained specificity belongs to the open referent layer of named particulars
+and to free-text description keywords, not to ever-deeper enum leaves. A taxonomy
+leaf earns its place only when it disambiguates and carries real routing load; an
+over-specified leaf that behaves like a referent or keyword is cut rather than
+kept.
+
+## 10. Record Identity
+
+A record's identity is a stable, non-reusable, opaque random handle assigned once
+at creation and frozen — not a content-address fingerprint (records mutate, so
+content-addressing would imply stable-content semantics that no longer hold) and
+not a reusable incremental number. Concretely it is a 96-bit CSPRNG value
+rendered as a lowercase base36 shortest-unique-prefix code. The full random value
+stays binary on the wire; only the short prefix appears in text, scoped per kind
+and extended only on a same-kind collision, with a minimum displayed length of
+four characters (about four to seven), aligning with Beads practice.
+
+Identifiers must never be reused after removal: reuse makes references unstable,
+because a later record could occupy a freed identifier and silently change what
+an old reference points to. Recency is tracked by daemon-stamped time, not by the
+identifier.
+
+## 11. Citing Intent in Prose
+
+Cite a Spirit record in prose by quoting its description summary literally as
+bracketed text plus a `(Spirit Kind short)` parenthetical — the bracketed
+substance is the citation, not the opaque code. Quote central intents literally
+and in a prominent place, especially in psyche-facing reports. This applies to
+all agents.
+
+## 12. The Skill Surface and Agent Practice
+
+The Spirit skill has two halves with different sources. This manual half — what
+Spirit and intent are, the CLI and wire shape, how to read and query — is
+generated from the spirit repository's production-versioned documentation, so the
+read-side skill tracks the deployed component instead of being a hand-maintained
+duplicate, and the manual is never copied into the intent database. The capture
+half — the gate, the certainty and importance ladder, affirmative framing, when
+not to record, maintenance — stays primary-authored agent-conduct teaching beside
+the other behaviour skills. The Spirit-facing skills document the CLI thoroughly
+(invocation, every operation, the deployed wire shape and how to find it when
+source drifts, error replies, environment variables) so agents do not scramble or
+call stale versioned wrappers.
+
+A few practice rules follow from this:
+
+- **Use the unsuffixed `spirit` CLI for normal capture.** Versioned Spirit
+  wrappers are diagnostic or explicit testing surfaces, not the everyday agent
+  command.
+- **Track the deployed wire interface, not current source.** When two stacks
+  coexist, the deployed pinning is reachable through the CriomOS Home flake
+  input — use Nix metadata commands (flake metadata, derivation show, path-info)
+  to find the pinned commit, then read the wire contract at that revision.
+  Operator changes to the source drift it from production until the next rebuild.
+- **Keep intent-logging guidance fresh in context.** Psyche-facing agents must
+  load the intent guidance before using Spirit; using the tool requires the
+  guidance loaded first.
+- **Intent-led orchestration centers Spirit as durable memory.** Current
+  reporting protocols stay in force where required, but reports are not presented
+  as the future durable-memory layer — Spirit is the durable intent memory.

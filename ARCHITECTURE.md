@@ -16,6 +16,66 @@ plus `sema-engine`. Future component daemon repos should copy this
 plane/runtime shape while placing their external ordinary/meta signal contracts
 in separate contract repos where rebuild and policy boundaries require it.
 
+## Intent model
+
+The unit of intent is the **domain**: a specific grounded subject grouped under
+broad areas (the older "category" and "topic" terms are retired). `Domain` is a
+closed enum with a broad category-theory starting set, represented as grouped
+schema enums by area (for example `Home` carrying `Housing`, `Maintenance`, and
+siblings) rather than one flat enum or free text. The domain vocabulary is a
+variable-depth tree where depth tracks intent density: dense branches like
+`Software` nest a third tier of fine subjects while sparse domains like
+`Hardware` stay one or two tiers — variable depth is the rule, not an exception.
+Domain names must be self-explanatory and carry meaning in the variant name
+itself; there is no separate gloss or description layer, and an unclear name is
+renamed rather than annotated.
+
+The hierarchy is structural — tree nesting plus scope-prefix matching, not a
+directional relation. A domain nested under another is subsumed by it, and
+cross-tree relations are symmetric equivalence only (synonyms that retrieve
+together both ways); directional subsumption is dropped because nesting already
+carries all the hierarchy. A `DomainScope` is therefore a typed nested prefix of
+the `Domain` enum, written in the same nested-paren form as a domain value (for
+example `Technology` containing `Software` containing `Quality`), not a flat
+vector of free string segments: each segment is a real enum variant, so an
+invalid or misspelled segment is rejected at parse time.
+
+The canonical stored record stays one uniform shape — no per-kind storage
+variants. A creation shorthand or a per-kind view is a presentation/ergonomics
+layer over the uniform record, not a second stored shape. The record carries
+`Certainty` and `Importance` as two orthogonal `Magnitude` axes, plus a privacy
+field. Privacy is a directional `Magnitude` on its own axis: `Zero` means
+open/public and higher magnitudes narrow the intended audience, reusing the
+existing `Magnitude` vocabulary (with `AtMost`/`AtLeast` filters paired to the
+certainty selectors) rather than introducing a separate audience-register enum.
+The earlier framing of privacy as an `Optional` field — `None` for public,
+`(Some Magnitude)` for elevated, with the `None` token always written explicitly
+since every NOTA positional record carries every field — is the same intent
+expressed before the axis was unified onto `Magnitude`; the current model is the
+privacy-`Magnitude` axis with `Zero` as the default public level. (Privacy
+remains nominal, not a security boundary — see Known limits.)
+
+Spirit operations support a **variant ladder**: short forms with summary defaults
+for common operations, complex forms with full metadata for precise control. Both
+coexist as distinct wire operation roots; the complex root is canonical and the
+short root expands to a default of it. A `RecordQuery` composes filter dimensions
+— topic selection (multi-topic, partial any-of or full all-of, plus
+topic-catalog queries), optional `Kind`, a certainty selection that can target
+removal candidates by magnitude, and a first-class recency selection (`Any`,
+newest N, since an identifier or timestamp, or a window range) — alongside
+identifier lookup, public-only/private-only shortcut verbs, and an explicit
+privacy-query subtype exposing at-most/equal/at-least selectors while ordinary
+queries stay `Zero`-only. The verbal depth-scope vocabulary is settled as
+`Shallow`/`Recent`/`Deep`/`VeryDeep` with target counts 5/15/30/100 (bare
+`Recent` adopting the explicit 15), the new variants appended at the end of
+`RecordedTimeSelection` to preserve rkyv discriminant stability. A separate
+small-record type carries only the load-bearing fields — identifier, topics,
+kind, description summary, magnitude, daemon-stamped time — distinct from the full
+record's metadata; short-form reads and `CollectRemovalCandidates` emit it and
+archiving consumes it, and its outcomes report as typed variants
+(archive-created, archive-appended, backup-archive-used), never string messages.
+The timestamp is daemon-stamped throughout.
+
 ## Layers
 
 ```text
@@ -45,6 +105,15 @@ the daemon target compiles without the NOTA decoder linked into its runtime
 surface. `tests/dependency_surface.rs` is the executable guard: the normal
 dependency tree with `--no-default-features` must contain no `nota`, while
 the `nota-text` tree must contain it.
+
+There is no daemon-side printline anywhere, by rule. The daemon observes only
+through its own typed schema-defined trace interface (and any future logging
+surface); stderr printline statements as a fallback for in-band trace errors are
+forbidden, because they would break the typed-data-strings-only-at-display
+discipline. Trace code is optional at compile time so a lean build carries none
+of it, and the build configuration is itself a NOTA struct under the same
+single-NOTA-argument rule as the daemon and CLI, with a testing-build field
+switching production and testing modes.
 
 `testing-trace` is a second explicit surface, separate from the normal
 runtime. Normal Nix packages build a lean binary daemon plus NOTA CLI adapter.
@@ -177,8 +246,19 @@ enumerator, not a daemon NOTA side channel.
 
 The binary configuration carries `AuthorizationMode`: `Gating` keeps fan-out
 behind criome's verdict, and `Observing` emits the criome authorization request
-without waiting for the verdict before fan-out. It also carries the daemon's
-meta slot as `meta_socket_path`.
+without waiting for the verdict before fan-out. The near-term production posture
+deliberately runs `Observing` first: the live Spirit service is the traced daemon
+target, a co-resident local criome daemon authorizes and answers a real request,
+Spirit observes the authorization return, and for the first traced production
+posture Spirit still does not block on that return — it emits trace evidence
+showing where blocking authorization would later apply. The first gating target
+is the simplest 1-of-1 local authorization: Spirit asks its co-resident criome
+daemon to authorize the content-addressed head, and a single local signature
+(no quorum, no multi-machine cluster) suffices to gate propagation. Quorum
+authorization and a multi-machine cluster are the subsequent step, not a
+prerequisite. Production alignment and orchestration rely on Spirit and do not
+depend on Mind; Mind stays future/non-production until the psyche marks it
+production-ready. It also carries the daemon's meta slot as `meta_socket_path`.
 The field is optional in the data type because the shared
 `BindingSurface` trait asks for `Option<&Path>`, but Spirit treats absence
 as a startup error (`MissingMetaSocket`) and binds no working listener without
@@ -346,7 +426,12 @@ co-occurrence decisions, semantic similarity, future topic-discovery logic,
 computed result filters, and conditional writes should extend `NexusEngine`
 behavior through generated Nexus work/action/effect nouns. SEMA owns the
 durable indexes and tables those algorithms read; Signal remains the
-communication boundary.
+communication boundary. One intended direction is intelligent topic retrieval
+that emphasizes recent intent by default while adapting historical depth to
+topic frequency — high-churn topics staying near the edge, quiet topics reaching
+farther back for a comparable useful result set — growing search beyond simple
+filters toward weighted keyword or recency scoring expressed in the Nexus
+language. This is an exploratory direction, not a settled immediate requirement.
 
 Nexus write commands are feature-specific. `CommandSemaWrite` is not a raw
 pass-through alias for the whole SEMA write enum; it is a Nexus-plane enum with
@@ -583,7 +668,10 @@ uses `sema-engine` over a `*.sema` file:
   No pre-version-7 store exists anywhere, so a probed version below 7 is
   rejected as `UnknownSchemaVersion` rather than folded forward.
   The default archive sibling is rebuilt alongside; the v2 guardian journal
-  file stays on disk and a fresh v3 journal file starts.
+  file stays on disk and a fresh v3 journal file starts. Identifier-migration
+  data (the hash-to-former-ordinal mapping built while live lookup moves to hash
+  identity) is stored as NOTA data, not in a SEMA store: SEMA is for
+  schema/engine structure, not for the migration data file itself.
 - The migration swap is crash-safe with single-rename exposure. The fold
   writes the fresh store beside the live one
   (`<stem>.schema-9-migrating-<pid>.sema`); the swap first hard-links the
@@ -856,6 +944,52 @@ runtime-level numerator enum over accepted signal interfaces. Main currently
 keeps the single crate so the Nix proof harness remains intact; the integrated
 pieces from that prototype are the zero-NOTA dependency guard and raw-NOTA
 socket rejection tests.
+
+## Design direction
+
+These are accepted directions not yet built into the current crate; they shape
+where the component is headed.
+
+- **Two stacks coexist during cutover.** `persona-spirit` is the deployed
+  production daemon, this schema-derived stack the pilot. The production
+  component carries a clear, prominent in-code production marker so agents patch
+  the right repository while both coexist, and remaining side-by-side legacy
+  daemon slots stay fixed to run. The naming direction is to shed unnecessary
+  persona ancestry: Spirit stands as the component name, `signal-spirit` as its
+  ordinary signal layer, and owner terminology moves toward core terminology for
+  the privileged surface.
+- **Versioned sockets and signal-version handover.** Ordinary and owner sockets
+  stay separate, with permissions enforced by filesystem socket access under
+  trusted local development. Parallel daemon versions need versioned sockets: a
+  multi-version dispatch protocol routes the CLI to the next-version daemon,
+  which coordinates back with main, and a missing next-version returns a logged
+  error. Upgrade orders that trigger the smart handover arrive through the
+  component's owner socket, and `signal-version-handover` is the single discovery
+  mechanism for next-version daemons (the old `PeerCheck` is retired). The
+  longer-horizon schema-migration shape is in-process versioned reads: every
+  record carries a schema-version tag, the daemon links every prior version's
+  types and dispatches read-side on the tag, migrating older records on read for
+  zero downtime per bump, with a per-type migration trait that knows whether to
+  consult the next-version daemon over the version-handover protocol.
+- **A closed data-lifecycle ladder.** The lifecycle operations form a closed
+  named set worth building as one concept — nominate, tombstone, archive,
+  collect, compact, purge — rather than ad-hoc operations. It lands on this
+  schema-derived stack, not the hand-written production daemon, because it is a
+  large feature.
+- **Federation of key-gated stores.** Private component state is organized as
+  multiple key-gated stores on the GoPass model: each store is encrypted to a set
+  of recipient keys, access is key possession, and the per-store key is both the
+  access boundary and the crypto-shred erasure unit (accountable content erasure
+  via crypto-shredding with a signed erasure receipt). The exploration is to
+  rethink Spirit as a federation of key-scoped stores that multiple instances
+  share as ciphertext, with queries scoped to the stores whose keys the instance
+  holds. This is the secure-private answer to the nominal-privacy limit below.
+- **Per-psyche intake.** The intent recorder uses voice recognition as the cutoff
+  between recorded-and-processed and ignored audio, defaulting to ignore audio
+  not recognized as the psyche. When the active microphone passes to another
+  speaker, the recorder recognizes the voice change and routes that speech to
+  that speaker's own dynamically-spawned instance — captured intent belongs to
+  each person as a distinct psyche with their own intent layer.
 
 ## Known limits
 
