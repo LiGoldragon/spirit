@@ -13,7 +13,7 @@ use triad_runtime::{FrameBody, LengthPrefixedCodec};
 
 use crate::{
     guardian_journal::{GuardianDecision, GuardianOperation},
-    guardian_prompt::{GuardianPromptBuilder, GuardianRetry},
+    guardian_prompt::{GuardianPromptBuilder, GuardianPromptSource, GuardianRetry},
     schema::{
         nexus::{GuardianVerdict, ReferentGuardianVerdict, Reject, RejectReferent},
         signal::{
@@ -39,6 +39,7 @@ pub struct AgentGuardianConfiguration {
     model_name: Option<String>,
     timeout: Duration,
     maximum_output_tokens: Option<u64>,
+    prompt_source: GuardianPromptSource,
 }
 
 #[derive(Clone, Debug)]
@@ -91,6 +92,11 @@ impl AgentGuardianConfiguration {
             model_name: configuration.model_name().map(ToOwned::to_owned),
             timeout: Duration::from_millis(configuration.timeout_milliseconds()),
             maximum_output_tokens: configuration.maximum_output_tokens(),
+            // The contract carries no prompt field, so the runtime prompt
+            // directory is the one deploy-set knob resolved from the
+            // environment at config load. Absent the variable, the guardian
+            // uses its compiled-in prompt — the daemon's default behaviour.
+            prompt_source: GuardianPromptSource::from_environment(),
         }
     }
 
@@ -107,7 +113,19 @@ impl AgentGuardianConfiguration {
             model_name,
             timeout,
             maximum_output_tokens,
+            // No runtime override by default: callers that construct the
+            // configuration directly get the compiled-in guardian prompt and
+            // opt into a runtime directory through `with_prompt_source`.
+            prompt_source: GuardianPromptSource::compiled_in(),
         }
+    }
+
+    /// Install a runtime prompt source, overlaying the guardian's prose from a
+    /// directory of section files while keeping the compiled-in default for any
+    /// absent section.
+    pub fn with_prompt_source(mut self, prompt_source: GuardianPromptSource) -> Self {
+        self.prompt_source = prompt_source;
+        self
     }
 }
 
@@ -257,6 +275,7 @@ impl AgentGuardian {
             self.configuration.provider_name.as_deref(),
             self.configuration.model_name.as_deref(),
             self.configuration.maximum_output_tokens,
+            &self.configuration.prompt_source,
         )
     }
 

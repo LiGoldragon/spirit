@@ -451,18 +451,37 @@ cases (fabrication, warrant, the certainty burden).
 **The guardian prompt prose lives in standalone files, never in the Rust.** Each
 static section is a file under `src/guardian-prompts/` (`role.md`,
 `record-shape.md`, `justification-shape.md`, `burden-ladder.md`, `checklist.md`,
-`few-shot.md`, and the `referent.md` template), embedded at compile time with
-`include_str!` so the daemon stays a single self-contained binary while the prose
-is edited as plain text without touching code. `guardian_prompt.rs` only
-**assembles** these sections and splices in the two enum-rendered parts (the
-reason catalogue and the verdict grammar); the `referent.md` template carries
-`{accept}` / `{reject}` placeholders filled by `.replace`. A regression test
-(`assembled_system_prompt_includes_every_file_section`) fails if any prompt file
-is empty or mis-wired. The judge runs at temperature 0 with DeepSeek thinking
-enabled at high reasoning effort (threaded through the typed `ReasoningEffort` /
-`ThinkingMode` controls on the agent contract), with two format-correction
-retries before failing closed. The decision journal is a separate, schema-
-versioned SEMA store (`spirit.guardian.v<N>.sema`).
+`few-shot.md`, and the `referent.md` template). The active `role.md` is the
+psyche-acknowledged strict-bar role: a candidate is admitted only when it is a
+standing directive carried into work, with refusal as the resting state and any
+directive welded to matter refused whole. Every section is embedded at compile
+time with `include_str!` so the daemon carries a complete default prompt with no
+external dependency. `guardian_prompt.rs` only **assembles** these sections and
+splices in the two enum-rendered parts (the reason catalogue and the verdict
+grammar); the `referent.md` template carries `{accept}` / `{reject}` placeholders
+filled by `.replace`. A regression test
+(`assembled_system_prompt_includes_every_file_section`) fails if any prompt
+section is empty or mis-wired, and `assembled_system_prompt_carries_the_strict_bar_role`
+fails if the active role prose drifts from the acknowledged text.
+
+**The prose is runtime-overridable without a rebuild or a config redeploy.** A
+`GuardianPromptSource` resolves each prose section either from a runtime override
+directory or from the compiled-in default. When the deploy sets
+`SPIRIT_GUARDIAN_PROMPT_DIR` on the daemon unit, the guardian reads each section
+fresh from `<directory>/<section file name>` on every render, so editing a file
+under that directory swaps the live guardian prompt with no rebuild and no
+regenerated `*.config.rkyv`. An absent directory, a missing section file, an
+unreadable file, or a blank file falls back per section to the compiled-in
+default — so the default daemon (no variable set) behaves exactly as the baked
+prompt, and a partial overlay (for example only `role.md`) is a first-class
+state. Only the prose sections are overridable; the closed rejection-reason
+catalogue and the NOTA verdict grammar stay enum-rendered in code so the prompt
+can never drift from the wire type the daemon parses. The judge runs at
+temperature 0 with DeepSeek thinking enabled at high reasoning effort (threaded
+through the typed `ReasoningEffort` / `ThinkingMode` controls on the agent
+contract), with two format-correction retries before failing closed. The
+decision journal is a separate, schema-versioned SEMA store
+(`spirit.guardian.v<N>.sema`).
 
 The prompt includes an affirmative-guidance gate. A candidate whose operative
 rule is primarily an exclusion, prohibition, forbidden wording list, or
