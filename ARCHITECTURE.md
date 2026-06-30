@@ -511,6 +511,39 @@ directive with such matter, the aggressive lean treats the whole record as
 admission-boundary enforcement only — it governs what enters the intent log and
 does not touch records already stored.
 
+The guardian judges the whole submission as one case: operation, testimony,
+reasoning, magnitudes, domain, privacy, collision with active intent,
+affirmative framing, and operation fit. A fresh `Record` is admitted only when
+it is genuinely new. If the psyche statement instead refines, narrows, corrects,
+or explains an identifiable existing record, the guardian rejects the fresh
+record and remands the agent to the coherent repair operation —
+`Clarify`, `Supersede`, `ChangeRecord`, `ResolveClarification`, or `Retire` —
+rather than admitting a standalone sibling that leaves the conflict live.
+
+Guardian testimony and advocacy are distinct evidence classes. Explicit psyche
+declarations are primary evidence for a declared intent value or metadata rung,
+and a psyche-named certainty, importance, or privacy rung supports that named
+rung directly. Agent reasoning is advocacy: it may supply context, architectural
+centrality, recurrence, blast radius, blocking effect, and operation-fit
+analysis, and may support an elevated rung when the evidence genuinely warrants
+it. When a psyche declaration conflicts with active records, the guardian names
+the coherent repair shape instead of admitting a conflicting sibling.
+
+Referent registration is settled by the registry when it can be. A request that
+names a referent and aliases already resolving to one registered referent
+returns the existing canonical referent receipt without calling the referent
+guardian and without mutating the store; adding a new alias or new referent is a
+real registry change and stays guardian-gated while the guardian feature is
+active. Entry-bearing writes (`Record`, `Propose`, and the replacement entries
+of `ChangeRecord` and `Supersede`) treat each listed `Referent` as an embedded
+`ReferentRegistration` with no aliases and the write's own `Justification`. Nexus
+exposes that as generated `RecordWithImpliedReferents`,
+`ProposeWithImpliedReferents`, `SupersedeWithImpliedReferents`,
+`ChangeRecordWithImpliedReferents`, and the matching `*ReferentsSettled` results
+before the normal guard/write step, so the implied registration runs the same
+settled-state and referent-guardian path as explicit `RegisterReferent`; a
+rejected implied registration blocks the entry write.
+
 ### SEMA
 
 `Store` is the SEMA writer. SEMA means database work: the SEMA plane writes
@@ -614,8 +647,12 @@ SEMA replies carry a generated `DatabaseMarker` with `CommitSequence` and
 `StateDigest` is a real content-addressed hash: blake3 over each committed
 record's `(identifier, archived bytes)` folded with the commit sequence,
 reduced to the schema's `Integer` width — an empty store digests to zero.
-Signal outputs include the state marker that Nexus uses to close processed
-mail.
+Nexus uses that internal marker to close processed mail, but it is database
+introspection state, not context for every reply. Ordinary agent-facing Signal
+outputs — `Lookup`, `Version`, `Count`, `Observe`, mutation receipts, guardian
+rejections, referent registrations, errors, and stream events — omit the marker
+tuple. A caller that wants marker state asks for it through the dedicated bare
+`Marker` input, which replies `MarkerReported(DatabaseMarker)`.
 
 The database lifecycle is owned by sema-engine. The daemon opens one `Store`
 for the process and shares it behind the `Nexus` mutex; `Store` owns the
