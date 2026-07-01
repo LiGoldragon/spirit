@@ -741,9 +741,9 @@ impl Engine {
 
     /// Owner-only meta `ObserveHead`: report the store's current versioned-log
     /// head — the content-addressed `EntryDigest` of the last durable entry,
-    /// the SAME head [`CriomeGate`](crate::criome_gate::CriomeGate) captures via
-    /// [`LocalHeadCapture::spirit_head`](crate::criome_gate::LocalHeadCapture::spirit_head)
-    /// and authorizes for fan-out, and the SAME head the mirror durably lands.
+    /// the SAME head `CriomeGate` captures via `LocalHeadCapture::spirit_head`
+    /// (both in the `mirror-shipper`-gated `criome_gate` module) and authorizes
+    /// for fan-out, and the SAME head the mirror durably lands.
     /// It is a pure read (no SEMA write, no guardian), so a guardian-required
     /// fail-closed daemon still answers it. The head is carried as a
     /// `HeadDigestHex` String — 64 lowercase hex

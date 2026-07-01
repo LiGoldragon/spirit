@@ -133,29 +133,23 @@ fn signal_schema_domains_put_software_under_the_software_branch() {
     );
     witness.must_contain("Software [", "software-domain");
     witness.must_contain("Technology [", "software-domain");
-    witness.must_contain("(Hardware (Optional HardwareLeaf))", "software-domain");
-    witness.must_contain("HardwareLeaf [Networking]", "software-domain");
+    witness.must_contain("(Hardware HardwareLeaf)", "software-domain");
+    witness.must_contain("HardwareLeaf [All Networking]", "software-domain");
+    witness.must_contain("(Programming ProgrammingLeaf)", "software-domain");
     witness.must_contain(
-        "(Programming (Optional ProgrammingLeaf))",
+        "ProgrammingLeaf [All TypeSystems Compilation Parsing Grammars CodeGeneration Metaprogramming Macros DomainSpecificLanguages]",
         "software-domain",
     );
+    witness.must_contain("(Quality QualityLeaf)", "software-domain");
+    witness.must_contain("QualityLeaf [All Testing]", "software-domain");
+    witness.must_contain("(Operations OperationsLeaf)", "software-domain");
     witness.must_contain(
-        "ProgrammingLeaf [TypeSystems Compilation Parsing Grammars CodeGeneration Metaprogramming Macros DomainSpecificLanguages]",
+        "OperationsLeaf [All BuildSystem ReleaseEngineering DependencyManagement Deployment ConfigurationManagement]",
         "software-domain",
     );
-    witness.must_contain("(Quality (Optional QualityLeaf))", "software-domain");
-    witness.must_contain("QualityLeaf [Testing]", "software-domain");
-    witness.must_contain("(Operations (Optional OperationsLeaf))", "software-domain");
+    witness.must_contain("(Engineering EngineeringLeaf)", "software-domain");
     witness.must_contain(
-        "OperationsLeaf [BuildSystem ReleaseEngineering DependencyManagement Deployment ConfigurationManagement]",
-        "software-domain",
-    );
-    witness.must_contain(
-        "(Engineering (Optional EngineeringLeaf))",
-        "software-domain",
-    );
-    witness.must_contain(
-        "EngineeringLeaf [Architecture Design ApplicationProgrammingInterfaces Documentation VersionControl DevelopmentProcess Management Modularity]",
+        "EngineeringLeaf [All Architecture Design ApplicationProgrammingInterfaces Documentation VersionControl DevelopmentProcess Management Modularity]",
         "software-domain",
     );
     witness.must_not_contain(
@@ -163,7 +157,7 @@ fn signal_schema_domains_put_software_under_the_software_branch() {
         "software-domain",
     );
     witness.must_contain(
-        "(Equivalence [(Information Database) (Technology Software Data)])",
+        "(Equivalence [(Information Database) (Technology Software Data All)])",
         "software-domain",
     );
 }

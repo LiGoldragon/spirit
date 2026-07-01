@@ -262,7 +262,7 @@ struct SpiritStoreV9CurrentLiveDatabase {
 /// versioned log cannot be decoded by the current layout-5 engine.
 struct SpiritStoreV10Layout3LiveDatabase {
     database: Layout3SemaDatabase,
-    records: Layout3TableReference<StoredRecord>,
+    records: Layout3TableReference<store_version_ten::StoredRecord>,
     referents: Layout3TableReference<StoredReferent>,
 }
 
@@ -272,7 +272,7 @@ struct SpiritStoreV10Layout3LiveDatabase {
 /// store registration.
 struct SpiritStoreV10CurrentLiveDatabase {
     database: CurrentSemaDatabase,
-    records: CurrentTableReference<StoredRecord>,
+    records: CurrentTableReference<store_version_ten::StoredRecord>,
     referents: CurrentTableReference<StoredReferent>,
 }
 
@@ -283,21 +283,33 @@ struct SpiritStoreV10CurrentLiveDatabase {
 /// schema-10 family identities.
 struct SpiritStoreV10LegacyFamilyCurrentLiveDatabase {
     database: CurrentSemaDatabase,
-    records: CurrentTableReference<StoredRecord>,
+    records: CurrentTableReference<store_version_ten::StoredRecord>,
     referents: CurrentTableReference<StoredReferent>,
+}
+
+/// The schema-10, layout-5 archive sibling written by the current engine under
+/// the CURRENT record family identity — the archive analogue of
+/// [`SpiritStoreV10CurrentLiveDatabase`]. This is the shape of the deployed
+/// live `spirit.archive.sema`: the same store generation as the live database,
+/// neither a legacy family nor the previous layout-3 engine. Without this
+/// reader every archive reader misses the live archive and the migration falls
+/// through to the layout-3 reader, which hard-rejects the layout-5 store.
+struct SpiritStoreV10CurrentArchiveDatabase {
+    database: CurrentSemaDatabase,
+    records: CurrentTableReference<store_version_ten::StoredRecord>,
 }
 
 /// The matching schema-10, layout-5 archive sibling with a legacy record
 /// family identity.
 struct SpiritStoreV10LegacyFamilyCurrentArchiveDatabase {
     database: CurrentSemaDatabase,
-    records: CurrentTableReference<StoredRecord>,
+    records: CurrentTableReference<store_version_ten::StoredRecord>,
 }
 
 /// The schema-10 archive sibling written by the previous layout-3 engine.
 struct SpiritStoreV10Layout3ArchiveDatabase {
     database: Layout3SemaDatabase,
-    records: Layout3TableReference<StoredRecord>,
+    records: Layout3TableReference<store_version_ten::StoredRecord>,
 }
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -901,7 +913,7 @@ mod store_version_nine {
         fn into_current(self) -> DomainRewrite {
             match self {
                 Self::Networking => DomainRewrite::same(technology(CurrentTechnology::Hardware(
-                    Some(HardwareLeaf::Networking),
+                    HardwareLeaf::Networking,
                 ))),
                 Self::Energy => hardware_keyword("energy"),
                 Self::Power => hardware_keyword("power"),
@@ -1311,29 +1323,32 @@ mod store_version_nine {
     }
 
     fn hardware_keyword(keyword: &'static str) -> DomainRewrite {
-        DomainRewrite::with_keyword(technology(CurrentTechnology::Hardware(None)), keyword)
+        DomainRewrite::with_keyword(
+            technology(CurrentTechnology::Hardware(HardwareLeaf::All)),
+            keyword,
+        )
     }
 
     fn programming_terminal() -> DomainRewrite {
-        DomainRewrite::same(software(CurrentSoftware::Programming(None)))
+        DomainRewrite::same(software(CurrentSoftware::Programming(ProgrammingLeaf::All)))
     }
 
     fn programming_leaf(payload: ProgrammingLeaf) -> DomainRewrite {
-        DomainRewrite::same(software(CurrentSoftware::Programming(Some(payload))))
+        DomainRewrite::same(software(CurrentSoftware::Programming(payload)))
     }
 
     fn programming_leaf_with_keyword(
         payload: ProgrammingLeaf,
         keyword: &'static str,
     ) -> DomainRewrite {
-        DomainRewrite::with_keyword(
-            software(CurrentSoftware::Programming(Some(payload))),
-            keyword,
-        )
+        DomainRewrite::with_keyword(software(CurrentSoftware::Programming(payload)), keyword)
     }
 
     fn programming_keyword(keyword: &'static str) -> DomainRewrite {
-        DomainRewrite::with_keyword(software(CurrentSoftware::Programming(None)), keyword)
+        DomainRewrite::with_keyword(
+            software(CurrentSoftware::Programming(ProgrammingLeaf::All)),
+            keyword,
+        )
     }
 
     fn theory_keyword(keyword: &'static str) -> DomainRewrite {
@@ -1341,143 +1356,158 @@ mod store_version_nine {
     }
 
     fn systems_leaf(payload: SystemsLeaf) -> DomainRewrite {
-        DomainRewrite::same(software(CurrentSoftware::Systems(Some(payload))))
+        DomainRewrite::same(software(CurrentSoftware::Systems(payload)))
     }
 
     fn systems_leaf_with_keyword(payload: SystemsLeaf, keyword: &'static str) -> DomainRewrite {
-        DomainRewrite::with_keyword(software(CurrentSoftware::Systems(Some(payload))), keyword)
+        DomainRewrite::with_keyword(software(CurrentSoftware::Systems(payload)), keyword)
     }
 
     fn systems_keyword(keyword: &'static str) -> DomainRewrite {
-        DomainRewrite::with_keyword(software(CurrentSoftware::Systems(None)), keyword)
+        DomainRewrite::with_keyword(
+            software(CurrentSoftware::Systems(SystemsLeaf::All)),
+            keyword,
+        )
     }
 
     fn distributed_leaf(payload: DistributedLeaf) -> DomainRewrite {
-        DomainRewrite::same(software(CurrentSoftware::Distributed(Some(payload))))
+        DomainRewrite::same(software(CurrentSoftware::Distributed(payload)))
     }
 
     fn distributed_leaf_with_keyword(
         payload: DistributedLeaf,
         keyword: &'static str,
     ) -> DomainRewrite {
+        DomainRewrite::with_keyword(software(CurrentSoftware::Distributed(payload)), keyword)
+    }
+
+    fn distributed_keyword(keyword: &'static str) -> DomainRewrite {
         DomainRewrite::with_keyword(
-            software(CurrentSoftware::Distributed(Some(payload))),
+            software(CurrentSoftware::Distributed(DistributedLeaf::All)),
             keyword,
         )
     }
 
-    fn distributed_keyword(keyword: &'static str) -> DomainRewrite {
-        DomainRewrite::with_keyword(software(CurrentSoftware::Distributed(None)), keyword)
-    }
-
     fn data_leaf(payload: DataLeaf) -> DomainRewrite {
-        DomainRewrite::same(software(CurrentSoftware::Data(Some(payload))))
+        DomainRewrite::same(software(CurrentSoftware::Data(payload)))
     }
 
     fn data_leaf_with_keyword(payload: DataLeaf, keyword: &'static str) -> DomainRewrite {
-        DomainRewrite::with_keyword(software(CurrentSoftware::Data(Some(payload))), keyword)
+        DomainRewrite::with_keyword(software(CurrentSoftware::Data(payload)), keyword)
     }
 
     fn data_keyword(keyword: &'static str) -> DomainRewrite {
-        DomainRewrite::with_keyword(software(CurrentSoftware::Data(None)), keyword)
+        DomainRewrite::with_keyword(software(CurrentSoftware::Data(DataLeaf::All)), keyword)
     }
 
     fn intelligence_leaf(payload: IntelligenceLeaf) -> DomainRewrite {
-        DomainRewrite::same(software(CurrentSoftware::Intelligence(Some(payload))))
+        DomainRewrite::same(software(CurrentSoftware::Intelligence(payload)))
     }
 
     fn intelligence_keyword(keyword: &'static str) -> DomainRewrite {
-        DomainRewrite::with_keyword(software(CurrentSoftware::Intelligence(None)), keyword)
+        DomainRewrite::with_keyword(
+            software(CurrentSoftware::Intelligence(IntelligenceLeaf::All)),
+            keyword,
+        )
     }
 
     fn security_leaf(payload: SecurityLeaf) -> DomainRewrite {
-        DomainRewrite::same(software(CurrentSoftware::Security(Some(payload))))
+        DomainRewrite::same(software(CurrentSoftware::Security(payload)))
     }
 
     fn security_leaf_with_keyword(payload: SecurityLeaf, keyword: &'static str) -> DomainRewrite {
-        DomainRewrite::with_keyword(software(CurrentSoftware::Security(Some(payload))), keyword)
+        DomainRewrite::with_keyword(software(CurrentSoftware::Security(payload)), keyword)
     }
 
     fn security_keyword(keyword: &'static str) -> DomainRewrite {
-        DomainRewrite::with_keyword(software(CurrentSoftware::Security(None)), keyword)
+        DomainRewrite::with_keyword(
+            software(CurrentSoftware::Security(SecurityLeaf::All)),
+            keyword,
+        )
     }
 
     fn quality_leaf(payload: QualityLeaf) -> DomainRewrite {
-        DomainRewrite::same(software(CurrentSoftware::Quality(Some(payload))))
+        DomainRewrite::same(software(CurrentSoftware::Quality(payload)))
     }
 
     fn quality_leaf_with_keyword(payload: QualityLeaf, keyword: &'static str) -> DomainRewrite {
-        DomainRewrite::with_keyword(software(CurrentSoftware::Quality(Some(payload))), keyword)
+        DomainRewrite::with_keyword(software(CurrentSoftware::Quality(payload)), keyword)
     }
 
     fn quality_keyword(keyword: &'static str) -> DomainRewrite {
-        DomainRewrite::with_keyword(software(CurrentSoftware::Quality(None)), keyword)
+        DomainRewrite::with_keyword(
+            software(CurrentSoftware::Quality(QualityLeaf::All)),
+            keyword,
+        )
     }
 
     fn operations_leaf(payload: OperationsLeaf) -> DomainRewrite {
-        DomainRewrite::same(software(CurrentSoftware::Operations(Some(payload))))
+        DomainRewrite::same(software(CurrentSoftware::Operations(payload)))
     }
 
     fn operations_leaf_with_keyword(
         payload: OperationsLeaf,
         keyword: &'static str,
     ) -> DomainRewrite {
+        DomainRewrite::with_keyword(software(CurrentSoftware::Operations(payload)), keyword)
+    }
+
+    fn operations_keyword(keyword: &'static str) -> DomainRewrite {
         DomainRewrite::with_keyword(
-            software(CurrentSoftware::Operations(Some(payload))),
+            software(CurrentSoftware::Operations(OperationsLeaf::All)),
             keyword,
         )
     }
 
-    fn operations_keyword(keyword: &'static str) -> DomainRewrite {
-        DomainRewrite::with_keyword(software(CurrentSoftware::Operations(None)), keyword)
-    }
-
     fn observability_leaf(payload: ObservabilityLeaf) -> DomainRewrite {
-        DomainRewrite::same(software(CurrentSoftware::Observability(Some(payload))))
+        DomainRewrite::same(software(CurrentSoftware::Observability(payload)))
     }
 
     fn observability_leaf_with_keyword(
         payload: ObservabilityLeaf,
         keyword: &'static str,
     ) -> DomainRewrite {
+        DomainRewrite::with_keyword(software(CurrentSoftware::Observability(payload)), keyword)
+    }
+
+    fn observability_keyword(keyword: &'static str) -> DomainRewrite {
         DomainRewrite::with_keyword(
-            software(CurrentSoftware::Observability(Some(payload))),
+            software(CurrentSoftware::Observability(ObservabilityLeaf::All)),
             keyword,
         )
     }
 
-    fn observability_keyword(keyword: &'static str) -> DomainRewrite {
-        DomainRewrite::with_keyword(software(CurrentSoftware::Observability(None)), keyword)
-    }
-
     fn surfaces_leaf(payload: SurfacesLeaf) -> DomainRewrite {
-        DomainRewrite::same(software(CurrentSoftware::Surfaces(Some(payload))))
+        DomainRewrite::same(software(CurrentSoftware::Surfaces(payload)))
     }
 
     fn surfaces_leaf_with_keyword(payload: SurfacesLeaf, keyword: &'static str) -> DomainRewrite {
-        DomainRewrite::with_keyword(software(CurrentSoftware::Surfaces(Some(payload))), keyword)
+        DomainRewrite::with_keyword(software(CurrentSoftware::Surfaces(payload)), keyword)
     }
 
     fn surfaces_keyword(keyword: &'static str) -> DomainRewrite {
-        DomainRewrite::with_keyword(software(CurrentSoftware::Surfaces(None)), keyword)
+        DomainRewrite::with_keyword(
+            software(CurrentSoftware::Surfaces(SurfacesLeaf::All)),
+            keyword,
+        )
     }
 
     fn engineering_leaf(payload: EngineeringLeaf) -> DomainRewrite {
-        DomainRewrite::same(software(CurrentSoftware::Engineering(Some(payload))))
+        DomainRewrite::same(software(CurrentSoftware::Engineering(payload)))
     }
 
     fn engineering_leaf_with_keyword(
         payload: EngineeringLeaf,
         keyword: &'static str,
     ) -> DomainRewrite {
-        DomainRewrite::with_keyword(
-            software(CurrentSoftware::Engineering(Some(payload))),
-            keyword,
-        )
+        DomainRewrite::with_keyword(software(CurrentSoftware::Engineering(payload)), keyword)
     }
 
     fn engineering_keyword(keyword: &'static str) -> DomainRewrite {
-        DomainRewrite::with_keyword(software(CurrentSoftware::Engineering(None)), keyword)
+        DomainRewrite::with_keyword(
+            software(CurrentSoftware::Engineering(EngineeringLeaf::All)),
+            keyword,
+        )
     }
 
     fn same_path(area: &str, leaf: impl std::fmt::Debug) -> DomainRewrite {
@@ -2018,7 +2048,7 @@ mod store_version_seven {
     impl Craft {
         fn current_nota(self) -> String {
             match self {
-                Self::Programming => String::from("(Technology (Software Programming))"),
+                Self::Programming => String::from("(Technology (Software (Programming All)))"),
                 Self::Architecture => {
                     String::from("(Technology (Software (Engineering Architecture)))")
                 }
@@ -2051,15 +2081,477 @@ mod store_version_seven {
                 Self::Intelligence => {
                     String::from("(Technology (Software (Intelligence AgentSystems)))")
                 }
+                Self::Networking => String::from("(Technology (Hardware Networking))"),
+                // The remaining hardware variants have no dedicated leaf in the
+                // strict-positional contract; coarsen them to the universal
+                // `Hardware All` member so the record survives the fold rather
+                // than aborting on an unknown hardware leaf.
                 Self::Energy
                 | Self::Power
                 | Self::Automation
                 | Self::Robotics
-                | Self::Networking
                 | Self::Materials
                 | Self::Machinery
                 | Self::Instrumentation
-                | Self::Aerospace => format!("(Technology (Hardware {self:?}))"),
+                | Self::Aerospace => String::from("(Technology (Hardware All))"),
+            }
+        }
+    }
+}
+
+/// A frozen snapshot of the version-10 persisted `Domain` subtree, reproducing
+/// the exact rkyv layout the deployed daemon wrote before adopting the
+/// strict-positional signal-spirit contract: every value-leaf enum carried its
+/// original discriminant order WITHOUT the leading `All` member, and each
+/// Technology/Software sub-domain payload was an `Option<Leaf>` rather than a
+/// required leaf. rkyv reads existing version-10 bytes through this snapshot,
+/// then [`Domain::into_current`] folds them onto the current contract: an
+/// absent payload becomes the universal `All` member and a present leaf is
+/// remapped by name across the +1 discriminant shift. Only the Technology
+/// subtree changed between version 10 and 11, so the personal-life domains
+/// reference the current (unchanged) enums directly.
+#[allow(clippy::enum_variant_names)]
+mod store_version_ten {
+    use super::{
+        Certainty, DataLeaf as CurrentDataLeaf, Description,
+        DistributedLeaf as CurrentDistributedLeaf, Domain as CurrentDomain,
+        Domains as CurrentDomains, EngineeringLeaf as CurrentEngineeringLeaf,
+        Entry as CurrentEntry, HardwareLeaf as CurrentHardwareLeaf, Importance,
+        IntelligenceLeaf as CurrentIntelligenceLeaf, Kind,
+        ObservabilityLeaf as CurrentObservabilityLeaf, OperationsLeaf as CurrentOperationsLeaf,
+        Privacy, ProgrammingLeaf as CurrentProgrammingLeaf, QualityLeaf as CurrentQualityLeaf,
+        RecordIdentifier, Referents, SecurityLeaf as CurrentSecurityLeaf,
+        Software as CurrentSoftware, SurfacesLeaf as CurrentSurfacesLeaf,
+        SystemsLeaf as CurrentSystemsLeaf, Technology as CurrentTechnology,
+    };
+    use crate::schema::sema::StoredRecord as CurrentStoredRecord;
+    use crate::schema::signal::{
+        Appearance, Art, Commerce, Community, Craft, Education, Finance, Food, Governance, Health,
+        Home, Information, Kinship, Knowledge, Language, Law, Leisure, Nature, Safety, Selfhood,
+        Spirituality, Travel, Work,
+    };
+
+    #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+    pub(super) struct StoredRecord {
+        pub(super) record_identifier: RecordIdentifier,
+        pub(super) entry: Entry,
+    }
+
+    #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+    pub(super) struct Entry {
+        pub(super) domains: Domains,
+        pub(super) kind: Kind,
+        pub(super) description: Description,
+        pub(super) certainty: Certainty,
+        pub(super) importance: Importance,
+        pub(super) privacy: Privacy,
+        pub(super) referents: Referents,
+    }
+
+    #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+    pub(super) struct Domains(pub(super) Vec<Domain>);
+
+    #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+    pub(super) enum Domain {
+        Health(Health),
+        Food(Food),
+        Home(Home),
+        Finance(Finance),
+        Work(Work),
+        Craft(Craft),
+        Knowledge(Knowledge),
+        Education(Education),
+        Language(Language),
+        Art(Art),
+        Kinship(Kinship),
+        Selfhood(Selfhood),
+        Spirituality(Spirituality),
+        Governance(Governance),
+        Law(Law),
+        Community(Community),
+        Nature(Nature),
+        Travel(Travel),
+        Commerce(Commerce),
+        Leisure(Leisure),
+        Appearance(Appearance),
+        Safety(Safety),
+        Information(Information),
+        Technology(Technology),
+    }
+
+    #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+    pub(super) enum Technology {
+        Hardware(Option<HardwareLeaf>),
+        Software(Software),
+    }
+
+    #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+    pub(super) enum Software {
+        Programming(Option<ProgrammingLeaf>),
+        Theory,
+        Systems(Option<SystemsLeaf>),
+        Distributed(Option<DistributedLeaf>),
+        Data(Option<DataLeaf>),
+        Intelligence(Option<IntelligenceLeaf>),
+        Security(Option<SecurityLeaf>),
+        Quality(Option<QualityLeaf>),
+        Operations(Option<OperationsLeaf>),
+        Observability(Option<ObservabilityLeaf>),
+        Surfaces(Option<SurfacesLeaf>),
+        Engineering(Option<EngineeringLeaf>),
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum HardwareLeaf {
+        Networking,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum ProgrammingLeaf {
+        TypeSystems,
+        Compilation,
+        Parsing,
+        Grammars,
+        CodeGeneration,
+        Metaprogramming,
+        Macros,
+        DomainSpecificLanguages,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum SystemsLeaf {
+        SystemsProgramming,
+        Concurrency,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum DistributedLeaf {
+        ProtocolDesign,
+        EventDrivenArchitecture,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum DataLeaf {
+        Persistence,
+        Serialization,
+        Formats,
+        Modeling,
+        SchemaEvolution,
+        Migration,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum IntelligenceLeaf {
+        AgentSystems,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum SecurityLeaf {
+        Cryptography,
+        Authentication,
+        Authorization,
+        SecretsManagement,
+        Privacy,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum QualityLeaf {
+        Testing,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum OperationsLeaf {
+        BuildSystem,
+        ReleaseEngineering,
+        DependencyManagement,
+        Deployment,
+        ConfigurationManagement,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum ObservabilityLeaf {
+        Tracing,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum SurfacesLeaf {
+        Visualization,
+        CommandLineInterfaces,
+    }
+
+    #[derive(
+        rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, Copy, PartialEq, Eq,
+    )]
+    pub(super) enum EngineeringLeaf {
+        Architecture,
+        Design,
+        ApplicationProgrammingInterfaces,
+        Documentation,
+        VersionControl,
+        DevelopmentProcess,
+        Management,
+        Modularity,
+    }
+
+    impl StoredRecord {
+        pub(super) fn into_current(self) -> CurrentStoredRecord {
+            CurrentStoredRecord {
+                record_identifier: self.record_identifier,
+                entry: self.entry.into_current(),
+            }
+        }
+    }
+
+    impl Entry {
+        pub(super) fn into_current(self) -> CurrentEntry {
+            CurrentEntry {
+                domains: self.domains.into_current(),
+                kind: self.kind,
+                description: self.description,
+                certainty: self.certainty,
+                importance: self.importance,
+                privacy: self.privacy,
+                referents: self.referents,
+            }
+        }
+    }
+
+    impl Domains {
+        fn into_current(self) -> CurrentDomains {
+            CurrentDomains::new(self.0.into_iter().map(Domain::into_current).collect())
+        }
+    }
+
+    impl Domain {
+        fn into_current(self) -> CurrentDomain {
+            match self {
+                Self::Health(value) => CurrentDomain::Health(value),
+                Self::Food(value) => CurrentDomain::Food(value),
+                Self::Home(value) => CurrentDomain::Home(value),
+                Self::Finance(value) => CurrentDomain::Finance(value),
+                Self::Work(value) => CurrentDomain::Work(value),
+                Self::Craft(value) => CurrentDomain::Craft(value),
+                Self::Knowledge(value) => CurrentDomain::Knowledge(value),
+                Self::Education(value) => CurrentDomain::Education(value),
+                Self::Language(value) => CurrentDomain::Language(value),
+                Self::Art(value) => CurrentDomain::Art(value),
+                Self::Kinship(value) => CurrentDomain::Kinship(value),
+                Self::Selfhood(value) => CurrentDomain::Selfhood(value),
+                Self::Spirituality(value) => CurrentDomain::Spirituality(value),
+                Self::Governance(value) => CurrentDomain::Governance(value),
+                Self::Law(value) => CurrentDomain::Law(value),
+                Self::Community(value) => CurrentDomain::Community(value),
+                Self::Nature(value) => CurrentDomain::Nature(value),
+                Self::Travel(value) => CurrentDomain::Travel(value),
+                Self::Commerce(value) => CurrentDomain::Commerce(value),
+                Self::Leisure(value) => CurrentDomain::Leisure(value),
+                Self::Appearance(value) => CurrentDomain::Appearance(value),
+                Self::Safety(value) => CurrentDomain::Safety(value),
+                Self::Information(value) => CurrentDomain::Information(value),
+                Self::Technology(value) => CurrentDomain::Technology(value.into_current()),
+            }
+        }
+    }
+
+    impl Technology {
+        fn into_current(self) -> CurrentTechnology {
+            match self {
+                Self::Hardware(leaf) => CurrentTechnology::Hardware(
+                    leaf.map_or(CurrentHardwareLeaf::All, HardwareLeaf::into_current),
+                ),
+                Self::Software(value) => CurrentTechnology::Software(value.into_current()),
+            }
+        }
+    }
+
+    impl Software {
+        fn into_current(self) -> CurrentSoftware {
+            match self {
+                Self::Programming(leaf) => CurrentSoftware::Programming(
+                    leaf.map_or(CurrentProgrammingLeaf::All, ProgrammingLeaf::into_current),
+                ),
+                Self::Theory => CurrentSoftware::Theory,
+                Self::Systems(leaf) => CurrentSoftware::Systems(
+                    leaf.map_or(CurrentSystemsLeaf::All, SystemsLeaf::into_current),
+                ),
+                Self::Distributed(leaf) => CurrentSoftware::Distributed(
+                    leaf.map_or(CurrentDistributedLeaf::All, DistributedLeaf::into_current),
+                ),
+                Self::Data(leaf) => {
+                    CurrentSoftware::Data(leaf.map_or(CurrentDataLeaf::All, DataLeaf::into_current))
+                }
+                Self::Intelligence(leaf) => CurrentSoftware::Intelligence(
+                    leaf.map_or(CurrentIntelligenceLeaf::All, IntelligenceLeaf::into_current),
+                ),
+                Self::Security(leaf) => CurrentSoftware::Security(
+                    leaf.map_or(CurrentSecurityLeaf::All, SecurityLeaf::into_current),
+                ),
+                Self::Quality(leaf) => CurrentSoftware::Quality(
+                    leaf.map_or(CurrentQualityLeaf::All, QualityLeaf::into_current),
+                ),
+                Self::Operations(leaf) => CurrentSoftware::Operations(
+                    leaf.map_or(CurrentOperationsLeaf::All, OperationsLeaf::into_current),
+                ),
+                Self::Observability(leaf) => CurrentSoftware::Observability(leaf.map_or(
+                    CurrentObservabilityLeaf::All,
+                    ObservabilityLeaf::into_current,
+                )),
+                Self::Surfaces(leaf) => CurrentSoftware::Surfaces(
+                    leaf.map_or(CurrentSurfacesLeaf::All, SurfacesLeaf::into_current),
+                ),
+                Self::Engineering(leaf) => CurrentSoftware::Engineering(
+                    leaf.map_or(CurrentEngineeringLeaf::All, EngineeringLeaf::into_current),
+                ),
+            }
+        }
+    }
+
+    impl HardwareLeaf {
+        fn into_current(self) -> CurrentHardwareLeaf {
+            match self {
+                Self::Networking => CurrentHardwareLeaf::Networking,
+            }
+        }
+    }
+
+    impl ProgrammingLeaf {
+        fn into_current(self) -> CurrentProgrammingLeaf {
+            match self {
+                Self::TypeSystems => CurrentProgrammingLeaf::TypeSystems,
+                Self::Compilation => CurrentProgrammingLeaf::Compilation,
+                Self::Parsing => CurrentProgrammingLeaf::Parsing,
+                Self::Grammars => CurrentProgrammingLeaf::Grammars,
+                Self::CodeGeneration => CurrentProgrammingLeaf::CodeGeneration,
+                Self::Metaprogramming => CurrentProgrammingLeaf::Metaprogramming,
+                Self::Macros => CurrentProgrammingLeaf::Macros,
+                Self::DomainSpecificLanguages => CurrentProgrammingLeaf::DomainSpecificLanguages,
+            }
+        }
+    }
+
+    impl SystemsLeaf {
+        fn into_current(self) -> CurrentSystemsLeaf {
+            match self {
+                Self::SystemsProgramming => CurrentSystemsLeaf::SystemsProgramming,
+                Self::Concurrency => CurrentSystemsLeaf::Concurrency,
+            }
+        }
+    }
+
+    impl DistributedLeaf {
+        fn into_current(self) -> CurrentDistributedLeaf {
+            match self {
+                Self::ProtocolDesign => CurrentDistributedLeaf::ProtocolDesign,
+                Self::EventDrivenArchitecture => CurrentDistributedLeaf::EventDrivenArchitecture,
+            }
+        }
+    }
+
+    impl DataLeaf {
+        fn into_current(self) -> CurrentDataLeaf {
+            match self {
+                Self::Persistence => CurrentDataLeaf::Persistence,
+                Self::Serialization => CurrentDataLeaf::Serialization,
+                Self::Formats => CurrentDataLeaf::Formats,
+                Self::Modeling => CurrentDataLeaf::Modeling,
+                Self::SchemaEvolution => CurrentDataLeaf::SchemaEvolution,
+                Self::Migration => CurrentDataLeaf::Migration,
+            }
+        }
+    }
+
+    impl IntelligenceLeaf {
+        fn into_current(self) -> CurrentIntelligenceLeaf {
+            match self {
+                Self::AgentSystems => CurrentIntelligenceLeaf::AgentSystems,
+            }
+        }
+    }
+
+    impl SecurityLeaf {
+        fn into_current(self) -> CurrentSecurityLeaf {
+            match self {
+                Self::Cryptography => CurrentSecurityLeaf::Cryptography,
+                Self::Authentication => CurrentSecurityLeaf::Authentication,
+                Self::Authorization => CurrentSecurityLeaf::Authorization,
+                Self::SecretsManagement => CurrentSecurityLeaf::SecretsManagement,
+                Self::Privacy => CurrentSecurityLeaf::Privacy,
+            }
+        }
+    }
+
+    impl QualityLeaf {
+        fn into_current(self) -> CurrentQualityLeaf {
+            match self {
+                Self::Testing => CurrentQualityLeaf::Testing,
+            }
+        }
+    }
+
+    impl OperationsLeaf {
+        fn into_current(self) -> CurrentOperationsLeaf {
+            match self {
+                Self::BuildSystem => CurrentOperationsLeaf::BuildSystem,
+                Self::ReleaseEngineering => CurrentOperationsLeaf::ReleaseEngineering,
+                Self::DependencyManagement => CurrentOperationsLeaf::DependencyManagement,
+                Self::Deployment => CurrentOperationsLeaf::Deployment,
+                Self::ConfigurationManagement => CurrentOperationsLeaf::ConfigurationManagement,
+            }
+        }
+    }
+
+    impl ObservabilityLeaf {
+        fn into_current(self) -> CurrentObservabilityLeaf {
+            match self {
+                Self::Tracing => CurrentObservabilityLeaf::Tracing,
+            }
+        }
+    }
+
+    impl SurfacesLeaf {
+        fn into_current(self) -> CurrentSurfacesLeaf {
+            match self {
+                Self::Visualization => CurrentSurfacesLeaf::Visualization,
+                Self::CommandLineInterfaces => CurrentSurfacesLeaf::CommandLineInterfaces,
+            }
+        }
+    }
+
+    impl EngineeringLeaf {
+        fn into_current(self) -> CurrentEngineeringLeaf {
+            match self {
+                Self::Architecture => CurrentEngineeringLeaf::Architecture,
+                Self::Design => CurrentEngineeringLeaf::Design,
+                Self::ApplicationProgrammingInterfaces => {
+                    CurrentEngineeringLeaf::ApplicationProgrammingInterfaces
+                }
+                Self::Documentation => CurrentEngineeringLeaf::Documentation,
+                Self::VersionControl => CurrentEngineeringLeaf::VersionControl,
+                Self::DevelopmentProcess => CurrentEngineeringLeaf::DevelopmentProcess,
+                Self::Management => CurrentEngineeringLeaf::Management,
+                Self::Modularity => CurrentEngineeringLeaf::Modularity,
             }
         }
     }
@@ -2352,11 +2844,23 @@ impl StoreMigration {
         {
             return Ok(());
         }
-        let archive_records = if previous_schema_version == SPIRIT_STORE_V10_SCHEMA_VERSION {
-            if let Ok(archive) =
+        let archive_records: Vec<StoredRecord> = if previous_schema_version
+            == SPIRIT_STORE_V10_SCHEMA_VERSION
+        {
+            if let Ok(archive) = SpiritStoreV10CurrentArchiveDatabase::open(&archive_path) {
+                archive
+                    .records()?
+                    .into_iter()
+                    .map(store_version_ten::StoredRecord::into_current)
+                    .collect()
+            } else if let Ok(archive) =
                 SpiritStoreV10LegacyFamilyCurrentArchiveDatabase::open(&archive_path)
             {
-                archive.records()?
+                archive
+                    .records()?
+                    .into_iter()
+                    .map(store_version_ten::StoredRecord::into_current)
+                    .collect()
             } else if let Ok(archive) = SpiritStoreV9CurrentArchiveDatabase::open(&archive_path) {
                 archive
                     .records()?
@@ -2376,7 +2880,11 @@ impl StoreMigration {
                     })
                     .collect()
             } else {
-                SpiritStoreV10Layout3ArchiveDatabase::open(&archive_path)?.records()?
+                SpiritStoreV10Layout3ArchiveDatabase::open(&archive_path)?
+                    .records()?
+                    .into_iter()
+                    .map(store_version_ten::StoredRecord::into_current)
+                    .collect()
             }
         } else {
             SpiritStoreV8ArchiveDatabase::open(&archive_path)?
@@ -2708,7 +3216,7 @@ impl SpiritStoreV10CurrentLiveDatabase {
         })
     }
 
-    fn records(&self) -> Result<Vec<StoredRecord>, StoreMigrationError> {
+    fn records(&self) -> Result<Vec<store_version_ten::StoredRecord>, StoreMigrationError> {
         Ok(self
             .database
             .match_records(CurrentQueryPlan::all(self.records))?
@@ -2784,7 +3292,7 @@ impl SpiritStoreV10LegacyFamilyCurrentLiveDatabase {
         })
     }
 
-    fn records(&self) -> Result<Vec<StoredRecord>, StoreMigrationError> {
+    fn records(&self) -> Result<Vec<store_version_ten::StoredRecord>, StoreMigrationError> {
         Ok(self
             .database
             .match_records(CurrentQueryPlan::all(self.records))?
@@ -2796,6 +3304,29 @@ impl SpiritStoreV10LegacyFamilyCurrentLiveDatabase {
         Ok(self
             .database
             .match_records(CurrentQueryPlan::all(self.referents))?
+            .records()
+            .to_vec())
+    }
+}
+
+impl SpiritStoreV10CurrentArchiveDatabase {
+    fn open(path: &Path) -> Result<Self, StoreMigrationError> {
+        let mut database = CurrentSemaDatabase::open(CurrentEngineOpen::new(
+            path,
+            SPIRIT_STORE_V10_SCHEMA_VERSION,
+        ))?;
+        let records = database.register_table(CurrentTableDescriptor::new(
+            CURRENT_RECORDS_TABLE,
+            sema_engine::FamilyName::new("RecordsFamily"),
+            CurrentSchemaHash::new(family_identity::RECORDS_FAMILY),
+        ))?;
+        Ok(Self { database, records })
+    }
+
+    fn records(&self) -> Result<Vec<store_version_ten::StoredRecord>, StoreMigrationError> {
+        Ok(self
+            .database
+            .match_records(CurrentQueryPlan::all(self.records))?
             .records()
             .to_vec())
     }
@@ -2835,7 +3366,7 @@ impl SpiritStoreV10LegacyFamilyCurrentArchiveDatabase {
         Ok(Self { database, records })
     }
 
-    fn records(&self) -> Result<Vec<StoredRecord>, StoreMigrationError> {
+    fn records(&self) -> Result<Vec<store_version_ten::StoredRecord>, StoreMigrationError> {
         Ok(self
             .database
             .match_records(CurrentQueryPlan::all(self.records))?
@@ -2870,7 +3401,7 @@ impl SpiritStoreV10Layout3LiveDatabase {
         })
     }
 
-    fn records(&self) -> Result<Vec<StoredRecord>, StoreMigrationError> {
+    fn records(&self) -> Result<Vec<store_version_ten::StoredRecord>, StoreMigrationError> {
         Ok(self
             .database
             .match_records(Layout3QueryPlan::all(self.records))?
@@ -2901,7 +3432,7 @@ impl SpiritStoreV10Layout3ArchiveDatabase {
         Ok(Self { database, records })
     }
 
-    fn records(&self) -> Result<Vec<StoredRecord>, StoreMigrationError> {
+    fn records(&self) -> Result<Vec<store_version_ten::StoredRecord>, StoreMigrationError> {
         Ok(self
             .database
             .match_records(Layout3QueryPlan::all(self.records))?
@@ -2985,7 +3516,7 @@ impl SpiritPreviousStore {
             records: database
                 .records()?
                 .into_iter()
-                .map(SpiritPreviousRecord::from_current)
+                .map(SpiritPreviousRecord::from_version_ten)
                 .collect(),
             referents: database.referents()?,
         })
@@ -2998,7 +3529,7 @@ impl SpiritPreviousStore {
             records: database
                 .records()?
                 .into_iter()
-                .map(SpiritPreviousRecord::from_current)
+                .map(SpiritPreviousRecord::from_version_ten)
                 .collect(),
             referents: database.referents()?,
         })
@@ -3011,7 +3542,7 @@ impl SpiritPreviousStore {
             records: database
                 .records()?
                 .into_iter()
-                .map(SpiritPreviousRecord::from_current)
+                .map(SpiritPreviousRecord::from_version_ten)
                 .collect(),
             referents: database.referents()?,
         })
@@ -3040,10 +3571,10 @@ impl SpiritPreviousRecord {
         }
     }
 
-    fn from_current(record: StoredRecord) -> Self {
+    fn from_version_ten(record: store_version_ten::StoredRecord) -> Self {
         Self {
             record_identifier: record.record_identifier.payload().clone(),
-            entry: record.entry,
+            entry: record.entry.into_current(),
         }
     }
 }
@@ -3102,6 +3633,18 @@ impl Layout3EngineRecord for SpiritStoreV9Record {
     }
 }
 
+impl Layout3EngineRecord for store_version_ten::StoredRecord {
+    fn record_key(&self) -> Layout3RecordKey {
+        Layout3RecordKey::new(self.record_identifier.payload().clone())
+    }
+}
+
+impl CurrentEngineRecord for store_version_ten::StoredRecord {
+    fn record_key(&self) -> CurrentRecordKey {
+        CurrentRecordKey::new(self.record_identifier.payload().clone())
+    }
+}
+
 impl Layout3EngineRecord for StoredReferent {
     fn record_key(&self) -> Layout3RecordKey {
         Layout3RecordKey::new(self.referent.payload().clone())
@@ -3155,16 +3698,16 @@ mod tests {
         SPIRIT_STORE_V10_RELEASE_SIXTEEN_REFERENTS_FAMILY, SPIRIT_STORE_V10_SCHEMA_VERSION,
         SpiritStoreV7Entry, SpiritStoreV7Record, SpiritStoreV7Referent, SpiritStoreV8Record,
         SpiritStoreV8Referent, SpiritStoreV9Record, StoreMigration, StoreMigrationOutput,
-        StoreMigrationRequest, store_version_nine, store_version_seven,
+        StoreMigrationRequest, store_version_nine, store_version_seven, store_version_ten,
     };
     use crate::{
         Store,
         schema::{
             sema::{RecordFamily, StoredRecord, StoredReferent, family_identity},
             signal::{
-                Certainty, DataLeaf, Description, Domain, Domains, Entry, Importance, Information,
-                Kind, Magnitude, OperationsLeaf, Privacy, RecordIdentifier, Referent, Referents,
-                Software, Technology,
+                Certainty, DataLeaf, Description, Domain, Domains, Entry, HardwareLeaf, Importance,
+                Information, Kind, Magnitude, OperationsLeaf, Privacy, RecordIdentifier, Referent,
+                Referents, Software, Technology,
             },
         },
         store::ArchiveDatabase,
@@ -3184,6 +3727,31 @@ mod tests {
             importance: Importance::new(Magnitude::Medium),
             privacy: Privacy::new(Magnitude::Zero),
             referents: Referents::new(referents),
+        }
+    }
+
+    /// A version-10 record in its ORIGINAL persisted (frozen) layout. Version-10
+    /// stores must be seeded through the frozen snapshot so the bytes on disk are
+    /// the exact shape the deployed daemon wrote before the strict-positional
+    /// contract; the migration then reads them through the same snapshot.
+    fn version_ten_record(
+        identifier: &str,
+        description: &str,
+        referents: Vec<Referent>,
+    ) -> store_version_ten::StoredRecord {
+        store_version_ten::StoredRecord {
+            record_identifier: RecordIdentifier::new(identifier),
+            entry: store_version_ten::Entry {
+                domains: store_version_ten::Domains(vec![store_version_ten::Domain::Information(
+                    Information::Documentation,
+                )]),
+                kind: Kind::Decision,
+                description: Description::new(description),
+                certainty: Certainty::new(Magnitude::High),
+                importance: Importance::new(Magnitude::Medium),
+                privacy: Privacy::new(Magnitude::Zero),
+                referents: Referents::new(referents),
+            },
         }
     }
 
@@ -3333,13 +3901,11 @@ mod tests {
         .expect("seed pre-standard-impl referent");
         live.assert(CurrentAssertion::new(
             records,
-            StoredRecord {
-                record_identifier: RecordIdentifier::new("v10-pre-standard"),
-                entry: version_eight_entry(
-                    "schema ten pre-standard impl record survives",
-                    vec![Referent::new("pre-standard")],
-                ),
-            },
+            version_ten_record(
+                "v10-pre-standard",
+                "schema ten pre-standard impl record survives",
+                vec![Referent::new("pre-standard")],
+            ),
         ))
         .expect("seed pre-standard-impl record");
         drop(live);
@@ -3359,13 +3925,11 @@ mod tests {
         archive
             .assert(CurrentAssertion::new(
                 archive_records,
-                StoredRecord {
-                    record_identifier: RecordIdentifier::new("old10-pre-standard"),
-                    entry: version_eight_entry(
-                        "schema ten pre-standard archive survives",
-                        Vec::new(),
-                    ),
-                },
+                version_ten_record(
+                    "old10-pre-standard",
+                    "schema ten pre-standard archive survives",
+                    Vec::new(),
+                ),
             ))
             .expect("seed pre-standard-impl archive record");
     }
@@ -3404,13 +3968,11 @@ mod tests {
         .expect("seed live-june19 referent");
         live.assert(CurrentAssertion::new(
             records,
-            StoredRecord {
-                record_identifier: RecordIdentifier::new("v10-live-june19"),
-                entry: version_eight_entry(
-                    "schema ten live june nineteen record survives",
-                    vec![Referent::new("live-june19")],
-                ),
-            },
+            version_ten_record(
+                "v10-live-june19",
+                "schema ten live june nineteen record survives",
+                vec![Referent::new("live-june19")],
+            ),
         ))
         .expect("seed live-june19 record");
         drop(live);
@@ -3430,13 +3992,11 @@ mod tests {
         archive
             .assert(CurrentAssertion::new(
                 archive_records,
-                StoredRecord {
-                    record_identifier: RecordIdentifier::new("old10-live-june19"),
-                    entry: version_eight_entry(
-                        "schema ten live june nineteen archive survives",
-                        Vec::new(),
-                    ),
-                },
+                version_ten_record(
+                    "old10-live-june19",
+                    "schema ten live june nineteen archive survives",
+                    Vec::new(),
+                ),
             ))
             .expect("seed live-june19 archive record");
     }
@@ -3475,13 +4035,11 @@ mod tests {
         .expect("seed release-sixteen referent");
         live.assert(CurrentAssertion::new(
             records,
-            StoredRecord {
-                record_identifier: RecordIdentifier::new("v10-release-sixteen"),
-                entry: version_eight_entry(
-                    "schema ten release sixteen record survives the relabel",
-                    vec![Referent::new("release-sixteen")],
-                ),
-            },
+            version_ten_record(
+                "v10-release-sixteen",
+                "schema ten release sixteen record survives the relabel",
+                vec![Referent::new("release-sixteen")],
+            ),
         ))
         .expect("seed release-sixteen record");
         drop(live);
@@ -3501,13 +4059,11 @@ mod tests {
         archive
             .assert(CurrentAssertion::new(
                 archive_records,
-                StoredRecord {
-                    record_identifier: RecordIdentifier::new("old10-release-sixteen"),
-                    entry: version_eight_entry(
-                        "schema ten release sixteen archive survives the relabel",
-                        Vec::new(),
-                    ),
-                },
+                version_ten_record(
+                    "old10-release-sixteen",
+                    "schema ten release sixteen archive survives the relabel",
+                    Vec::new(),
+                ),
             ))
             .expect("seed release-sixteen archive record");
     }
@@ -3546,13 +4102,11 @@ mod tests {
         .expect("seed schema ten referent");
         live.assert(Layout3Assertion::new(
             records,
-            StoredRecord {
-                record_identifier: RecordIdentifier::new("v10a"),
-                entry: version_eight_entry(
-                    "schema ten layout three record survives",
-                    vec![Referent::new("schema-ten")],
-                ),
-            },
+            version_ten_record(
+                "v10a",
+                "schema ten layout three record survives",
+                vec![Referent::new("schema-ten")],
+            ),
         ))
         .expect("seed schema ten live record");
         drop(live);
@@ -3572,10 +4126,7 @@ mod tests {
         archive
             .assert(Layout3Assertion::new(
                 archive_records,
-                StoredRecord {
-                    record_identifier: RecordIdentifier::new("old10-1"),
-                    entry: version_eight_entry("schema ten archived record survives", Vec::new()),
-                },
+                version_ten_record("old10-1", "schema ten archived record survives", Vec::new()),
             ))
             .expect("seed schema ten archived record");
     }
@@ -3614,13 +4165,11 @@ mod tests {
         .expect("seed mixed schema ten referent");
         live.assert(Layout3Assertion::new(
             records,
-            StoredRecord {
-                record_identifier: RecordIdentifier::new("v10m"),
-                entry: version_eight_entry(
-                    "schema ten layout three live with current archive survives",
-                    vec![Referent::new("mixed-schema-ten")],
-                ),
-            },
+            version_ten_record(
+                "v10m",
+                "schema ten layout three live with current archive survives",
+                vec![Referent::new("mixed-schema-ten")],
+            ),
         ))
         .expect("seed mixed schema ten live record");
         drop(live);
@@ -3831,7 +4380,7 @@ mod tests {
         assert_eq!(
             entry.domains,
             Domains::new(vec![Domain::Technology(Technology::Software(
-                Software::Data(None)
+                Software::Data(DataLeaf::All)
             ))])
         );
         assert!(
@@ -4103,6 +4652,307 @@ mod tests {
         assert!(retired.is_some());
     }
 
+    /// The strict-positional survival witness — the core evidence that a live
+    /// version-10 store adopts the fixed signal-spirit contract without
+    /// corrupting data. Seed a version-10 store with REAL frozen-layout
+    /// Technology domains: absent-payload records (`Data`/`Hardware` with no
+    /// leaf) and present-leaf records whose discriminants sit at the OLD
+    /// positions (`Persistence` = old 0, `Migration` = old 5, before the `All`
+    /// member shifted everything by +1). The migration reads them through the
+    /// frozen version-10 snapshot and folds them onto the current contract:
+    /// absent becomes the universal `All` member, and a present leaf is remapped
+    /// BY NAME across the +1 shift — so `Data(Persistence)` at old discriminant 0
+    /// becomes the current `Data(Persistence)` (new discriminant 1) rather than
+    /// being silently misread as `Data(All)`.
+    #[test]
+    fn migrates_version_ten_strict_positional_technology_domains() {
+        use store_version_ten::{
+            DataLeaf as FrozenDataLeaf, Domain as FrozenDomain, Domains as FrozenDomains,
+            Entry as FrozenEntry, HardwareLeaf as FrozenHardwareLeaf, Software as FrozenSoftware,
+            StoredRecord as FrozenStoredRecord, Technology as FrozenTechnology,
+        };
+
+        let temporary = tempfile::tempdir().expect("create migration sandbox");
+        let database_path = temporary.path().join("store.sema");
+
+        let frozen_record = |identifier: &str, domain: FrozenDomain| FrozenStoredRecord {
+            record_identifier: RecordIdentifier::new(identifier),
+            entry: FrozenEntry {
+                domains: FrozenDomains(vec![domain]),
+                kind: Kind::Decision,
+                description: Description::new(identifier),
+                certainty: Certainty::new(Magnitude::High),
+                importance: Importance::new(Magnitude::Medium),
+                privacy: Privacy::new(Magnitude::Zero),
+                referents: Referents::new(Vec::new()),
+            },
+        };
+
+        let mut live = CurrentSemaDatabase::open(
+            CurrentEngineOpen::new(&database_path, SPIRIT_STORE_V10_SCHEMA_VERSION)
+                .with_versioning(CurrentVersioningPolicy::new(
+                    CurrentVersionedStoreName::new("spirit:sema"),
+                )),
+        )
+        .expect("open version ten frozen-layout store");
+        let records: super::CurrentTableReference<FrozenStoredRecord> = live
+            .register_table(CurrentTableDescriptor::new(
+                CURRENT_RECORDS_TABLE,
+                CurrentFamilyName::new("RecordsFamily"),
+                CurrentSchemaHash::new(family_identity::RECORDS_FAMILY),
+            ))
+            .expect("register frozen version ten records table");
+        let seeds = [
+            (
+                "gdn0",
+                FrozenDomain::Technology(FrozenTechnology::Software(FrozenSoftware::Data(None))),
+            ),
+            (
+                "gdps",
+                FrozenDomain::Technology(FrozenTechnology::Software(FrozenSoftware::Data(Some(
+                    FrozenDataLeaf::Persistence,
+                )))),
+            ),
+            (
+                "gdmg",
+                FrozenDomain::Technology(FrozenTechnology::Software(FrozenSoftware::Data(Some(
+                    FrozenDataLeaf::Migration,
+                )))),
+            ),
+            (
+                "gha0",
+                FrozenDomain::Technology(FrozenTechnology::Hardware(None)),
+            ),
+            (
+                "ghnw",
+                FrozenDomain::Technology(FrozenTechnology::Hardware(Some(
+                    FrozenHardwareLeaf::Networking,
+                ))),
+            ),
+        ];
+        for (identifier, domain) in seeds {
+            live.assert(CurrentAssertion::new(
+                records,
+                frozen_record(identifier, domain),
+            ))
+            .expect("seed frozen version ten record");
+        }
+        drop(live);
+
+        let output = StoreMigration::new(StoreMigrationRequest::new(
+            database_path.display().to_string(),
+        ))
+        .run()
+        .expect("run strict-positional version ten migration");
+        let StoreMigrationOutput::Migrated(completed) = output else {
+            panic!("frozen version ten store must migrate, got {output:?}");
+        };
+        assert_eq!(completed.record_count(), 5);
+
+        let migrated = Store::open(&database_path).expect("open migrated store");
+        let expect_domain = |identifier: &str, domain: Domain| {
+            let entry = migrated
+                .entry_by_identifier(identifier)
+                .expect("query migrated entry")
+                .expect("migrated entry exists");
+            assert_eq!(
+                entry.domains,
+                Domains::new(vec![domain]),
+                "record {identifier} migrated to the wrong domain",
+            );
+        };
+        // Absent payloads become the universal `All` member.
+        expect_domain(
+            "gdn0",
+            Domain::Technology(Technology::Software(Software::Data(DataLeaf::All))),
+        );
+        expect_domain(
+            "gha0",
+            Domain::Technology(Technology::Hardware(HardwareLeaf::All)),
+        );
+        // Present leaves survive the +1 discriminant remap by name: a leaf read
+        // at its old position becomes the same-named leaf, never the leaf that
+        // now occupies that old position.
+        expect_domain(
+            "gdps",
+            Domain::Technology(Technology::Software(Software::Data(DataLeaf::Persistence))),
+        );
+        expect_domain(
+            "gdmg",
+            Domain::Technology(Technology::Software(Software::Data(DataLeaf::Migration))),
+        );
+        expect_domain(
+            "ghnw",
+            Domain::Technology(Technology::Hardware(HardwareLeaf::Networking)),
+        );
+
+        let migrations = migrated.migrations().expect("read migration markers");
+        assert_eq!(migrations.len(), 1);
+        assert_eq!(*migrations[0].source_schema_version.payload(), 10);
+        assert_eq!(*migrations[0].migrated_record_count.payload(), 5);
+    }
+
+    /// The archive-sibling analogue of the current-family live migration
+    /// (Blocker A). The deployed live `spirit.archive.sema` is a schema-10,
+    /// layout-5 archive written under the CURRENT record family identity — the
+    /// same store generation as the live database, not a legacy family and not
+    /// the previous layout-3 engine. Before `SpiritStoreV10CurrentArchiveDatabase`
+    /// existed, every archive reader missed this shape and
+    /// `migrate_archive_sibling` fell through to the layout-3 reader, which
+    /// hard-rejects the layout-5 store and aborts the whole migration. This
+    /// witness seeds exactly that shape — a current-family layout-5 v10 live
+    /// store plus a current-family layout-5 v10 archive carrying a frozen
+    /// strict-positional Technology domain — and proves the migration completes:
+    /// both stores reach schema 11, the live marker records source 10, and the
+    /// archived record's absent Hardware payload folds to the universal `All`
+    /// member, confirming the archive path runs `into_current`.
+    #[test]
+    fn migrates_version_ten_current_family_archive_sibling() {
+        use store_version_ten::{
+            Domain as FrozenDomain, Entry as FrozenEntry, StoredRecord as FrozenStoredRecord,
+            Technology as FrozenTechnology,
+        };
+
+        let temporary = tempfile::tempdir().expect("create migration sandbox");
+        let database_path = temporary.path().join("store.sema");
+        let archive_path = temporary.path().join("store.archive.sema");
+
+        // Live store: current-family, layout-5, schema 10.
+        let mut live = CurrentSemaDatabase::open(
+            CurrentEngineOpen::new(&database_path, SPIRIT_STORE_V10_SCHEMA_VERSION)
+                .with_versioning(CurrentVersioningPolicy::new(
+                    CurrentVersionedStoreName::new("spirit:sema"),
+                )),
+        )
+        .expect("open current-family schema ten live store");
+        let records = live
+            .register_table(CurrentTableDescriptor::new(
+                CURRENT_RECORDS_TABLE,
+                CurrentFamilyName::new("RecordsFamily"),
+                CurrentSchemaHash::new(family_identity::RECORDS_FAMILY),
+            ))
+            .expect("register current-family records table");
+        let referents = live
+            .register_table(CurrentTableDescriptor::new(
+                CURRENT_REFERENTS_TABLE,
+                CurrentFamilyName::new("ReferentsFamily"),
+                CurrentSchemaHash::new(family_identity::REFERENTS_FAMILY),
+            ))
+            .expect("register current-family referents table");
+        live.assert(CurrentAssertion::new(
+            referents,
+            StoredReferent {
+                referent: Referent::new("current-family"),
+                aliases: Referents::new(vec![Referent::new("current family")]),
+            },
+        ))
+        .expect("seed current-family referent");
+        live.assert(CurrentAssertion::new(
+            records,
+            version_ten_record(
+                "v10-current-family",
+                "schema ten current-family live record survives",
+                vec![Referent::new("current-family")],
+            ),
+        ))
+        .expect("seed current-family live record");
+        drop(live);
+
+        // Archive sibling: current-family, layout-5, schema 10 — the exact shape
+        // of the deployed `spirit.archive.sema`. The frozen Technology domain has
+        // an absent Hardware payload so the archive fold exercises `into_current`.
+        let mut archive = CurrentSemaDatabase::open(CurrentEngineOpen::new(
+            &archive_path,
+            SPIRIT_STORE_V10_SCHEMA_VERSION,
+        ))
+        .expect("open current-family schema ten archive store");
+        let archive_records = archive
+            .register_table(CurrentTableDescriptor::new(
+                CURRENT_RECORDS_TABLE,
+                CurrentFamilyName::new("RecordsFamily"),
+                CurrentSchemaHash::new(family_identity::RECORDS_FAMILY),
+            ))
+            .expect("register current-family archive records table");
+        archive
+            .assert(CurrentAssertion::new(
+                archive_records,
+                FrozenStoredRecord {
+                    record_identifier: RecordIdentifier::new("old10-current-family"),
+                    entry: FrozenEntry {
+                        domains: store_version_ten::Domains(vec![FrozenDomain::Technology(
+                            FrozenTechnology::Hardware(None),
+                        )]),
+                        kind: Kind::Decision,
+                        description: Description::new("schema ten current-family archive survives"),
+                        certainty: Certainty::new(Magnitude::High),
+                        importance: Importance::new(Magnitude::Medium),
+                        privacy: Privacy::new(Magnitude::Zero),
+                        referents: Referents::new(Vec::new()),
+                    },
+                },
+            ))
+            .expect("seed current-family archive record");
+        drop(archive);
+
+        // Before the fix this run returns Err: every archive reader misses the
+        // current-family layout-5 shape and the layout-3 fallback rejects layout 5.
+        let request = StoreMigrationRequest::new(database_path.display().to_string());
+        let output = StoreMigration::new(request.clone())
+            .run()
+            .expect("run current-family schema ten migration including the archive sibling");
+        let StoreMigrationOutput::Migrated(completed) = output else {
+            panic!("current-family schema ten store must migrate, got {output:?}");
+        };
+        assert_eq!(completed.record_count(), 1);
+        assert_eq!(completed.referent_count(), 1);
+
+        // The live store reached schema 11 with a source-10 marker.
+        let migrated =
+            Store::open(&database_path).expect("open migrated current-family live store");
+        let migrations = migrated.migrations().expect("read migration markers");
+        assert_eq!(migrations.len(), 1);
+        assert_eq!(*migrations[0].source_schema_version.payload(), 10);
+        drop(migrated);
+
+        // The archive reached schema 11: the current (v11) `ArchiveDatabase`
+        // opens it, which its pre-migration v10 shape would reject on the
+        // schema-version guard.
+        ArchiveDatabase::open(&archive_path)
+            .expect("open migrated current-family archive at schema 11");
+
+        // The archived record's absent Hardware payload folded to the universal
+        // `All` member — proving the archive path runs `into_current`, not a
+        // verbatim copy — and it survives at schema 11.
+        let mut reader = CurrentSemaDatabase::open(CurrentEngineOpen::new(
+            &archive_path,
+            crate::store::SPIRIT_SCHEMA_VERSION,
+        ))
+        .expect("reopen migrated archive for readback");
+        let reader_records: super::CurrentTableReference<StoredRecord> = reader
+            .register_table(CurrentTableDescriptor::new(
+                CURRENT_RECORDS_TABLE,
+                CurrentFamilyName::new("RecordsFamily"),
+                CurrentSchemaHash::new(family_identity::RECORDS_FAMILY),
+            ))
+            .expect("register current-schema archive records table");
+        let archived = reader
+            .match_records(super::CurrentQueryPlan::all(reader_records))
+            .expect("query migrated archive records")
+            .records()
+            .to_vec();
+        let survivor = archived
+            .iter()
+            .find(|record| record.record_identifier.payload() == "old10-current-family")
+            .expect("migrated archived record survives at schema 11");
+        assert_eq!(
+            survivor.entry.domains,
+            Domains::new(vec![Domain::Technology(Technology::Hardware(
+                HardwareLeaf::All
+            ))]),
+            "archived absent Hardware payload must fold to the universal All member",
+        );
+    }
+
     /// A second migration run over an already-migrated store reports
     /// `Current` and rewrites nothing.
     #[test]
@@ -4224,12 +5074,12 @@ mod tests {
         assert_eq!(
             migrated_entry.domains,
             Domains::new(vec![
-                Domain::Technology(Technology::Software(Software::Data(Some(
+                Domain::Technology(Technology::Software(Software::Data(
                     DataLeaf::SchemaEvolution
-                )))),
-                Domain::Technology(Technology::Software(Software::Operations(Some(
+                ))),
+                Domain::Technology(Technology::Software(Software::Operations(
                     OperationsLeaf::Deployment
-                )))),
+                ))),
                 Domain::Information(Information::Documentation),
             ])
         );

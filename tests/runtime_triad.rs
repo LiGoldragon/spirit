@@ -415,13 +415,13 @@ fn technology_scope() -> DomainScope {
 
 fn schema_evolution_scope() -> DomainScope {
     DomainScope::from(Domain::Technology(Technology::Software(Software::Data(
-        Some(DataLeaf::SchemaEvolution),
+        DataLeaf::SchemaEvolution,
     ))))
 }
 
 fn data_scope() -> DomainScope {
     DomainScope::from(Domain::Technology(Technology::Software(Software::Data(
-        None,
+        DataLeaf::All,
     ))))
 }
 
@@ -1524,7 +1524,7 @@ fn agent_guardian_prompt_bundle_includes_equivalent_domain_records() {
     let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::Accept);
     let mut engine = sema.engine_with_guardian(fake_agent.guardian());
     let output = engine.handle(input_propose(entry_with_domain(
-        Domain::Technology(Technology::Software(Software::Data(None))),
+        Domain::Technology(Technology::Software(Software::Data(DataLeaf::All))),
         "software-data-candidate",
     )));
 
@@ -1561,9 +1561,9 @@ fn agent_guardian_prompt_bundle_excludes_unmatched_live_records() {
     assert!(matches!(
         setup_engine
             .handle(input_record(entry_with_domain(
-                Domain::Technology(Technology::Software(Software::Security(Some(
-                    spirit::schema::signal::SecurityLeaf::Authorization,
-                )))),
+                Domain::Technology(Technology::Software(Software::Security(
+                    spirit::schema::signal::SecurityLeaf::Authorization
+                ))),
                 "authorization-live",
             )))
             .root(),
@@ -1574,9 +1574,9 @@ fn agent_guardian_prompt_bundle_excludes_unmatched_live_records() {
     let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::Accept);
     let mut engine = sema.engine_with_guardian(fake_agent.guardian());
     let output = engine.handle(input_propose(entry_with_domain(
-        Domain::Technology(Technology::Software(Software::Security(Some(
+        Domain::Technology(Technology::Software(Software::Security(
             spirit::schema::signal::SecurityLeaf::Authorization,
-        )))),
+        ))),
         "authorization-candidate",
     )));
 
@@ -1622,9 +1622,9 @@ fn agent_guardian_prompt_bundle_stays_bounded_as_corpus_grows() {
     assert!(matches!(
         setup_engine
             .handle(input_record(entry_with_domain(
-                Domain::Technology(Technology::Software(Software::Quality(Some(
-                    spirit::schema::signal::QualityLeaf::Testing,
-                )))),
+                Domain::Technology(Technology::Software(Software::Quality(
+                    spirit::schema::signal::QualityLeaf::Testing
+                ))),
                 "guardian-domain-neighbor-live",
             )))
             .root(),
@@ -1648,7 +1648,7 @@ fn agent_guardian_prompt_bundle_stays_bounded_as_corpus_grows() {
     let mut engine = sema.engine_with_guardian(fake_agent.guardian());
     let output = engine.handle(input_propose(Entry {
         domains: Domains::new(vec![Domain::Technology(Technology::Software(
-            Software::Quality(Some(spirit::schema::signal::QualityLeaf::Testing)),
+            Software::Quality(spirit::schema::signal::QualityLeaf::Testing),
         ))]),
         referents: referents_from_slice(&["schema"]),
         ..entry("guardian bounded candidate")
@@ -2186,9 +2186,9 @@ fn sema_engine_queries_domain_scopes_by_prefix_breadth() {
         &mut store,
         sema_write_message(
             sema_record(entry_with_domain(
-                Domain::Technology(Technology::Software(Software::Data(Some(
+                Domain::Technology(Technology::Software(Software::Data(
                     DataLeaf::SchemaEvolution,
-                )))),
+                ))),
                 "software schema",
             )),
             1,
@@ -2198,7 +2198,7 @@ fn sema_engine_queries_domain_scopes_by_prefix_breadth() {
         &mut store,
         sema_write_message(
             sema_record(entry_with_domain(
-                Domain::Technology(Technology::Hardware(Some(HardwareLeaf::Networking))),
+                Domain::Technology(Technology::Hardware(HardwareLeaf::Networking)),
                 "hardware network",
             )),
             2,
@@ -2282,7 +2282,7 @@ fn sema_engine_expands_symmetric_domain_equivalence_without_chaining() {
         &mut store,
         sema_write_message(
             sema_record(entry_with_domain(
-                Domain::Technology(Technology::Hardware(Some(HardwareLeaf::Networking))),
+                Domain::Technology(Technology::Hardware(HardwareLeaf::Networking)),
                 "hardware network",
             )),
             1,
@@ -2343,9 +2343,9 @@ fn sema_engine_expands_symmetric_domain_equivalence_without_chaining() {
 
     let data_expansion = data_scope().expand();
     assert!(
-        !data_expansion.matches_domain(&Domain::Technology(Technology::Hardware(Some(
+        !data_expansion.matches_domain(&Domain::Technology(Technology::Hardware(
             HardwareLeaf::Networking
-        )))),
+        ))),
         "equivalence expansion must not chain from database into unrelated hardware"
     );
 }

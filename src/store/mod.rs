@@ -72,7 +72,18 @@ use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
 //
 // Version 10 coarsens the stored Technology/Software domain enum: fine leaves
 // that belonged in keywords are folded into terminal-able sub-domain values.
-pub(super) const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(10);
+//
+// Version 11 adopts the strict-positional signal-spirit domain contract: every
+// Technology/Software value-leaf enum gains a leading `All` member (shifting all
+// existing leaf discriminants by +1), and each sub-domain payload becomes a
+// required leaf (`Software::Data(DataLeaf)`) instead of an optional one
+// (`Software::Data(Option<DataLeaf>)`). Both axes change the archived rkyv
+// layout of a stored `Domain`, so a version-10 store's bytes would be silently
+// misread under version 11. `production_migration` reads version-10 bytes with a
+// frozen snapshot of the old layout and folds them forward: an absent payload
+// becomes the new `All` member and a present leaf is remapped across the +1
+// discriminant shift.
+pub(super) const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(11);
 
 /// The SEMA durable store: a sema-engine keyed table written to a `*.sema`
 /// file.
