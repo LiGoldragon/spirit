@@ -782,7 +782,7 @@ dependencies = [
 [[package]]
 name = "nota"
 version = "0.5.1"
-source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#96e64bcdbe531eb33a900eb3abbc58a095e01f76"
+source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#bea7e2840ac2cf3e384f07b5c10eeb0890cead25"
 dependencies = [
  "nota-derive",
  "rkyv",
@@ -791,7 +791,7 @@ dependencies = [
 [[package]]
 name = "nota-derive"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#96e64bcdbe531eb33a900eb3abbc58a095e01f76"
+source = "git+https://github.com/LiGoldragon/nota-next.git?branch=main#bea7e2840ac2cf3e384f07b5c10eeb0890cead25"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1196,7 +1196,7 @@ checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 [[package]]
 name = "schema"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#dea9b555d76a37f099db2477ead1c758a7517f37"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#e4f7382cde7ef21d0c5047c633e25f0c418d2ed7"
 dependencies = [
  "blake3",
  "nota",
@@ -1208,7 +1208,7 @@ dependencies = [
 [[package]]
 name = "schema-cc"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#dea9b555d76a37f099db2477ead1c758a7517f37"
+source = "git+https://github.com/LiGoldragon/schema-next.git?branch=main#e4f7382cde7ef21d0c5047c633e25f0c418d2ed7"
 dependencies = [
  "nota",
  "prettyplease",
@@ -1370,7 +1370,7 @@ dependencies = [
 [[package]]
 name = "signal-frame"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#b78c80775c7fb7f80dee7ea3a8a30cc14dfac442"
+source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#075b0d992dab071c5021842fb7fdfe0b98bfcd76"
 dependencies = [
  "nota",
  "paste",
@@ -1382,7 +1382,7 @@ dependencies = [
 [[package]]
 name = "signal-frame-macros"
 version = "0.1.1"
-source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#b78c80775c7fb7f80dee7ea3a8a30cc14dfac442"
+source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#075b0d992dab071c5021842fb7fdfe0b98bfcd76"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1474,7 +1474,7 @@ dependencies = [
 [[package]]
 name = "signal-router"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/signal-router.git?branch=main#277bd153a7141f92e7bd83f7525568d9e137e595"
+source = "git+https://github.com/LiGoldragon/signal-router.git?branch=main#289c7de47d58432f41c8295b7852da2a94f84475"
 dependencies = [
  "rkyv",
  "schema-rust",
