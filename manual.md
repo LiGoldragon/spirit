@@ -1,7 +1,10 @@
 # The Spirit Manual
 
-Spirit is the intent layer. It captures what the psyche — the human author —
-directs, decides, and wants, and serves that intent back on query. This manual
+Spirit is the intent layer. It captures the psyche's intent — the rare,
+orienting will the human author holds even against his own convenience, the aims
+and values that bend a whole class of his choices — and serves it back on query.
+Capture is the exception, not the reflex; the full definition and its test live
+in section 2. This manual
 explains what Spirit holds, how a statement becomes a record, how the guardian
 gate decides admission, how certainty and importance are set, how records age
 out, and the everyday CLI conventions.
@@ -30,7 +33,7 @@ and whether a submission is genuine intent at all. Only structural admission
 validation. There is no second semantic gate scattered elsewhere; what needs
 understanding is understood once, at the guardian.
 
-## 2. What Spirit Holds: Intent, Not Information
+## 2. What Spirit Holds: Intent, Not Matter
 
 Spirit stores only durable psyche statements — the things that still guide
 after the task that produced them is gone. The test for every candidate is
@@ -55,10 +58,10 @@ many downstream choices toward it like a North Star. It is often hard to fully
 verbalize. Capture is the exception, not the reflex; when unsure, it is not
 intent — ask, don't infer.
 
-Intent is not information, and it is not matter. A statement can sound durable
-and still carry no orienting will behind it; a routine, a default, a mechanism,
-or a rule about how the tooling itself works is matter, and matter belongs in
-code, docs, the tracker, or a skill — never in the intent log.
+Intent is not matter. A statement can sound durable and still carry no
+orienting will behind it; a routine, a default, a mechanism, a rule about how
+the tooling itself works, or a bare fact or belief is matter, and matter belongs
+in code, docs, the tracker, or a skill — never in the intent log.
 
 **The five-gate test.** Capture a statement as intent only when all five hold.
 Any miss makes it matter:
