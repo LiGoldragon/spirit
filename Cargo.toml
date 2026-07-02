@@ -101,6 +101,17 @@ name = "criome_gate_1of1"
 path = "tests/criome_gate_1of1.rs"
 required-features = ["mirror-shipper"]
 
+# The criome-gate-only OBSERVE witness (om4g.2, audit M1): the shipped-daemon
+# observe path (`observe_gate_head` under the `cfg(all(criome-gate,
+# not(mirror-shipper)))` daemon dispatch) driven through the real
+# `handle_working_input` boundary in a build WITHOUT the mirror shipper. Needs
+# `testing-trace` to witness the emitted `AuthorizationObserved` event; must NOT
+# enable `mirror-shipper` or the observe dispatch is cfg'd out.
+[[test]]
+name = "observe_gate_1of1"
+path = "tests/observe_gate_1of1.rs"
+required-features = ["criome-gate", "testing-trace"]
+
 # The OFFLINE full-chain e2e: spirit source engine records → ships to mirror A
 # → criome authorizes the shipped head → router fans the typed head reference
 # → mirror latest restore is accepted or rejected by the delivered digest.
