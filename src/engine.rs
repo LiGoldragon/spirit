@@ -26,6 +26,21 @@ use crate::{ObjectName, TraceEvent, TraceLog};
 
 const ORIGIN_ROUTE_BASE: Integer = 1_000_000;
 
+/// The failure modes of the observe gate path
+/// ([`Engine::observe_gate_head`]). An UNCONFIGURED, DENIED, or UNREACHABLE
+/// criome is NOT an error — it is a [`crate::criome_gate::GateDecision`]
+/// outcome the daemon handles without blocking the local commit.
+/// Available only when the `criome-gate` feature is enabled.
+#[cfg(feature = "criome-gate")]
+#[derive(Debug, thiserror::Error)]
+pub enum ObserveGateError {
+    #[error("head capture / store read failed: {0}")]
+    Store(#[from] StoreError),
+
+    #[error("criome gate observation failed: {0}")]
+    Gate(#[from] crate::criome_gate::CriomeGateError),
+}
+
 /// The composed failure modes of the gated head fan-out
 /// ([`Engine::gate_and_ship_head`]): a head-capture / store read failure, a
 /// gate-machinery failure (the blocking criome task or an off-contract reply),
@@ -311,12 +326,16 @@ pub struct Engine {
     // mirroring existed.
     #[cfg(feature = "mirror-shipper")]
     mirror_shipper: MirrorShipper,
-    // The 1-of-1 LOCAL criome gate (Spirit `xhwa`). Present only under the
-    // `mirror-shipper` feature alongside the shipper it gates. Unarmed by
-    // default: a daemon with no configured local criome holds the head back
-    // because no authorization exists. When armed, every fan-out is held
-    // behind a real criome authorization round-trip.
-    #[cfg(feature = "mirror-shipper")]
+    // The 1-of-1 LOCAL criome gate (Spirit `xhwa`, om4g.2). Present when the
+    // `criome-gate` feature is enabled (which `mirror-shipper` implies). The
+    // shipped daemon enables `criome-gate` without `mirror-shipper` to run the
+    // gate in Observing mode — `observe_gate_head` records what criome would
+    // decide without holding back the local commit or initiating a mirror ship.
+    // Unarmed by default: a daemon with no configured criome socket returns
+    // `None` from `observe_gate_head` (no observation attempted). When
+    // `mirror-shipper` is also enabled, `gate_and_ship_head` uses the same gate
+    // for the blocking-gate / ship path.
+    #[cfg(feature = "criome-gate")]
     criome_gate: crate::criome_gate::CriomeGate,
     #[cfg(feature = "testing-trace")]
     trace_log: TraceLog,
@@ -377,7 +396,7 @@ impl Engine {
                 authorization_mode: signal_spirit::AuthorizationMode::Gating,
                 #[cfg(feature = "mirror-shipper")]
                 mirror_shipper: MirrorShipper::new(),
-                #[cfg(feature = "mirror-shipper")]
+                #[cfg(feature = "criome-gate")]
                 criome_gate: crate::criome_gate::CriomeGate::new(),
             }
         }
@@ -401,7 +420,7 @@ impl Engine {
             authorization_mode: signal_spirit::AuthorizationMode::Gating,
             #[cfg(feature = "mirror-shipper")]
             mirror_shipper: MirrorShipper::new(),
-            #[cfg(feature = "mirror-shipper")]
+            #[cfg(feature = "criome-gate")]
             criome_gate: crate::criome_gate::CriomeGate::new(),
             trace_log,
         }
@@ -483,7 +502,6 @@ impl Engine {
     /// (which exists only after a ship). `None` when nothing has been
     /// committed to the versioned log yet (an empty store cannot be authorized
     /// and is not shipped).
-    #[cfg(feature = "mirror-shipper")]
     pub fn versioned_log_head(&self) -> Result<Option<sema_engine::EntryDigest>, StoreError> {
         self.nexus.store().versioned_log_head()
     }
@@ -555,7 +573,13 @@ impl Engine {
                 database_marker: self.nexus.database_marker(),
             });
         }
-        #[cfg(feature = "mirror-shipper")]
+        // Arm (or disarm) the criome gate from the owner-configured socket path.
+        // Present when `criome-gate` is enabled (which `mirror-shipper` implies).
+        // The shipped daemon enables `criome-gate` alone to arm `observe_gate_head`;
+        // the `mirror-shipper` build uses the same gate in `gate_and_ship_head`.
+        // The operation-authorizer (guardian criome intercept) is still under
+        // `agent-guardian`.
+        #[cfg(feature = "criome-gate")]
         match &criome_gate_target {
             Some(crate::schema::meta_signal::CriomeGateTarget::Socket(socket_path)) => {
                 self.criome_gate
@@ -601,8 +625,11 @@ impl Engine {
     /// Arm the 1-of-1 LOCAL criome gate against a local criome socket path and
     /// the deploy-config attestor (the admitted contract + signed evidence). An
     /// armed gate holds every fan-out behind a criome authorization round-trip;
-    /// an unarmed gate holds the head back because no authorization exists.
-    #[cfg(feature = "mirror-shipper")]
+    /// an unarmed gate returns `None` from `observe_gate_head` (no observation
+    /// attempted). Used by tests and the `mirror-shipper` production path;
+    /// operator deployment uses `Configure` → `configure_socket` for the
+    /// bootstrap (unsigned) attestor. Available only under `criome-gate`.
+    #[cfg(feature = "criome-gate")]
     pub fn arm_criome_gate(
         &mut self,
         socket: impl Into<std::path::PathBuf>,
@@ -611,10 +638,52 @@ impl Engine {
         self.criome_gate.arm(socket, attestor);
     }
 
-    /// Whether the 1-of-1 LOCAL criome gate is armed.
-    #[cfg(feature = "mirror-shipper")]
+    /// Whether the 1-of-1 LOCAL criome gate is armed (a criome socket has been
+    /// configured via owner meta `Configure` or `arm_criome_gate`).
+    /// Available only under `criome-gate`.
+    #[cfg(feature = "criome-gate")]
     pub fn criome_gate_armed(&self) -> bool {
         self.criome_gate.is_armed()
+    }
+
+    /// THE OBSERVE GATE (Spirit `xhwa`, om4g.2). Capture the post-commit local
+    /// head `D` and observe a criome authorization round-trip without blocking
+    /// or shipping. Available when the `criome-gate` feature is enabled.
+    ///
+    /// It arms the criome watch path: every durable local commit sends the
+    /// content-addressed head to the configured local criome socket and records
+    /// what authorization would decide, without holding back the local commit or
+    /// initiating a mirror ship. The trace event
+    /// [`crate::AuthorizationObjectName::Observed`] rides the existing
+    /// `testing-trace` → introspect → mentci path (Spirit om4g.1).
+    ///
+    /// Returns `Ok(None)` when the gate is unarmed (no criome socket configured)
+    /// or when the versioned log is empty (nothing to authorize yet). An
+    /// unarmed gate is NOT an error — it means the operator has not yet sent a
+    /// `Configure` with `CriomeGateTarget::Socket`.
+    ///
+    /// The full gating-and-shipping path (Gating mode + authorized ship) lives
+    /// in `gate_and_ship_head`, compiled only under `mirror-shipper`.
+    #[cfg(feature = "criome-gate")]
+    pub async fn observe_gate_head(
+        &self,
+    ) -> Result<Option<crate::criome_gate::GateDecision>, ObserveGateError> {
+        if !self.criome_gate.is_armed() {
+            return Ok(None);
+        }
+        let Some(head_digest) = self.versioned_log_head()? else {
+            return Ok(None);
+        };
+        let capture = crate::criome_gate::LocalHeadCapture::spirit_head(head_digest);
+        let decision = self.criome_gate.observe_authorization(&capture).await?;
+        #[cfg(feature = "testing-trace")]
+        if matches!(decision, crate::criome_gate::GateDecision::Observed(_)) {
+            self.trace_log
+                .record(TraceEvent::new(ObjectName::Authorization(
+                    crate::AuthorizationObjectName::Observed,
+                )));
+        }
+        Ok(Some(decision))
     }
 
     /// THE GATE. Capture the post-commit local head `D` and apply the configured
