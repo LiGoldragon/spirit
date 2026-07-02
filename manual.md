@@ -47,21 +47,115 @@ Five shapes are recordable:
 - **Constraint** — a boundary that holds ("never do Z", written as the
   affirmative rule it protects — see section 4).
 
-Intent is not information. The intent layer holds intent — what the psyche
-directs, decides, or wants — not facts or beliefs. A statement can sound
-durable and still carry no direction behind it; if there is no arrow, it is
-information, not intent, and it is not captured. Working orders are the common
-trap: "create the report," "dispatch a subagent," "audit X," "integrate the
-branches" are task state, not durable intent. When a task prompt also carries a
-durable arrow inside it, capture only that arrow and let the order itself live
-in the task surface. A working order that slips into the log is flagged as a
-capture error, not silently deleted.
+**What intent is.** Intent is the rare, orienting will of the psyche — what he
+steers toward (an aim), holds as worth (a value), or fundamentally believes. It
+is not a decision, default, wish, or rule; those are matter. It has a magnetic,
+unbending quality: he holds it even against his own convenience, and it bends
+many downstream choices toward it like a North Star. It is often hard to fully
+verbalize. Capture is the exception, not the reflex; when unsure, it is not
+intent — ask, don't infer.
+
+Intent is not information, and it is not matter. A statement can sound durable
+and still carry no orienting will behind it; a routine, a default, a mechanism,
+or a rule about how the tooling itself works is matter, and matter belongs in
+code, docs, the tracker, or a skill — never in the intent log.
+
+**The five-gate test.** Capture a statement as intent only when all five hold.
+Any miss makes it matter:
+
+1. **Aim, value, or belief** — not a how, a default, a mechanism, or a rule.
+2. **Unbending** — he would hold it against cost or convenience; "for the
+   spirit, not for profit."
+3. **Orienting** — it bends a whole class of future decisions, not one local
+   case.
+4. **Its "why" is a value** — it bottoms out in what he wants, not an
+   engineering or efficiency tradeoff.
+5. **From the psyche, felt** — not agent-synthesized to close a loop.
+
+**Don't be fooled by** rule-grammar (must / never / always); a "why" that is
+only an engineering justification; vivid or eloquent phrasing; a sensible
+one-off default; or agent-procedure and Spirit-operation procedure.
+
+**Worked example.** "New repositories default to public" reads like a rule, but
+it fails gates 1, 2, 3, and 4: it is a how/default, reversible for convenience,
+local rather than orienting, and justified by an ordinary engineering tradeoff.
+It is matter, not intent.
+
+Working orders are the common matter trap: "create the report," "dispatch a
+subagent," "audit X," "integrate the branches" are task state, not durable
+intent. When a task prompt also carries a durable arrow inside it, capture only
+that arrow and let the order itself live in the task surface. A working order
+that slips into the log is flagged as a capture error, not silently deleted.
 
 When a design surface is incomplete, the discipline is to ask the psyche rather
 than generate a plausible synthesis and capture it as if the psyche had
 authorized it. Inferring to close the loop manufactures fake, hallucinated
 records — exactly the corruption the intent layer cannot tolerate. Ask; do not
 infer.
+
+### The grounding: Castaneda's "intent" and the psyche's felt-sense
+
+This definition is not invented. It recovers what the psyche has always meant by
+intent, and it matches Carlos Castaneda's use of the word almost line for line.
+The psyche describes intent as "an aura of astral divine magnetism," "the je ne
+sais quoi that gives life the fire of life," "the glitter behind the beholder's
+eye," "the force that makes a man do incredible things through extraordinary
+perseverance and dedication," and "the North Star." Castaneda's don-Juan texts
+name the same force on every axis:
+
+- **Magnetism, the pull you cannot argue away.** "I couldn't possibly extricate
+  myself from the magnetic pull that the intent of those shamans had created. I
+  was drowning in it, whether or not I believed in it or wished for it." (*The
+  Wheel of Time*, commentary on *A Separate Reality*.) This is the "aura of
+  astral divine magnetism," and it is gate 2: intent is held against one's own
+  reasoning and wish.
+- **Carrying the actor past his own defeat.** "Intent is not a thought, or an
+  object, or a wish. Intent is what can make a man succeed when his thoughts
+  tell him that he is defeated. It operates independent of any warrior's
+  indulgence. Intent is what makes him invulnerable." (*A Separate Reality*.)
+  This is "the force that makes a man do incredible things through extraordinary
+  perseverance."
+- **For the spirit, not for profit.** "Warriors have an ulterior purpose for
+  their acts, which has nothing to do with personal gain. The average man acts
+  only if there is the chance for profit. Warriors act not for profit, but for
+  the spirit." (*The Power of Silence*.) A reversible default chosen for
+  convenience or expected return is, in exactly these terms, the ordinary/profit
+  side — matter — not a gesture of the spirit.
+- **Felt and near-ineffable.** Understanding intent "cannot be turned into words
+  ... there to be felt, to be used, but not to be explained"; Castaneda's reason
+  briefly mistook it for God and was corrected — "it could not possibly be God,
+  because intent was a force that could not be described." This is "the je ne
+  sais quoi" and "the glitter behind the beholder's eye," and it is why the
+  definition says intent is often hard to fully verbalize.
+- **Orienting, the North Star.** "In the universe there is an immeasurable,
+  indescribable force which shamans call intent, and absolutely everything that
+  exists in the entire cosmos is attached to intent by a connecting link." (*The
+  Power of Silence*.) Intent orients a whole class of choices toward it; that
+  connecting link is the psyche's North Star.
+
+Castaneda draws the same intent/matter line the capture gate draws. The "average
+man's connecting link with intent is practically dead," numbed by "the ordinary
+concerns of ... everyday life"; ordinary behavior is routine, transactional, and
+reversible by preference. Reviving intent takes "a rigorous, fierce purpose — a
+special state of mind called unbending intent." Mechanical, routine, convenient
+defaults are precisely the numbing everyday concern; true intent is the single,
+sustained, magnetic purpose held with impeccability. That is why the gate is
+strict and capture is rare.
+
+### Why the word "intent" stays
+
+A survey of alternatives — will, true will, daimon, lodestar, telos, calling,
+entelechy, numen — found none that wins both tests a replacement must pass: the
+felt-sense of the force, and everyday usability as a capture test. The luminous
+words name a force or a sacred quality rather than a capturable directive;
+daimon is the strongest felt-sense match but collides fatally with the computing
+daemons this stack runs on; lodestar is the serendipitous near-miss that fuses
+the psyche's own "North Star" and "magnetism" images but names the guide one
+steers by, not the will itself. "Intent" is a clean directive noun that already
+serves as the capture test, and its very soberness enforces the high bar: a more
+luminous word would invite agents to feel fire everywhere and over-capture,
+which is backwards. A rename is opportunistic only, the blast radius is large,
+and nothing clears the bar. Intent stays.
 
 ## 3. The Capture Flow
 
