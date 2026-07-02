@@ -27,7 +27,7 @@
 #![forbid(unsafe_code)]
 
 pub mod config;
-#[cfg(feature = "mirror-shipper")]
+#[cfg(feature = "criome-gate")]
 pub mod criome_gate;
 pub mod daemon;
 pub mod engine;
@@ -79,11 +79,13 @@ pub mod schema {
 }
 
 pub use config::{Configuration, ConfigurationError};
-#[cfg(feature = "mirror-shipper")]
+#[cfg(feature = "criome-gate")]
 pub use criome_gate::{
     CriomeGate, CriomeGateError, GateDecision, LocalHeadCapture, SpiritAttestor,
 };
 pub use daemon::{Daemon, SpiritDaemon, SpiritDaemonError};
+#[cfg(feature = "criome-gate")]
+pub use engine::ObserveGateError;
 #[cfg(feature = "mirror-shipper")]
 pub use engine::GateAndShipError;
 pub use engine::{

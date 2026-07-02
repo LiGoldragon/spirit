@@ -57,18 +57,21 @@ nota-text = ["dep:nota", "signal-spirit/nota-text", "meta-signal-spirit/nota-tex
 agent-guardian = ["nota-text", "dep:signal-agent"]
 production-migration = ["nota-text", "dep:sema-engine-layout3", "dep:sema-engine-previous"]
 testing-trace = ["dep:signal-introspect", "dep:signal-persona"]
+# The 1-of-1 LOCAL criome gate (Spirit `xhwa`, om4g.2): the shipped daemon
+# can observe criome authorization decisions without the full mirror shipper.
+# criome brings the `CriomeClient` synchronous Unix-socket transport that the
+# gate wraps in `spawn_blocking`; signal-criome brings the typed
+# `AuthorizedObjectReference` + `EvaluateAuthorization` request/reply.
+# OFF by default; the deployed daemon builds this in separately from the
+# mirror so it can run the gate in Observing mode before the mirror sender
+# leg is turned on (primary-om4g.2).
+criome-gate = ["dep:criome", "dep:signal-criome"]
 # The gated mirror shipper: ship the versioned log to a sema version-control
 # mirror. OFF by default and deploy-gated. Pulls the `mirror` crate (and its
 # signal-mirror/nota transitive surface), so it is excluded from the
-# binary-only daemon dependency tree unless explicitly enabled. It also pulls
-# the 1-of-1 LOCAL criome gate: a spirit commit is authorized by the
-# co-resident local criome daemon (Spirit `xhwa`) before it fans out to the
-# mirror. criome brings the `CriomeClient` socket transport; signal-criome
-# brings the typed authorized-object reference + EvaluateAuthorization
-# request/reply. Gating both behind the same feature keeps nota and the
-# whole criome/mirror surface out of the binary-only daemon dependency tree
-# unless an operator builds the shipper in.
-mirror-shipper = ["dep:mirror", "dep:signal-mirror", "dep:criome", "dep:signal-criome"]
+# binary-only daemon dependency tree unless explicitly enabled. Activates the
+# `criome-gate` feature so the gate arming path is compiled in regardless.
+mirror-shipper = ["criome-gate", "dep:mirror", "dep:signal-mirror"]
 # The OFFLINE full-chain e2e's router leg. Router fans the authorized typed
 # object reference to subscribers. Gated as its own opt-in feature so the
 # default `cargo test --features mirror-shipper` (which exercises the 1-of-1
@@ -90,6 +93,9 @@ required-features = ["mirror-shipper"]
 # The 1-of-1 LOCAL criome gate witness: the production daemon gate driven
 # through a REAL local criome Unix socket (authorized D ships + emits the
 # projected reference; denied D does not ship). Does NOT depend on router.
+# Requires `mirror-shipper` because the ship leg (gate_and_ship_head +
+# mirror::Service) is exercised alongside the gate; `mirror-shipper` implies
+# `criome-gate` so the gate types are also compiled in.
 [[test]]
 name = "criome_gate_1of1"
 path = "tests/criome_gate_1of1.rs"

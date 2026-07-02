@@ -151,22 +151,27 @@ impl ComponentDaemon for SpiritDaemon {
         let output = engine.handle_async(input).await.root().clone();
         // THE 1-of-1 LOCAL CRIOME GATE (Spirit `xhwa`, report 703-6 Item 1).
         //
-        // The working write committed LOCALLY above. Before fanning the
-        // committed head out to the configured mirror, ask the co-resident
-        // LOCAL criome daemon to authorize the content-addressed head `D`, and
-        // fan out ONLY on an `Authorized` decision. `gate_and_ship_head`
-        // captures `D` from the local versioned log (never `ShipOutcome.head`),
-        // projects it to the criome reference, calls the local criome over its
-        // Unix socket (synchronous `CriomeClient::send` wrapped in
-        // `spawn_blocking` — the actor mailbox is never blocked), and ships the
-        // outbox only when criome authorizes.
+        // The working write committed LOCALLY above. The gate runs in one of two
+        // modes depending on whether the `mirror-shipper` feature is compiled in:
         //
-        // Present only under the `mirror-shipper` feature. The gate INVERTS
-        // the prior best-effort ship: an UNCONFIGURED, DENIED, or UNREACHABLE
-        // criome holds the head back (the local commit stands, the suffix
-        // waits for the next authorized drain), and a gate-machinery fault is
-        // logged. Neither ever fails the working reply: the local commit
-        // already landed durably.
+        //   - WITHOUT `mirror-shipper` (shipped daemon, om4g.2): `observe_gate_head`
+        //     calls the co-resident local criome socket and records the authorization
+        //     decision without blocking the local commit or initiating a mirror ship.
+        //     An unarmed gate (no Configure yet) returns None — a no-op. An armed
+        //     gate emits the `AuthorizationObjectName::Observed` trace event so the
+        //     auth watch rides the introspect → mentci path (Spirit om4g.1).
+        //
+        //   - WITH `mirror-shipper`: `gate_and_ship_head` asks criome and ships the
+        //     versioned-log outbox only on an `Authorized` decision. The gate INVERTS
+        //     the prior best-effort ship: UNCONFIGURED, DENIED, or UNREACHABLE criome
+        //     holds the head back (the local commit stands, the suffix waits for the
+        //     next authorized drain). A gate-machinery fault is logged.
+        //
+        // Neither path ever fails the working reply: the local commit already landed.
+        #[cfg(all(feature = "criome-gate", not(feature = "mirror-shipper")))]
+        {
+            let _ = engine.observe_gate_head().await;
+        }
         #[cfg(feature = "mirror-shipper")]
         match engine.gate_and_ship_head().await {
             Ok(_decision) => {}
