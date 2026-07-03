@@ -717,11 +717,24 @@
             cargoExtraArgs = "--features nota-text,testing-trace";
           }
         );
+        mirrorShipperCargoArtifacts = craneLib.buildDepsOnly (
+          commonArguments
+          // {
+            cargoExtraArgs = "--features mirror-shipper";
+          }
+        );
         daemonPackage = craneLib.buildPackage (
           commonArguments
           // {
             cargoArtifacts = agentGuardianCargoArtifacts;
             cargoExtraArgs = "--features agent-guardian --bin spirit-daemon";
+          }
+        );
+        mirrorShipperDaemonPackage = craneLib.buildPackage (
+          commonArguments
+          // {
+            cargoArtifacts = mirrorShipperCargoArtifacts;
+            cargoExtraArgs = "--features mirror-shipper --bin spirit-daemon";
           }
         );
         cliPackage = craneLib.buildPackage (
@@ -804,6 +817,7 @@
         packages.default = combinedPackage;
         packages.cli = cliPackage;
         packages.daemon = daemonPackage;
+        packages.mirror-shipper-daemon = mirrorShipperDaemonPackage;
         packages.configuration-writer = configurationWriterPackage;
         packages.render = renderPackage;
         packages.store-migration = storeMigrationPackage;
