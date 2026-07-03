@@ -14,8 +14,9 @@ use crate::{
         nexus::{self as nexus_schema, NexusAction, NexusEngine, NexusWork},
         sema::ErrorReport,
         signal::{
-            self as signal_schema, DatabaseMarker, ErrorMessage, Input, Integer, IntentEvent,
-            Output, RecordCount, SemaReceipt, SupersessionReceipt, ValidationError,
+            self as signal_schema, ApplyRefusalReason, AuthorizedRecordApplication, DatabaseMarker,
+            ErrorMessage, Input, Integer, IntentEvent, Output, RecordCount, SemaReceipt,
+            SupersessionReceipt, ValidationError,
         },
     },
     store::{Store, StoreError},
@@ -737,6 +738,62 @@ impl Engine {
 
     pub async fn import_async(&mut self, request: ImportRequest) -> MetaOutput {
         self.import(request)
+    }
+
+    /// The quorum-gated authorized-apply ingress (Spirit `xhwa`, piece 4): land
+    /// an arriving record LIVE into the running store after the LOCAL criome
+    /// re-judges the carried Evidence, fail-closed.
+    ///
+    /// Unlike the owner-only meta `Import` (which applies on owner-trust), this
+    /// working-tier ingress applies a foreign record ONLY because the quorum
+    /// authorized it — confirmed here, independently, by this node's criome from
+    /// the carried Evidence, never on the sender's say-so. The parse verifies the
+    /// carried entry re-hashes to the digest the Evidence authorized (content
+    /// binding); the criome re-judge must return `Authorized`; only then does the
+    /// record land via `Store::import_record` into the same live
+    /// `Arc<SemaDatabase>` reads see, so a following `Observe` returns it with no
+    /// restart. Any malformed body, re-hash mismatch, unreachable/unconfigured
+    /// criome, or non-`Authorized` verdict refuses fail-closed.
+    #[cfg(feature = "mirror-shipper")]
+    pub async fn apply_authorized_record(&self, request: AuthorizedRecordApplication) -> Output {
+        use crate::apply_ingress::{AuthorizedApplyOutcome, PreparedAuthorizedApply};
+        let prepared = match PreparedAuthorizedApply::prepare(
+            &request,
+            self.criome_gate.configured_contract(),
+        ) {
+            Ok(prepared) => prepared,
+            Err(reason) => return AuthorizedApplyOutcome::Refused(reason).into_output(),
+        };
+        let decision = match self
+            .criome_gate
+            .evaluate_carried(prepared.evaluation().clone())
+            .await
+        {
+            Ok(Some(decision)) => decision,
+            // Unarmed / unreachable criome, or a gate-machinery fault: no
+            // authorization exists, so the apply is held back, fail-closed.
+            Ok(None) | Err(_) => {
+                return AuthorizedApplyOutcome::Refused(
+                    ApplyRefusalReason::AuthorizationUnavailable,
+                )
+                .into_output();
+            }
+        };
+        prepared
+            .resolve(&decision, self.nexus.store())
+            .into_output()
+    }
+
+    /// The fail-closed default when the mirror surface is not built in: a daemon
+    /// without the local criome gate cannot authorize a foreign apply, so it
+    /// refuses. Keeps the working `Input::ApplyAuthorizedRecord` variant total
+    /// across builds.
+    #[cfg(not(feature = "mirror-shipper"))]
+    pub async fn apply_authorized_record(&self, request: AuthorizedRecordApplication) -> Output {
+        let _ = request;
+        Output::apply_refused(signal_schema::ApplyRefusal::new(
+            ApplyRefusalReason::AuthorizationUnavailable,
+        ))
     }
 
     /// Owner-only meta `ObserveHead`: report the store's current versioned-log

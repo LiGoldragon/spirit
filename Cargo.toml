@@ -95,6 +95,16 @@ name = "criome_gate_1of1"
 path = "tests/criome_gate_1of1.rs"
 required-features = ["mirror-shipper"]
 
+# The quorum-gated authorized-apply ingress witness (piece 4): an arriving
+# content-addressed record lands LIVE on an Authorized verdict and is
+# immediately observable; a non-Authorized verdict or a re-hash mismatch is
+# refused fail-closed. Unit-testable against a locally-assembled Evidence — no
+# live criome daemon.
+[[test]]
+name = "authorized_apply_ingress"
+path = "tests/authorized_apply_ingress.rs"
+required-features = ["mirror-shipper"]
+
 # The OFFLINE full-chain e2e: spirit source engine records → ships to mirror A
 # → criome authorizes the shipped head → router fans the typed head reference
 # → mirror latest restore is accepted or rejected by the delivered digest.

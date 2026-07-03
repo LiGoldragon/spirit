@@ -148,6 +148,19 @@ impl ComponentDaemon for SpiritDaemon {
         input: Input,
         _connection: &triad_runtime::ConnectionContext,
     ) -> Result<Output, Self::Error> {
+        // THE QUORUM-GATED AUTHORIZED-APPLY INGRESS (Spirit piece 4). An arriving
+        // record is NOT a local intent write: it lands LIVE only after the LOCAL
+        // criome re-judges the carried Evidence, fail-closed. Intercept it before
+        // the ordinary Signal -> Nexus -> SEMA pipeline, mirroring how the criome
+        // gate orchestrates its own criome round-trip at this daemon seam. The
+        // router delivers this frame to the working socket; the re-judge — not
+        // owner-trust — is what authorizes the apply.
+        let input = match input {
+            Input::ApplyAuthorizedRecord(request) => {
+                return Ok(engine.apply_authorized_record(request.into_payload()).await);
+            }
+            other => other,
+        };
         let output = engine.handle_async(input).await.root().clone();
         // THE 1-of-1 LOCAL CRIOME GATE (Spirit `xhwa`, report 703-6 Item 1).
         //
@@ -238,6 +251,7 @@ impl ComponentDaemon for SpiritDaemon {
             | Input::LookupStash(_)
             | Input::Tap(_)
             | Input::Untap(_)
+            | Input::ApplyAuthorizedRecord(_)
             | Input::Version
             | Input::Marker => None,
         }

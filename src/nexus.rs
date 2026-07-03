@@ -17,18 +17,19 @@ use crate::{
             SemaEngine, WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
         },
         signal::{
-            Certainty, Clarification, ClarificationReceipt, ClarificationResolution,
-            ClarificationResolutionReceipt, DatabaseMarker, Description, Domain, Domains, Entry,
-            ErrorMessage, ErrorReport, GuardianRejection, Importance, Input, IntentClarified,
-            IntentEvent, IntentRecorded, IntentSubscription, IntentSuperseded, Justification, Kind,
-            Magnitude, ObservedOperation, ObservedOperations, ObservedRecords, ObserverFilter,
-            ObserverRetraction, ObserverSubscription, OperationKind, Output, Privacy, Proposal,
-            QuoteText, Reasoning, RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier,
-            RecordRequest, RecordSet, Records, Referent, ReferentGuardianRejection,
-            ReferentRegistration, ReferentRegistrationReceipt, Referents, Replacements, Retirement,
-            RetirementReceipt, SemaReceipt, SignalRejection, StashHandle, StashedObservation,
-            Statement, SubscriptionToken, Supersession, SupersessionReceipt, Testimony,
-            ValidationError, VerbatimQuote, VersionReport, VersionText,
+            ApplyRefusal, ApplyRefusalReason, Certainty, Clarification, ClarificationReceipt,
+            ClarificationResolution, ClarificationResolutionReceipt, DatabaseMarker, Description,
+            Domain, Domains, Entry, ErrorMessage, ErrorReport, GuardianRejection, Importance,
+            Input, IntentClarified, IntentEvent, IntentRecorded, IntentSubscription,
+            IntentSuperseded, Justification, Kind, Magnitude, ObservedOperation,
+            ObservedOperations, ObservedRecords, ObserverFilter, ObserverRetraction,
+            ObserverSubscription, OperationKind, Output, Privacy, Proposal, QuoteText, Reasoning,
+            RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier, RecordRequest,
+            RecordSet, Records, Referent, ReferentGuardianRejection, ReferentRegistration,
+            ReferentRegistrationReceipt, Referents, Replacements, Retirement, RetirementReceipt,
+            SemaReceipt, SignalRejection, StashHandle, StashedObservation, Statement,
+            SubscriptionToken, Supersession, SupersessionReceipt, Testimony, ValidationError,
+            VerbatimQuote, VersionReport, VersionText,
         },
     },
     store::{Store, StoreError},
@@ -1289,6 +1290,14 @@ impl Nexus {
             Input::SubscribeIntent(query) => NexusAction::command_effect(
                 NexusEffectCommand::open_intent_subscription(query.into_payload()),
             ),
+            // Fail-closed guard: the authorized-apply ingress is handled at the
+            // working seam (`SpiritDaemon::handle_working_input`) by the LOCAL
+            // criome re-judge, never on the SEMA plane. Reaching here means the
+            // ingress interception was bypassed, so the foreign record is refused
+            // rather than applied unauthorized.
+            Input::ApplyAuthorizedRecord(_) => NexusAction::reply_to_signal(Output::apply_refused(
+                ApplyRefusal::new(ApplyRefusalReason::AuthorizationUnavailable),
+            )),
             Input::Version => NexusAction::reply_to_signal(Output::version_reported(
                 VersionReport::new(VersionText::new(env!("CARGO_PKG_VERSION"))),
             )),

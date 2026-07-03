@@ -287,6 +287,41 @@ guardian-prompt targets the same operation arms in one owner round-trip; each is
 runtime policy applied to the live engine, not a SEMA log write, and echoed in
 the `Configured` receipt.
 
+Mirroring is not a separate component: it is how Spirit operates over the router
+and criome. The criome gate above is the OUTBOUND half — a locally committed head
+is authorized before it fans out. The INBOUND half is the quorum-gated
+authorized-apply ingress, a WORKING-tier `signal-spirit` operation
+`ApplyAuthorizedRecord(AuthorizedRecordApplication { RecordIdentifier,
+VersionedEntryHex, AuthorizedEvidenceHex })`. The local router delivers it to the
+working socket; it carries the arriving record as the rkyv octets of a
+content-addressed `VersionedCommitLogEntry` and the authorizing signal-criome
+`Evidence`, both hex-encoded (the `HeadObjectHex` carriage the meta head-object
+query already uses, so the wire stays NOTA-projectable). The daemon intercepts it
+at the working seam (`SpiritDaemon::handle_working_input`, mirroring how the
+criome gate orchestrates its own round-trip) rather than the ordinary
+Signal → Nexus → SEMA pipeline, so `Engine::apply_authorized_record`
+(`src/apply_ingress.rs`) can re-judge before any write. It decodes the carried
+entry, verifies the entry re-hashes to the operation digest the Evidence
+authorized (`PreparedAuthorizedApply::prepare`, the content binding that stops a
+valid Evidence from being replayed onto a different record), hands the assembled
+`AuthorizationEvaluation` to the co-resident LOCAL criome
+(`CriomeGate::evaluate_carried`, reusing the same armed socket the gate uses), and
+lands the record via `Store::import_record` ONLY on `EvaluationDecision::Authorized`.
+Because `import_record` writes the same live `Arc<SemaDatabase>` that `Observe`
+reads, an applied record is immediately visible with no restart or reload — the
+live-visibility guarantee. Any malformed body, re-hash mismatch, unreachable or
+unconfigured criome, or non-`Authorized` verdict refuses fail-closed with a typed
+`ApplyRefusalReason`. This is the crucial contrast with the owner-only meta
+`Import` below: `Import` applies foreign bytes on OWNER trust, whereas the apply
+ingress is quorum authority — it applies a foreign record ONLY because THIS node's
+criome independently re-judged the carried Evidence, never on the sender's
+say-so, so it belongs on the peer-callable working socket rather than the
+owner-only meta socket. The multi-node vote GATHERING that assembles that Evidence
+on the originating node, and the pending-until-quorum proposal semantics that keep
+an un-co-signed change out of the live corpus, live in criome (its quorum
+collection round); the apply ingress is the receiving half that independently
+confirms the result before it touches the live store.
+
 The second owner-only operation is `Import(ImportRequest { [ImportedRecord] })`,
 each `ImportedRecord { RecordIdentifier, Entry }`: it writes pre-vetted records
 straight to the live SEMA store with their given identifiers, BYPASSING the

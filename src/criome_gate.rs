@@ -133,6 +133,12 @@ impl SpiritAttestor {
         self.evidence.is_some()
     }
 
+    /// The admitted mirror-contract digest for the authorized-apply re-judge,
+    /// present only when the attestor carries signed deploy-config evidence.
+    pub fn configured_contract(&self) -> Option<ContractDigest> {
+        self.contract.clone()
+    }
+
     /// The full [`AuthorizationEvaluation`] for a captured head: the projected
     /// object reference, the admitted contract, and the signed evidence. ONE
     /// projection feeds the request `object`, so the authorized head and the
@@ -375,6 +381,52 @@ impl CriomeGate {
             AuthorizationObservation::Unconfigured => GateDecision::Unconfigured,
             AuthorizationObservation::Unreachable => GateDecision::Unreachable,
         })
+    }
+
+    /// The admitted mirror-contract digest the authorized-apply ingress judges
+    /// against, taken from the armed deploy-config attestor. `None` when unarmed
+    /// or when only a socket-bootstrap attestor is configured; the ingress then
+    /// falls back to the object-derived contract digest.
+    pub fn configured_contract(&self) -> Option<ContractDigest> {
+        self.armed
+            .as_ref()
+            .and_then(|armed| armed.attestor.configured_contract())
+    }
+
+    /// Re-judge a pre-assembled [`AuthorizationEvaluation`] carried by an
+    /// arriving authorized-apply request (Spirit piece 4). Reuses the armed
+    /// LOCAL criome socket to independently confirm the carried Evidence for
+    /// THIS node — it never trusts the sender's say-so.
+    ///
+    /// Returns `Some(decision)` on a real socket round-trip; `None` when the gate
+    /// is unarmed (no local criome configured) or the socket is unreachable —
+    /// both hold the apply back, fail-closed. `CriomeClient::send` is synchronous,
+    /// so the round-trip runs on a `spawn_blocking` worker.
+    pub async fn evaluate_carried(
+        &self,
+        evaluation: AuthorizationEvaluation,
+    ) -> Result<Option<EvaluationDecision>, CriomeGateError> {
+        let Some(armed) = self.armed.as_ref() else {
+            return Ok(None);
+        };
+        let socket = armed.socket.clone();
+        let send_result = tokio::task::spawn_blocking(move || {
+            CriomeClient::new(socket).send(CriomeRequest::EvaluateAuthorization(evaluation))
+        })
+        .await
+        .map_err(|source| CriomeGateError::AuthorizationTask {
+            message: source.to_string(),
+        })?;
+        let reply = match send_result {
+            Ok(reply) => reply,
+            Err(_) => return Ok(None),
+        };
+        let CriomeReply::AuthorizationEvaluated(evaluated) = reply else {
+            return Err(CriomeGateError::UnexpectedReply {
+                reply: format!("{reply:?}"),
+            });
+        };
+        Ok(Some(evaluated.decision))
     }
 
     async fn evaluate_authorization(

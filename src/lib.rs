@@ -26,6 +26,8 @@
 
 #![forbid(unsafe_code)]
 
+#[cfg(feature = "mirror-shipper")]
+pub mod apply_ingress;
 pub mod config;
 #[cfg(feature = "mirror-shipper")]
 pub mod criome_gate;
@@ -78,6 +80,8 @@ pub mod schema {
     pub mod daemon;
 }
 
+#[cfg(feature = "mirror-shipper")]
+pub use apply_ingress::{AuthorizedApplyOutcome, PreparedAuthorizedApply};
 pub use config::{Configuration, ConfigurationError};
 #[cfg(feature = "mirror-shipper")]
 pub use criome_gate::{
