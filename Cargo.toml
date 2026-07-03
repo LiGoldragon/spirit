@@ -58,11 +58,14 @@ agent-guardian = ["nota-text", "dep:signal-agent"]
 production-migration = ["nota-text", "dep:sema-engine-layout3", "dep:sema-engine-previous"]
 testing-trace = ["dep:signal-introspect", "dep:signal-persona"]
 # Spirit's router-mediated mirror participation (Spirit `xhwa`, piece 4 + the
-# origination hand-off). OFF by default and deploy-gated. Two halves, one gate:
-#   - ORIGINATION: after a working commit, the 1-of-1 LOCAL criome gate
-#     authorizes the content-addressed head, then Spirit hands {versioned entry
-#     + Evidence} to its LOCAL router's working socket as one RoutedContractObject
-#     (signal-router `SubmitRoutedObjects`). The router carries it to the peer.
+# origination hand-off). OFF by default and deploy-gated. Two halves:
+#   - ORIGINATION (async propose→completion quorum boundary, primary-nbmq.10):
+#     after a working commit, Spirit PROPOSES the content-addressed head to its
+#     LOCAL criome under the admitted mirror quorum contract; criome gathers the
+#     peer's vote across the voice, and ONLY on the quorum's Authorized verdict
+#     does Spirit hand {versioned entry + the quorum-assembled Evidence} to its
+#     LOCAL router's working socket as one RoutedContractObject (signal-router
+#     `SubmitRoutedObjects`). Withheld while Gathering — never last-writer-wins.
 #   - APPLY INGRESS: a routed record arriving on the working socket is re-judged
 #     by the LOCAL criome (fail-closed) and landed live via `import_record`.
 # criome brings the `CriomeClient` socket transport; signal-criome brings the
@@ -87,6 +90,16 @@ required-features = ["testing-trace"]
 [[test]]
 name = "criome_gate_1of1"
 path = "tests/criome_gate_1of1.rs"
+required-features = ["mirror-shipper"]
+
+# The rewired quorum origination boundary (primary-nbmq.10): Spirit's production
+# `gate_and_hand_to_router` seam proposes a committed head under a REAL 2-of-2
+# mirror quorum contract across two criome daemons, withholds while Gathering, and
+# ships the head + the quorum-assembled Evidence to a stub LOCAL router only on the
+# Authorized verdict. Gated behind `mirror-shipper` alongside the origination.
+[[test]]
+name = "mirror_quorum_origination"
+path = "tests/mirror_quorum_origination.rs"
 required-features = ["mirror-shipper"]
 
 # The quorum-gated authorized-apply ingress witness (piece 4): an arriving
@@ -183,3 +196,4 @@ required-features = ["agent-guardian"]
 unsafe_code = "forbid"
 unused      = { level = "warn", priority = -1 }
 dead_code   = "warn"
+

@@ -123,6 +123,18 @@ impl SpiritAttestor {
         }
     }
 
+    /// Build the quorum attestor: it carries only the admitted mirror-contract
+    /// digest. Origination now proposes the head under this contract and the
+    /// quorum ASSEMBLES the Evidence across the voice, so the attestor no longer
+    /// carries a caller-supplied Evidence; the same contract digest also anchors
+    /// the apply-ingress re-judge.
+    pub fn for_contract(contract: ContractDigest) -> Self {
+        Self {
+            contract: Some(contract),
+            evidence: None,
+        }
+    }
+
     pub fn contract(&self, capture: &LocalHeadCapture) -> ContractDigest {
         self.contract
             .clone()

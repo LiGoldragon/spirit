@@ -288,8 +288,22 @@ runtime policy applied to the live engine, not a SEMA log write, and echoed in
 the `Configured` receipt.
 
 Mirroring is not a separate component: it is how Spirit operates over the router
-and criome. The criome gate above is the OUTBOUND half — a locally committed head
-is authorized before it fans out. The INBOUND half is the quorum-gated
+and criome. The OUTBOUND half is the async **propose→completion quorum boundary**
+(primary-nbmq.10): after a working commit Spirit PROPOSES the content-addressed
+head to its LOCAL criome under the admitted mirror quorum contract
+(`Engine::gate_and_hand_to_router` → `origination::QuorumShip::originate`), criome
+gathers the peer members' votes across the voice, and ONLY on the quorum's
+`Authorized` verdict — carrying the real assembled Evidence — does Spirit hand
+{versioned entry + Evidence} to its LOCAL router for the peer. Withhold-until-
+authorized is the boundary's contract: the head is NEVER shipped while the round
+is `Gathering`; an unreachable peer leaves it pending forever, so the change waits
+rather than becoming last-writer-wins, and nothing is fabricated — only the real
+majority verdict releases the ship. The proposal is a fast criome round-trip; when
+the round opens `Gathering`, a DETACHED task awaits its completion off the mailbox
+(on a bounded budget until criome ships an authorized-object completion push), so
+a slow or down peer never stalls the working reply. This REPLACES the earlier
+1-of-1 gate (the `.3` de-risk join), whose static single-signature Evidence is no
+longer how origination authorizes. The INBOUND half is the quorum-gated
 authorized-apply ingress, a WORKING-tier `signal-spirit` operation
 `ApplyAuthorizedRecord(AuthorizedRecordApplication { RecordIdentifier,
 VersionedEntryHex, AuthorizedEvidenceHex })`. The local router delivers it to the

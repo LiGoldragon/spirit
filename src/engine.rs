@@ -53,6 +53,9 @@ pub enum OriginateHeadError {
 
     #[error("router origination task failed: {message}")]
     HandOffTask { message: String },
+
+    #[error("quorum origination failed: {0}")]
+    QuorumOrigination(#[from] crate::origination::QuorumOriginationError),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -327,6 +330,12 @@ pub struct Engine {
     // behind a real criome authorization round-trip.
     #[cfg(feature = "mirror-shipper")]
     criome_gate: crate::criome_gate::CriomeGate,
+    // The bounded budget the detached quorum ship awaits a proposed round's
+    // completion on (until criome ships an authorized-object completion push).
+    // Default is a generous deadline; tests tighten it to keep the withhold case
+    // fast.
+    #[cfg(feature = "mirror-shipper")]
+    quorum_completion_budget: crate::origination::QuorumCompletionBudget,
     #[cfg(feature = "testing-trace")]
     trace_log: TraceLog,
 }
@@ -388,6 +397,8 @@ impl Engine {
                 router_origination: None,
                 #[cfg(feature = "mirror-shipper")]
                 criome_gate: crate::criome_gate::CriomeGate::new(),
+                #[cfg(feature = "mirror-shipper")]
+                quorum_completion_budget: crate::origination::QuorumCompletionBudget::default(),
             }
         }
     }
@@ -412,6 +423,8 @@ impl Engine {
             router_origination: None,
             #[cfg(feature = "mirror-shipper")]
             criome_gate: crate::criome_gate::CriomeGate::new(),
+            #[cfg(feature = "mirror-shipper")]
+            quorum_completion_budget: crate::origination::QuorumCompletionBudget::default(),
             trace_log,
         }
     }
@@ -620,6 +633,17 @@ impl Engine {
         self.router_origination = Some(origination);
     }
 
+    /// Set the bounded budget the detached quorum ship awaits a proposed round's
+    /// completion on. Tests tighten it so the withhold (peer-down) case resolves
+    /// quickly; the default is generous.
+    #[cfg(feature = "mirror-shipper")]
+    pub fn set_quorum_completion_budget(
+        &mut self,
+        budget: crate::origination::QuorumCompletionBudget,
+    ) {
+        self.quorum_completion_budget = budget;
+    }
+
     /// Whether router origination is armed.
     #[cfg(feature = "mirror-shipper")]
     pub fn router_origination_armed(&self) -> bool {
@@ -666,59 +690,62 @@ impl Engine {
         self.criome_gate.is_armed()
     }
 
-    /// THE GATE. Capture the post-commit local head `D`, apply the configured
-    /// authorization mode, and on an authorizing verdict hand the head to the
-    /// LOCAL router.
+    /// THE QUORUM ORIGINATION BOUNDARY. Capture the post-commit local head `D`
+    /// and hand it to the async propose→completion quorum boundary: a change is a
+    /// durable PENDING proposal in the LOCAL criome until a true majority co-signs,
+    /// and ONLY the quorum's `Authorized` verdict — carrying the real assembled
+    /// Evidence — releases the head to the LOCAL router for the peer.
     ///
-    /// Order (report 703-6 Item 1): the working write already committed
-    /// LOCALLY before this runs (`Engine::handle_async`). `Gating` mode asks
-    /// local criome over the per-user Unix socket and originates only when criome
-    /// authorizes. `Observing` mode emits the same request and proceeds without
-    /// waiting for criome's verdict.
+    /// This REPLACES the 1-of-1 gate (the `.3` de-risk join): origination no
+    /// longer submits a caller-assembled Evidence for an immediate verdict; it
+    /// proposes the head's operation digest under the admitted mirror quorum
+    /// contract, criome gathers the peer's vote across the voice, and Spirit ships
+    /// the head + the quorum-assembled Evidence on completion. The peer's apply
+    /// ingress then re-judges that same Evidence independently (fail-closed).
     ///
-    /// On an authorizing decision with origination armed, the SAME Evidence the
-    /// gate authorized is carried into the `ApplyAuthorizedRecord` frame and
-    /// handed to the LOCAL router over its Unix socket. `CriomeClient::send` and
-    /// the router hand-off are both synchronous, so the router dial runs on a
-    /// `spawn_blocking` worker — the actor mailbox is never blocked. An empty
-    /// versioned log (nothing to authorize) is a no-op: it returns `None`.
+    /// Withhold-until-authorized: the head is NEVER shipped while the round is
+    /// `Gathering`. An unreachable peer leaves the round pending forever — the
+    /// change waits, never last-writer-wins. Nothing is fabricated: only the real
+    /// majority verdict ships.
+    ///
+    /// Off the mailbox: the proposal is a fast criome round-trip on a
+    /// `spawn_blocking` worker; when the round opens `Gathering`, a DETACHED task
+    /// awaits its completion and ships on the verdict, so a slow or down peer never
+    /// stalls the working reply. (Until criome ships an authorized-object
+    /// completion push, that detached task awaits on a bounded budget rather than a
+    /// subscription — see [`crate::origination::QuorumCompletionBudget`].) An empty
+    /// versioned log is a no-op: it returns `None`.
     #[cfg(feature = "mirror-shipper")]
     pub async fn gate_and_hand_to_router(
         &self,
-    ) -> Result<Option<crate::criome_gate::GateDecision>, OriginateHeadError> {
+    ) -> Result<Option<crate::origination::QuorumOriginationOutcome>, OriginateHeadError> {
+        use crate::origination::{QuorumOriginationOutcome, QuorumShip};
         let Some(head_digest) = self.versioned_log_head()? else {
             return Ok(None);
         };
         let capture = crate::criome_gate::LocalHeadCapture::spirit_head(head_digest);
-        let decision = match self.authorization_mode {
-            signal_spirit::AuthorizationMode::Gating => {
-                self.criome_gate.authorize_head(&capture).await?
-            }
-            signal_spirit::AuthorizationMode::Observing => {
-                let decision = self.criome_gate.observe_authorization(&capture).await?;
-                #[cfg(feature = "testing-trace")]
-                if matches!(decision, crate::criome_gate::GateDecision::Observed(_)) {
-                    self.trace_log
-                        .record(TraceEvent::new(ObjectName::Authorization(
-                            crate::AuthorizationObjectName::Observed,
-                        )));
-                }
-                decision
-            }
+        // The quorum boundary needs the LOCAL criome socket, the admitted mirror
+        // contract, and an armed router origination. Absent any, there is no
+        // quorum to run: the head lands locally with no peer.
+        let (Some(criome_socket), Some(contract), Some(origination)) = (
+            self.criome_gate.socket_path().map(std::path::Path::to_path_buf),
+            self.criome_gate.configured_contract(),
+            self.router_origination.clone(),
+        ) else {
+            return Ok(Some(QuorumOriginationOutcome::Unconfigured));
         };
-        if decision.ships()
-            && let Some(origination) = self.router_origination.clone()
-            && let Some(evaluation) = self.criome_gate.authorized_evaluation(&capture)
-        {
-            if let Some(payload) = self.build_head_submission(evaluation.evidence)? {
-                tokio::task::spawn_blocking(move || origination.hand_off(payload))
-                    .await
-                    .map_err(|source| OriginateHeadError::HandOffTask {
-                        message: source.to_string(),
-                    })??;
-            }
-        }
-        Ok(Some(decision))
+        let Some(head_object) = self.nexus.store().versioned_log_head_object()? else {
+            return Ok(None);
+        };
+        let ship = QuorumShip::new(
+            criome_socket,
+            contract,
+            signal_criome::AuthorizedObjectReference::from(&capture),
+            head_object,
+            origination,
+            self.quorum_completion_budget.clone(),
+        );
+        Ok(Some(ship.originate().await?))
     }
 
     pub async fn configure_async(&mut self, request: ConfigureRequest) -> MetaOutput {
