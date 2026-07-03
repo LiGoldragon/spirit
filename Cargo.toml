@@ -57,39 +57,33 @@ nota-text = ["dep:nota", "signal-spirit/nota-text", "meta-signal-spirit/nota-tex
 agent-guardian = ["nota-text", "dep:signal-agent"]
 production-migration = ["nota-text", "dep:sema-engine-layout3", "dep:sema-engine-previous"]
 testing-trace = ["dep:signal-introspect", "dep:signal-persona"]
-# The gated mirror shipper: ship the versioned log to a sema version-control
-# mirror. OFF by default and deploy-gated. Pulls the `mirror` crate (and its
-# signal-mirror/nota transitive surface), so it is excluded from the
-# binary-only daemon dependency tree unless explicitly enabled. It also pulls
-# the 1-of-1 LOCAL criome gate: a spirit commit is authorized by the
-# co-resident local criome daemon (Spirit `xhwa`) before it fans out to the
-# mirror. criome brings the `CriomeClient` socket transport; signal-criome
-# brings the typed authorized-object reference + EvaluateAuthorization
-# request/reply. Gating both behind the same feature keeps nota and the
-# whole criome/mirror surface out of the binary-only daemon dependency tree
-# unless an operator builds the shipper in.
-mirror-shipper = ["dep:mirror", "dep:signal-mirror", "dep:criome", "dep:signal-criome"]
-# The OFFLINE full-chain e2e's router leg. Router fans the authorized typed
-# object reference to subscribers. Gated as its own opt-in feature so the
-# default `cargo test --features mirror-shipper` (which exercises the 1-of-1
-# gate witness) does not have to compile the `router` dev surface, whose source
-# currently lags its own signal-router/signal-message contracts on main. Enable
-# this only to build/run `end_to_end_offline_full_chain`.
-offline-full-chain-e2e = ["mirror-shipper", "dep:router", "dep:signal-standard"]
+# Spirit's router-mediated mirror participation (Spirit `xhwa`, piece 4 + the
+# origination hand-off). OFF by default and deploy-gated. Two halves, one gate:
+#   - ORIGINATION: after a working commit, the 1-of-1 LOCAL criome gate
+#     authorizes the content-addressed head, then Spirit hands {versioned entry
+#     + Evidence} to its LOCAL router's working socket as one RoutedContractObject
+#     (signal-router `SubmitRoutedObjects`). The router carries it to the peer.
+#   - APPLY INGRESS: a routed record arriving on the working socket is re-judged
+#     by the LOCAL criome (fail-closed) and landed live via `import_record`.
+# criome brings the `CriomeClient` socket transport; signal-criome brings the
+# typed Evidence + EvaluateAuthorization; signal-router brings the origination
+# submit op + `ForwardedMessagePayload` / `RoutedContractObject` (default-features
+# off drops its nota-text codec). Gating all behind one feature keeps nota and
+# the whole criome/router surface out of the binary-only daemon dependency tree
+# unless an operator builds the mirror in. The name is retained for continuity;
+# there is no longer a direct-to-mirror shipper — the router is the carrier.
+mirror-shipper = ["dep:criome", "dep:signal-criome", "dep:signal-router"]
 
 [[test]]
 name = "instrumentation_logging"
 path = "tests/instrumentation_logging.rs"
 required-features = ["testing-trace"]
 
-[[test]]
-name = "mirror_shipper"
-path = "tests/mirror_shipper.rs"
-required-features = ["mirror-shipper"]
-
-# The 1-of-1 LOCAL criome gate witness: the production daemon gate driven
-# through a REAL local criome Unix socket (authorized D ships + emits the
-# projected reference; denied D does not ship). Does NOT depend on router.
+# The 1-of-1 LOCAL criome gate + router origination hand-off witness: the
+# production daemon gate driven through a REAL local criome Unix socket, then
+# the authorized head handed to a stub LOCAL router socket as an
+# `ApplyAuthorizedRecord` frame (authorized head hands off; denied head does
+# not). Proves the origination side of the router-mediated mirror.
 [[test]]
 name = "criome_gate_1of1"
 path = "tests/criome_gate_1of1.rs"
@@ -105,27 +99,11 @@ name = "authorized_apply_ingress"
 path = "tests/authorized_apply_ingress.rs"
 required-features = ["mirror-shipper"]
 
-# The OFFLINE full-chain e2e: spirit source engine records → ships to mirror A
-# → criome authorizes the shipped head → router fans the typed head reference
-# → mirror latest restore is accepted or rejected by the delivered digest.
-[[test]]
-name = "end_to_end_offline_full_chain"
-path = "tests/end_to_end_offline_full_chain.rs"
-required-features = ["offline-full-chain-e2e"]
-
 [dependencies]
 nota = { package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }
 rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
 blake3 = "1"
 getrandom = "0.3"
-# The reusable component-side mirror shipper. Gated entirely on an
-# owner-configured meta MirrorTarget: with no target, no shipper ever starts.
-# Gated behind the `mirror-shipper` feature (OFF by default). mirror pulls
-# signal-mirror/meta-signal-mirror/nota unconditionally, so leaving it out
-# of the default build keeps nota out of the binary-only daemon dependency
-# tree — the daemon's no-NOTA invariant (INTENT). default-features = false drops
-# mirror's own nota-text codec, which the shipper does not use.
-mirror = { git = "https://github.com/LiGoldragon/mirror.git", branch = "main", default-features = false, optional = true }
 sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main" }
 # The previous engine generation, used only by the production-migration
 # bootstrap: it reads pre-versioning stores the current engine refuses to open.
@@ -136,7 +114,6 @@ sema-engine-previous = { git = "https://github.com/LiGoldragon/sema-engine.git",
 # engine.
 sema-engine-layout3 = { git = "https://github.com/LiGoldragon/sema-engine.git", rev = "dbe29427d9a2c6c194909385485ad42b008048b8", package = "sema-engine", optional = true }
 signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }
-signal-mirror = { git = "https://github.com/LiGoldragon/signal-mirror.git", branch = "main", default-features = false, optional = true }
 # The 1-of-1 LOCAL criome gate (Spirit `xhwa`), gated behind `mirror-shipper`.
 # criome brings the `CriomeClient` synchronous Unix-socket transport spirit's
 # gate wraps in `spawn_blocking`; signal-criome brings the typed
@@ -148,11 +125,13 @@ signal-mirror = { git = "https://github.com/LiGoldragon/signal-mirror.git", bran
 # (binary rkyv only) does not use.
 criome = { git = "https://github.com/LiGoldragon/criome.git", branch = "main", optional = true }
 signal-criome = { git = "https://github.com/LiGoldragon/signal-criome.git", branch = "main", default-features = false, optional = true }
-# The router leg of the OFFLINE full-chain e2e, behind the opt-in
-# `offline-full-chain-e2e` feature (NOT the production gate path). Optional so
-# the default test build does not compile router's currently-lagging source.
-router = { git = "https://github.com/LiGoldragon/router.git", branch = "main", optional = true }
-signal-standard = { git = "https://github.com/LiGoldragon/signal-standard.git", branch = "main", default-features = false, optional = true }
+# The `signal-router` ordinary contract, gated behind `mirror-shipper`. Spirit's
+# origination hand-off encodes a `SubmitRoutedObjects` request carrying one
+# `RoutedContractObject` (the `ApplyAuthorizedRecord` frame) and dials its LOCAL
+# router's working socket. Only the contract crate is pulled in — NOT the router
+# daemon crate — so the router's runtime never enters spirit's dependency tree.
+# default-features = false drops its nota-text codec (the daemon is binary-only).
+signal-router = { git = "https://github.com/LiGoldragon/signal-router.git", branch = "main", default-features = false, optional = true }
 signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main", optional = true }
 # The shared wire contract for the tracing -> introspect slice (report 716):
 # spirit projects its own `TraceEvent` onto `signal_introspect::ComponentTraceEvent`
@@ -185,10 +164,6 @@ schema-rust = { package = "schema-rust", git = "https://github.com/LiGoldragon/s
 
 [dev-dependencies]
 agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", features = ["live-provider"] }
-# The mirror working/meta contracts, for the in-process mirror fixture the
-# gated-shipper test ships to and restores from. Same branches mirror pins, so
-# Cargo unifies them with the `mirror` crate's own dependency instances.
-meta-signal-mirror = { git = "https://github.com/LiGoldragon/meta-signal-mirror.git", branch = "main" }
 schema = { package = "schema", git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }
 # Typed `SemaOperation` labels for versioned-log shape witnesses.
 signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main" }

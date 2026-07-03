@@ -393,6 +393,21 @@ impl CriomeGate {
             .and_then(|armed| armed.attestor.configured_contract())
     }
 
+    /// The [`AuthorizationEvaluation`] the armed attestor authorizes for a
+    /// captured head — the SAME projection `evaluate_authorization` submits to
+    /// criome, so the origination hand-off carries byte-for-byte the Evidence the
+    /// gate authorized (and the peer's apply-ingress re-judge sees). `None` when
+    /// unarmed. Deterministic in `capture` and the attestor, so re-deriving it
+    /// after an authorizing verdict reproduces exactly what was authorized.
+    pub fn authorized_evaluation(
+        &self,
+        capture: &LocalHeadCapture,
+    ) -> Option<AuthorizationEvaluation> {
+        self.armed
+            .as_ref()
+            .map(|armed| armed.attestor.evaluation(capture))
+    }
+
     /// Re-judge a pre-assembled [`AuthorizationEvaluation`] carried by an
     /// arriving authorized-apply request (Spirit piece 4). Reuses the armed
     /// LOCAL criome socket to independently confirm the carried Evidence for

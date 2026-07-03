@@ -203,7 +203,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -697,28 +697,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "meta-signal-mirror"
-version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-mirror.git?branch=main#44dfac6c4de9ed2e45517ee72c1fd39513e9182b"
-dependencies = [
- "nota",
- "rkyv",
- "schema-rust",
- "signal-frame",
- "thiserror",
-]
-
-[[package]]
-name = "meta-signal-router"
-version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-router.git?branch=main#5c0f6ee830cf032cb041cb22c6574de8cc35de34"
-dependencies = [
- "rkyv",
- "schema-rust",
- "signal-frame",
-]
-
-[[package]]
 name = "meta-signal-spirit"
 version = "0.5.0"
 source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=main#92f2578d4ed76153ef41820a2bee98f655b0d883"
@@ -740,23 +718,6 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "mirror"
-version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/mirror.git?branch=main#c3cb9c59c84c7f26cf856f2d84301e9c81fafa03"
-dependencies = [
- "meta-signal-mirror",
- "nota",
- "rkyv",
- "schema-rust",
- "sema-engine 0.6.3",
- "signal-frame",
- "signal-mirror",
- "thiserror",
- "tokio",
- "triad-runtime",
 ]
 
 [[package]]
@@ -1104,30 +1065,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "router"
-version = "0.4.1"
-source = "git+https://github.com/LiGoldragon/router.git?branch=main#70b79603c8cf879ec2064b73eb5f242f61fdc8b6"
-dependencies = [
- "kameo",
- "meta-signal-router",
- "nota",
- "rkyv",
- "schema-rust",
- "sema-engine 0.6.3",
- "signal-criome",
- "signal-frame",
- "signal-harness",
- "signal-message",
- "signal-mind",
- "signal-persona",
- "signal-router",
- "signal-standard",
- "thiserror",
- "tokio",
- "triad-runtime",
-]
-
-[[package]]
 name = "rustc-hash"
 version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1143,7 +1080,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1370,7 +1307,7 @@ dependencies = [
 [[package]]
 name = "signal-frame"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#075b0d992dab071c5021842fb7fdfe0b98bfcd76"
+source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#0027ea3cef353b1c168ca6862e40c6077a853642"
 dependencies = [
  "nota",
  "paste",
@@ -1382,23 +1319,11 @@ dependencies = [
 [[package]]
 name = "signal-frame-macros"
 version = "0.1.1"
-source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#075b0d992dab071c5021842fb7fdfe0b98bfcd76"
+source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#0027ea3cef353b1c168ca6862e40c6077a853642"
 dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "signal-harness"
-version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/signal-harness.git?branch=main#0727beb7e537472697463443d4323469e04137d4"
-dependencies = [
- "nota",
- "rkyv",
- "signal-frame",
- "signal-persona",
- "thiserror",
 ]
 
 [[package]]
@@ -1438,29 +1363,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "signal-mind"
-version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/signal-mind.git?branch=main#f5d6a93d7a64ea833d407329a66916975a79c437"
-dependencies = [
- "nota",
- "rkyv",
- "signal-frame",
- "signal-persona",
- "thiserror",
-]
-
-[[package]]
-name = "signal-mirror"
-version = "0.1.1"
-source = "git+https://github.com/LiGoldragon/signal-mirror.git?branch=main#34ed3fdd429b10722902b01264c17dcda0bcc482"
-dependencies = [
- "nota",
- "rkyv",
- "schema-rust",
- "signal-frame",
-]
-
-[[package]]
 name = "signal-persona"
 version = "0.2.0"
 source = "git+https://github.com/LiGoldragon/signal-persona.git?branch=main#7de74911dd17cbce6e5bc367612d85469d530f48"
@@ -1473,8 +1375,8 @@ dependencies = [
 
 [[package]]
 name = "signal-router"
-version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/signal-router.git?branch=main#277bd153a7141f92e7bd83f7525568d9e137e595"
+version = "0.3.0"
+source = "git+https://github.com/LiGoldragon/signal-router.git?branch=main#590406c38584c52a95913bacccb67a55c7b17038"
 dependencies = [
  "rkyv",
  "schema-rust",
@@ -1506,16 +1408,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "signal-standard"
-version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/signal-standard.git?branch=main#dfbda8d8a35bca90378571dfb28cd54bb15a0b09"
-dependencies = [
- "rkyv",
- "schema-rust",
- "thiserror",
-]
-
-[[package]]
 name = "simdutf8"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1540,7 +1432,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52d1cfed4120b4d927bf7c0f86d2087a4a7d6027c906d9f9d525a80573b9be51"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -1551,12 +1443,9 @@ dependencies = [
  "blake3",
  "criome",
  "getrandom 0.3.4",
- "meta-signal-mirror",
  "meta-signal-spirit",
- "mirror",
  "nota",
  "rkyv",
- "router",
  "schema",
  "schema-rust",
  "sema-engine 0.2.3",
@@ -1566,11 +1455,10 @@ dependencies = [
  "signal-criome",
  "signal-frame",
  "signal-introspect",
- "signal-mirror",
  "signal-persona",
+ "signal-router",
  "signal-sema",
  "signal-spirit",
- "signal-standard",
  "tempfile",
  "thiserror",
  "tokio",
@@ -1630,7 +1518,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]

@@ -80,7 +80,7 @@ fn signal_schema_input_uses_exported_object_variant_names() {
 
     // The active production Input enum body — compact exported objects.
     witness.must_contain(
-        "[State Record Propose Clarify Supersede Retire ResolveClarification Observe PublicTextSearch PublicRecords PrivateRecords Lookup Count ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version Marker]",
+        "[State Record Propose Clarify Supersede Retire ResolveClarification Observe PublicTextSearch PublicRecords PrivateRecords Lookup Count ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash Tap Untap ApplyAuthorizedRecord (SubscribeIntent SubscribeIntent opens IntentEventStream) Version Marker]",
         "4",
     );
     // The working hard-delete `Remove` and the working `CollectRemovalCandidates`
@@ -170,7 +170,7 @@ fn signal_schema_output_uses_exported_object_variant_names() {
 
     // The active production Output enum body.
     witness.must_contain(
-        "[RecordAccepted Proposed Clarified Superseded Retired ClarificationResolved GuardianRejected ReferentGuardianRejected RecordsObserved RecordsStashed RecordFound RecordsCounted CertaintyChanged ImportanceBumped RecordChanged ReferentRegistered ObservationTapped ObservationUntapped SubscriptionStarted VersionReported MarkerReported (Event IntentEvent) Error Rejected]",
+        "[RecordAccepted Proposed Clarified Superseded Retired ClarificationResolved GuardianRejected ReferentGuardianRejected RecordsObserved RecordsStashed RecordFound RecordsCounted CertaintyChanged ImportanceBumped RecordChanged ReferentRegistered ObservationTapped ObservationUntapped SubscriptionStarted VersionReported MarkerReported RecordApplied ApplyRefused (Event IntentEvent) Error Rejected]",
         "4",
     );
     witness.must_not_contain("RecordRemoved", "4");
@@ -266,7 +266,7 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     sema_witness.must_round_trip_as_schema_source();
 
     signal_witness.must_contain(
-        "[State Record Propose Clarify Supersede Retire ResolveClarification Observe PublicTextSearch PublicRecords PrivateRecords Lookup Count ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash Tap Untap (SubscribeIntent SubscribeIntent opens IntentEventStream) Version Marker]",
+        "[State Record Propose Clarify Supersede Retire ResolveClarification Observe PublicTextSearch PublicRecords PrivateRecords Lookup Count ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash Tap Untap ApplyAuthorizedRecord (SubscribeIntent SubscribeIntent opens IntentEventStream) Version Marker]",
         "4",
     );
     signal_witness.must_contain("State Statement", "4");

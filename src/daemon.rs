@@ -162,26 +162,25 @@ impl ComponentDaemon for SpiritDaemon {
             other => other,
         };
         let output = engine.handle_async(input).await.root().clone();
-        // THE 1-of-1 LOCAL CRIOME GATE (Spirit `xhwa`, report 703-6 Item 1).
+        // THE 1-of-1 LOCAL CRIOME GATE + ROUTER ORIGINATION (Spirit `xhwa`).
         //
-        // The working write committed LOCALLY above. Before fanning the
-        // committed head out to the configured mirror, ask the co-resident
+        // The working write committed LOCALLY above. Before handing the
+        // committed head to the LOCAL router for the peer, ask the co-resident
         // LOCAL criome daemon to authorize the content-addressed head `D`, and
-        // fan out ONLY on an `Authorized` decision. `gate_and_ship_head`
-        // captures `D` from the local versioned log (never `ShipOutcome.head`),
-        // projects it to the criome reference, calls the local criome over its
-        // Unix socket (synchronous `CriomeClient::send` wrapped in
-        // `spawn_blocking` — the actor mailbox is never blocked), and ships the
-        // outbox only when criome authorizes.
+        // originate ONLY on an authorizing decision. `gate_and_hand_to_router`
+        // captures `D` from the local versioned log, calls the local criome over
+        // its Unix socket, and on an authorizing verdict projects the SAME
+        // Evidence into an `ApplyAuthorizedRecord` frame and hands it to the
+        // LOCAL router's working socket (both the criome and router dials run on
+        // `spawn_blocking`, so the actor mailbox is never blocked).
         //
-        // Present only under the `mirror-shipper` feature. The gate INVERTS
-        // the prior best-effort ship: an UNCONFIGURED, DENIED, or UNREACHABLE
-        // criome holds the head back (the local commit stands, the suffix
-        // waits for the next authorized drain), and a gate-machinery fault is
-        // logged. Neither ever fails the working reply: the local commit
-        // already landed durably.
+        // Present only under the `mirror-shipper` feature. An UNCONFIGURED,
+        // DENIED, or UNREACHABLE criome holds the head back (the local commit
+        // stands, the head waits for the next authorized drain), and a
+        // hand-off / gate-machinery fault is logged. Neither ever fails the
+        // working reply: the local commit already landed durably.
         #[cfg(feature = "mirror-shipper")]
-        match engine.gate_and_ship_head().await {
+        match engine.gate_and_hand_to_router().await {
             Ok(_decision) => {}
             Err(error) => {
                 let _ = error;

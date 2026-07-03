@@ -12,8 +12,6 @@ use std::{
     sync::Arc,
 };
 
-#[cfg(feature = "mirror-shipper")]
-use sema_engine::PortableCheckpoint;
 use sema_engine::{
     Assertion, Checkpoint, CheckpointReceipt, CommitSequence, Engine as SemaDatabase, EngineOpen,
     EngineRecord, EntryDigest, Mutation, QueryPlan, RecordKey, Retraction, SchemaVersion,
@@ -107,57 +105,6 @@ pub struct Store {
     trace_log: TraceLog,
 }
 
-#[cfg(feature = "mirror-shipper")]
-struct MirrorRestoreImport {
-    checkpoint: Checkpoint,
-    suffix: Vec<VersionedCommitLogEntry>,
-    restored_head: EntryDigest,
-}
-
-#[cfg(feature = "mirror-shipper")]
-impl MirrorRestoreImport {
-    fn from_bundle(bundle: signal_mirror::RestoreBundle) -> Result<Self, StoreError> {
-        let checkpoint =
-            PortableCheckpoint::from_bytes(bundle.checkpoint.artifact.as_slice().to_vec())
-                .decode()?;
-        let restored_head = bundle
-            .suffix()
-            .last()
-            .map(|envelope| EntryDigest::new(*envelope.digest.as_bytes()))
-            .unwrap_or_else(|| checkpoint.metadata().covered_entry_digest());
-        let suffix = bundle
-            .into_suffix()
-            .into_iter()
-            .map(|envelope| {
-                rkyv::from_bytes::<VersionedCommitLogEntry, rkyv::rancor::Error>(
-                    envelope.payload.as_slice(),
-                )
-                .map_err(|source| StoreError::ArchiveDecode {
-                    message: source.to_string(),
-                })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(Self {
-            checkpoint,
-            suffix,
-            restored_head,
-        })
-    }
-
-    fn into_store(
-        self,
-        path: impl Into<PathBuf>,
-        expected_head: EntryDigest,
-    ) -> Result<Store, StoreError> {
-        if self.restored_head != expected_head {
-            return Err(StoreError::MirrorRestoreHeadMismatch {
-                expected: expected_head,
-                restored: self.restored_head,
-            });
-        }
-        Store::import(path, self.checkpoint, self.suffix)
-    }
-}
 
 impl fmt::Debug for Store {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -438,11 +385,11 @@ impl Store {
     /// The current versioned-log head entry serialized as its wire BODY: the
     /// `rkyv` octets of the head `VersionedCommitLogEntry`, or `None` when the
     /// store has never committed a versioned entry. These are byte-for-byte the
-    /// octets the production `mirror::ComponentShipper::envelope_for_entry`
-    /// ships for this entry — the same `rkyv::to_bytes::<rancor::Error>` call —
-    /// so the value the owner-only meta `ObserveHeadObject` query surfaces is
-    /// exactly the body the criome-auth forward carries and the mirror lands.
-    /// Re-decoding it (`rkyv::from_bytes::<VersionedCommitLogEntry>`) and
+    /// octets the router origination hand-off carries in the
+    /// `ApplyAuthorizedRecord` frame — the same `rkyv::to_bytes::<rancor::Error>`
+    /// call — so the value the owner-only meta `ObserveHeadObject` query surfaces
+    /// is exactly the body the criome-authorized forward carries and the peer
+    /// re-hashes on apply. Re-decoding it (`rkyv::from_bytes::<VersionedCommitLogEntry>`) and
     /// reconstructing through `VersionedCommitLogEntry::new` reproduces the
     /// `versioned_log_head` digest, so the body is genuinely content-addressed,
     /// never an invented format.
@@ -499,17 +446,6 @@ impl Store {
             #[cfg(feature = "testing-trace")]
             trace_log: TraceLog::default(),
         })
-    }
-
-    /// Restore from a mirror restore bundle only when the bundle's restored
-    /// head is the head the authorized reference announced.
-    #[cfg(feature = "mirror-shipper")]
-    pub fn import_mirror_restore_bundle(
-        path: impl Into<PathBuf>,
-        bundle: signal_mirror::RestoreBundle,
-        expected_head: EntryDigest,
-    ) -> Result<Self, StoreError> {
-        MirrorRestoreImport::from_bundle(bundle)?.into_store(path, expected_head)
     }
 
     /// The typed family directory over this store's registered tables, for
