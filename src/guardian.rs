@@ -85,6 +85,11 @@ pub enum AgentGuardianError {
 }
 
 impl AgentGuardianConfiguration {
+    pub const LOCAL_OPENAI_COMPATIBLE_PROVIDER: &'static str = "local-openai";
+    pub const LOCAL_OPENAI_COMPATIBLE_MODEL: &'static str = "gpt-5.5";
+    pub const LOCAL_OPENAI_COMPATIBLE_ENDPOINT: &'static str = "http://127.0.0.1:18080/v1";
+    pub const DEFAULT_TIMEOUT_MILLISECONDS: u64 = 180_000;
+
     pub fn from_contract(configuration: &SpiritGuardianAgentConfiguration) -> Self {
         Self {
             socket_path: PathBuf::from(configuration.agent_socket_path()),
@@ -119,6 +124,16 @@ impl AgentGuardianConfiguration {
             // opt into a runtime directory through `with_prompt_source`.
             prompt_source: GuardianPromptSource::compiled_in(),
         }
+    }
+
+    pub fn local_openai_compatible(socket_path: impl Into<PathBuf>) -> Self {
+        Self::new(
+            socket_path,
+            Some(Self::LOCAL_OPENAI_COMPATIBLE_PROVIDER.to_owned()),
+            Some(Self::LOCAL_OPENAI_COMPATIBLE_MODEL.to_owned()),
+            Duration::from_millis(Self::DEFAULT_TIMEOUT_MILLISECONDS),
+            None,
+        )
     }
 
     /// Install a runtime prompt source, overlaying the guardian's prose from a

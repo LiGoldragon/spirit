@@ -570,11 +570,15 @@ until the owner re-sends `Configure`; a blank override text resolves to
 `Compiled` so the live guardian is never left with an empty role. The override is
 scoped to the role section: the closed rejection-reason catalogue and the NOTA
 verdict grammar stay enum-rendered in code, so an override can never shift the
-verdict vocabulary the daemon parses. The judge runs at
+verdict vocabulary the daemon parses. The DeepSeek judge path runs at
 temperature 0 with DeepSeek thinking enabled at high reasoning effort (threaded
 through the typed `ReasoningEffort` / `ThinkingMode` controls on the agent
-contract), with two format-correction retries before failing closed. The
-decision journal is a separate, schema-versioned SEMA store
+contract). The local OpenAI-compatible alternative uses provider `local-openai`,
+endpoint `http://127.0.0.1:18080/v1`, model `gpt-5.5`, and `NoSecret` unless
+the local server is started with its optional bearer gate; Spirit omits
+DeepSeek-specific reasoning extensions for that provider name. The guardian
+allows two format-correction retries before failing closed. The decision journal
+is a separate, schema-versioned SEMA store
 (`spirit.guardian.v<N>.sema`).
 
 The prompt includes an affirmative-guidance gate. A candidate whose operative

@@ -338,6 +338,58 @@ fn configuration_writer_accepts_guardian_without_output_budget() {
 }
 
 #[test]
+fn configuration_writer_accepts_local_openai_compatible_guardian() {
+    let directory = TempDir::new().expect("tempdir");
+    let socket_path = directory.path().join("spirit.sock");
+    let meta_socket_path = directory.path().join("meta.sock");
+    let database_path = directory.path().join("spirit.sema");
+    let agent_socket_path = directory.path().join("agent.sock");
+    let configuration_path = directory.path().join("spirit.config.rkyv");
+    let request = format!(
+        "(ConfigurationWriteRequest ({} (Some {}) {} None Gating (Some ({} (Some {}) (Some {}) 180000 None)) {}))",
+        nota_path(&socket_path),
+        nota_path(&meta_socket_path),
+        nota_path(&database_path),
+        nota_path(&agent_socket_path),
+        String::from(spirit::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_PROVIDER)
+            .to_nota(),
+        String::from(spirit::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_MODEL).to_nota(),
+        nota_path(&configuration_path)
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_spirit-write-configuration"))
+        .arg(request)
+        .output()
+        .expect("run configuration writer");
+
+    assert!(
+        output.status.success(),
+        "configuration writer stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let configuration =
+        Configuration::from_binary_path(&configuration_path).expect("decode binary config");
+    let guardian = configuration
+        .raw()
+        .guardian_agent_configuration()
+        .expect("guardian configuration");
+    assert_eq!(
+        guardian.agent_socket_path(),
+        agent_socket_path.to_string_lossy()
+    );
+    assert_eq!(
+        guardian.provider_name(),
+        Some(spirit::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_PROVIDER)
+    );
+    assert_eq!(
+        guardian.model_name(),
+        Some(spirit::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_MODEL)
+    );
+    assert_eq!(guardian.timeout_milliseconds(), 180_000);
+    assert_eq!(guardian.maximum_output_tokens(), None);
+}
+
+#[test]
 fn configuration_writer_encodes_observing_authorization_mode() {
     let directory = TempDir::new().expect("tempdir");
     let socket_path = directory.path().join("spirit.sock");

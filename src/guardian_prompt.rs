@@ -323,6 +323,8 @@ impl<'configuration> GuardianPromptBuilder<'configuration> {
     }
 
     fn prompt_options(&self) -> PromptOptions {
+        let local_openai_compatible = self.provider_name
+            == Some(crate::guardian::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_PROVIDER);
         PromptOptions::new(
             self.model_name
                 .map(|model| ModelName::new(model.to_owned())),
@@ -335,8 +337,16 @@ impl<'configuration> GuardianPromptBuilder<'configuration> {
             OutputMode::Nota,
             // A deliberate judge: thinking enabled at high effort. Higher
             // reasoning effort also improves exact-format adherence.
-            Some(ReasoningEffort::High),
-            Some(ThinkingMode::Enabled),
+            if local_openai_compatible {
+                None
+            } else {
+                Some(ReasoningEffort::High)
+            },
+            if local_openai_compatible {
+                None
+            } else {
+                Some(ThinkingMode::Enabled)
+            },
         )
     }
 }
