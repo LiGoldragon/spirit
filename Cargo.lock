@@ -151,8 +151,8 @@ dependencies = [
 
 [[package]]
 name = "criome"
-version = "0.4.2"
-source = "git+https://github.com/LiGoldragon/criome.git?branch=main#6b6683da14600441338c2b1db206facf6f5d97d8"
+version = "0.4.3"
+source = "git+https://github.com/LiGoldragon/criome.git?branch=main#4bf6f9b96a6a8f83952109060aa09eca6d08ed64"
 dependencies = [
  "blake3",
  "blst",
@@ -162,6 +162,7 @@ dependencies = [
  "sema-engine 0.6.3",
  "signal-criome",
  "signal-frame",
+ "signal-router",
  "thiserror",
  "tokio",
  "triad-runtime",
@@ -203,7 +204,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -687,7 +688,7 @@ dependencies = [
 [[package]]
 name = "meta-signal-criome"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-criome.git?branch=main#4814625aa23dcb0e3cee19580914ccc1a3b4aadc"
+source = "git+https://github.com/LiGoldragon/meta-signal-criome.git?branch=main#a670d4580632b05924cea8e83f66a84d3b80ac72"
 dependencies = [
  "rkyv",
  "schema-rust",
@@ -1080,7 +1081,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1173,7 +1174,7 @@ dependencies = [
 [[package]]
 name = "sema"
 version = "0.1.1"
-source = "git+https://github.com/LiGoldragon/sema.git?branch=main#b13ed436e7a9af947d8cde03d0f5ff36e9e3d742"
+source = "git+https://github.com/LiGoldragon/sema.git?branch=main#3549a50c72544d3faf7ba38ade3cea07727fea2b"
 dependencies = [
  "redb",
  "rkyv",
@@ -1208,7 +1209,7 @@ dependencies = [
 [[package]]
 name = "sema-engine"
 version = "0.6.3"
-source = "git+https://github.com/LiGoldragon/sema-engine.git?branch=main#98ba507b9807d35d9d081529f3e52d1262c40b2e"
+source = "git+https://github.com/LiGoldragon/sema-engine.git?branch=main#594802575f02bc2e295f2c092ad98bb2d317a058"
 dependencies = [
  "blake3",
  "rkyv",
@@ -1294,7 +1295,7 @@ dependencies = [
 [[package]]
 name = "signal-criome"
 version = "0.6.0"
-source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=main#5976b2870e0231742dc1a8bf4db17fd98f8f6b61"
+source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=main#808034740d1ff1cb8c9342dcab4548aaf204f9d5"
 dependencies = [
  "blake3",
  "blst",
@@ -1387,7 +1388,7 @@ dependencies = [
 [[package]]
 name = "signal-sema"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/signal-sema.git?branch=main#e11901358bab47e710e3d15414141183a13c2ad6"
+source = "git+https://github.com/LiGoldragon/signal-sema.git?branch=main#c817ec2b5283975700881c2dec950a7e781b3bb6"
 dependencies = [
  "rkyv",
  "thiserror",
@@ -1432,7 +1433,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52d1cfed4120b4d927bf7c0f86d2087a4a7d6027c906d9f9d525a80573b9be51"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1518,7 +1519,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
