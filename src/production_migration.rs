@@ -137,7 +137,7 @@ const SPIRIT_STORE_V10_LIVE_JUNE19_REFERENTS_FAMILY: [u8; 32] = [
 // while the families still held the 0.16.0 content-hashes. The rows already
 // carry the current `StoredRecord`/`StoredReferent` byte layout — the family
 // content-hash last changed at 0.17.0 for a pure toolchain/representation
-// rename (schema-rust-next→schema-rust, nota-next→nota, `Vec`→`Vector`, dotted
+// rename (schema-rust→schema-rust, nota→nota, `Vec`→`Vector`, dotted
 // family syntax), which moved the closure hashes to the current
 // `family_identity` values without touching the stored rkyv bytes. Folding a
 // `dbe53794` store is therefore a pure RELABEL into the current families — no

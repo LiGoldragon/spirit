@@ -41,9 +41,9 @@ add_override() {
   export_args+=("$environment_key=$reference")
 }
 
-add_override nota-source nota-next NOTA_NEXT_REF
-add_override schema-source schema-next SCHEMA_REF
-add_override schema-rust-source schema-rust-next SCHEMA_RUST_REF
+add_override nota-source nota NOTA_REF
+add_override schema-source schema SCHEMA_REF
+add_override schema-rust-source schema-rust SCHEMA_RUST_REF
 add_override sema-source sema SEMA_REF
 add_override sema-engine-source sema-engine SEMA_ENGINE_REF
 add_override signal-frame-source signal-frame SIGNAL_FRAME_REF

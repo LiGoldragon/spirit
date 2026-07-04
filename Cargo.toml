@@ -113,7 +113,7 @@ path = "tests/authorized_apply_ingress.rs"
 required-features = ["mirror-shipper"]
 
 [dependencies]
-nota = { package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }
+nota = { package = "nota", git = "https://github.com/LiGoldragon/nota.git", branch = "main", optional = true }
 rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
 blake3 = "1"
 getrandom = "0.3"
@@ -173,11 +173,11 @@ tokio = { version = "1.47", features = ["io-util", "net", "rt-multi-thread", "sy
 triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "drop-next" }
 
 [build-dependencies]
-schema-rust = { package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }
+schema-rust = { package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust.git", branch = "drop-next" }
 
 [dev-dependencies]
 agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "drop-next", features = ["live-provider"] }
-schema = { package = "schema", git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }
+schema = { package = "schema", git = "https://github.com/LiGoldragon/schema.git", branch = "drop-next" }
 # Typed `SemaOperation` labels for versioned-log shape witnesses.
 signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "drop-next" }
 tempfile = "3"
@@ -196,4 +196,3 @@ required-features = ["agent-guardian"]
 unsafe_code = "forbid"
 unused      = { level = "warn", priority = -1 }
 dead_code   = "warn"
-

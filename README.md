@@ -121,5 +121,5 @@ scripts/check-local-schema-stack
 
 It runs `nix flake check` against pushed `github:LiGoldragon/...` refs while
 overriding the schema-stack source inputs to the same remote ref by default.
-Use per-repo variables such as `NOTA_NEXT_REF`, `SCHEMA_REF`, and
+Use per-repo variables such as `NOTA_REF`, `SCHEMA_REF`, and
 `SCHEMA_RUST_REF` when the stack does not share one branch or revision.

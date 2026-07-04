@@ -265,11 +265,11 @@ fn nix_input_overrides() -> Vec<(&'static str, String)> {
 
     let mut overrides = Vec::new();
     for (input, source) in [
-        ("nota-source", github_source("nota-next", "NOTA_NEXT_REF")),
-        ("schema-source", github_source("schema-next", "SCHEMA_REF")),
+        ("nota-source", github_source("nota", "NOTA_REF")),
+        ("schema-source", github_source("schema", "SCHEMA_REF")),
         (
             "schema-rust-source",
-            github_source("schema-rust-next", "SCHEMA_RUST_REF"),
+            github_source("schema-rust", "SCHEMA_RUST_REF"),
         ),
         ("sema-source", github_source("sema", "SEMA_REF")),
         (
