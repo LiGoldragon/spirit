@@ -5,7 +5,7 @@ version = 4
 [[package]]
 name = "agent"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/agent.git?branch=drop-next#344188d207822b250b464f667a57d1ce5ef4a95a"
+source = "git+https://github.com/LiGoldragon/agent.git?branch=drop-next#8539cf00db28c1cc907a7fc202b191ec8a4f8397"
 dependencies = [
  "meta-signal-agent",
  "nota",
@@ -163,7 +163,7 @@ dependencies = [
 [[package]]
 name = "criome"
 version = "0.4.3"
-source = "git+https://github.com/LiGoldragon/criome.git?branch=drop-next#cf92deca79f01979ad15c314084fd690c1b30543"
+source = "git+https://github.com/LiGoldragon/criome.git?branch=drop-next#8924a59622d3d8c01e76ffd95028370e92f4e0cd"
 dependencies = [
  "blake3",
  "blst",
@@ -215,7 +215,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -688,7 +688,7 @@ checksum = "88904434abc2901f197fe8cc55f0445e7ded921dba5911dad2e2b39b48e663c4"
 [[package]]
 name = "meta-signal-agent"
 version = "0.2.1"
-source = "git+https://github.com/LiGoldragon/meta-signal-agent.git?branch=drop-next#c47339b206195e58d43382df8aac904e271dfc16"
+source = "git+https://github.com/LiGoldragon/meta-signal-agent.git?branch=drop-next#fd099d8dad55975779f99721a238c7557892f404"
 dependencies = [
  "nota",
  "rkyv",
@@ -700,7 +700,7 @@ dependencies = [
 [[package]]
 name = "meta-signal-criome"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-criome.git?branch=drop-next#2de0ad4f56327bd7cc7dc558cd1551a0ee6ae7e6"
+source = "git+https://github.com/LiGoldragon/meta-signal-criome.git?branch=drop-next#fe248a7a65f1061ac4361169cec948db75b809a5"
 dependencies = [
  "rkyv",
  "schema-rust",
@@ -712,7 +712,7 @@ dependencies = [
 [[package]]
 name = "meta-signal-spirit"
 version = "0.5.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=drop-next#b05464fd1c5c76ee4c3a06caf43eb5226fe8cbf9"
+source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=drop-next#447f7b2f4fba255ae711c412eb02228e01629e6d"
 dependencies = [
  "nota",
  "rkyv",
@@ -907,7 +907,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1082,7 +1082,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1160,7 +1160,7 @@ dependencies = [
 [[package]]
 name = "schema-rust"
 version = "0.5.3"
-source = "git+https://github.com/LiGoldragon/schema-rust.git?branch=drop-next#67b91f5a6a70eced5854f27c7af8b39ace7e2d88"
+source = "git+https://github.com/LiGoldragon/schema-rust.git?branch=drop-next#94a0aa88a1d909b6f87cbf1431762c6fb0e19b71"
 dependencies = [
  "nota",
  "prettyplease",
@@ -1284,7 +1284,7 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 [[package]]
 name = "signal-agent"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/signal-agent.git?branch=drop-next#b4873fba6cc9717765dfe4dc5bab5203ea031e56"
+source = "git+https://github.com/LiGoldragon/signal-agent.git?branch=drop-next#25cbde4e50f557a4e7b2bc59d2a8a1e9831ea0a3"
 dependencies = [
  "nota",
  "rkyv",
@@ -1296,7 +1296,7 @@ dependencies = [
 [[package]]
 name = "signal-criome"
 version = "0.6.0"
-source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=drop-next#4c1aa76ac647899db3c60b380f0642cdd10019b9"
+source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=drop-next#4962a606abc1e0efb8b5ee5ac031b2a3c06bb8f3"
 dependencies = [
  "blake3",
  "blst",
@@ -1362,7 +1362,7 @@ dependencies = [
 [[package]]
 name = "signal-introspect"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/signal-introspect.git?branch=drop-next#8e21781c45156811bbcdfbd3700e5f5b6978449d"
+source = "git+https://github.com/LiGoldragon/signal-introspect.git?branch=drop-next#ce4529c27f4f5e83acde7695518360e7d656dd6d"
 dependencies = [
  "nota",
  "rkyv",
@@ -1376,7 +1376,7 @@ dependencies = [
 [[package]]
 name = "signal-message"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/signal-message.git?branch=drop-next#d16630469312c28071df5aa6feb5a862c9bbfe9d"
+source = "git+https://github.com/LiGoldragon/signal-message.git?branch=drop-next#311ee6c4279b232688db64a8e219cb86abb6d676"
 dependencies = [
  "nota",
  "rkyv",
@@ -1388,7 +1388,7 @@ dependencies = [
 [[package]]
 name = "signal-persona"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/signal-persona.git?branch=drop-next#1a4b232a99563f27245c38952457bedca4dfa66a"
+source = "git+https://github.com/LiGoldragon/signal-persona.git?branch=drop-next#e8eead5ae6d576a298ee547b78901fe7fd7c7afc"
 dependencies = [
  "nota",
  "rkyv",
@@ -1399,7 +1399,7 @@ dependencies = [
 [[package]]
 name = "signal-router"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/signal-router.git?branch=drop-next#798d36aaa47f9fe5ef6138b69d7ccf761949a390"
+source = "git+https://github.com/LiGoldragon/signal-router.git?branch=drop-next#d55ee2bfcdf22ae4ccbeb5810ca0cefe08020fad"
 dependencies = [
  "rkyv",
  "schema-rust",
@@ -1428,7 +1428,7 @@ dependencies = [
 [[package]]
 name = "signal-spirit"
 version = "0.9.0"
-source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=drop-next#c123651d04caac7bfde972ef5d48fb860b275431"
+source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=drop-next#8c485396599a694bc9c77f219eb458cdcb951f91"
 dependencies = [
  "nota",
  "rkyv",
@@ -1550,7 +1550,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
