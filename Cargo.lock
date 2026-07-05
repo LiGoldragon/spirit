@@ -3,9 +3,19 @@
 version = 4
 
 [[package]]
+name = "aead"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d122413f284cf2d62fb1b7db97e02edb8cda96d769b16e443a4f6195e35662b0"
+dependencies = [
+ "crypto-common",
+ "generic-array",
+]
+
+[[package]]
 name = "agent"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/agent.git?branch=main#1ff5e499c1f5433069ec781744b40db6a699d46c"
+source = "git+https://github.com/LiGoldragon/agent.git?branch=main#682d00b16f66099c521c37d5d5927f46bcd3d743"
 dependencies = [
  "meta-signal-agent",
  "nota",
@@ -15,7 +25,7 @@ dependencies = [
  "serde",
  "serde_json",
  "signal-agent",
- "signal-frame 0.3.0 (git+https://github.com/LiGoldragon/signal-frame.git?branch=main)",
+ "signal-frame",
  "thiserror",
  "tokio",
  "triad-runtime",
@@ -62,7 +72,7 @@ dependencies = [
  "cc",
  "cfg-if",
  "constant_time_eq",
- "cpufeatures",
+ "cpufeatures 0.3.0",
 ]
 
 [[package]]
@@ -114,9 +124,9 @@ checksum = "8ae3f5d315924270530207e2a68396c3cc547f6dca3fbdca317cfb1a51edb593"
 
 [[package]]
 name = "cc"
-version = "1.2.65"
+version = "1.2.66"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e228eec9be7c17ccb640b59b36a5cd805ea2a564a4c5e162c2f659fea30d3b96"
+checksum = "f5d6cac793997bd970000024b2934968efe83b382de4fdcf4fcb46b6ee4ad996"
 dependencies = [
  "find-msvc-tools",
  "shlex",
@@ -136,13 +146,48 @@ checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
 name = "chacha20"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3613f74bd2eac03dad61bd53dbe620703d4371614fe0bc3b9f04dd36fe4e818"
+dependencies = [
+ "cfg-if",
+ "cipher",
+ "cpufeatures 0.2.17",
+]
+
+[[package]]
+name = "chacha20"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d524456ba66e72eb8b115ff89e01e497f8e6d11d78b70b1aa13c0fbd97540a81"
 dependencies = [
  "cfg-if",
- "cpufeatures",
- "rand_core",
+ "cpufeatures 0.3.0",
+ "rand_core 0.10.1",
+]
+
+[[package]]
+name = "chacha20poly1305"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10cd79432192d1c0f4e1a0fef9527696cc039165d729fb41b3f4f4f354c2dc35"
+dependencies = [
+ "aead",
+ "chacha20 0.9.1",
+ "cipher",
+ "poly1305",
+ "zeroize",
+]
+
+[[package]]
+name = "cipher"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "773f3b9af64447d2ce9850330c473515014aa235e6a783b02db81ff39e4a3dad"
+dependencies = [
+ "crypto-common",
+ "inout",
+ "zeroize",
 ]
 
 [[package]]
@@ -150,6 +195,15 @@ name = "constant_time_eq"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d52eff69cd5e647efe296129160853a42795992097e8af39800e1060caeea9b"
+
+[[package]]
+name = "cpufeatures"
+version = "0.2.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59ed5838eebb26a2bb2e58f6d5b5316989ae9d08bab10e0e6d103e656d1b0280"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "cpufeatures"
@@ -162,8 +216,8 @@ dependencies = [
 
 [[package]]
 name = "criome"
-version = "0.4.3"
-source = "git+https://github.com/LiGoldragon/criome.git?branch=main#06c508e77c5e3dd106d065f99bf12f9a2fa079cd"
+version = "0.5.0"
+source = "git+https://github.com/LiGoldragon/criome.git?branch=main#b1200d95fa67d3e62d04b39ac9638a621c6fefec"
 dependencies = [
  "blake3",
  "blst",
@@ -173,10 +227,48 @@ dependencies = [
  "rustix",
  "sema-engine 0.6.3",
  "signal-criome",
- "signal-frame 0.3.0 (git+https://github.com/LiGoldragon/signal-frame.git?branch=main)",
+ "signal-frame",
+ "signal-router",
  "thiserror",
  "tokio",
  "triad-runtime",
+]
+
+[[package]]
+name = "crypto-common"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78c8292055d1c1df0cce5d180393dc8cce0abec0a7102adb6c7b1eef6016d60a"
+dependencies = [
+ "generic-array",
+ "rand_core 0.6.4",
+ "typenum",
+]
+
+[[package]]
+name = "curve25519-dalek"
+version = "4.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97fb8b7c4503de7d6ae7b42ab72a5a59857b4c937ec27a3d4539dba95b5ab2be"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.2.17",
+ "curve25519-dalek-derive",
+ "fiat-crypto",
+ "rustc_version",
+ "subtle",
+ "zeroize",
+]
+
+[[package]]
+name = "curve25519-dalek-derive"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f46882e17999c6cc590af592290432be3bce0428cb0d5f8b6715e4dc7b383eb3"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -223,6 +315,12 @@ name = "fastrand"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f1f227452a390804cdb637b74a86990f2a7d7ba4b7d5693aac9b4dd6defd8d6"
+
+[[package]]
+name = "fiat-crypto"
+version = "0.2.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 
 [[package]]
 name = "find-msvc-tools"
@@ -328,6 +426,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "generic-array"
+version = "0.14.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
+dependencies = [
+ "typenum",
+ "version_check",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -362,7 +470,7 @@ dependencies = [
  "js-sys",
  "libc",
  "r-efi 6.0.0",
- "rand_core",
+ "rand_core 0.10.1",
  "wasm-bindgen",
 ]
 
@@ -602,6 +710,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "inout"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "879f10e63c20629ecabbb64a8010319738c66a5cd0c29b02d63d272b03751d01"
+dependencies = [
+ "generic-array",
+]
+
+[[package]]
 name = "ipnet"
 version = "2.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -688,36 +805,58 @@ checksum = "88904434abc2901f197fe8cc55f0445e7ded921dba5911dad2e2b39b48e663c4"
 [[package]]
 name = "meta-signal-agent"
 version = "0.2.1"
-source = "git+https://github.com/LiGoldragon/meta-signal-agent.git?branch=main#b4f6a85673d5e05b29a12162e55f110c2ffc5c1e"
+source = "git+https://github.com/LiGoldragon/meta-signal-agent.git?branch=main#622cfeff909afa32b1d903386b65129b648e825f"
 dependencies = [
  "nota",
  "rkyv",
  "schema-rust",
- "signal-frame 0.3.0 (git+https://github.com/LiGoldragon/signal-frame.git?branch=main)",
+ "signal-frame",
  "thiserror",
 ]
 
 [[package]]
 name = "meta-signal-criome"
-version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-criome.git?branch=main#37e4b427be02ce2a8145bf0ebbc2751d81a32861"
+version = "0.5.0"
+source = "git+https://github.com/LiGoldragon/meta-signal-criome.git?branch=main#b10814515dbb9644ce5a4ba4fb4cd79217b1a9b3"
 dependencies = [
  "rkyv",
  "schema-rust",
  "signal-criome",
- "signal-frame 0.3.0 (git+https://github.com/LiGoldragon/signal-frame.git?branch=main)",
+ "signal-frame",
  "thiserror",
+]
+
+[[package]]
+name = "meta-signal-mirror"
+version = "0.2.0"
+source = "git+https://github.com/LiGoldragon/meta-signal-mirror.git?branch=main#51ae871a6232397ee6bd31c7e559d4c4b3cff731"
+dependencies = [
+ "nota",
+ "rkyv",
+ "schema-rust",
+ "signal-frame",
+ "thiserror",
+]
+
+[[package]]
+name = "meta-signal-router"
+version = "0.3.0"
+source = "git+https://github.com/LiGoldragon/meta-signal-router.git?branch=main#c3848b39228834f2e28014f346dbed4821e54df8"
+dependencies = [
+ "rkyv",
+ "schema-rust",
+ "signal-frame",
 ]
 
 [[package]]
 name = "meta-signal-spirit"
 version = "0.5.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=main#5a64d546688788048a4887a2680f46428317e1ac"
+source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?branch=main#2676be0304e0fc8c29e9b7aa7a1aab3e27535f3d"
 dependencies = [
  "nota",
  "rkyv",
  "schema-rust",
- "signal-frame 0.3.0 (git+https://github.com/LiGoldragon/signal-frame.git?branch=main)",
+ "signal-frame",
  "signal-spirit",
  "thiserror",
 ]
@@ -731,6 +870,23 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "mirror"
+version = "0.2.0"
+source = "git+https://github.com/LiGoldragon/mirror.git?branch=main#f906dd531a467e793f7f374aec1e96efe2917cd6"
+dependencies = [
+ "meta-signal-mirror",
+ "nota",
+ "rkyv",
+ "schema-rust",
+ "sema-engine 0.6.3",
+ "signal-frame",
+ "signal-mirror",
+ "thiserror",
+ "tokio",
+ "triad-runtime",
 ]
 
 [[package]]
@@ -756,7 +912,7 @@ dependencies = [
 [[package]]
 name = "nota"
 version = "0.5.1"
-source = "git+https://github.com/LiGoldragon/nota.git?branch=main#bea7e2840ac2cf3e384f07b5c10eeb0890cead25"
+source = "git+https://github.com/LiGoldragon/nota.git?branch=main#ce7c564de0a0518eaa1938d55dccc460a67cadb4"
 dependencies = [
  "nota-derive",
  "rkyv",
@@ -765,7 +921,7 @@ dependencies = [
 [[package]]
 name = "nota-derive"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/nota.git?branch=main#bea7e2840ac2cf3e384f07b5c10eeb0890cead25"
+source = "git+https://github.com/LiGoldragon/nota.git?branch=main#ce7c564de0a0518eaa1938d55dccc460a67cadb4"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -789,6 +945,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
+name = "opaque-debug"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
+
+[[package]]
 name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -805,6 +967,17 @@ name = "pin-project-lite"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
+
+[[package]]
+name = "poly1305"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8159bd90725d2df49889a078b54f4f79e87f1f8a8444194cdca81d38f5393abf"
+dependencies = [
+ "cpufeatures 0.2.17",
+ "opaque-debug",
+ "universal-hash",
+]
 
 [[package]]
 name = "potential_utf"
@@ -946,9 +1119,18 @@ version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7f5fa3a058cd35567ef9bfa5e75732bee0f9e4c55fa90477bef2dfcdbc4be80"
 dependencies = [
- "chacha20",
+ "chacha20 0.10.1",
  "getrandom 0.4.3",
- "rand_core",
+ "rand_core 0.10.1",
+]
+
+[[package]]
+name = "rand_core"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
+dependencies = [
+ "getrandom 0.2.17",
 ]
 
 [[package]]
@@ -963,7 +1145,7 @@ version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "caa0f4137e1c0a72f4c651489402276c8e8e1cf081f3b0ba156d2cbeef09e86a"
 dependencies = [
- "rand_core",
+ "rand_core 0.10.1",
 ]
 
 [[package]]
@@ -1067,10 +1249,48 @@ dependencies = [
 ]
 
 [[package]]
+name = "router"
+version = "0.4.1"
+source = "git+https://github.com/LiGoldragon/router.git?branch=main#3a75a57647f1572583261877ba6b1cb9865cc2e1"
+dependencies = [
+ "blake3",
+ "chacha20poly1305",
+ "kameo",
+ "meta-signal-router",
+ "nota",
+ "rand_core 0.6.4",
+ "rkyv",
+ "schema-rust",
+ "sema-engine 0.6.3",
+ "signal-criome",
+ "signal-frame",
+ "signal-harness",
+ "signal-message",
+ "signal-mind",
+ "signal-persona",
+ "signal-router",
+ "signal-standard",
+ "thiserror",
+ "tokio",
+ "triad-runtime",
+ "x25519-dalek",
+ "zeroize",
+]
+
+[[package]]
 name = "rustc-hash"
 version = "2.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b1e7f9a428571be2dc5bc0505c13fb6bf936822b894ec87abf8a08a4e51742d"
+
+[[package]]
+name = "rustc_version"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfcb3a22ef46e85b45de6ee7e79d063319ebb6594faafcf1c225ea92ab6e9b92"
+dependencies = [
+ "semver",
+]
 
 [[package]]
 name = "rustix"
@@ -1135,7 +1355,7 @@ checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 [[package]]
 name = "schema"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/schema.git?branch=main#a393c8c822cea737d7ed8e823eae7d821ea19bf2"
+source = "git+https://github.com/LiGoldragon/schema.git?branch=main#f351f90d3b8898205cf3057f3c253a5e451180a9"
 dependencies = [
  "blake3",
  "nota",
@@ -1147,7 +1367,7 @@ dependencies = [
 [[package]]
 name = "schema-cc"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/schema.git?branch=main#a393c8c822cea737d7ed8e823eae7d821ea19bf2"
+source = "git+https://github.com/LiGoldragon/schema.git?branch=main#f351f90d3b8898205cf3057f3c253a5e451180a9"
 dependencies = [
  "nota",
  "prettyplease",
@@ -1160,7 +1380,7 @@ dependencies = [
 [[package]]
 name = "schema-rust"
 version = "0.5.3"
-source = "git+https://github.com/LiGoldragon/schema-rust.git?branch=main#72c71ffc558fee0d29c5b0517013de46e0307597"
+source = "git+https://github.com/LiGoldragon/schema-rust.git?branch=main#0f306826f64622b375ad232f0a59d32904487b9d"
 dependencies = [
  "nota",
  "prettyplease",
@@ -1189,8 +1409,8 @@ source = "git+https://github.com/LiGoldragon/sema-engine.git?rev=ebee6e44ba6ee4a
 dependencies = [
  "rkyv",
  "sema",
- "signal-frame 0.3.0 (git+https://github.com/LiGoldragon/signal-frame.git?branch=main)",
- "signal-sema 0.2.0 (git+https://github.com/LiGoldragon/signal-sema.git?branch=main)",
+ "signal-frame",
+ "signal-sema",
  "thiserror",
 ]
 
@@ -1202,8 +1422,8 @@ dependencies = [
  "blake3",
  "rkyv",
  "sema",
- "signal-frame 0.3.0 (git+https://github.com/LiGoldragon/signal-frame.git?branch=main)",
- "signal-sema 0.2.0 (git+https://github.com/LiGoldragon/signal-sema.git?branch=main)",
+ "signal-frame",
+ "signal-sema",
  "thiserror",
 ]
 
@@ -1215,10 +1435,16 @@ dependencies = [
  "blake3",
  "rkyv",
  "sema",
- "signal-frame 0.3.0 (git+https://github.com/LiGoldragon/signal-frame.git?branch=main)",
- "signal-sema 0.2.0 (git+https://github.com/LiGoldragon/signal-sema.git?branch=main)",
+ "signal-frame",
+ "signal-sema",
  "thiserror",
 ]
+
+[[package]]
+name = "semver"
+version = "1.0.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a7852d02fc848982e0c167ef163aaff9cd91dc640ba85e263cb1ce46fae51cd"
 
 [[package]]
 name = "serde"
@@ -1284,69 +1510,60 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 [[package]]
 name = "signal-agent"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/signal-agent.git?branch=main#064f2fe6d0df64acc73b8080affb9262c20aaa1f"
+source = "git+https://github.com/LiGoldragon/signal-agent.git?branch=main#525c0ac7abe673d9b93888340a4486112aea8195"
 dependencies = [
  "nota",
  "rkyv",
  "schema-rust",
- "signal-frame 0.3.0 (git+https://github.com/LiGoldragon/signal-frame.git?branch=main)",
+ "signal-frame",
  "thiserror",
 ]
 
 [[package]]
 name = "signal-criome"
-version = "0.6.0"
-source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=main#b4bfeecef41a05a6a93b7909976ab5312a17fa46"
+version = "0.8.0"
+source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=main#061b95a1fb5c0880fbd36881aaa7cb66c0ca5bed"
 dependencies = [
  "blake3",
  "blst",
  "rkyv",
  "schema-rust",
- "signal-frame 0.3.0 (git+https://github.com/LiGoldragon/signal-frame.git?branch=main)",
+ "signal-frame",
  "thiserror",
 ]
 
 [[package]]
 name = "signal-frame"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#44d22a07e75e6d2ff13581a5bb84d47c6ef35e97"
+source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#bb86bef67e478ff52690a4dcceec8f22d2b005ad"
 dependencies = [
  "nota",
  "paste",
  "rkyv",
- "signal-frame-macros 0.1.1 (git+https://github.com/LiGoldragon/signal-frame.git?branch=main)",
+ "signal-frame-macros",
  "thiserror",
 ]
 
 [[package]]
-name = "signal-frame"
+name = "signal-frame-macros"
+version = "0.1.1"
+source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#bb86bef67e478ff52690a4dcceec8f22d2b005ad"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "signal-harness"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#0027ea3cef353b1c168ca6862e40c6077a853642"
+source = "git+https://github.com/LiGoldragon/signal-harness.git?branch=main#3559f12ce13f21f1d616308fb931e31b849c0409"
 dependencies = [
- "paste",
+ "nota",
  "rkyv",
- "signal-frame-macros 0.1.1 (git+https://github.com/LiGoldragon/signal-frame.git?branch=main)",
+ "signal-frame",
+ "signal-persona",
  "thiserror",
-]
-
-[[package]]
-name = "signal-frame-macros"
-version = "0.1.1"
-source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#44d22a07e75e6d2ff13581a5bb84d47c6ef35e97"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "signal-frame-macros"
-version = "0.1.1"
-source = "git+https://github.com/LiGoldragon/signal-frame.git?branch=main#0027ea3cef353b1c168ca6862e40c6077a853642"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -1362,11 +1579,11 @@ dependencies = [
 [[package]]
 name = "signal-introspect"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/signal-introspect.git?branch=main#3218655d675fefa1cb549286ed03f25fc2a67013"
+source = "git+https://github.com/LiGoldragon/signal-introspect.git?branch=main#fafaa15dab0fe3681a61d5c5472f6f8205b1336b"
 dependencies = [
  "nota",
  "rkyv",
- "signal-frame 0.3.0 (git+https://github.com/LiGoldragon/signal-frame.git?branch=main)",
+ "signal-frame",
  "signal-message",
  "signal-persona",
  "thiserror",
@@ -1376,34 +1593,57 @@ dependencies = [
 [[package]]
 name = "signal-message"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/signal-message.git?branch=main#0bd080fcd739bde92dbb76b83a6084541a31675a"
+source = "git+https://github.com/LiGoldragon/signal-message.git?branch=main#0e92d3f2245387c23e166b09d2691b8146140796"
 dependencies = [
  "nota",
  "rkyv",
  "schema-rust",
- "signal-frame 0.3.0 (git+https://github.com/LiGoldragon/signal-frame.git?branch=main)",
+ "signal-frame",
  "thiserror",
+]
+
+[[package]]
+name = "signal-mind"
+version = "0.7.0"
+source = "git+https://github.com/LiGoldragon/signal-mind.git?branch=main#db3721d9ee4e3afa9d295c9f2dede157f35a084a"
+dependencies = [
+ "nota",
+ "rkyv",
+ "signal-frame",
+ "signal-persona",
+ "thiserror",
+]
+
+[[package]]
+name = "signal-mirror"
+version = "0.1.1"
+source = "git+https://github.com/LiGoldragon/signal-mirror.git?branch=main#582bfb88a87725c79e8d89fa5e8f69f607d78b4e"
+dependencies = [
+ "nota",
+ "rkyv",
+ "schema-rust",
+ "signal-frame",
 ]
 
 [[package]]
 name = "signal-persona"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/signal-persona.git?branch=main#9de82cd3a11270dd3c38ed507553c78ea703b25f"
+source = "git+https://github.com/LiGoldragon/signal-persona.git?branch=main#2babf1314e2898d7bdbe75124e00f9129cfb8d43"
 dependencies = [
  "nota",
  "rkyv",
  "schema-rust",
- "signal-frame 0.3.0 (git+https://github.com/LiGoldragon/signal-frame.git?branch=main)",
+ "signal-frame",
 ]
 
 [[package]]
 name = "signal-router"
-version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/signal-router.git?branch=main#9c3f8f7611e4a65868ae38abb18c93fc8debc73d"
+version = "0.4.1"
+source = "git+https://github.com/LiGoldragon/signal-router.git?branch=main#7109422fae53adf5f1b82337ddc38195ccec96da"
 dependencies = [
  "rkyv",
  "schema-rust",
- "signal-frame 0.3.0 (git+https://github.com/LiGoldragon/signal-frame.git?branch=main)",
+ "signal-frame",
  "thiserror",
 ]
 
@@ -1417,26 +1657,27 @@ dependencies = [
 ]
 
 [[package]]
-name = "signal-sema"
-version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/signal-sema.git?branch=main#c817ec2b5283975700881c2dec950a7e781b3bb6"
-dependencies = [
- "rkyv",
- "thiserror",
-]
-
-[[package]]
 name = "signal-spirit"
 version = "0.9.0"
-source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=main#e7d77c205cc5c053b8d268b10aa4c3f44f7ec639"
+source = "git+https://github.com/LiGoldragon/signal-spirit.git?branch=main#7080f98e160b528cd5aa4a988ebe5194d5ef1d81"
 dependencies = [
  "nota",
  "rkyv",
  "schema",
  "schema-rust",
- "signal-frame 0.3.0 (git+https://github.com/LiGoldragon/signal-frame.git?branch=main)",
+ "signal-frame",
  "thiserror",
  "version-projection",
+]
+
+[[package]]
+name = "signal-standard"
+version = "0.1.0"
+source = "git+https://github.com/LiGoldragon/signal-standard.git?branch=main#a2fcdb9db2101853f8ffac8cdb34692540deeb62"
+dependencies = [
+ "rkyv",
+ "schema-rust",
+ "thiserror",
 ]
 
 [[package]]
@@ -1475,9 +1716,12 @@ dependencies = [
  "blake3",
  "criome",
  "getrandom 0.3.4",
+ "meta-signal-mirror",
  "meta-signal-spirit",
+ "mirror",
  "nota",
  "rkyv",
+ "router",
  "schema",
  "schema-rust",
  "sema-engine 0.2.3",
@@ -1485,12 +1729,13 @@ dependencies = [
  "sema-engine 0.6.3",
  "signal-agent",
  "signal-criome",
- "signal-frame 0.3.0 (git+https://github.com/LiGoldragon/signal-frame.git?branch=main)",
+ "signal-frame",
  "signal-introspect",
+ "signal-mirror",
  "signal-persona",
- "signal-router",
- "signal-sema 0.2.0 (git+https://github.com/LiGoldragon/signal-sema.git?branch=main)",
+ "signal-sema",
  "signal-spirit",
+ "signal-standard",
  "tempfile",
  "thiserror",
  "tokio",
@@ -1724,12 +1969,12 @@ dependencies = [
 [[package]]
 name = "triad-runtime"
 version = "0.6.1"
-source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#f9a6a7c8ab50dbd5b5a8ef7bfd7ea8c9acb713e1"
+source = "git+https://github.com/LiGoldragon/triad-runtime.git?branch=main#b34df30c56fcbc88266210167d2520d0996feca3"
 dependencies = [
  "kameo",
  "rkyv",
  "rustix",
- "signal-frame 0.3.0 (git+https://github.com/LiGoldragon/signal-frame.git?branch=main)",
+ "signal-frame",
  "thiserror",
  "tokio",
 ]
@@ -1741,10 +1986,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
+name = "typenum"
+version = "1.20.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
+
+[[package]]
 name = "unicode-ident"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
+
+[[package]]
+name = "universal-hash"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc1de2c688dc15305988b563c3854064043356019f97a4b46276fe734c4f07ea"
+dependencies = [
+ "crypto-common",
+ "subtle",
+]
 
 [[package]]
 name = "untrusted"
@@ -1789,6 +2050,12 @@ dependencies = [
  "rkyv",
  "thiserror",
 ]
+
+[[package]]
+name = "version_check"
+version = "0.9.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "want"
@@ -1997,6 +2264,18 @@ name = "writeable"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
+
+[[package]]
+name = "x25519-dalek"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7e468321c81fb07fa7f4c636c3972b9100f0346e5b6a9f2bd0603a52f7ed277"
+dependencies = [
+ "curve25519-dalek",
+ "rand_core 0.6.4",
+ "serde",
+ "zeroize",
+]
 
 [[package]]
 name = "yoke"

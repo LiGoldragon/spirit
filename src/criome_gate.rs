@@ -24,16 +24,18 @@
 use criome::transport::CriomeClient;
 use sema_engine::EntryDigest;
 use signal_criome::{
-    AttestedMoment, AttestedMomentProposition, AuthorizationEvaluation,
-    AuthorizationObservation as SignalAuthorizationObservation, AuthorizationPending,
-    AuthorizationRequestSlot, AuthorizationScope, AuthorizationStateRecord, AuthorizationStatus,
+    AttestedMoment, AttestedMomentProposition, AuthorizationEvaluation, AuthorizationScope,
     AuthorizedObjectKind, AuthorizedObjectReference, ComponentKind, ContractDigest, ContractName,
     ContractOperationHead, CriomeReply, CriomeRequest, EvaluationDecision, Evidence, Identity,
     ObjectDigest, OperationDigest, ReplayNonce, RequiredSignatureThreshold,
     SignalCallAuthorization, TimeWindow, TimestampNanos,
 };
 #[cfg(feature = "agent-guardian")]
-use signal_criome::{SpiritAuthorizationContext, SpiritProcessKey};
+use signal_criome::{
+    AuthorizationObservation as SignalAuthorizationObservation, AuthorizationPending,
+    AuthorizationRequestSlot, AuthorizationStateRecord, AuthorizationStatus,
+    SpiritAuthorizationContext, SpiritProcessKey,
+};
 use thiserror::Error;
 
 #[cfg(feature = "agent-guardian")]
@@ -123,18 +125,6 @@ impl SpiritAttestor {
         }
     }
 
-    /// Build the quorum attestor: it carries only the admitted mirror-contract
-    /// digest. Origination now proposes the head under this contract and the
-    /// quorum ASSEMBLES the Evidence across the voice, so the attestor no longer
-    /// carries a caller-supplied Evidence; the same contract digest also anchors
-    /// the apply-ingress re-judge.
-    pub fn for_contract(contract: ContractDigest) -> Self {
-        Self {
-            contract: Some(contract),
-            evidence: None,
-        }
-    }
-
     pub fn contract(&self, capture: &LocalHeadCapture) -> ContractDigest {
         self.contract
             .clone()
@@ -143,12 +133,6 @@ impl SpiritAttestor {
 
     fn has_policy_evidence(&self) -> bool {
         self.evidence.is_some()
-    }
-
-    /// The admitted mirror-contract digest for the authorized-apply re-judge,
-    /// present only when the attestor carries signed deploy-config evidence.
-    pub fn configured_contract(&self) -> Option<ContractDigest> {
-        self.contract.clone()
     }
 
     /// The full [`AuthorizationEvaluation`] for a captured head: the projected
@@ -393,67 +377,6 @@ impl CriomeGate {
             AuthorizationObservation::Unconfigured => GateDecision::Unconfigured,
             AuthorizationObservation::Unreachable => GateDecision::Unreachable,
         })
-    }
-
-    /// The admitted mirror-contract digest the authorized-apply ingress judges
-    /// against, taken from the armed deploy-config attestor. `None` when unarmed
-    /// or when only a socket-bootstrap attestor is configured; the ingress then
-    /// falls back to the object-derived contract digest.
-    pub fn configured_contract(&self) -> Option<ContractDigest> {
-        self.armed
-            .as_ref()
-            .and_then(|armed| armed.attestor.configured_contract())
-    }
-
-    /// The [`AuthorizationEvaluation`] the armed attestor authorizes for a
-    /// captured head — the SAME projection `evaluate_authorization` submits to
-    /// criome, so the origination hand-off carries byte-for-byte the Evidence the
-    /// gate authorized (and the peer's apply-ingress re-judge sees). `None` when
-    /// unarmed. Deterministic in `capture` and the attestor, so re-deriving it
-    /// after an authorizing verdict reproduces exactly what was authorized.
-    pub fn authorized_evaluation(
-        &self,
-        capture: &LocalHeadCapture,
-    ) -> Option<AuthorizationEvaluation> {
-        self.armed
-            .as_ref()
-            .map(|armed| armed.attestor.evaluation(capture))
-    }
-
-    /// Re-judge a pre-assembled [`AuthorizationEvaluation`] carried by an
-    /// arriving authorized-apply request (Spirit piece 4). Reuses the armed
-    /// LOCAL criome socket to independently confirm the carried Evidence for
-    /// THIS node — it never trusts the sender's say-so.
-    ///
-    /// Returns `Some(decision)` on a real socket round-trip; `None` when the gate
-    /// is unarmed (no local criome configured) or the socket is unreachable —
-    /// both hold the apply back, fail-closed. `CriomeClient::send` is synchronous,
-    /// so the round-trip runs on a `spawn_blocking` worker.
-    pub async fn evaluate_carried(
-        &self,
-        evaluation: AuthorizationEvaluation,
-    ) -> Result<Option<EvaluationDecision>, CriomeGateError> {
-        let Some(armed) = self.armed.as_ref() else {
-            return Ok(None);
-        };
-        let socket = armed.socket.clone();
-        let send_result = tokio::task::spawn_blocking(move || {
-            CriomeClient::new(socket).send(CriomeRequest::EvaluateAuthorization(evaluation))
-        })
-        .await
-        .map_err(|source| CriomeGateError::AuthorizationTask {
-            message: source.to_string(),
-        })?;
-        let reply = match send_result {
-            Ok(reply) => reply,
-            Err(_) => return Ok(None),
-        };
-        let CriomeReply::AuthorizationEvaluated(evaluated) = reply else {
-            return Err(CriomeGateError::UnexpectedReply {
-                reply: format!("{reply:?}"),
-            });
-        };
-        Ok(Some(evaluated.decision))
     }
 
     async fn evaluate_authorization(

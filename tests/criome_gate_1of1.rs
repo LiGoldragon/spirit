@@ -1,43 +1,41 @@
-//! The 1-of-1 LOCAL criome gate + router origination hand-off witness
-//! (Spirit `xhwa`).
+//! The 1-of-1 LOCAL criome gate witness (Spirit `xhwa`, report 703-6 Item 1).
 //!
-//! This proves the PRODUCTION daemon origination end to end: a REAL local criome
-//! Unix socket authorizes the post-commit head, and the authorized head is
-//! handed to a LOCAL router working socket as a `signal-spirit`
-//! `ApplyAuthorizedRecord` frame — the exact frame the peer Spirit's apply
-//! ingress re-judges and lands live. The criome round-trip is a genuine socket
-//! call to a `CriomeDaemon` on its own OS thread; the router hand-off is a
-//! genuine socket call to a stub router that captures the origination.
+//! This proves the PRODUCTION daemon gate end to end through a REAL local
+//! criome Unix socket — the gate's `CriomeClient::send` does a genuine socket
+//! round-trip to a criome daemon (`BoundCriomeDaemon::serve_forever` on its own
+//! OS thread), not an in-process `ActorRef` ask. The spirit side is the real
+//! `Engine::gate_and_ship_head` the daemon's `handle_working_input` calls, armed
+//! against a live in-process mirror so the FAN-OUT is observable.
 //!
-//! Proofs:
+//! Three proofs, one binary:
 //!
-//!   (a) AUTHORIZED head hands off. criome holds a 1-of-1 contract the spirit
-//!       attestor satisfies. `gate_and_hand_to_router` authorizes over the
-//!       socket and hands the head to the router. The captured
-//!       `ForwardedMessagePayload` carries ONE routed object whose octets decode
-//!       to `Input::ApplyAuthorizedRecord`; the carried versioned entry re-hashes
-//!       to head `D`; the carried Evidence binds to `D`'s operation digest; and
-//!       the record identifier is the committed record's.
+//!   (a) AUTHORIZED D — criome holds a 1-of-1 contract the spirit attestor
+//!       satisfies. `gate_and_ship_head` calls criome over the socket, gets
+//!       `Authorized`, emits the PROJECTED reference (`{ Spirit, D, Head }`,
+//!       the digest matching head D by construction), AND the mirror receives
+//!       the shipped suffix — the outbox drains, durability is `ServerCommitted`.
 //!
-//!   (b) DENIED head does NOT hand off. Threshold-short evidence → criome
-//!       `Rejected` → `Denied`; the router receives nothing.
+//!   (b) DENIED D — the attestor's evidence is threshold-short, so criome
+//!       returns a `Rejected` decision. `gate_and_ship_head` returns `Denied`
+//!       and the head does NOT ship: the outbox stays queued, durability stays
+//!       `QueuedForMirror`. The local commit stands; nothing fans out.
 //!
-//! Falsification: if origination bypassed criome, the denied head would still
-//! reach the router; if the projection fabricated a body, the carried entry
-//! would not re-hash to head `D` and the Evidence would not bind to it.
+//!   (c) UNCONFIGURED D — no local criome socket + attestor are configured.
+//!       `gate_and_ship_head` returns `Unconfigured` and does NOT ship. Missing
+//!       authorization is not a legacy pass-through.
+//!
+//! Falsification: if the gate shipped without consulting criome, the denied
+//! case would drain the outbox; if the projection fabricated a reference, the
+//! authorized reference's digest would not equal head D's digest.
 
-use std::io::Write;
-use std::os::unix::net::{UnixListener, UnixStream};
-use std::path::PathBuf;
-use std::sync::mpsc::{Receiver, RecvTimeoutError, channel};
-use std::time::Duration;
+use std::net::SocketAddr;
 
 use criome::daemon::CriomeDaemon;
 use criome::language::{AttestedMomentStatement, OperationStatement};
-use criome::master_key::MasterKey;
 use criome::tables::StoreLocation;
 use criome::transport::CriomeClient;
-use sema_engine::{EntryDigest, VersionedCommitLogEntry};
+use mirror::{Engine as MirrorEngine, Service, ServiceLink};
+use sema_engine::{Durability, EntryDigest};
 use signal_criome::{
     AttestedMoment, AttestedMomentProposition, AuthorizationMode as CriomeAuthorizationMode,
     ComponentKind, Contract, ContractDigest, CriomeReply, CriomeRequest, Evidence, Identity,
@@ -45,16 +43,13 @@ use signal_criome::{
     RequiredSignatureThreshold, Rule, SignatureEnvelope, SignatureScheme, StampedSignatureEnvelope,
     Threshold, TimeSignature, TimeWindow, TimestampNanos,
 };
-use signal_router::{
-    ActorIdentifier, ForwardedMessagePayload, Frame as RouterFrame, FrameBody as RouterFrameBody,
-    Input as RouterInput, MessageSlot, Output as RouterOutput,
-};
+use signal_spirit::AuthorizationMode;
 use spirit::criome_gate::{CriomeGate, GateDecision, LocalHeadCapture, SpiritAttestor};
-use spirit::origination::RouterOrigination;
 use spirit::schema::meta_signal::{
-    ArchiveDatabaseTarget, ConfigureRequest, CriomeGateTarget, CriomeSocketPathText,
-    Output as MetaOutput,
+    ArchiveDatabaseTarget, ConfigureRequest, CriomeGateTarget, CriomeSocketPathText, MirrorAddress,
+    MirrorAddressText, MirrorTarget, Output as MetaOutput,
 };
+use spirit::schema::sema::RecordFamily;
 use spirit::schema::signal::{
     Certainty, Description, Domains, Entry, Importance, Input, Justification, Kind, Magnitude,
     Output, Privacy, QuoteText, Reasoning, RecordRequest, Referent, Referents, Testimony,
@@ -62,7 +57,11 @@ use spirit::schema::signal::{
 };
 use spirit::{Engine, Store};
 use tempfile::TempDir;
-use triad_runtime::{FrameBody as LengthPrefixedFrameBody, LengthPrefixedCodec};
+use triad_runtime::kameo::actor::Spawn;
+
+use criome::master_key::MasterKey;
+
+const STORE_NAME: &str = RecordFamily::STORE_NAME;
 
 fn runtime() -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_multi_thread()
@@ -89,101 +88,62 @@ fn record_request(description: &str) -> RecordRequest {
     }
 }
 
-/// Record a change and return the committed record identifier.
-async fn record(engine: &mut Engine, description: &str) -> String {
+async fn record(engine: &mut Engine, description: &str) {
     let output = engine
         .handle_async(Input::record(record_request(description)))
         .await
         .into_root();
-    match output {
-        Output::RecordAccepted(accepted) => accepted.payload().payload().clone(),
-        other => panic!("record accepted, got {other:?}"),
-    }
+    assert!(
+        matches!(output, Output::RecordAccepted(_)),
+        "record accepted, got {output:?}"
+    );
+}
+
+fn mirror_target(address: SocketAddr) -> MirrorTarget {
+    MirrorTarget::Address(MirrorAddress::new(MirrorAddressText::new(
+        address.to_string(),
+    )))
 }
 
 fn criome_gate_target(path: &std::path::Path) -> CriomeGateTarget {
     CriomeGateTarget::socket(CriomeSocketPathText::new(path.display().to_string()))
 }
 
-fn decode_hex(text: &str) -> Vec<u8> {
-    assert!(text.len() % 2 == 0, "hex text is even length");
-    (0..text.len())
-        .step_by(2)
-        .map(|start| u8::from_str_radix(&text[start..start + 2], 16).expect("valid hex digit"))
-        .collect()
-}
-
-/// A stub LOCAL router: it binds a working Unix socket, accepts one
-/// `SubmitRoutedObjects` origination, captures the carried
-/// [`ForwardedMessagePayload`], and replies `RoutedObjectsAccepted` — enough for
-/// the origination hand-off to complete against a real socket without standing
-/// up the whole router daemon.
-struct StubRouter {
-    socket: PathBuf,
-    received: Receiver<ForwardedMessagePayload>,
-    _accept: std::thread::JoinHandle<()>,
-}
-
-impl StubRouter {
-    fn bind(socket: PathBuf) -> Self {
-        let listener = UnixListener::bind(&socket).expect("stub router binds its Unix socket");
-        let (sender, received) = channel();
-        let accept = std::thread::spawn(move || {
-            for stream in listener.incoming() {
-                let Ok(stream) = stream else { break };
-                Self::serve(stream, &sender);
-            }
-        });
-        Self {
-            socket,
-            received,
-            _accept: accept,
-        }
-    }
-
-    /// Serve one `SubmitRoutedObjects` origination on a connection.
-    fn serve(mut stream: UnixStream, sender: &std::sync::mpsc::Sender<ForwardedMessagePayload>) {
-        let codec = LengthPrefixedCodec::default();
-        let Ok(body) = codec.read_body(&mut stream) else {
-            return;
-        };
-        let Ok(frame) = RouterFrame::decode(body.bytes()) else {
-            return;
-        };
-        let RouterFrameBody::Request { exchange, request } = frame.into_body() else {
-            return;
-        };
-        if let RouterInput::SubmitRoutedObjects(payload) = request.payloads.into_head() {
-            let _ = sender.send(payload);
-        }
-        let reply = RouterOutput::routed_objects_accepted(MessageSlot::new(0)).into_reply_frame(exchange);
-        if let Ok(octets) = reply.encode() {
-            let _ = codec.write_body(&mut stream, &LengthPrefixedFrameBody::new(octets));
-            let _ = stream.flush();
-        }
-    }
-
-    fn socket(&self) -> PathBuf {
-        self.socket.clone()
-    }
-
-    /// The captured origination payload, or `None` if none arrived in time.
-    fn captured(&self) -> Option<ForwardedMessagePayload> {
-        self.received.recv_timeout(Duration::from_secs(5)).ok()
-    }
-
-    /// Whether the router received no origination within a short window.
-    fn received_nothing(&self) -> bool {
-        matches!(
-            self.received.recv_timeout(Duration::from_millis(500)),
-            Err(RecvTimeoutError::Timeout)
-        )
-    }
+/// Stand up an in-process mirror daemon (real engine, real store, loopback TCP)
+/// and register the spirit store on its meta surface — the fan-out target.
+async fn running_mirror(directory: &TempDir) -> (ServiceLink, SocketAddr) {
+    let store =
+        mirror::Store::open(&directory.path().join("mirror.sema")).expect("mirror store opens");
+    let service = Service::spawn(Service::new(
+        MirrorEngine::new(store),
+        "127.0.0.1:0".parse().expect("loopback address"),
+    ));
+    service.wait_for_startup().await;
+    let link = ServiceLink::new(service);
+    let address = link
+        .tcp_bound_address()
+        .await
+        .expect("query bound address")
+        .expect("the tailnet ingress is bound");
+    let registered = link
+        .meta(meta_signal_mirror::Input::RegisterStore(
+            meta_signal_mirror::StoreRegistration {
+                store: meta_signal_mirror::StoreName::new(STORE_NAME.to_owned()),
+                addressing: meta_signal_mirror::ContentAddressing::Opaque,
+            },
+        ))
+        .await
+        .expect("meta register");
+    assert!(matches!(
+        registered,
+        meta_signal_mirror::Output::StoreRegistered(_)
+    ));
+    (link, address)
 }
 
 /// The 1-of-1 criome policy: one release-authorization signer and one
-/// timekeeper, a single-member threshold-1 contract — the deploy-config trust
-/// material the gate's `SpiritAttestor` carries and the peer's criome re-judges.
+/// timekeeper, a single-member threshold-1 contract. This is the deploy-config
+/// trust material the gate's `SpiritAttestor` carries.
 struct LocalCriomePolicy {
     signer_identity: Identity,
     signer_key: MasterKey,
@@ -214,7 +174,7 @@ impl LocalCriomePolicy {
     /// The threshold-1, single-member contract: one signature from the local
     /// signer satisfies it (criome's `k > n/2` admits n=1, k=1).
     fn contract() -> Contract {
-        Contract::new(Rule::Threshold(Threshold::new(
+        Contract::root(Rule::Threshold(Threshold::new(
             RequiredSignatureThreshold::new(1),
             vec![PolicyMember::KeyMember(Identity::developer(
                 "spirit-local-signer".to_owned(),
@@ -268,7 +228,13 @@ impl LocalCriomePolicy {
                 },
             }]
         };
-        Evidence::new(ComponentKind::Spirit, operation, stamp, signatures, Vec::new())
+        Evidence::new(
+            ComponentKind::Spirit,
+            operation,
+            stamp,
+            signatures,
+            Vec::new(),
+        )
     }
 
     /// Seed the running criome daemon over the socket: register both identities
@@ -302,21 +268,25 @@ impl LocalCriomePolicy {
 /// Run a real criome daemon over a fresh Unix socket on its own OS thread,
 /// serving connections forever. Returns the socket path (kept alive by the
 /// owned temp dir the caller holds).
-fn spawn_local_criome(directory: &TempDir) -> PathBuf {
+fn spawn_local_criome(directory: &TempDir) -> std::path::PathBuf {
     let socket = directory.path().join("criome.sock");
     let store = StoreLocation::new(directory.path().join("criome.sema"));
     let bound = CriomeDaemon::new(socket.clone(), store)
         .bind()
         .expect("criome daemon binds its Unix socket");
     std::thread::spawn(move || {
+        // serve_forever ends when the listener errors (process teardown).
         let _ = bound.serve_forever();
     });
+    // The bind() above created the socket file before returning, so the gate's
+    // client will find it.
     socket
 }
 
 /// Run a real local criome daemon in AutoApprove mode for the socket-only
-/// production bootstrap path.
-fn spawn_auto_approve_criome(directory: &TempDir) -> PathBuf {
+/// production bootstrap path. Approval still means criome returns a signed
+/// `AuthorizationGrant`; the request shape is simple, not the answer.
+fn spawn_auto_approve_criome(directory: &TempDir) -> std::path::PathBuf {
     let socket = directory.path().join("criome-auto.sock");
     let store = StoreLocation::new(directory.path().join("criome-auto.sema"));
     let bound = CriomeDaemon::new(socket.clone(), store)
@@ -329,10 +299,22 @@ fn spawn_auto_approve_criome(directory: &TempDir) -> PathBuf {
     socket
 }
 
-fn open_spirit_engine(directory: &TempDir, name: &str) -> Engine {
+/// Open a fresh spirit engine armed at the in-process mirror.
+fn armed_spirit_engine(directory: &TempDir, name: &str, mirror_address: SocketAddr) -> Engine {
     let store = Store::open(directory.path().join(name)).expect("open spirit store");
     let mut engine = Engine::new(store);
     engine.start().expect("engine starts");
+    let configured = engine.configure(ConfigureRequest::new(
+        ArchiveDatabaseTarget::Default,
+        Some(mirror_target(mirror_address)),
+        None,
+        None,
+    ));
+    assert!(
+        matches!(configured, MetaOutput::Configured(_)),
+        "configure accepted, got {configured:?}"
+    );
+    assert!(engine.mirror_shipping_armed(), "the shipper is armed");
     engine
 }
 
@@ -340,7 +322,9 @@ fn open_spirit_engine(directory: &TempDir, name: &str) -> Engine {
 fn meta_configure_arms_and_clears_criome_gate_socket() {
     let directory = tempfile::tempdir().expect("component temp dir");
     let criome_socket = directory.path().join("criome.sock");
-    let mut engine = open_spirit_engine(&directory, "source.sema");
+    let store = Store::open(directory.path().join("source.sema")).expect("open spirit store");
+    let mut engine = Engine::new(store);
+    engine.start().expect("engine starts");
 
     let configured = engine.configure(ConfigureRequest::new(
         ArchiveDatabaseTarget::Default,
@@ -394,4 +378,243 @@ fn socket_only_gate_observes_signed_auto_approved_authorization() {
         observed.reference().digest,
         ObjectDigest::from_bytes(capture.head_digest().bytes())
     );
+}
+
+#[test]
+fn authorized_head_ships_and_emits_projected_reference_denied_head_does_not_ship() {
+    let runtime = runtime();
+    let mirror_a_directory = tempfile::tempdir().expect("mirror A temp dir");
+    let mirror_b_directory = tempfile::tempdir().expect("mirror B temp dir");
+    let criome_directory = tempfile::tempdir().expect("criome temp dir");
+    let authorized_directory = tempfile::tempdir().expect("authorized component temp dir");
+    let denied_directory = tempfile::tempdir().expect("denied component temp dir");
+
+    // The real local criome daemon over a Unix socket, seeded with a 1-of-1
+    // contract — spirit's gate will round-trip to it.
+    let criome_socket = spawn_local_criome(&criome_directory);
+    let policy = LocalCriomePolicy::new();
+    let contract = policy.seed(&criome_socket);
+
+    runtime.block_on(async {
+        let (link_a, mirror_address) = running_mirror(&mirror_a_directory).await;
+
+        // ============ PROOF (a): AUTHORIZED D ships + emits projection =========
+        let mut engine = armed_spirit_engine(&authorized_directory, "source.sema", mirror_address);
+        record(&mut engine, "the authorized head fans out").await;
+
+        // Capture head D exactly as the gate does, so we can assert the emitted
+        // reference's digest equals head D's digest (projection, not fabrication).
+        let head_digest = engine
+            .versioned_log_head()
+            .expect("versioned head reads")
+            .expect("a committed head exists");
+        let expected_object = ObjectDigest::from_bytes(head_digest.bytes());
+
+        // Arm the gate with an attestor whose evidence satisfies the contract.
+        let operation = OperationDigest::from_bytes(head_digest.bytes());
+        engine.arm_criome_gate(
+            &criome_socket,
+            SpiritAttestor::new(contract.clone(), policy.evidence(operation, 1)),
+        );
+        assert!(engine.criome_gate_armed(), "the criome gate is armed");
+
+        // Before the gate runs, the local history is queued for the mirror.
+        let handle = engine.store().engine_handle();
+        assert_eq!(
+            handle.store_durability().expect("durability reads"),
+            Durability::QueuedForMirror
+        );
+
+        // THE GATE: capture D → ask criome over the socket → ship only on
+        // Authorized. This is exactly what the daemon's handle_working_input
+        // calls.
+        let decision = engine
+            .gate_and_ship_head()
+            .await
+            .expect("the gate completes without machinery fault")
+            .expect("a head exists to authorize");
+        let GateDecision::Authorized(reference) = decision else {
+            panic!("expected Authorized over the socket, got {decision:?}");
+        };
+        // The emitted reference is the PROJECTION of head D — same digest, the
+        // Spirit component, the Head kind.
+        assert_eq!(reference.component, ComponentKind::Spirit);
+        assert_eq!(reference.kind, signal_criome::AuthorizedObjectKind::Head);
+        assert_eq!(
+            reference.digest, expected_object,
+            "the authorized reference is head D's digest, projected not fabricated"
+        );
+
+        // The authorized head FANNED OUT: the outbox drained, the shared engine
+        // marks the shipped history server-committed.
+        assert_eq!(
+            handle.store_durability().expect("durability reads"),
+            Durability::ServerCommitted,
+            "an authorized head ships to the mirror"
+        );
+        assert!(
+            handle.unshipped_outbox().expect("outbox reads").is_empty(),
+            "the authorized ship covers the whole outbox"
+        );
+        drop(link_a);
+
+        // ============ PROOF (b): DENIED D does NOT ship =======================
+        let (link_b, mirror_address_b) = running_mirror(&mirror_b_directory).await;
+        let mut denied = armed_spirit_engine(&denied_directory, "denied.sema", mirror_address_b);
+        record(&mut denied, "the denied head must not fan out").await;
+
+        let denied_head = denied
+            .versioned_log_head()
+            .expect("versioned head reads")
+            .expect("a committed head exists");
+        let denied_operation = OperationDigest::from_bytes(denied_head.bytes());
+        // Threshold-short evidence (zero operation signatures) → criome rejects.
+        denied.arm_criome_gate(
+            &criome_socket,
+            SpiritAttestor::new(contract.clone(), policy.evidence(denied_operation, 0)),
+        );
+
+        let denied_handle = denied.store().engine_handle();
+        assert_eq!(
+            denied_handle.store_durability().expect("durability reads"),
+            Durability::QueuedForMirror
+        );
+
+        let decision = denied
+            .gate_and_ship_head()
+            .await
+            .expect("the gate completes without machinery fault")
+            .expect("a head exists to authorize");
+        assert!(
+            matches!(decision, GateDecision::Denied(_)),
+            "a threshold-short head is denied over the socket, got {decision:?}"
+        );
+
+        // The denied head did NOT fan out: the outbox stays queued, the local
+        // commit stands alone.
+        assert_eq!(
+            denied_handle.store_durability().expect("durability reads"),
+            Durability::QueuedForMirror,
+            "a denied head must not ship — the local commit stands, nothing fans out"
+        );
+        assert!(
+            !denied_handle
+                .unshipped_outbox()
+                .expect("outbox reads")
+                .is_empty(),
+            "the denied write stays unshipped in the outbox"
+        );
+        drop(link_b);
+
+        // ============ PROOF (c): OBSERVING D receives criome's answer and still ships ==========
+        let mirror_observing_directory = tempfile::tempdir().expect("mirror observing temp dir");
+        let observing_directory = tempfile::tempdir().expect("observing component temp dir");
+        let (observing_link, observing_mirror_address) =
+            running_mirror(&mirror_observing_directory).await;
+        let mut observing = armed_spirit_engine(
+            &observing_directory,
+            "observing.sema",
+            observing_mirror_address,
+        );
+        observing.set_authorization_mode(AuthorizationMode::Observing);
+        record(
+            &mut observing,
+            "the observing head emits criome authorization and still fans out",
+        )
+        .await;
+
+        let observing_head = observing
+            .versioned_log_head()
+            .expect("versioned head reads")
+            .expect("a committed head exists");
+        let observing_operation = OperationDigest::from_bytes(observing_head.bytes());
+        observing.arm_criome_gate(
+            &criome_socket,
+            SpiritAttestor::new(contract.clone(), policy.evidence(observing_operation, 1)),
+        );
+
+        let observing_handle = observing.store().engine_handle();
+        assert_eq!(
+            observing_handle
+                .store_durability()
+                .expect("durability reads"),
+            Durability::QueuedForMirror
+        );
+
+        let decision = observing
+            .gate_and_ship_head()
+            .await
+            .expect("the observing gate completes without machinery fault")
+            .expect("a head exists to authorize");
+        let GateDecision::Observed(observed) = decision else {
+            panic!("expected observing mode to receive criome's verdict without blocking fan-out, got {decision:?}");
+        };
+        let reference = observed.reference();
+        assert!(observed.authorized());
+        assert_eq!(reference.component, ComponentKind::Spirit);
+        assert_eq!(reference.kind, signal_criome::AuthorizedObjectKind::Head);
+        assert_eq!(
+            reference.digest.clone(),
+            ObjectDigest::from_bytes(observing_head.bytes())
+        );
+        assert_eq!(
+            observing_handle
+                .store_durability()
+                .expect("durability reads"),
+            Durability::ServerCommitted,
+            "observing mode ships after seeing criome's non-blocking authorization"
+        );
+        assert!(
+            observing_handle
+                .unshipped_outbox()
+                .expect("outbox reads")
+                .is_empty(),
+            "observing mode drains the outbox after emitting the request"
+        );
+        drop(observing_link);
+
+        // ============ PROOF (d): UNCONFIGURED D does NOT ship ===============
+        let mirror_c_directory = tempfile::tempdir().expect("mirror C temp dir");
+        let unconfigured_directory = tempfile::tempdir().expect("unconfigured component temp dir");
+        let (link_c, mirror_address_c) = running_mirror(&mirror_c_directory).await;
+        let mut unconfigured = armed_spirit_engine(
+            &unconfigured_directory,
+            "unconfigured.sema",
+            mirror_address_c,
+        );
+        record(&mut unconfigured, "the unconfigured gate must not fan out").await;
+
+        let unconfigured_handle = unconfigured.store().engine_handle();
+        assert_eq!(
+            unconfigured_handle
+                .store_durability()
+                .expect("durability reads"),
+            Durability::QueuedForMirror
+        );
+
+        let decision = unconfigured
+            .gate_and_ship_head()
+            .await
+            .expect("the gate completes without machinery fault")
+            .expect("a head exists to authorize");
+        assert!(
+            matches!(decision, GateDecision::Unconfigured),
+            "an unconfigured local criome gate must hold the head back, got {decision:?}"
+        );
+        assert_eq!(
+            unconfigured_handle
+                .store_durability()
+                .expect("durability reads"),
+            Durability::QueuedForMirror,
+            "an unconfigured gate must not ship"
+        );
+        assert!(
+            !unconfigured_handle
+                .unshipped_outbox()
+                .expect("outbox reads")
+                .is_empty(),
+            "the unconfigured write stays unshipped in the outbox"
+        );
+        drop(link_c);
+    });
 }

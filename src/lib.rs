@@ -26,8 +26,6 @@
 
 #![forbid(unsafe_code)]
 
-#[cfg(feature = "mirror-shipper")]
-pub mod apply_ingress;
 pub mod config;
 #[cfg(feature = "mirror-shipper")]
 pub mod criome_gate;
@@ -41,13 +39,13 @@ mod guardian_journal;
 mod guardian_prompt;
 pub mod meta_transport;
 pub mod nexus;
-#[cfg(feature = "mirror-shipper")]
-pub mod origination;
 mod plane;
 #[cfg(feature = "production-migration")]
 pub mod production_migration;
 #[cfg(feature = "nota-text")]
 pub mod render;
+#[cfg(feature = "mirror-shipper")]
+pub mod shipper;
 pub mod store;
 pub mod subscription;
 #[cfg(feature = "testing-trace")]
@@ -80,8 +78,6 @@ pub mod schema {
     pub mod daemon;
 }
 
-#[cfg(feature = "mirror-shipper")]
-pub use apply_ingress::{AuthorizedApplyOutcome, PreparedAuthorizedApply};
 pub use config::{Configuration, ConfigurationError};
 #[cfg(feature = "mirror-shipper")]
 pub use criome_gate::{
@@ -89,7 +85,7 @@ pub use criome_gate::{
 };
 pub use daemon::{Daemon, SpiritDaemon, SpiritDaemonError};
 #[cfg(feature = "mirror-shipper")]
-pub use engine::OriginateHeadError;
+pub use engine::GateAndShipError;
 pub use engine::{
     Engine, MailIdentifier, MailLedger, MailLedgerEvent, MailLedgerHook, MessageIdentifier,
     MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook, OriginRoute,
@@ -113,7 +109,7 @@ pub use production_migration::{
 };
 pub use schema::daemon::{ComponentDaemon, DaemonCommand, DaemonEntry, DaemonError, ListenerTier};
 #[cfg(feature = "mirror-shipper")]
-pub use origination::{RouterOrigination, RouterOriginationError};
+pub use shipper::{MirrorShipper, MirrorShipperError};
 pub use store::{Store, StoreError, StoreFamilyDirectory};
 #[cfg(feature = "testing-trace")]
 pub use trace::{TraceClient, TraceError, TraceLog, TraceSocketListener, TraceSocketPath};

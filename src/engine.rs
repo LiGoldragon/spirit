@@ -1,12 +1,7 @@
 use std::{convert::Infallible, sync::Mutex as StdMutex};
 
 #[cfg(feature = "mirror-shipper")]
-use signal_criome::Evidence;
-#[cfg(feature = "mirror-shipper")]
-use signal_router::ForwardedMessagePayload;
-
-#[cfg(feature = "mirror-shipper")]
-use crate::origination::{RouterOrigination, RouterOriginationError};
+use crate::shipper::{MirrorShipper, MirrorShipperError};
 use crate::{
     nexus::Nexus,
     schema::{
@@ -19,9 +14,8 @@ use crate::{
         nexus::{self as nexus_schema, NexusAction, NexusEngine, NexusWork},
         sema::ErrorReport,
         signal::{
-            self as signal_schema, ApplyRefusalReason, AuthorizedRecordApplication, DatabaseMarker,
-            ErrorMessage, Input, Integer, IntentEvent, Output, RecordCount, SemaReceipt,
-            SupersessionReceipt, ValidationError,
+            self as signal_schema, DatabaseMarker, ErrorMessage, Input, Integer, IntentEvent,
+            Output, RecordCount, SemaReceipt, SupersessionReceipt, ValidationError,
         },
     },
     store::{Store, StoreError},
@@ -32,30 +26,24 @@ use crate::{ObjectName, TraceEvent, TraceLog};
 
 const ORIGIN_ROUTE_BASE: Integer = 1_000_000;
 
-/// The composed failure modes of the gated head origination
-/// ([`Engine::gate_and_hand_to_router`]): a head-capture / store read failure, a
+/// The composed failure modes of the gated head fan-out
+/// ([`Engine::gate_and_ship_head`]): a head-capture / store read failure, a
 /// gate-machinery failure (the blocking criome task or an off-contract reply),
-/// or a router hand-off failure on the authorized origination. An UNCONFIGURED,
-/// DENIED, or UNREACHABLE criome is NOT an error — it is a
+/// or a mirror-shipper transport failure on the authorized ship. An
+/// UNCONFIGURED, DENIED, or UNREACHABLE criome is NOT an error — it is a
 /// [`crate::criome_gate::GateDecision`] the daemon handles by holding the head
 /// back.
 #[cfg(feature = "mirror-shipper")]
 #[derive(Debug, thiserror::Error)]
-pub enum OriginateHeadError {
+pub enum GateAndShipError {
     #[error("head capture / store read failed: {0}")]
     Store(#[from] StoreError),
 
     #[error("criome gate failed: {0}")]
     Gate(#[from] crate::criome_gate::CriomeGateError),
 
-    #[error("router origination failed: {0}")]
-    Origination(#[from] RouterOriginationError),
-
-    #[error("router origination task failed: {message}")]
-    HandOffTask { message: String },
-
-    #[error("quorum origination failed: {0}")]
-    QuorumOrigination(#[from] crate::origination::QuorumOriginationError),
+    #[error("authorized mirror ship failed: {0}")]
+    Ship(#[from] MirrorShipperError),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -315,27 +303,21 @@ pub struct Engine {
     signal_admission: SignalAdmission,
     nexus: Nexus,
     authorization_mode: signal_spirit::AuthorizationMode,
-    // The OFF-by-default router origination target. Present only under the
-    // `mirror-shipper` feature (which the binary-only daemon build excludes to
-    // keep nota out of its dependency tree). `None` until armed with a LOCAL
-    // router working socket + source/destination actors, so a daemon that never
-    // arms origination behaves identically to one built before mirroring
-    // existed: it authorizes its head locally and hands it to no peer.
+    // The OFF-by-default mirror gate. Present only under the `mirror-shipper`
+    // feature (which the binary-only daemon build excludes to keep nota
+    // out of its dependency tree). Even when built in, it is unarmed until an
+    // owner `Configure` carries a `MirrorTarget::Address`, so a daemon that
+    // never receives a mirror target behaves identically to one built before
+    // mirroring existed.
     #[cfg(feature = "mirror-shipper")]
-    router_origination: Option<RouterOrigination>,
+    mirror_shipper: MirrorShipper,
     // The 1-of-1 LOCAL criome gate (Spirit `xhwa`). Present only under the
-    // `mirror-shipper` feature alongside the origination it gates. Unarmed by
+    // `mirror-shipper` feature alongside the shipper it gates. Unarmed by
     // default: a daemon with no configured local criome holds the head back
-    // because no authorization exists. When armed, every origination is held
+    // because no authorization exists. When armed, every fan-out is held
     // behind a real criome authorization round-trip.
     #[cfg(feature = "mirror-shipper")]
     criome_gate: crate::criome_gate::CriomeGate,
-    // The bounded budget the detached quorum ship awaits a proposed round's
-    // completion on (until criome ships an authorized-object completion push).
-    // Default is a generous deadline; tests tighten it to keep the withhold case
-    // fast.
-    #[cfg(feature = "mirror-shipper")]
-    quorum_completion_budget: crate::origination::QuorumCompletionBudget,
     #[cfg(feature = "testing-trace")]
     trace_log: TraceLog,
 }
@@ -394,11 +376,9 @@ impl Engine {
                 nexus: Nexus::new(store),
                 authorization_mode: signal_spirit::AuthorizationMode::Gating,
                 #[cfg(feature = "mirror-shipper")]
-                router_origination: None,
+                mirror_shipper: MirrorShipper::new(),
                 #[cfg(feature = "mirror-shipper")]
                 criome_gate: crate::criome_gate::CriomeGate::new(),
-                #[cfg(feature = "mirror-shipper")]
-                quorum_completion_budget: crate::origination::QuorumCompletionBudget::default(),
             }
         }
     }
@@ -420,11 +400,9 @@ impl Engine {
             nexus: Nexus::new_with_trace(store, trace_log.clone()),
             authorization_mode: signal_spirit::AuthorizationMode::Gating,
             #[cfg(feature = "mirror-shipper")]
-            router_origination: None,
+            mirror_shipper: MirrorShipper::new(),
             #[cfg(feature = "mirror-shipper")]
             criome_gate: crate::criome_gate::CriomeGate::new(),
-            #[cfg(feature = "mirror-shipper")]
-            quorum_completion_budget: crate::origination::QuorumCompletionBudget::default(),
             trace_log,
         }
     }
@@ -593,12 +571,22 @@ impl Engine {
             };
             self.nexus.set_guardian_prompt_source(prompt_source);
         }
-        // The mirror target is retained in the meta contract and echoed in the
-        // receipt for continuity, but there is no longer a direct-to-mirror
-        // shipper to arm: origination now hands the authorized head to the LOCAL
-        // router, armed out of band via `arm_router_origination` (the deploy
-        // wiring of the router socket + peer actors is owned by the deploy
-        // milestone). The criome gate is still armed from the meta Configure.
+        // Arm (or disarm) the mirror shipper against the live engine handle.
+        // A bad mirror address is an owner-config error, not a SEMA fault, so
+        // it rejects the Configure rather than silently leaving mirroring off.
+        // Present only when the gated shipper is built in; without it the
+        // mirror target is echoed in the receipt but no shipper exists.
+        #[cfg(feature = "mirror-shipper")]
+        if let Err(error) = self
+            .mirror_shipper
+            .configure(mirror_target.as_ref(), self.nexus.store().engine_handle())
+        {
+            let _ = error;
+            return MetaOutput::rejected(ConfigureRejection {
+                configure_rejection_reason: ConfigureRejectionReason::InternalError,
+                database_marker: self.nexus.database_marker(),
+            });
+        }
         #[cfg(feature = "mirror-shipper")]
         match &criome_gate_target {
             Some(crate::schema::meta_signal::CriomeGateTarget::Socket(socket_path)) => {
@@ -623,52 +611,24 @@ impl Engine {
         ))
     }
 
-    /// Arm the OFF-by-default router origination against a LOCAL router working
-    /// socket and the source/destination actors the router routes the hand-off
-    /// by. An armed origination hands every authorized head to the LOCAL router;
-    /// an unarmed origination authorizes the head locally and hands it to no
-    /// peer.
+    /// Whether the OFF-by-default mirror shipper is armed (an owner configured
+    /// a `MirrorTarget::Address`).
     #[cfg(feature = "mirror-shipper")]
-    pub fn arm_router_origination(&mut self, origination: RouterOrigination) {
-        self.router_origination = Some(origination);
+    pub fn mirror_shipping_armed(&self) -> bool {
+        self.mirror_shipper.is_armed()
     }
 
-    /// Set the bounded budget the detached quorum ship awaits a proposed round's
-    /// completion on. Tests tighten it so the withhold (peer-down) case resolves
-    /// quickly; the default is generous.
+    /// Drain the engine's unshipped versioned-log outbox to the configured
+    /// mirror. A no-op when mirroring is off, so the daemon's post-commit hook
+    /// calls it unconditionally. Shipping is best-effort relative to LOCAL
+    /// durability: the working write already committed locally before this
+    /// runs, so a mirror that is unreachable leaves the local log intact and
+    /// the suffix waiting in the outbox for the next drain.
     #[cfg(feature = "mirror-shipper")]
-    pub fn set_quorum_completion_budget(
-        &mut self,
-        budget: crate::origination::QuorumCompletionBudget,
-    ) {
-        self.quorum_completion_budget = budget;
-    }
-
-    /// Whether router origination is armed.
-    #[cfg(feature = "mirror-shipper")]
-    pub fn router_origination_armed(&self) -> bool {
-        self.router_origination.is_some()
-    }
-
-    /// Project the current versioned-log head into the router hand-off payload,
-    /// carrying the supplied `evidence` as the authorized Evidence. `None` when
-    /// origination is unarmed or the log is empty. This is the pure projection —
-    /// no gate round-trip, no socket dial — so callers that already hold a
-    /// verdict + Evidence (the daemon's `gate_and_hand_to_router`, and
-    /// integration harnesses driving the join) build the exact
-    /// `ForwardedMessagePayload` the router forwards.
-    #[cfg(feature = "mirror-shipper")]
-    pub fn build_head_submission(
+    pub async fn ship_unshipped_to_mirror(
         &self,
-        evidence: Evidence,
-    ) -> Result<Option<ForwardedMessagePayload>, OriginateHeadError> {
-        let Some(origination) = self.router_origination.as_ref() else {
-            return Ok(None);
-        };
-        let Some(head_object) = self.nexus.store().versioned_log_head_object()? else {
-            return Ok(None);
-        };
-        Ok(Some(origination.submission_for_head(head_object, evidence)?))
+    ) -> Result<Option<mirror::ShipOutcome>, MirrorShipperError> {
+        self.mirror_shipper.ship_unshipped().await
     }
 
     /// Arm the 1-of-1 LOCAL criome gate against a local criome socket path and
@@ -690,62 +650,55 @@ impl Engine {
         self.criome_gate.is_armed()
     }
 
-    /// THE QUORUM ORIGINATION BOUNDARY. Capture the post-commit local head `D`
-    /// and hand it to the async propose→completion quorum boundary: a change is a
-    /// durable PENDING proposal in the LOCAL criome until a true majority co-signs,
-    /// and ONLY the quorum's `Authorized` verdict — carrying the real assembled
-    /// Evidence — releases the head to the LOCAL router for the peer.
+    /// THE GATE. Capture the post-commit local head `D` and apply the configured
+    /// authorization mode.
     ///
-    /// This REPLACES the 1-of-1 gate (the `.3` de-risk join): origination no
-    /// longer submits a caller-assembled Evidence for an immediate verdict; it
-    /// proposes the head's operation digest under the admitted mirror quorum
-    /// contract, criome gathers the peer's vote across the voice, and Spirit ships
-    /// the head + the quorum-assembled Evidence on completion. The peer's apply
-    /// ingress then re-judges that same Evidence independently (fail-closed).
+    /// Order (report 703-6 Item 1): the working write already committed
+    /// LOCALLY before this runs (`Engine::handle_async`). `Gating` mode asks
+    /// local criome over the per-user Unix socket and ships only when criome
+    /// authorizes. `Observing` mode emits the same request and proceeds without
+    /// waiting for criome's verdict.
     ///
-    /// Withhold-until-authorized: the head is NEVER shipped while the round is
-    /// `Gathering`. An unreachable peer leaves the round pending forever — the
-    /// change waits, never last-writer-wins. Nothing is fabricated: only the real
-    /// majority verdict ships.
-    ///
-    /// Off the mailbox: the proposal is a fast criome round-trip on a
-    /// `spawn_blocking` worker; when the round opens `Gathering`, a DETACHED task
-    /// awaits its completion and ships on the verdict, so a slow or down peer never
-    /// stalls the working reply. (Until criome ships an authorized-object
-    /// completion push, that detached task awaits on a bounded budget rather than a
-    /// subscription — see [`crate::origination::QuorumCompletionBudget`].) An empty
-    /// versioned log is a no-op: it returns `None`.
+    /// Returns the gate decision: `Authorized` carries the emitted reference
+    /// (the SAME projection that fed the criome request, so authorized head ==
+    /// fanned head). An empty versioned log (nothing to authorize) is a no-op:
+    /// it returns `None`.
     #[cfg(feature = "mirror-shipper")]
-    pub async fn gate_and_hand_to_router(
+    pub async fn gate_and_ship_head(
         &self,
-    ) -> Result<Option<crate::origination::QuorumOriginationOutcome>, OriginateHeadError> {
-        use crate::origination::{QuorumOriginationOutcome, QuorumShip};
+    ) -> Result<Option<crate::criome_gate::GateDecision>, GateAndShipError> {
         let Some(head_digest) = self.versioned_log_head()? else {
             return Ok(None);
         };
         let capture = crate::criome_gate::LocalHeadCapture::spirit_head(head_digest);
-        // The quorum boundary needs the LOCAL criome socket, the admitted mirror
-        // contract, and an armed router origination. Absent any, there is no
-        // quorum to run: the head lands locally with no peer.
-        let (Some(criome_socket), Some(contract), Some(origination)) = (
-            self.criome_gate.socket_path().map(std::path::Path::to_path_buf),
-            self.criome_gate.configured_contract(),
-            self.router_origination.clone(),
-        ) else {
-            return Ok(Some(QuorumOriginationOutcome::Unconfigured));
+        let decision = match self.authorization_mode {
+            signal_spirit::AuthorizationMode::Gating => {
+                self.criome_gate.authorize_head(&capture).await?
+            }
+            signal_spirit::AuthorizationMode::Observing => {
+                let decision = self.criome_gate.observe_authorization(&capture).await?;
+                #[cfg(feature = "testing-trace")]
+                if matches!(decision, crate::criome_gate::GateDecision::Observed(_)) {
+                    self.trace_log
+                        .record(TraceEvent::new(ObjectName::Authorization(
+                            crate::AuthorizationObjectName::Observed,
+                        )));
+                }
+                decision
+            }
         };
-        let Some(head_object) = self.nexus.store().versioned_log_head_object()? else {
-            return Ok(None);
-        };
-        let ship = QuorumShip::new(
-            criome_socket,
-            contract,
-            signal_criome::AuthorizedObjectReference::from(&capture),
-            head_object,
-            origination,
-            self.quorum_completion_budget.clone(),
-        );
-        Ok(Some(ship.originate().await?))
+        if decision.ships() {
+            self.mirror_shipper.ship_unshipped().await?;
+        }
+        Ok(Some(decision))
+    }
+
+    /// Publish the store's latest local checkpoint to the configured mirror,
+    /// the portable restore body a fresh store fetches alongside the shipped
+    /// log suffix. A no-op when mirroring is off.
+    #[cfg(feature = "mirror-shipper")]
+    pub async fn publish_checkpoint_to_mirror(&self) -> Result<bool, MirrorShipperError> {
+        self.mirror_shipper.publish_checkpoint().await
     }
 
     pub async fn configure_async(&mut self, request: ConfigureRequest) -> MetaOutput {
@@ -784,62 +737,6 @@ impl Engine {
 
     pub async fn import_async(&mut self, request: ImportRequest) -> MetaOutput {
         self.import(request)
-    }
-
-    /// The quorum-gated authorized-apply ingress (Spirit `xhwa`, piece 4): land
-    /// an arriving record LIVE into the running store after the LOCAL criome
-    /// re-judges the carried Evidence, fail-closed.
-    ///
-    /// Unlike the owner-only meta `Import` (which applies on owner-trust), this
-    /// working-tier ingress applies a foreign record ONLY because the quorum
-    /// authorized it — confirmed here, independently, by this node's criome from
-    /// the carried Evidence, never on the sender's say-so. The parse verifies the
-    /// carried entry re-hashes to the digest the Evidence authorized (content
-    /// binding); the criome re-judge must return `Authorized`; only then does the
-    /// record land via `Store::import_record` into the same live
-    /// `Arc<SemaDatabase>` reads see, so a following `Observe` returns it with no
-    /// restart. Any malformed body, re-hash mismatch, unreachable/unconfigured
-    /// criome, or non-`Authorized` verdict refuses fail-closed.
-    #[cfg(feature = "mirror-shipper")]
-    pub async fn apply_authorized_record(&self, request: AuthorizedRecordApplication) -> Output {
-        use crate::apply_ingress::{AuthorizedApplyOutcome, PreparedAuthorizedApply};
-        let prepared = match PreparedAuthorizedApply::prepare(
-            &request,
-            self.criome_gate.configured_contract(),
-        ) {
-            Ok(prepared) => prepared,
-            Err(reason) => return AuthorizedApplyOutcome::Refused(reason).into_output(),
-        };
-        let decision = match self
-            .criome_gate
-            .evaluate_carried(prepared.evaluation().clone())
-            .await
-        {
-            Ok(Some(decision)) => decision,
-            // Unarmed / unreachable criome, or a gate-machinery fault: no
-            // authorization exists, so the apply is held back, fail-closed.
-            Ok(None) | Err(_) => {
-                return AuthorizedApplyOutcome::Refused(
-                    ApplyRefusalReason::AuthorizationUnavailable,
-                )
-                .into_output();
-            }
-        };
-        prepared
-            .resolve(&decision, self.nexus.store())
-            .into_output()
-    }
-
-    /// The fail-closed default when the mirror surface is not built in: a daemon
-    /// without the local criome gate cannot authorize a foreign apply, so it
-    /// refuses. Keeps the working `Input::ApplyAuthorizedRecord` variant total
-    /// across builds.
-    #[cfg(not(feature = "mirror-shipper"))]
-    pub async fn apply_authorized_record(&self, request: AuthorizedRecordApplication) -> Output {
-        let _ = request;
-        Output::apply_refused(signal_schema::ApplyRefusal::new(
-            ApplyRefusalReason::AuthorizationUnavailable,
-        ))
     }
 
     /// Owner-only meta `ObserveHead`: report the store's current versioned-log

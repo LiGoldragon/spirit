@@ -148,39 +148,27 @@ impl ComponentDaemon for SpiritDaemon {
         input: Input,
         _connection: &triad_runtime::ConnectionContext,
     ) -> Result<Output, Self::Error> {
-        // THE QUORUM-GATED AUTHORIZED-APPLY INGRESS (Spirit piece 4). An arriving
-        // record is NOT a local intent write: it lands LIVE only after the LOCAL
-        // criome re-judges the carried Evidence, fail-closed. Intercept it before
-        // the ordinary Signal -> Nexus -> SEMA pipeline, mirroring how the criome
-        // gate orchestrates its own criome round-trip at this daemon seam. The
-        // router delivers this frame to the working socket; the re-judge — not
-        // owner-trust — is what authorizes the apply.
-        let input = match input {
-            Input::ApplyAuthorizedRecord(request) => {
-                return Ok(engine.apply_authorized_record(request.into_payload()).await);
-            }
-            other => other,
-        };
         let output = engine.handle_async(input).await.root().clone();
-        // THE 1-of-1 LOCAL CRIOME GATE + ROUTER ORIGINATION (Spirit `xhwa`).
+        // THE 1-of-1 LOCAL CRIOME GATE (Spirit `xhwa`, report 703-6 Item 1).
         //
-        // The working write committed LOCALLY above. Before handing the
-        // committed head to the LOCAL router for the peer, ask the co-resident
+        // The working write committed LOCALLY above. Before fanning the
+        // committed head out to the configured mirror, ask the co-resident
         // LOCAL criome daemon to authorize the content-addressed head `D`, and
-        // originate ONLY on an authorizing decision. `gate_and_hand_to_router`
-        // captures `D` from the local versioned log, calls the local criome over
-        // its Unix socket, and on an authorizing verdict projects the SAME
-        // Evidence into an `ApplyAuthorizedRecord` frame and hands it to the
-        // LOCAL router's working socket (both the criome and router dials run on
-        // `spawn_blocking`, so the actor mailbox is never blocked).
+        // fan out ONLY on an `Authorized` decision. `gate_and_ship_head`
+        // captures `D` from the local versioned log (never `ShipOutcome.head`),
+        // projects it to the criome reference, calls the local criome over its
+        // Unix socket (synchronous `CriomeClient::send` wrapped in
+        // `spawn_blocking` — the actor mailbox is never blocked), and ships the
+        // outbox only when criome authorizes.
         //
-        // Present only under the `mirror-shipper` feature. An UNCONFIGURED,
-        // DENIED, or UNREACHABLE criome holds the head back (the local commit
-        // stands, the head waits for the next authorized drain), and a
-        // hand-off / gate-machinery fault is logged. Neither ever fails the
-        // working reply: the local commit already landed durably.
+        // Present only under the `mirror-shipper` feature. The gate INVERTS
+        // the prior best-effort ship: an UNCONFIGURED, DENIED, or UNREACHABLE
+        // criome holds the head back (the local commit stands, the suffix
+        // waits for the next authorized drain), and a gate-machinery fault is
+        // logged. Neither ever fails the working reply: the local commit
+        // already landed durably.
         #[cfg(feature = "mirror-shipper")]
-        match engine.gate_and_hand_to_router().await {
+        match engine.gate_and_ship_head().await {
             Ok(_decision) => {}
             Err(error) => {
                 let _ = error;
@@ -250,8 +238,8 @@ impl ComponentDaemon for SpiritDaemon {
             | Input::LookupStash(_)
             | Input::Tap(_)
             | Input::Untap(_)
-            | Input::ApplyAuthorizedRecord(_)
             | Input::Version
+            | Input::ApplyAuthorizedRecord(_)
             | Input::Marker => None,
         }
     }
