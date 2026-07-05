@@ -349,13 +349,12 @@
     "schema-rust-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783171959,
-        "narHash": "sha256-eIVe7CoZAxQqE+tGO7T8IdHM3im//G4QNeZRDhNohIA=",
-        "ref": "main",
-        "rev": "0eb5be666254f5ae9d0f5fee3befddbf98be2f42",
-        "revCount": 208,
-        "type": "git",
-        "url": "https://github.com/LiGoldragon/schema-rust.git"
+        "lastModified": 1783209232,
+        "narHash": "sha256-cnoqgjW8X4crb5RBbt1tfCbtE1M1flNfl+0QY8FzFss=",
+        "owner": "LiGoldragon",
+        "repo": "schema-rust",
+        "rev": "94a0aa88a1d909b6f87cbf1431762c6fb0e19b71",
+        "type": "github"
       },
       "original": {
         "ref": "main",
@@ -366,13 +365,12 @@
     "schema-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1782938373,
-        "narHash": "sha256-QeqQVOd8JJAVabcE1n0vDxQfcMVNo6jGLryESvoyQhw=",
-        "ref": "main",
-        "rev": "9af2c546f10c9aec5fd6669592aed32f72077df2",
-        "revCount": 161,
-        "type": "git",
-        "url": "https://github.com/LiGoldragon/schema.git"
+        "lastModified": 1783088422,
+        "narHash": "sha256-97Rvby1s8qchVzjZ03RuERxYgNlHz1XrsgkJCAep3Pc=",
+        "owner": "LiGoldragon",
+        "repo": "schema",
+        "rev": "a393c8c822cea737d7ed8e823eae7d821ea19bf2",
+        "type": "github"
       },
       "original": {
         "ref": "main",
@@ -482,13 +480,12 @@
     "signal-frame-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1782902723,
-        "narHash": "sha256-OTJIJ2RLweo3IrTUBT3MDrDoBZ6MBs4C0T1dZR7tCto=",
-        "ref": "main",
-        "rev": "075b0d992dab071c5021842fb7fdfe0b98bfcd76",
-        "revCount": 69,
-        "type": "git",
-        "url": "https://github.com/LiGoldragon/signal-frame.git"
+        "lastModified": 1783092310,
+        "narHash": "sha256-vzr0g8gLLHKchkNPvzDDdhNprjx3JEnwe57bdj6ZNAE=",
+        "owner": "LiGoldragon",
+        "repo": "signal-frame",
+        "rev": "44d22a07e75e6d2ff13581a5bb84d47c6ef35e97",
+        "type": "github"
       },
       "original": {
         "ref": "main",
@@ -627,11 +624,11 @@
     "signal-spirit-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783209715,
-        "narHash": "sha256-hayGqx7DxWLCKehvkHQgBgexLXuew9McsbcvqjeH0yI=",
+        "lastModified": 1783213620,
+        "narHash": "sha256-QJZjlXxtP0IX2u9rb96z/mxNeZZHUmQ9VjHxGjNh2DA=",
         "owner": "LiGoldragon",
         "repo": "signal-spirit",
-        "rev": "8c485396599a694bc9c77f219eb458cdcb951f91",
+        "rev": "889b5544f1947bd462ecb6d2dfe1feab9681a6b7",
         "type": "github"
       },
       "original": {
@@ -689,13 +686,12 @@
     "triad-runtime-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1782902749,
-        "narHash": "sha256-l8D0c7uKQs6xnq9C09SkJOdKvDtTz9BgmoECg/xpQVo=",
-        "ref": "main",
-        "rev": "3d3207461bcbd39dd2505d0bb957b6fec30c98d9",
-        "revCount": 46,
-        "type": "git",
-        "url": "https://github.com/LiGoldragon/triad-runtime.git"
+        "lastModified": 1783092452,
+        "narHash": "sha256-BZEHCvF2WbD7q8MV70q378Xg6X0Eq2ZH+Ntt1bY1CZ4=",
+        "owner": "LiGoldragon",
+        "repo": "triad-runtime",
+        "rev": "f9a6a7c8ab50dbd5b5a8ef7bfd7ea8c9acb713e1",
+        "type": "github"
       },
       "original": {
         "ref": "main",
