@@ -512,13 +512,12 @@ friendly working-signal verbs visible while preserving the full `Query`
 predicate for structured/exhaustive reads.
 
 Compatibility note: active records no longer carry certainty or embedded
-referents. The normal store and wire surface compile and run against the new
-shape, but the `production-migration` feature still needs a dedicated legacy
-entry conversion pass that reads older stored certainty/referent fields, drops
-them from current `Entry`, and preserves explicit referent table rows. Until
-that pass lands, old production stores require migration tooling from the
-pre-redesign branch or a one-off conversion step before opening with this
-schema.
+referents. The `production-migration` feature keeps those fields only in frozen
+legacy storage snapshots, then the version-named `v0_22_to_v0_23` migration
+consumes and drops them while building the current `Entry`. Explicit referent
+registry rows still migrate through the shared fold support, so the public
+intent schema change removes per-record referents without deleting the
+registered referent table.
 
 `CollectRemovalCandidates` is the owner-only archiving operation on the meta
 socket — the component's only physical-deletion path, ported from old
@@ -690,12 +689,15 @@ uses `sema-engine` over a `*.sema` file:
   lets it evolve and be pruned on its own schedule without touching intent
   history.
 - `StoreMigration` (feature `production-migration`, binary
-  `spirit-migrate-store`) is the schema-version bump path: pre-versioning
-  stores (schema versions 7 and 8, unreadable by the current engine's storage
-  layout) are read with the renamed `sema-engine-previous` dependency,
-  converted through the historical `From`-chain, and written into a fresh
-  version-9 store through the logged choke points, closing with the typed
-  `Migration` marker — migration as a logged fold, not an unlogged rewrite.
+  `spirit-migrate-store`) is the schema-version bump path. The public facade is
+  `src/production_migration/mod.rs`; reusable frozen-field support lives beside
+  it, and concrete schema changes get version-named modules such as
+  `src/production_migration/v0_22_to_v0_23.rs`. Pre-versioning stores (schema
+  versions 7 and 8, unreadable by the current engine's storage layout) are read
+  with the renamed `sema-engine-previous` dependency, converted through the
+  historical `From`-chain, and written into a fresh versioned store through the
+  logged choke points, closing with the typed `Migration` marker — migration as
+  a logged fold, not an unlogged rewrite.
   No pre-version-7 store exists anywhere, so a probed version below 7 is
   rejected as `UnknownSchemaVersion` rather than folded forward.
   The default archive sibling is rebuilt alongside; the v2 guardian journal

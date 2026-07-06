@@ -53,6 +53,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
+mod support;
+mod v0_22_to_v0_23;
+
 use nota::{NotaDecode, NotaDecodeError, NotaEncode, NotaSource};
 use sema_engine::{
     Engine as CurrentSemaDatabase, EngineOpen as CurrentEngineOpen,
@@ -84,15 +87,15 @@ use crate::{
             StoredRecord, StoredReferent, family_identity,
         },
         signal::{
-            Certainty, DataLeaf, Description, DistributedLeaf, Domain, Domains, EngineeringLeaf,
-            Entry, HardwareLeaf, Importance, Information, IntelligenceLeaf, Kind,
-            ObservabilityLeaf, OperationsLeaf, Privacy, ProgrammingLeaf, QualityLeaf,
-            RecordIdentifier, Referent, Referents, SecurityLeaf, Software, SurfacesLeaf,
-            SystemsLeaf, Technology,
+            DataLeaf, Description, DistributedLeaf, Domain, Domains, EngineeringLeaf, Entry,
+            HardwareLeaf, Importance, Information, IntelligenceLeaf, Kind, ObservabilityLeaf,
+            OperationsLeaf, Privacy, ProgrammingLeaf, QualityLeaf, RecordIdentifier, Referent,
+            Referents, SecurityLeaf, Software, SurfacesLeaf, SystemsLeaf, Technology,
         },
     },
     store::ArchiveDatabase,
 };
+use support::LegacyCertainty;
 
 const SPIRIT_STORE_V7_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(7);
 const SPIRIT_STORE_V8_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(8);
@@ -323,7 +326,7 @@ struct SpiritStoreV7Entry {
     domains: store_version_seven::Domains,
     kind: Kind,
     description: Description,
-    certainty: Certainty,
+    certainty: LegacyCertainty,
     importance: Importance,
     privacy: Privacy,
     referents: Referents,
@@ -364,11 +367,11 @@ struct SpiritStoreV9Record {
 #[allow(clippy::enum_variant_names, dead_code)]
 mod store_version_nine {
     use super::{
-        Certainty, DataLeaf, Description, DistributedLeaf, Domain as CurrentDomain,
-        Domains as CurrentDomains, EngineeringLeaf, Entry as CurrentEntry, HardwareLeaf,
-        Importance, Information, IntelligenceLeaf, Kind, ObservabilityLeaf, OperationsLeaf,
-        Privacy, ProgrammingLeaf, QualityLeaf, Referents, SecurityLeaf,
-        Software as CurrentSoftware, SurfacesLeaf, SystemsLeaf, Technology as CurrentTechnology,
+        DataLeaf, Description, DistributedLeaf, Domain as CurrentDomain, Domains as CurrentDomains,
+        EngineeringLeaf, Entry as CurrentEntry, HardwareLeaf, Importance, Information,
+        IntelligenceLeaf, Kind, LegacyCertainty, ObservabilityLeaf, OperationsLeaf, Privacy,
+        ProgrammingLeaf, QualityLeaf, Referents, SecurityLeaf, Software as CurrentSoftware,
+        SurfacesLeaf, SystemsLeaf, Technology as CurrentTechnology,
     };
 
     #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -376,7 +379,7 @@ mod store_version_nine {
         pub(super) domains: Domains,
         pub(super) kind: Kind,
         pub(super) description: Description,
-        pub(super) certainty: Certainty,
+        pub(super) certainty: LegacyCertainty,
         pub(super) importance: Importance,
         pub(super) privacy: Privacy,
         pub(super) referents: Referents,
@@ -732,15 +735,16 @@ mod store_version_nine {
     impl Entry {
         pub(super) fn into_current(self) -> CurrentEntry {
             let (domains, description) = self.domains.into_current(self.description);
-            CurrentEntry {
+            super::v0_22_to_v0_23::PublicIntentEntryMigration::new(
                 domains,
-                kind: self.kind,
+                self.kind,
                 description,
-                certainty: self.certainty,
-                importance: self.importance,
-                privacy: self.privacy,
-                referents: self.referents,
-            }
+                self.certainty,
+                self.importance,
+                self.privacy,
+                self.referents,
+            )
+            .into_current()
         }
     }
 
@@ -749,7 +753,7 @@ mod store_version_nine {
         pub(super) fn documentation(
             description: &str,
             referents: Vec<super::Referent>,
-            certainty: Certainty,
+            certainty: LegacyCertainty,
             importance: Importance,
             privacy: Privacy,
         ) -> Self {
@@ -768,7 +772,7 @@ mod store_version_nine {
 
         pub(super) fn data_query_processing(
             description: &str,
-            certainty: Certainty,
+            certainty: LegacyCertainty,
             importance: Importance,
             privacy: Privacy,
         ) -> Self {
@@ -784,7 +788,7 @@ mod store_version_nine {
         fn from_domain(
             domain: Domain,
             description: &str,
-            certainty: Certainty,
+            certainty: LegacyCertainty,
             importance: Importance,
             privacy: Privacy,
         ) -> Self {
@@ -2113,11 +2117,11 @@ mod store_version_seven {
 #[allow(clippy::enum_variant_names)]
 mod store_version_ten {
     use super::{
-        Certainty, DataLeaf as CurrentDataLeaf, Description,
-        DistributedLeaf as CurrentDistributedLeaf, Domain as CurrentDomain,
-        Domains as CurrentDomains, EngineeringLeaf as CurrentEngineeringLeaf,
-        Entry as CurrentEntry, HardwareLeaf as CurrentHardwareLeaf, Importance,
-        IntelligenceLeaf as CurrentIntelligenceLeaf, Kind,
+        DataLeaf as CurrentDataLeaf, Description, DistributedLeaf as CurrentDistributedLeaf,
+        Domain as CurrentDomain, Domains as CurrentDomains,
+        EngineeringLeaf as CurrentEngineeringLeaf, Entry as CurrentEntry,
+        HardwareLeaf as CurrentHardwareLeaf, Importance,
+        IntelligenceLeaf as CurrentIntelligenceLeaf, Kind, LegacyCertainty,
         ObservabilityLeaf as CurrentObservabilityLeaf, OperationsLeaf as CurrentOperationsLeaf,
         Privacy, ProgrammingLeaf as CurrentProgrammingLeaf, QualityLeaf as CurrentQualityLeaf,
         RecordIdentifier, Referents, SecurityLeaf as CurrentSecurityLeaf,
@@ -2142,7 +2146,7 @@ mod store_version_ten {
         pub(super) domains: Domains,
         pub(super) kind: Kind,
         pub(super) description: Description,
-        pub(super) certainty: Certainty,
+        pub(super) certainty: LegacyCertainty,
         pub(super) importance: Importance,
         pub(super) privacy: Privacy,
         pub(super) referents: Referents,
@@ -2326,15 +2330,16 @@ mod store_version_ten {
 
     impl Entry {
         pub(super) fn into_current(self) -> CurrentEntry {
-            CurrentEntry {
-                domains: self.domains.into_current(),
-                kind: self.kind,
-                description: self.description,
-                certainty: self.certainty,
-                importance: self.importance,
-                privacy: self.privacy,
-                referents: self.referents,
-            }
+            super::v0_22_to_v0_23::PublicIntentEntryMigration::new(
+                self.domains.into_current(),
+                self.kind,
+                self.description,
+                self.certainty,
+                self.importance,
+                self.privacy,
+                self.referents,
+            )
+            .into_current()
         }
     }
 
@@ -3659,15 +3664,16 @@ impl CurrentEngineRecord for SpiritStoreV9Record {
 
 impl SpiritStoreV7Entry {
     fn into_new_entry(self) -> Result<Entry, StoreMigrationError> {
-        Ok(Entry {
-            domains: self.domains.into_current()?,
-            kind: self.kind,
-            description: self.description,
-            certainty: self.certainty,
-            importance: self.importance,
-            privacy: self.privacy,
-            referents: self.referents,
-        })
+        Ok(v0_22_to_v0_23::PublicIntentEntryMigration::new(
+            self.domains.into_current()?,
+            self.kind,
+            self.description,
+            self.certainty,
+            self.importance,
+            self.privacy,
+            self.referents,
+        )
+        .into_current())
     }
 }
 
@@ -3699,13 +3705,14 @@ mod tests {
         SpiritStoreV7Entry, SpiritStoreV7Record, SpiritStoreV7Referent, SpiritStoreV8Record,
         SpiritStoreV8Referent, SpiritStoreV9Record, StoreMigration, StoreMigrationOutput,
         StoreMigrationRequest, store_version_nine, store_version_seven, store_version_ten,
+        support::LegacyCertainty,
     };
     use crate::{
         Store,
         schema::{
             sema::{RecordFamily, StoredRecord, StoredReferent, family_identity},
             signal::{
-                Certainty, DataLeaf, Description, Domain, Domains, Entry, HardwareLeaf, Importance,
+                DataLeaf, Description, Domain, Domains, Entry, HardwareLeaf, Importance,
                 Information, Kind, Magnitude, OperationsLeaf, Privacy, RecordIdentifier, Referent,
                 Referents, Software, Technology,
             },
@@ -3719,14 +3726,13 @@ mod tests {
     };
 
     fn version_eight_entry(description: &str, referents: Vec<Referent>) -> Entry {
+        let _legacy_referents = referents;
         Entry {
             domains: Domains::new(vec![Domain::Information(Information::Documentation)]),
             kind: Kind::Decision,
             description: Description::new(description),
-            certainty: Certainty::new(Magnitude::High),
             importance: Importance::new(Magnitude::Medium),
             privacy: Privacy::new(Magnitude::Zero),
-            referents: Referents::new(referents),
         }
     }
 
@@ -3747,7 +3753,7 @@ mod tests {
                 )]),
                 kind: Kind::Decision,
                 description: Description::new(description),
-                certainty: Certainty::new(Magnitude::High),
+                certainty: LegacyCertainty::new(Magnitude::High),
                 importance: Importance::new(Magnitude::Medium),
                 privacy: Privacy::new(Magnitude::Zero),
                 referents: Referents::new(referents),
@@ -3762,7 +3768,7 @@ mod tests {
         store_version_nine::Entry::documentation(
             description,
             referents,
-            Certainty::new(Magnitude::High),
+            LegacyCertainty::new(Magnitude::High),
             Importance::new(Magnitude::Medium),
             Privacy::new(Magnitude::Zero),
         )
@@ -3858,7 +3864,7 @@ mod tests {
                 record_identifier: RecordIdentifier::new("qprc"),
                 entry: store_version_nine::Entry::data_query_processing(
                     "version nine query planner record",
-                    Certainty::new(Magnitude::High),
+                    LegacyCertainty::new(Magnitude::High),
                     Importance::new(Magnitude::Medium),
                     Privacy::new(Magnitude::Zero),
                 ),
@@ -4217,10 +4223,6 @@ mod tests {
             first.description.payload(),
             "version eight record survives the logged fold"
         );
-        assert_eq!(
-            first.referents.payload(),
-            &vec![Referent::new("sema-engine")]
-        );
         let second = migrated
             .entry_by_identifier("t0tu")
             .expect("query second migrated entry")
@@ -4419,10 +4421,6 @@ mod tests {
             entry.description.payload(),
             "schema ten layout three record survives"
         );
-        assert_eq!(
-            entry.referents.payload(),
-            &vec![Referent::new("schema-ten")]
-        );
         let migrations = migrated.migrations().expect("read migration markers");
         assert_eq!(migrations.len(), 1);
         assert_eq!(*migrations[0].source_schema_version.payload(), 10);
@@ -4488,10 +4486,6 @@ mod tests {
             entry.description.payload(),
             "schema ten pre-standard impl record survives"
         );
-        assert_eq!(
-            entry.referents.payload(),
-            &vec![Referent::new("pre-standard")]
-        );
         let migrations = migrated.migrations().expect("read migration markers");
         assert_eq!(migrations.len(), 1);
         assert_eq!(*migrations[0].source_schema_version.payload(), 10);
@@ -4532,10 +4526,6 @@ mod tests {
         assert_eq!(
             entry.description.payload(),
             "schema ten live june nineteen record survives"
-        );
-        assert_eq!(
-            entry.referents.payload(),
-            &vec![Referent::new("live-june19")]
         );
         let migrations = migrated.migrations().expect("read migration markers");
         assert_eq!(migrations.len(), 1);
@@ -4585,10 +4575,6 @@ mod tests {
         assert_eq!(
             entry.description.payload(),
             "schema ten release sixteen record survives the relabel"
-        );
-        assert_eq!(
-            entry.referents.payload(),
-            &vec![Referent::new("release-sixteen")]
         );
         let migrations = migrated.migrations().expect("read migration markers");
         assert_eq!(migrations.len(), 1);
@@ -4681,7 +4667,7 @@ mod tests {
                 domains: FrozenDomains(vec![domain]),
                 kind: Kind::Decision,
                 description: Description::new(identifier),
-                certainty: Certainty::new(Magnitude::High),
+                certainty: LegacyCertainty::new(Magnitude::High),
                 importance: Importance::new(Magnitude::Medium),
                 privacy: Privacy::new(Magnitude::Zero),
                 referents: Referents::new(Vec::new()),
@@ -4884,7 +4870,7 @@ mod tests {
                         )]),
                         kind: Kind::Decision,
                         description: Description::new("schema ten current-family archive survives"),
-                        certainty: Certainty::new(Magnitude::High),
+                        certainty: LegacyCertainty::new(Magnitude::High),
                         importance: Importance::new(Magnitude::Medium),
                         privacy: Privacy::new(Magnitude::Zero),
                         referents: Referents::new(Vec::new()),
@@ -5047,7 +5033,7 @@ mod tests {
                         description: crate::schema::signal::Description::new(
                             "version seven record survives upgrade",
                         ),
-                        certainty: crate::schema::signal::Certainty::new(Magnitude::High),
+                        certainty: LegacyCertainty::new(Magnitude::High),
                         importance: crate::schema::signal::Importance::new(Magnitude::Medium),
                         privacy: crate::schema::signal::Privacy::new(Magnitude::Zero),
                         referents: crate::schema::signal::Referents::new(vec![
@@ -5133,7 +5119,7 @@ mod tests {
                         description: Description::new(
                             "version seven record referencing a registered referent",
                         ),
-                        certainty: Certainty::new(Magnitude::High),
+                        certainty: LegacyCertainty::new(Magnitude::High),
                         importance: Importance::new(Magnitude::Medium),
                         privacy: Privacy::new(Magnitude::Zero),
                         referents: Referents::new(vec![Referent::new("sema-engine")]),
@@ -5160,9 +5146,9 @@ mod tests {
             .expect("query migrated entry")
             .expect("migrated entry exists");
         assert_eq!(
-            entry.referents.payload(),
-            &vec![Referent::new("sema-engine")],
-            "the record's referent survives the fold",
+            entry.description.payload(),
+            "version seven record referencing a registered referent",
+            "the record survives after dropping its legacy embedded referent",
         );
         let migrations = migrated.migrations().expect("read migration markers");
         assert_eq!(migrations.len(), 1);
