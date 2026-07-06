@@ -40,6 +40,8 @@ mod guardian_prompt;
 pub mod meta_transport;
 pub mod nexus;
 mod plane;
+#[cfg(feature = "mirror-shipper")]
+pub mod propagation;
 #[cfg(feature = "production-migration")]
 pub mod production_migration;
 #[cfg(feature = "nota-text")]
@@ -81,7 +83,8 @@ pub mod schema {
 pub use config::{Configuration, ConfigurationError};
 #[cfg(feature = "mirror-shipper")]
 pub use criome_gate::{
-    CriomeAuthorization, CriomeGate, CriomeGateError, GateDecision, LocalHeadCapture,
+    ClusterAuthorizer, CriomeAuthorization, CriomeGate, CriomeGateError, GateDecision, GateRefusal,
+    HeadSessionBinding, LocalHeadCapture,
 };
 pub use daemon::{Daemon, SpiritDaemon, SpiritDaemonError};
 #[cfg(feature = "mirror-shipper")]

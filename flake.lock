@@ -34,11 +34,11 @@
     "criome-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1782569836,
-        "narHash": "sha256-nhMLwxssTfsov3T6lvL/gKAlpghBRC6B++3hW7z7G2s=",
+        "lastModified": 1783352165,
+        "narHash": "sha256-fSUJI4Kjab0ov7HYIycEc4+1igALsydCd6LIv0RZF9Y=",
         "ref": "main",
-        "rev": "6b6683da14600441338c2b1db206facf6f5d97d8",
-        "revCount": 140,
+        "rev": "65b415456997578ff2b69cec67eeafc50ad0b6dc",
+        "revCount": 185,
         "type": "git",
         "url": "https://github.com/LiGoldragon/criome.git"
       },
@@ -141,11 +141,11 @@
     "meta-signal-criome-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1782517750,
-        "narHash": "sha256-rKxHXNeDNvOiC0UlR7uQTj10hIpLhjwBspGQL0j229A=",
+        "lastModified": 1783339168,
+        "narHash": "sha256-jlWwHjAbjqlWPRuiU/7Z8ae+h7LlLH7eF16u70zZmL4=",
         "ref": "main",
-        "rev": "4814625aa23dcb0e3cee19580914ccc1a3b4aadc",
-        "revCount": 16,
+        "rev": "8050a22bd9c9c022c00c8678587e47a16b9c9abb",
+        "revCount": 28,
         "type": "git",
         "url": "https://github.com/LiGoldragon/meta-signal-criome.git"
       },
@@ -174,11 +174,11 @@
     "meta-signal-router-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783214484,
-        "narHash": "sha256-q+9dTOyXKwi+T4E/aQqFy7kSCYKt5ujRLVDFsq1U1Fg=",
+        "lastModified": 1783244856,
+        "narHash": "sha256-x1vAaQ742EX++Jh2XfGytfNs1b/Z9V/DyDLAkHjB0XI=",
         "owner": "LiGoldragon",
         "repo": "meta-signal-router",
-        "rev": "99808d04b3e4e3aa353d1f0b07ba6d735848c2fb",
+        "rev": "c3848b39228834f2e28014f346dbed4821e54df8",
         "type": "github"
       },
       "original": {
@@ -293,11 +293,11 @@
     "router-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783217403,
-        "narHash": "sha256-K54q86zRixsarKiFnbzKsWXsSDo3jMWkIbdGD9zKvz0=",
+        "lastModified": 1783352617,
+        "narHash": "sha256-aj2iIJtDvOIb02EWc7J9sjcyPjUQn2+M8utna6C4B9w=",
         "owner": "LiGoldragon",
         "repo": "router",
-        "rev": "e336fa48fe9fda50de05d24c7b0b6c327e7b387a",
+        "rev": "af9973aee831eafd830acbea4a4467d2cef2591e",
         "type": "github"
       },
       "original": {
@@ -463,11 +463,11 @@
     "signal-criome-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1782663839,
-        "narHash": "sha256-tArxV+UkKTAGj3obbFKVeEpEdCjpNdeqouGKawbQzHQ=",
+        "lastModified": 1783348615,
+        "narHash": "sha256-rrEH9szoOxsBiguoLmDnZ3XVCgrquM667Ic3ncWme0E=",
         "ref": "main",
-        "rev": "5976b2870e0231742dc1a8bf4db17fd98f8f6b61",
-        "revCount": 73,
+        "rev": "88becda267c8eca8102b75890788841a140bf62f",
+        "revCount": 92,
         "type": "git",
         "url": "https://github.com/LiGoldragon/signal-criome.git"
       },
@@ -592,11 +592,11 @@
     "signal-router-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783214914,
-        "narHash": "sha256-tqTpkGhmlQNuQMqTs08r7DlTfQ7k0mVrgMDl7ELY1Fk=",
+        "lastModified": 1783251796,
+        "narHash": "sha256-VkHjTST6gD+yijlrdyoNRdlYR8xqL58RQIbezTFHtvE=",
         "owner": "LiGoldragon",
         "repo": "signal-router",
-        "rev": "9c3f8f7611e4a65868ae38abb18c93fc8debc73d",
+        "rev": "7109422fae53adf5f1b82337ddc38195ccec96da",
         "type": "github"
       },
       "original": {

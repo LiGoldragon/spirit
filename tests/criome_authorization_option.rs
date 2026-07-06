@@ -1,24 +1,24 @@
 //! The spirit-side criome authorization option witness (Spirit `xhwa`).
 //!
-//! The 1-of-1 LOCAL criome authorization path is DELETED; the
-//! authorize-and-ship seam (`CriomeGate::authorize_head`, `MirrorShipper`)
-//! stays in place, dormant, for the coming criome-cluster authorization flow.
-//! The `CriomeAuthorization` option decides what happens at the seam today:
+//! The `CriomeAuthorization` option decides what happens at the
+//! authorize-and-ship seam (`Engine::drain_propagation_once`,
+//! `MirrorShipper`):
 //!
 //!   (a) `Disabled` — the operative default. Spirit is fully local: heads
-//!       advance freely, and `gate_and_ship_head` is a no-op — no
+//!       advance freely, and the propagation drain is dormant — no
 //!       authorization request, no mirror ship, even with an armed mirror
 //!       target. Nothing propagates.
 //!
-//!   (b) `Enabled` — fail-closed. No criome-cluster authorizer exists yet, so
-//!       a head-advancing working input is REFUSED before any pipeline write:
-//!       the head does not advance, the store does not change. Reads stay
-//!       admitted. A pre-existing head is held back `Unconfigured` — it never
-//!       ships.
+//!   (b) `Enabled(authorizer)` — cluster authorization. The LOCAL commit
+//!       stands (working inputs are never refused at ingress); only
+//!       propagation waits on the cluster verdict. With no reachable criome
+//!       behind the configured socket the drain decides `Unreachable` and
+//!       holds every head back fail-closed: nothing ships, the suffix waits
+//!       in the outbox.
 //!
 //! Falsification: if the dormant seam still propagated, the Disabled drain
-//! would mark the outbox `ServerCommitted`; if the Enabled refusal leaked a
-//! write, the head digest or record count would move.
+//! would mark the outbox `ServerCommitted`; if the Enabled drain shipped on
+//! an unreachable criome, the outbox would drain without a grant.
 
 use std::net::SocketAddr;
 
@@ -34,7 +34,7 @@ use spirit::schema::signal::{
     Output, Privacy, QuoteText, Reasoning, RecordRequest, Referent, Referents, Testimony,
     VerbatimQuote,
 };
-use spirit::{CriomeAuthorization, Engine, GateDecision, Store};
+use spirit::{ClusterAuthorizer, CriomeAuthorization, Engine, GateDecision, Store};
 use tempfile::TempDir;
 use triad_runtime::kameo::actor::Spawn;
 
@@ -146,7 +146,10 @@ fn disabled_default_advances_heads_freely_and_keeps_the_ship_seam_dormant() {
         let mut engine = armed_spirit_engine(&component_directory, "source.sema", mirror_address);
 
         // Disabled is the operative default: no owner action selects it.
-        assert_eq!(engine.criome_authorization(), CriomeAuthorization::Disabled);
+        assert_eq!(
+            engine.criome_authorization(),
+            &CriomeAuthorization::Disabled
+        );
 
         // The head advances freely — spirit fully local.
         record(&mut engine, "a fully local head advance").await;
@@ -158,11 +161,11 @@ fn disabled_default_advances_heads_freely_and_keeps_the_ship_seam_dormant() {
             "the working write advanced the local head"
         );
 
-        // The authorize-and-ship seam is DORMANT: the daemon's post-commit
-        // hook completes with no gate decision and no ship, even though a
-        // live mirror is armed and reachable.
+        // The authorize-and-ship seam is DORMANT: the propagation drain
+        // completes with no gate decision and no ship, even though a live
+        // mirror is armed and reachable.
         let decision = engine
-            .gate_and_ship_head()
+            .drain_propagation_once()
             .await
             .expect("the dormant seam completes without machinery fault");
         assert!(
@@ -184,7 +187,7 @@ fn disabled_default_advances_heads_freely_and_keeps_the_ship_seam_dormant() {
 }
 
 #[test]
-fn enabled_authorization_refuses_head_advances_fail_closed() {
+fn enabled_authorization_holds_heads_back_when_criome_is_unreachable() {
     let runtime = runtime();
     let mirror_directory = tempfile::tempdir().expect("mirror temp dir");
     let component_directory = tempfile::tempdir().expect("component temp dir");
@@ -193,56 +196,36 @@ fn enabled_authorization_refuses_head_advances_fail_closed() {
         let (_link, mirror_address) = running_mirror(&mirror_directory).await;
         let mut engine = armed_spirit_engine(&component_directory, "source.sema", mirror_address);
 
-        // A head committed while authorization was disabled — the pre-existing
-        // local history the enabled gate must hold back.
-        record(&mut engine, "a head committed before enabling").await;
-        let settled_head = engine
+        // Enable cluster authorization against a socket no criome serves —
+        // the enabled gate always has a socket; reachability is the drain's
+        // problem, never ingress policy.
+        let missing_socket = component_directory.path().join("no-criome.sock");
+        engine.set_criome_authorization(CriomeAuthorization::Enabled(ClusterAuthorizer::new(
+            &missing_socket,
+        )));
+        assert!(matches!(
+            engine.criome_authorization(),
+            CriomeAuthorization::Enabled(_)
+        ));
+
+        // The LOCAL commit stands: working inputs are admitted and the head
+        // advances freely — only propagation waits on the cluster verdict.
+        record(&mut engine, "a local head advance under an enabled gate").await;
+        let local_head = engine
             .versioned_log_head()
             .expect("versioned head reads")
-            .expect("a committed head exists");
+            .expect("the local commit advanced the head");
 
-        engine.set_criome_authorization(CriomeAuthorization::Enabled);
-        assert_eq!(engine.criome_authorization(), CriomeAuthorization::Enabled);
-
-        // A head-advancing input is REFUSED before any pipeline write: no
-        // cluster authorizer exists yet, so the head must not advance.
-        let refused = engine
-            .handle_async(Input::record(record_request(
-                "a head advance the enabled gate must refuse",
-            )))
-            .await
-            .into_root();
-        assert!(
-            matches!(refused, Output::Error(_)),
-            "an enabled gate refuses the head advance, got {refused:?}"
-        );
-        assert_eq!(engine.record_count(), 1, "the refused write never landed");
-        assert_eq!(
-            engine
-                .versioned_log_head()
-                .expect("versioned head reads")
-                .expect("the settled head remains"),
-            settled_head,
-            "the head did not advance under refusal"
-        );
-
-        // Reads carry no head advance and stay admitted.
-        let version = engine.handle_async(Input::Version).await.into_root();
-        assert!(
-            matches!(version, Output::VersionReported(_)),
-            "reads stay admitted while authorization is enabled, got {version:?}"
-        );
-
-        // The pre-existing head is held back fail-closed: the dormant seam
-        // answers Unconfigured (no cluster authorizer), and nothing ships.
+        // The drain asks the (absent) criome and decides Unreachable: the
+        // head is held, nothing ships, the suffix waits in the outbox.
         let decision = engine
-            .gate_and_ship_head()
+            .drain_propagation_once()
             .await
-            .expect("the gate completes without machinery fault")
+            .expect("the drain completes without machinery fault")
             .expect("a head exists to authorize");
         assert!(
-            matches!(decision, GateDecision::Unconfigured),
-            "no cluster authorizer holds the head back, got {decision:?}"
+            matches!(decision, GateDecision::Unreachable),
+            "an unreachable criome holds the head back, got {decision:?}"
         );
         let handle = engine.store().engine_handle();
         assert_eq!(
@@ -253,6 +236,21 @@ fn enabled_authorization_refuses_head_advances_fail_closed() {
         assert!(
             !handle.unshipped_outbox().expect("outbox reads").is_empty(),
             "the held-back history stays unshipped in the outbox"
+        );
+
+        // Reads stay served, and the local head is untouched by the refusal.
+        let version = engine.handle_async(Input::Version).await.into_root();
+        assert!(
+            matches!(version, Output::VersionReported(_)),
+            "reads stay admitted while authorization is enabled, got {version:?}"
+        );
+        assert_eq!(
+            engine
+                .versioned_log_head()
+                .expect("versioned head reads")
+                .expect("the local head remains"),
+            local_head,
+            "holding propagation back never rolls the local commit back"
         );
     });
 }

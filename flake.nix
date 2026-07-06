@@ -310,6 +310,8 @@
                 --replace-fail 'criome = { git = "https://github.com/LiGoldragon/criome.git", branch = "main", optional = true }' 'criome = { path = "vendor-sources/criome", optional = true }' \
                 --replace-fail 'signal-criome = { git = "https://github.com/LiGoldragon/signal-criome.git", branch = "main", default-features = false, optional = true }' 'signal-criome = { path = "vendor-sources/signal-criome", default-features = false, optional = true }' \
                 --replace-fail 'signal-router = { git = "https://github.com/LiGoldragon/signal-router.git", branch = "main", default-features = false, optional = true }' 'signal-router = { path = "vendor-sources/signal-router", default-features = false, optional = true }' \
+                --replace-fail 'meta-signal-router = { git = "https://github.com/LiGoldragon/meta-signal-router.git", branch = "main", default-features = false, optional = true }' 'meta-signal-router = { path = "vendor-sources/meta-signal-router", default-features = false, optional = true }' \
+                --replace-fail 'meta-signal-criome = { git = "https://github.com/LiGoldragon/meta-signal-criome.git", branch = "main", default-features = false, optional = true }' 'meta-signal-criome = { path = "vendor-sources/meta-signal-criome", default-features = false, optional = true }' \
                 --replace-fail 'signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main", optional = true }' 'signal-agent = { path = "vendor-sources/signal-agent", optional = true }' \
                 --replace-fail 'signal-introspect = { git = "https://github.com/LiGoldragon/signal-introspect.git", branch = "main", default-features = false, optional = true }' 'signal-introspect = { path = "vendor-sources/signal-introspect", default-features = false, optional = true }' \
                 --replace-fail 'signal-persona = { git = "https://github.com/LiGoldragon/signal-persona.git", branch = "main", optional = true }' 'signal-persona = { path = "vendor-sources/signal-persona", optional = true }' \
@@ -635,6 +637,34 @@
             cargoExtraArgs = "--features nota-text,testing-trace";
           }
         );
+        clusterAuthorizationCargoArtifacts = craneLib.buildDepsOnly (
+          commonArguments
+          // {
+            cargoExtraArgs = "--features cluster-authorization-e2e";
+          }
+        );
+        # THE CLUSTER-AUTHORIZATION LOOPCHECK (§3.7):
+        # spirit-cluster-authorizes-head-advance-over-router-test.
+        #
+        # STATEFUL, not a pure check — the same posture as the founding proof
+        # (`router-two-hosts-found-root-over-router-test`): the harness spawns
+        # two real OS-threaded criome daemons, two real router runtimes on
+        # loopback TCP, real Unix working/meta sockets under a process-local
+        # temp directory, an in-process mirror service, and a real spirit
+        # engine, synchronizing with wall-clock waits. So it is a named,
+        # explicitly-run output
+        # (`nix build .#spirit-cluster-authorizes-head-advance-over-router-test`),
+        # not a `checks.*` entry auto-swept by `nix flake check`. It witnesses
+        # the batched authorized advance, the fail-closed refusal when the
+        # quorum cannot complete, and the catch-up retry after refusal.
+        clusterAuthorizationLoopcheck = craneLib.cargoTest (
+          commonArguments
+          // {
+            cargoArtifacts = clusterAuthorizationCargoArtifacts;
+            cargoExtraArgs = "--features cluster-authorization-e2e";
+            cargoTestExtraArgs = "--test cluster_authorization_over_router spirit_cluster_authorizes_head_advance_over_the_router -- --exact";
+          }
+        );
         daemonPackage = craneLib.buildPackage (
           commonArguments
           // {
@@ -728,6 +758,8 @@
         packages.trace = traceCombinedPackage;
         packages."trace-cli" = traceCliPackage;
         packages."trace-daemon" = traceDaemonPackage;
+        packages."spirit-cluster-authorizes-head-advance-over-router-test" =
+          clusterAuthorizationLoopcheck;
         apps.nix-integration-tests = {
           type = "app";
           program = "${nixIntegrationRunner}/bin/spirit-nix-integration-tests";

@@ -149,28 +149,17 @@ impl ComponentDaemon for SpiritDaemon {
         _connection: &triad_runtime::ConnectionContext,
     ) -> Result<Output, Self::Error> {
         let output = engine.handle_async(input).await.root().clone();
-        // THE CRIOME AUTHORIZE-AND-SHIP SEAM (Spirit `xhwa`), DORMANT.
+        // THE CRIOME AUTHORIZE-AND-SHIP SEAM (Spirit `xhwa`), LIVE.
         //
-        // The spirit-side `CriomeAuthorization` policy decides everything
-        // here. `Disabled` — the operative default until criome-cluster
-        // authorization is ready — keeps spirit fully local: the working
-        // write above advanced the head freely, and `gate_and_ship_head`
-        // returns immediately with no head capture, no authorization request,
-        // and no mirror ship. `Enabled` already refused any head-advancing
-        // input inside `handle_async` (fail-closed, no cluster authorizer
-        // exists yet); for a pre-existing head the dormant `CriomeGate` seam
-        // answers `Unconfigured`, which never ships.
-        //
-        // Present only under the `mirror-shipper` feature. A seam-machinery
-        // fault never fails the working reply: the local commit (when the
-        // policy admitted it) already landed durably.
+        // The working write above already landed durably; propagation is the
+        // drain's business, never the working reply's. `Disabled` — the
+        // operative default — has no drain and this is a no-op; `Enabled`
+        // sends the drain one "head advanced" mail and returns immediately,
+        // so the recording caller never waits on a cluster round. The drain
+        // authorizes the head of the whole unshipped suffix and ships only on
+        // Granted; every refusal holds the head, fail-closed.
         #[cfg(feature = "mirror-shipper")]
-        match engine.gate_and_ship_head().await {
-            Ok(_decision) => {}
-            Err(error) => {
-                let _ = error;
-            }
-        }
+        engine.notify_head_advanced();
         Ok(output)
     }
 

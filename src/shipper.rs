@@ -23,7 +23,10 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use mirror::{ComponentShipper, ShipOutcome};
-use sema_engine::{Engine as SemaDatabase, VersionedStoreName};
+use sema_engine::{
+    CommitSequence, Engine as SemaDatabase, EntryDigest, MirrorHead, VersionedStoreName,
+};
+use signal_mirror::{EntrySuffix, Input as MirrorInput, Output as MirrorOutput};
 use thiserror::Error;
 
 use crate::schema::{meta_signal::MirrorTarget, sema::RecordFamily};
@@ -44,6 +47,20 @@ impl MirrorShipper {
     /// An unarmed gate: no mirror target configured, nothing ships.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// An armed shipper at a known address over the store's shared engine
+    /// handle — the propagation drain's construction path, which rebuilds its
+    /// own shipper instance from the engine's configured mirror address
+    /// rather than re-parsing a meta target.
+    pub fn armed(engine: Arc<SemaDatabase>, address: SocketAddr) -> Self {
+        Self {
+            armed: Some(ComponentShipper::from_shared_engine(
+                engine,
+                address,
+                VersionedStoreName::new(RecordFamily::STORE_NAME),
+            )),
+        }
     }
 
     /// Apply an owner-configured mirror target against the store's shared
@@ -104,6 +121,90 @@ impl MirrorShipper {
         }
     }
 
+    /// Ship the unshipped suffix UP TO AND INCLUDING the authorized entry —
+    /// the batch one cluster authorization covers — and acknowledge the
+    /// outbox cursor to exactly that head. Entries the store committed AFTER
+    /// the authorized head stay unshipped (they await their own
+    /// authorization): only the authorized suffix ever leaves the node,
+    /// fail-closed. A no-op when unarmed, and a typed no-op when the
+    /// authorized entry is no longer in the unshipped suffix (an idempotent
+    /// re-drain after acknowledgement).
+    pub async fn ship_authorized_suffix(
+        &self,
+        authorized: &EntryDigest,
+    ) -> Result<Option<ShipOutcome>, MirrorShipperError> {
+        let Some(shipper) = &self.armed else {
+            return Ok(None);
+        };
+        let outbox = shipper.engine().unshipped_outbox().map_err(|source| {
+            MirrorShipperError::AuthorizedSuffix {
+                detail: source.to_string(),
+            }
+        })?;
+        let Some(cap_index) = outbox
+            .iter()
+            .position(|row| row.entry_digest() == *authorized)
+        else {
+            // Nothing unshipped up to the authorized head: it was already
+            // acknowledged by an earlier pass. Idempotent no-op.
+            return Ok(Some(ShipOutcome::AlreadyCommitted {
+                head: shipper.engine().mirror_head().map_err(|source| {
+                    MirrorShipperError::AuthorizedSuffix {
+                        detail: source.to_string(),
+                    }
+                })?,
+            }));
+        };
+        let capped = &outbox[..=cap_index];
+        let first = capped[0].commit_sequence();
+        let replayed = shipper
+            .engine()
+            .versioned_replay_from_sequence(first)
+            .map_err(|source| MirrorShipperError::AuthorizedSuffix {
+                detail: source.to_string(),
+            })?;
+        let entries = replayed
+            .iter()
+            .take(capped.len())
+            .map(|entry| shipper.envelope_for_entry(entry))
+            .collect::<Result<Vec<_>, _>>()?;
+        if entries.len() != capped.len() {
+            return Err(MirrorShipperError::AuthorizedSuffix {
+                detail: format!(
+                    "outbox names {} authorized rows but the replay yields {} entries",
+                    capped.len(),
+                    entries.len()
+                ),
+            });
+        }
+        let output = shipper
+            .client()
+            .exchange(MirrorInput::Append(EntrySuffix::from_entries(
+                shipper.store_name().clone(),
+                shipper.expected_head()?,
+                entries,
+            )))
+            .await?;
+        let receipt = match output {
+            MirrorOutput::Appended(receipt) => receipt,
+            other => {
+                return Err(MirrorShipperError::AuthorizedSuffix {
+                    detail: format!("mirror refused the authorized suffix: {other:?}"),
+                });
+            }
+        };
+        let head = MirrorHead::new(
+            CommitSequence::new(*receipt.head.sequence.payload()),
+            EntryDigest::new(*receipt.head.digest.payload().payload()),
+        );
+        shipper.engine().acknowledge_mirror(head).map_err(|source| {
+            MirrorShipperError::AuthorizedSuffix {
+                detail: source.to_string(),
+            }
+        })?;
+        Ok(Some(ShipOutcome::Shipped { head }))
+    }
+
     /// Publish the store's latest local checkpoint to the configured mirror —
     /// the portable restore body a fresh store fetches alongside the shipped
     /// log suffix. A no-op (returns `Ok(false)`) when unarmed. The store must
@@ -135,4 +236,6 @@ pub enum MirrorShipperError {
     Address { text: String, message: String },
     #[error("mirror shipper transport error: {0}")]
     Ship(#[from] mirror::Error),
+    #[error("authorized-suffix ship failed: {detail}")]
+    AuthorizedSuffix { detail: String },
 }

@@ -1,6 +1,6 @@
 [package]
 name         = "spirit"
-version      = "0.22.0"
+version      = "0.23.0"
 edition      = "2024"
 rust-version = "1.89"
 license      = "MIT OR Apache-2.0"
@@ -61,13 +61,14 @@ testing-trace = ["dep:signal-introspect", "dep:signal-persona"]
 # mirror. OFF by default and deploy-gated. Pulls the `mirror` crate (and its
 # signal-mirror/nota transitive surface), so it is excluded from the
 # binary-only daemon dependency tree unless explicitly enabled. It also pulls
-# the DORMANT criome head-authorization seam (Spirit `xhwa`): the spirit-side
+# the LIVE criome head-authorization seam (Spirit `xhwa`): the spirit-side
 # `CriomeAuthorization` option keeps the authorize-and-ship seam idle
-# (`Disabled`, the operative default — spirit fully local) or fail-closed
-# (`Enabled` — head advances refused until the criome-cluster authorization
-# flow wires a real authorizer). criome brings the `CriomeClient` socket
-# transport the guardian operation authorizer dials; signal-criome brings the
-# typed authorized-object reference and decision vocabulary the seam speaks.
+# (`Disabled`, the operative default — spirit fully local) or cluster-gated
+# (`Enabled(authorizer)` — every head advance is authorized by the local
+# criome's cluster before it ships; the local commit always stands). criome
+# brings the `CriomeClient` socket transport and observation session both
+# authorizers consume; signal-criome brings the typed authorized-object
+# reference and decision vocabulary the seam speaks.
 # Gating both behind the same feature keeps nota and the whole criome/mirror
 # surface out of the binary-only daemon dependency tree unless an operator
 # builds the shipper in.
@@ -79,6 +80,11 @@ mirror-shipper = ["dep:mirror", "dep:signal-mirror", "dep:criome", "dep:signal-c
 # signal-router/signal-message contracts on main. Enable this only to
 # build/run `end_to_end_offline_full_chain`.
 offline-full-chain-e2e = ["mirror-shipper", "dep:router", "dep:signal-standard"]
+# The cluster-authorization loopcheck's router leg (§3.7): two real criome
+# hosts over two real routers on loopback TCP, a real spirit engine gated
+# against criome A. Opt-in like the offline e2e so the default test build does
+# not compile the router surface.
+cluster-authorization-e2e = ["mirror-shipper", "dep:router", "dep:signal-router", "dep:meta-signal-router", "dep:meta-signal-criome"]
 
 [[test]]
 name = "instrumentation_logging"
@@ -92,11 +98,19 @@ required-features = ["mirror-shipper"]
 
 # The spirit-side criome authorization option witness: `Disabled` (the
 # operative default) keeps heads advancing freely with the authorize-and-ship
-# seam dormant (nothing propagates); `Enabled` refuses head advances
-# fail-closed until the criome-cluster authorization flow arrives.
+# seam dormant (nothing propagates); `Enabled` carries the cluster authorizer
+# and holds heads back until the cluster grants.
 [[test]]
 name = "criome_authorization_option"
 path = "tests/criome_authorization_option.rs"
+required-features = ["mirror-shipper"]
+
+# The §3.2 session-parse matrix witnesses: the closed binding rules spirit
+# applies to criome's authorization observation session, every negative held
+# fail-closed, plus the crafted-daemon socket falsifications.
+[[test]]
+name = "cluster_gate_session"
+path = "tests/cluster_gate_session.rs"
 required-features = ["mirror-shipper"]
 
 # The OFFLINE full-chain e2e: spirit source engine records → ships to mirror A
@@ -106,6 +120,16 @@ required-features = ["mirror-shipper"]
 name = "end_to_end_offline_full_chain"
 path = "tests/end_to_end_offline_full_chain.rs"
 required-features = ["offline-full-chain-e2e"]
+
+# THE CLUSTER-AUTHORIZATION LOOPCHECK (§3.7,
+# spirit-cluster-authorizes-head-advance-over-router-test): a real spirit
+# engine on node A gated against criome A; two real criome hosts found one
+# root over two real routers on loopback TCP; batched authorized advance,
+# refusal when the quorum cannot complete, catch-up retry after refusal.
+[[test]]
+name = "cluster_authorization_over_router"
+path = "tests/cluster_authorization_over_router.rs"
+required-features = ["cluster-authorization-e2e"]
 
 [dependencies]
 nota = { package = "nota", git = "https://github.com/LiGoldragon/nota.git", branch = "main", optional = true }
@@ -146,6 +170,13 @@ signal-criome = { git = "https://github.com/LiGoldragon/signal-criome.git", bran
 # `offline-full-chain-e2e` feature (NOT the production gate path). Optional so
 # the default test build does not compile router's currently-lagging source.
 router = { git = "https://github.com/LiGoldragon/router.git", branch = "main", optional = true }
+# The router wire contract plus the router/criome meta contracts the
+# cluster-authorization loopcheck's harness speaks (working-socket fronting,
+# the owner mirror switch, the founding accepts). Optional, pulled in only by
+# `cluster-authorization-e2e`.
+signal-router = { git = "https://github.com/LiGoldragon/signal-router.git", branch = "main", default-features = false, optional = true }
+meta-signal-router = { git = "https://github.com/LiGoldragon/meta-signal-router.git", branch = "main", default-features = false, optional = true }
+meta-signal-criome = { git = "https://github.com/LiGoldragon/meta-signal-criome.git", branch = "main", default-features = false, optional = true }
 signal-standard = { git = "https://github.com/LiGoldragon/signal-standard.git", branch = "main", default-features = false, optional = true }
 signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main", optional = true }
 # The shared wire contract for the tracing -> introspect slice (report 716):
@@ -202,3 +233,4 @@ required-features = ["agent-guardian"]
 unsafe_code = "forbid"
 unused      = { level = "warn", priority = -1 }
 dead_code   = "warn"
+

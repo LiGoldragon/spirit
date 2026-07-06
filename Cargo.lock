@@ -216,8 +216,8 @@ dependencies = [
 
 [[package]]
 name = "criome"
-version = "0.5.0"
-source = "git+https://github.com/LiGoldragon/criome.git?branch=main#b1200d95fa67d3e62d04b39ac9638a621c6fefec"
+version = "0.6.0"
+source = "git+https://github.com/LiGoldragon/criome.git?branch=main#65b415456997578ff2b69cec67eeafc50ad0b6dc"
 dependencies = [
  "blake3",
  "blst",
@@ -307,7 +307,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -817,7 +817,7 @@ dependencies = [
 [[package]]
 name = "meta-signal-criome"
 version = "0.5.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-criome.git?branch=main#b10814515dbb9644ce5a4ba4fb4cd79217b1a9b3"
+source = "git+https://github.com/LiGoldragon/meta-signal-criome.git?branch=main#8050a22bd9c9c022c00c8678587e47a16b9c9abb"
 dependencies = [
  "rkyv",
  "schema-rust",
@@ -1080,7 +1080,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1251,7 +1251,7 @@ dependencies = [
 [[package]]
 name = "router"
 version = "0.4.1"
-source = "git+https://github.com/LiGoldragon/router.git?branch=main#3a75a57647f1572583261877ba6b1cb9865cc2e1"
+source = "git+https://github.com/LiGoldragon/router.git?branch=main#af9973aee831eafd830acbea4a4467d2cef2591e"
 dependencies = [
  "blake3",
  "chacha20poly1305",
@@ -1302,7 +1302,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1521,8 +1521,8 @@ dependencies = [
 
 [[package]]
 name = "signal-criome"
-version = "0.8.0"
-source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=main#061b95a1fb5c0880fbd36881aaa7cb66c0ca5bed"
+version = "0.9.0"
+source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=main#88becda267c8eca8102b75890788841a140bf62f"
 dependencies = [
  "blake3",
  "blst",
@@ -1604,8 +1604,8 @@ dependencies = [
 
 [[package]]
 name = "signal-mind"
-version = "0.7.0"
-source = "git+https://github.com/LiGoldragon/signal-mind.git?branch=main#db3721d9ee4e3afa9d295c9f2dede157f35a084a"
+version = "0.7.1"
+source = "git+https://github.com/LiGoldragon/signal-mind.git?branch=main#b8174d846158f2af97186b31a65f3e9b5f557e71"
 dependencies = [
  "nota",
  "rkyv",
@@ -1710,13 +1710,15 @@ dependencies = [
 
 [[package]]
 name = "spirit"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "agent",
  "blake3",
  "criome",
  "getrandom 0.3.4",
+ "meta-signal-criome",
  "meta-signal-mirror",
+ "meta-signal-router",
  "meta-signal-spirit",
  "mirror",
  "nota",
@@ -1733,6 +1735,7 @@ dependencies = [
  "signal-introspect",
  "signal-mirror",
  "signal-persona",
+ "signal-router",
  "signal-sema",
  "signal-spirit",
  "signal-standard",
@@ -1795,7 +1798,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

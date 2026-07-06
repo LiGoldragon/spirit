@@ -31,8 +31,8 @@ use tempfile::TempDir;
 use {
     criome::transport::CriomeFrameCodec,
     signal_criome::{
-        AuthorizationObservationToken, AuthorizationPending, AuthorizationRequestSlot, CriomeReply,
-        CriomeRequest, ObjectDigest,
+        AuthorizationObservationSnapshot, AuthorizationRequestSlot, AuthorizationStateRecord,
+        AuthorizationStatus, CriomeReply, CriomeRequest, ObjectDigest,
     },
     spirit::schema::meta_signal::{
         ArchiveDatabaseTarget, ConfigureRequest, CriomeGateTarget, CriomeSocketPathText,
@@ -270,20 +270,28 @@ impl FakeCriomeAuthorizationSocket {
         }
     }
 
+    /// The observation-session submission reply: a snapshot whose one state
+    /// is the parked (non-terminal) request. The stub then closes the stream,
+    /// so a Gating caller observes the park and blocks rather than waiting on
+    /// pushes that never come.
     fn pending_reply(request: &CriomeRequest) -> CriomeReply {
         let request_digest = match request {
             CriomeRequest::AuthorizeSignalCall(authorization) => {
-                authorization.request_digest.clone()
+                authorization.object.digest.clone()
             }
             _ => ObjectDigest::from_bytes(b"unexpected-spirit-operation-request"),
         };
         let slot = AuthorizationRequestSlot::new("fake-spirit-slot");
-        CriomeReply::AuthorizationPending(AuthorizationPending::new(
-            slot.clone(),
-            request_digest,
-            Vec::new(),
-            AuthorizationObservationToken::new(slot),
-        ))
+        CriomeReply::AuthorizationObservationSnapshot(
+            AuthorizationObservationSnapshot::from_states(vec![AuthorizationStateRecord::new(
+                slot,
+                request_digest,
+                AuthorizationStatus::Parked,
+                Vec::new(),
+                None,
+                None,
+            )]),
+        )
     }
 
     fn socket_path(&self) -> &std::path::Path {
@@ -1328,8 +1336,16 @@ fn guardian_acceptance_sends_spirit_context_to_criome_before_write() {
     let CriomeRequest::AuthorizeSignalCall(authorization) = &requests[0] else {
         panic!("expected AuthorizeSignalCall, got {:?}", requests[0]);
     };
-    assert_eq!(authorization.contract.payload(), "signal-spirit");
-    assert_eq!(authorization.operation.payload(), "Record");
+    assert_eq!(
+        authorization.object.component,
+        signal_criome::ComponentKind::Spirit,
+        "the typed ask names spirit as the owning component"
+    );
+    assert_eq!(
+        authorization.object.kind,
+        signal_criome::AuthorizedObjectKind::Operation,
+        "an operation-level ask carries the Operation kind, never strings"
+    );
     let context = authorization
         .spirit_context()
         .expect("Spirit authorization context");

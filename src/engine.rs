@@ -27,12 +27,12 @@ use crate::{ObjectName, TraceEvent, TraceLog};
 const ORIGIN_ROUTE_BASE: Integer = 1_000_000;
 
 /// The composed failure modes of the gated head fan-out
-/// ([`Engine::gate_and_ship_head`]): a head-capture / store read failure, a
-/// gate-machinery failure (the blocking criome task or an off-contract reply),
-/// or a mirror-shipper transport failure on the authorized ship. An
-/// UNCONFIGURED, DENIED, or UNREACHABLE criome is NOT an error — it is a
-/// [`crate::criome_gate::GateDecision`] the daemon handles by holding the head
-/// back.
+/// ([`Engine::drain_propagation_once`]): a head-capture / store read failure,
+/// a gate-machinery failure (the blocking criome task, an off-contract reply,
+/// or a session binding violation), or a mirror-shipper transport failure on
+/// the authorized ship. A REFUSED or UNREACHABLE criome is NOT an error — it
+/// is a [`crate::criome_gate::GateDecision`] the drain handles by holding the
+/// head back.
 #[cfg(feature = "mirror-shipper")]
 #[derive(Debug, thiserror::Error)]
 pub enum GateAndShipError {
@@ -311,15 +311,22 @@ pub struct Engine {
     // mirroring existed.
     #[cfg(feature = "mirror-shipper")]
     mirror_shipper: MirrorShipper,
-    // The criome head-authorization seam (Spirit `xhwa`), DORMANT. Present
-    // only under the `mirror-shipper` feature alongside the shipper it gates.
-    // It carries the spirit-side `CriomeAuthorization` policy: `Disabled` (the
+    // The criome head-authorization seam (Spirit `xhwa`), LIVE. Present only
+    // under the `mirror-shipper` feature alongside the shipper it gates. It
+    // carries the spirit-side `CriomeAuthorization` policy: `Disabled` (the
     // operative default) keeps the whole authorize-and-ship seam dormant —
-    // heads advance freely, nothing propagates; `Enabled` refuses head
-    // advances fail-closed until the coming criome-cluster authorization flow
-    // wires a real authorizer behind the seam.
+    // heads advance freely, nothing propagates; `Enabled` carries the cluster
+    // authorizer and demands cluster authorization for every head advance
+    // before it ships.
     #[cfg(feature = "mirror-shipper")]
     criome_gate: crate::criome_gate::CriomeGate,
+    // The propagation drain (§3.5): present exactly when the gate is Enabled.
+    // The daemon's post-commit hook sends it "head advanced" mail
+    // (`notify_head_advanced`) instead of awaiting the cluster round inline,
+    // so the working reply never waits on propagation; tests drive it
+    // directly through `drain_propagation_once`.
+    #[cfg(feature = "mirror-shipper")]
+    propagation: Option<std::sync::Arc<crate::propagation::PropagationDrain>>,
     #[cfg(feature = "testing-trace")]
     trace_log: TraceLog,
 }
@@ -381,6 +388,8 @@ impl Engine {
                 mirror_shipper: MirrorShipper::new(),
                 #[cfg(feature = "mirror-shipper")]
                 criome_gate: crate::criome_gate::CriomeGate::new(),
+                #[cfg(feature = "mirror-shipper")]
+                propagation: None,
             }
         }
     }
@@ -405,6 +414,8 @@ impl Engine {
             mirror_shipper: MirrorShipper::new(),
             #[cfg(feature = "mirror-shipper")]
             criome_gate: crate::criome_gate::CriomeGate::new(),
+            #[cfg(feature = "mirror-shipper")]
+            propagation: None,
             trace_log,
         }
     }
@@ -464,15 +475,6 @@ impl Engine {
                 return output;
             }
         };
-        // The spirit-side criome authorization policy gates the head advance
-        // ITSELF, before any pipeline write. `Disabled` (the operative
-        // default) admits everything — spirit fully local. `Enabled` refuses
-        // every head-advancing input fail-closed, because no criome-cluster
-        // authorizer exists yet to authorize the advance.
-        #[cfg(feature = "mirror-shipper")]
-        if !self.criome_gate.authorization().admits(&accepted.input) {
-            return accepted.into_head_advance_refusal();
-        }
         accepted
             .process_with(&self.signal_admission, &mut self.nexus)
             .await
@@ -598,20 +600,33 @@ impl Engine {
                 database_marker: self.nexus.database_marker(),
             });
         }
-        // The criome gate target no longer arms a head authorizer: the 1-of-1
-        // LOCAL criome authorization path is DELETED, and the coming
-        // criome-cluster authorization flow owns the dormant head seam. The
-        // target still drives the guardian OPERATION authorizer (a separate,
-        // operation-level criome seam) and is echoed in the receipt.
-        #[cfg(all(feature = "mirror-shipper", feature = "agent-guardian"))]
-        match &criome_gate_target {
-            Some(crate::schema::meta_signal::CriomeGateTarget::Socket(socket_path)) => {
-                self.nexus
-                    .configure_operation_authorizer(socket_path.payload().payload().clone());
+        // The criome gate target is the owner switch for the spirit-side
+        // criome authorization policy: a socket target arms the CLUSTER
+        // authorizer (`CriomeAuthorization::Enabled` — an enabled gate always
+        // has a socket) and, under the guardian, the operation-level
+        // authorizer at the same socket; `Default` or an absent target
+        // disarms both (`Disabled`, spirit fully local).
+        #[cfg(feature = "mirror-shipper")]
+        {
+            match &criome_gate_target {
+                Some(crate::schema::meta_signal::CriomeGateTarget::Socket(socket_path)) => {
+                    let socket = socket_path.payload().payload().clone();
+                    self.criome_gate.set_authorization(
+                        crate::criome_gate::CriomeAuthorization::Enabled(
+                            crate::criome_gate::ClusterAuthorizer::new(socket.clone()),
+                        ),
+                    );
+                    #[cfg(feature = "agent-guardian")]
+                    self.nexus.configure_operation_authorizer(socket);
+                }
+                Some(crate::schema::meta_signal::CriomeGateTarget::Default) | None => {
+                    self.criome_gate
+                        .set_authorization(crate::criome_gate::CriomeAuthorization::Disabled);
+                    #[cfg(feature = "agent-guardian")]
+                    self.nexus.clear_operation_authorizer();
+                }
             }
-            Some(crate::schema::meta_signal::CriomeGateTarget::Default) | None => {
-                self.nexus.clear_operation_authorizer();
-            }
+            self.rebuild_propagation();
         }
         MetaOutput::configured(ConfigureReceipt::new(
             archive_database_target,
@@ -644,49 +659,78 @@ impl Engine {
 
     /// Set the spirit-side [`crate::criome_gate::CriomeAuthorization`] policy.
     /// `Disabled` (the operative default) keeps spirit fully local; `Enabled`
-    /// refuses head advances fail-closed until the criome-cluster
-    /// authorization flow wires a real authorizer.
+    /// carries the cluster authorizer and demands cluster authorization for
+    /// every head advance before it ships.
     #[cfg(feature = "mirror-shipper")]
     pub fn set_criome_authorization(
         &mut self,
         authorization: crate::criome_gate::CriomeAuthorization,
     ) {
         self.criome_gate.set_authorization(authorization);
+        self.rebuild_propagation();
     }
 
     /// The spirit-side criome authorization policy.
     #[cfg(feature = "mirror-shipper")]
-    pub fn criome_authorization(&self) -> crate::criome_gate::CriomeAuthorization {
+    pub fn criome_authorization(&self) -> &crate::criome_gate::CriomeAuthorization {
         self.criome_gate.authorization()
     }
 
-    /// THE GATE. Capture the post-commit local head `D` and apply the
-    /// spirit-side criome authorization policy.
+    /// Rebuild the propagation drain from the current gate policy and mirror
+    /// address: present exactly when the gate is Enabled, carrying its own
+    /// shipper over the shared store engine (armed only when a mirror target
+    /// is configured).
+    #[cfg(feature = "mirror-shipper")]
+    fn rebuild_propagation(&mut self) {
+        self.propagation = match self.criome_gate.authorization() {
+            crate::criome_gate::CriomeAuthorization::Disabled => None,
+            crate::criome_gate::CriomeAuthorization::Enabled(authorizer) => {
+                let shipper = match self.mirror_shipper.address() {
+                    Some(address) => {
+                        MirrorShipper::armed(self.nexus.store().engine_handle(), address)
+                    }
+                    None => MirrorShipper::new(),
+                };
+                Some(std::sync::Arc::new(
+                    crate::propagation::PropagationDrain::new(
+                        authorizer.clone(),
+                        self.nexus.store().engine_handle(),
+                        shipper,
+                    ),
+                ))
+            }
+        };
+    }
+
+    /// THE DRAIN, driven directly (tests and deterministic callers). Capture
+    /// the post-commit local head `D` — the head of the whole unshipped
+    /// suffix — apply the cluster authorization policy, and on Authorized
+    /// ship the suffix up to exactly that head.
     ///
     /// `Disabled` (the operative default) keeps the whole authorize-and-ship
     /// seam dormant: no head capture, no authorization request, no ship — it
-    /// returns `None`, spirit fully local. `Enabled` asks the dormant
-    /// [`crate::criome_gate::CriomeGate`] seam, which holds every head back
-    /// [`crate::criome_gate::GateDecision::Unconfigured`] until the coming
-    /// criome-cluster authorization flow wires a real authorizer; only an
-    /// `Authorized` decision would release the mirror ship. An empty versioned
-    /// log (nothing to authorize) is also a `None` no-op.
+    /// returns `None`, spirit fully local. An empty versioned log (nothing to
+    /// authorize) is also a `None` no-op.
     #[cfg(feature = "mirror-shipper")]
-    pub async fn gate_and_ship_head(
+    pub async fn drain_propagation_once(
         &self,
     ) -> Result<Option<crate::criome_gate::GateDecision>, GateAndShipError> {
-        if self.criome_gate.authorization() == crate::criome_gate::CriomeAuthorization::Disabled {
-            return Ok(None);
+        match &self.propagation {
+            None => Ok(None),
+            Some(drain) => drain.drain_once().await,
         }
-        let Some(head_digest) = self.versioned_log_head()? else {
-            return Ok(None);
-        };
-        let capture = crate::criome_gate::LocalHeadCapture::spirit_head(head_digest);
-        let decision = self.criome_gate.authorize_head(&capture).await?;
-        if decision.ships() {
-            self.mirror_shipper.ship_unshipped().await?;
+    }
+
+    /// The daemon's post-commit hook: send the propagation drain one "head
+    /// advanced" mail and return immediately — the working reply never waits
+    /// on a cluster round. A dormant seam (Disabled) has no drain and pays
+    /// nothing. Must be called from within a tokio runtime.
+    #[cfg(feature = "mirror-shipper")]
+    pub fn notify_head_advanced(&self) {
+        if let Some(drain) = &self.propagation {
+            let drain = std::sync::Arc::clone(drain);
+            tokio::spawn(drain.drain_serialized());
         }
-        Ok(Some(decision))
     }
 
     /// Publish the store's latest local checkpoint to the configured mirror,
@@ -997,22 +1041,6 @@ impl SignalAccepted {
 
     pub fn message_sent(&self) -> &MessageSent {
         &self.sent
-    }
-
-    /// Refuse an admitted head-advancing input, fail-closed, BEFORE any
-    /// pipeline write: criome authorization is enabled but no criome-cluster
-    /// authorizer is available yet, so the head must not advance. Replies on
-    /// the general error channel with the admission's own origin route; the
-    /// mail ledger records nothing because no Signal -> Nexus handoff happens.
-    #[cfg(feature = "mirror-shipper")]
-    fn into_head_advance_refusal(self) -> SignalResponse<Output> {
-        SignalResponse::new(
-            self.origin_route,
-            Output::error(ErrorReport::new(ErrorMessage::new(
-                "criome authorization is enabled but no cluster authorizer is available; \
-                 the head advance is refused",
-            ))),
-        )
     }
 
     /// Run the validated mail through the SignalEngine + NexusEngine
