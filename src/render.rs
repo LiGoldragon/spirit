@@ -11,9 +11,8 @@ use triad_runtime::{ArgumentError, ComponentArgument, ComponentCommand};
 use crate::{
     SignalTransport, TransportError,
     schema::signal::{
-        Certainty, CertaintySelection, DomainMatch, ImportanceSelection, Input, KeywordMatch,
-        Magnitude, ObservedRecords, Output, Privacy, PrivacySelection, Query, RecordSet, Referent,
-        ReferentSelection, Referents, SelectedKind, TextMatch,
+        DomainMatch, ImportanceSelection, Input, KeywordMatch, Magnitude, ObservedRecords, Output,
+        Privacy, PrivacySelection, Query, RecordSet, SearchText, SelectedKind, TextMatch,
     },
 };
 
@@ -202,13 +201,9 @@ impl RenderRequest {
         Query {
             domain_match: DomainMatch::Any,
             keyword_match: KeywordMatch::Any,
-            text_match: TextMatch::Any,
-            referent_selection: self.referents.referent_selection(),
+            text_match: self.referents.text_match(),
             selected_kind: SelectedKind::new(None),
             privacy_selection: PrivacySelection::exact(Privacy::new(Magnitude::Zero)),
-            certainty_selection: CertaintySelection::at_least_certainty(Certainty::new(
-                Magnitude::Minimum,
-            )),
             importance_selection: ImportanceSelection::Any,
         }
     }
@@ -223,13 +218,13 @@ impl RenderReferents {
         self.0.is_empty()
     }
 
-    fn referent_selection(&self) -> ReferentSelection {
-        ReferentSelection::any_referent(Referents::new(
+    fn text_match(&self) -> TextMatch {
+        TextMatch::contains_text(SearchText::new(
             self.0
                 .iter()
-                .cloned()
-                .map(RenderReferent::into_signal_referent)
-                .collect(),
+                .map(RenderReferent::as_str)
+                .collect::<Vec<_>>()
+                .join(" "),
         ))
     }
 }
@@ -239,8 +234,8 @@ impl RenderReferent {
         Self(referent.into())
     }
 
-    fn into_signal_referent(self) -> Referent {
-        Referent::new(self.0)
+    fn as_str(&self) -> &str {
+        self.0.as_str()
     }
 }
 
@@ -333,7 +328,6 @@ impl RenderedIntent {
              ;; generated-unix-timestamp-seconds: {}\n\
              ;; spirit-marker: {}\n\
              ;; privacy-filter: Zero\n\
-             ;; certainty-filter: AtLeast Minimum\n\
              ;; criome-auth-reference: None\n\
              {}\n",
             env!("CARGO_PKG_VERSION"),

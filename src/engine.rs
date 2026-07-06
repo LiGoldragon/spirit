@@ -1132,14 +1132,6 @@ impl std::ops::Deref for crate::schema::sema::Recorded {
     }
 }
 
-impl std::ops::Deref for crate::schema::sema::CertaintyChanged {
-    type Target = signal_schema::CertaintyChangeReceipt;
-
-    fn deref(&self) -> &Self::Target {
-        self.payload()
-    }
-}
-
 impl std::ops::Deref for crate::schema::sema::RecordChanged {
     type Target = signal_schema::RecordChangeReceipt;
 
@@ -1166,14 +1158,6 @@ impl std::ops::Deref for crate::schema::sema::Found {
 
 impl std::ops::Deref for crate::schema::sema::Counted {
     type Target = signal_schema::CountedRecords;
-
-    fn deref(&self) -> &Self::Target {
-        self.payload()
-    }
-}
-
-impl std::ops::Deref for nexus_schema::ChangeCertainty {
-    type Target = signal_schema::CertaintyChange;
 
     fn deref(&self) -> &Self::Target {
         self.payload()

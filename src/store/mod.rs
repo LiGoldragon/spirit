@@ -25,6 +25,10 @@ pub use error::StoreError;
 pub use family_directory::StoreFamilyDirectory;
 #[cfg(feature = "agent-guardian")]
 use guardian_bundle::GuardianRecordBundle;
+#[cfg(feature = "nota-text")]
+use nota_text_query::{
+    Query as TextQuery, QueryTerm, SearchOutcome, SearchText as QuerySearchText,
+};
 use record_identifier::RecordIdentifierMint;
 
 #[cfg(feature = "agent-guardian")]
@@ -38,28 +42,31 @@ use crate::schema::{
         WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
     },
     signal::{
-        Certainty, CertaintyChange, CertaintyChangeReceipt, CertaintySelection, Clarification,
-        ClarificationReceipt, ClarificationRecordIdentifier, ClarificationResolution,
-        ClarificationResolutionReceipt, CountedRecords, DatabaseMarker, Description, Entry,
-        ErrorMessage, ErrorReport, Explanation, FoundRecord, GuardianRejection,
+        Clarification, ClarificationReceipt, ClarificationRecordIdentifier,
+        ClarificationResolution, ClarificationResolutionReceipt, CountedRecords, DatabaseMarker,
+        Description, Entry, ErrorMessage, ErrorReport, Explanation, FoundRecord, GuardianRejection,
         GuardianRejectionReason, Importance, ImportanceBump, ImportanceBumpReceipt,
         ImportanceSelection, Keyword, KeywordMatch, Keywords, Magnitude, ObservedRecord,
         ObservedRecords, Privacy, PrivacySelection, Query, RecordChange, RecordChangeReceipt,
         RecordCount, RecordIdentifier, RecordIdentifiers, RecordSet, Referent,
-        ReferentRegistration, ReferentRegistrationReceipt, ReferentSelection, Referents,
-        RemovalArchiveRecord, RemovalArchiveRecords, RemovalCandidateCollection,
-        RemovalCandidatesCollection, RemovedIdentifier, RemovedIdentifiers, Retirement,
-        RetirementReceipt, SearchText, SemaReceipt, SkippedRemovalCandidate,
-        SkippedRemovalCandidates, Supersession, SupersessionReceipt, TextMatch,
+        ReferentRegistration, ReferentRegistrationReceipt, Referents, RemovalArchiveRecord,
+        RemovalArchiveRecords, RemovalCandidateCollection, RemovalCandidatesCollection,
+        RemovedIdentifier, RemovedIdentifiers, Retirement, RetirementReceipt, SearchText,
+        SemaReceipt, SkippedRemovalCandidate, SkippedRemovalCandidates, Supersession,
+        SupersessionReceipt, TextMatch,
     },
+};
+use signal_spirit::schema::domain::{
+    DataLeafScope, DistributedLeafScope, DomainScope, DomainScopes, EngineeringLeafScope,
+    HardwareLeafScope, IntelligenceLeafScope, ObservabilityLeafScope, OperationsLeafScope,
+    ProgrammingLeafScope, QualityLeafScope, SecurityLeafScope, SoftwareScope, SurfacesLeafScope,
+    SystemsLeafScope, TechnologyScope,
 };
 
 const PUBLIC_TEXT_SEARCH_LIMIT: usize = 25;
 
 #[cfg(feature = "agent-guardian")]
-use crate::schema::signal::{
-    DomainMatch, DomainScope, DomainScopes, RegisteredReferent, RegisteredReferents, SelectedKind,
-};
+use crate::schema::signal::{DomainMatch, RegisteredReferent, RegisteredReferents, SelectedKind};
 
 #[cfg(feature = "testing-trace")]
 use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
@@ -202,17 +209,6 @@ impl SemaEngine for Store {
                     SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(error.to_string())))
                 }
             },
-            SemaWriteInput::ChangeCertainty(change) => {
-                match self.change_certainty(change.into_payload()) {
-                    Ok(Some(receipt)) => SemaWriteOutput::certainty_changed(receipt),
-                    Ok(None) => SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(
-                        "record not found",
-                    ))),
-                    Err(error) => SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(
-                        error.to_string(),
-                    ))),
-                }
-            }
             SemaWriteInput::BumpImportance(change) => {
                 match self.bump_importance(change.into_payload()) {
                     Ok(Some(receipt)) => SemaWriteOutput::importance_bumped(receipt),
@@ -263,6 +259,19 @@ impl SemaEngine for Store {
                     SemaReadOutput::missed(ErrorReport::new(ErrorMessage::new(error.to_string())))
                 }
             },
+            SemaReadInput::PublicIntent(public_intent) => {
+                match self.public_intent(public_intent.payload()) {
+                    Ok(entries) if !entries.is_empty() => SemaReadOutput::public_intent_results(
+                        ObservedRecords::new(RecordSet::new(entries)),
+                    ),
+                    Ok(_) => SemaReadOutput::missed(ErrorReport::new(ErrorMessage::new(
+                        "no matching record",
+                    ))),
+                    Err(error) => SemaReadOutput::missed(ErrorReport::new(ErrorMessage::new(
+                        error.to_string(),
+                    ))),
+                }
+            }
             SemaReadInput::PublicTextSearch(search) => match self
                 .public_text_search(search.payload())
             {
@@ -357,7 +366,7 @@ impl Store {
     /// The archive is a SEPARATE database from the live intent log. This
     /// method records WHERE that separate archive database lives; it does NOT
     /// open, move, or touch the live database in any way. Every subsequent
-    /// `Record` / `ChangeCertainty` / `Remove` / `Observe` keeps landing on the
+    /// `Record` / `ChangeRecord` / `Remove` / `Observe` keeps landing on the
     /// same live `*.sema` file the store was opened with. The configured target
     /// is consumed only by `collect_removal_candidates`, which opens the
     /// separate archive database on demand.
@@ -694,21 +703,12 @@ impl Store {
         record_identifier: String,
         entry: Entry,
     ) -> Result<String, StoreError> {
-        // Owner bypass: a corpus import carries its own referents. Auto-register
-        // any not-yet-registered referent (kebab-validated) directly, without the
-        // referent guardian, so the import is self-contained rather than failing
-        // on UnregisteredReferent the way the guarded working path would.
-        for referent in entry.referents.payload() {
-            if self.canonical_referent(referent)?.is_none() {
-                self.register_referent_record(referent.clone(), Referents::new(Vec::new()))?;
-            }
-        }
         let entry = self.canonicalized_entry(entry)?;
         let record = StoredRecord::new(record_identifier.clone(), entry);
         // Upsert: overwrite an existing record in place (owner curation /
         // maintenance), insert a new one (restore into an empty store). The
         // SEMA `assert` rejects an existing key, so an existing id needs
-        // `mutate` — matching the change_record / change_certainty update path.
+        // `mutate` — matching the change_record update path.
         if self
             .entry_by_identifier(record_identifier.as_str())?
             .is_some()
@@ -836,15 +836,40 @@ impl Store {
             .filter(|record| record.entry.matches(&query))
             .collect::<Vec<_>>();
         records.sort_by_key(|record| {
-            std::cmp::Reverse((
-                record.entry.certainty_rank(),
-                record.entry.importance_rank(),
-            ))
+            (
+                std::cmp::Reverse(record.entry.importance_rank()),
+                record.record_identifier.payload().clone(),
+            )
         });
         Ok(records
             .into_iter()
             .map(StoredRecord::into_observed_record)
             .collect())
+    }
+
+    fn public_intent(
+        &self,
+        requested_scopes: &DomainScopes,
+    ) -> Result<Vec<ObservedRecord>, StoreError> {
+        let query = PublicIntentQuery::new(requested_scopes.clone());
+        let mut records = Vec::new();
+        let mut seen = BTreeSet::new();
+        for scope in query.expanded_scopes() {
+            for record in self.records()?.into_iter().filter(|record| {
+                record.entry.is_public_active() && record.entry.matches_exact_scope(&scope)
+            }) {
+                if seen.insert(record.record_identifier.payload().clone()) {
+                    records.push(record.into_observed_record());
+                }
+            }
+        }
+        records.sort_by_key(|record| {
+            (
+                std::cmp::Reverse(record.entry.importance_rank()),
+                record.record_identifier.payload().clone(),
+            )
+        });
+        Ok(records)
     }
 
     fn public_text_search(
@@ -866,11 +891,7 @@ impl Store {
             })
             .collect::<Vec<_>>();
         scored.sort_by_key(|(score, record)| {
-            std::cmp::Reverse((
-                *score,
-                record.entry.certainty_rank(),
-                record.entry.importance_rank(),
-            ))
+            std::cmp::Reverse((*score, record.entry.importance_rank()))
         });
         Ok(scored
             .into_iter()
@@ -954,11 +975,6 @@ impl Store {
         for scope in proposed.guardian_domain_scopes().into_payload() {
             bundle.extend(RecordSet::new(
                 self.observe(&Query::guardian_domain_scope(scope))?,
-            ));
-        }
-        if !proposed.referents.payload().is_empty() {
-            bundle.extend(RecordSet::new(
-                self.observe(&Query::guardian_referents(proposed.referents.clone()))?,
             ));
         }
         Ok(bundle.into_record_set())
@@ -1062,26 +1078,6 @@ impl Store {
             return Ok(None);
         }
         Ok(Some(RetirementReceipt::new(record_identifier)))
-    }
-
-    fn change_certainty(
-        &self,
-        change: CertaintyChange,
-    ) -> Result<Option<CertaintyChangeReceipt>, StoreError> {
-        let record_identifier = change.record_identifier;
-        let identifier_text = record_identifier.payload().clone();
-        let Some(mut entry) = self.entry_by_identifier(record_identifier.payload())? else {
-            return Ok(None);
-        };
-        entry.certainty = change.certainty.clone();
-        self.database.mutate(Mutation::new(
-            self.entries,
-            StoredRecord::new(identifier_text, entry),
-        ))?;
-        Ok(Some(CertaintyChangeReceipt {
-            record_identifier,
-            certainty: change.certainty,
-        }))
     }
 
     fn bump_importance(
@@ -1357,49 +1353,12 @@ impl Store {
         Ok(())
     }
 
-    fn canonicalized_entry(&self, mut entry: Entry) -> Result<Entry, StoreError> {
-        entry.referents = self.canonicalized_referents(entry.referents)?;
+    fn canonicalized_entry(&self, entry: Entry) -> Result<Entry, StoreError> {
         Ok(entry)
     }
 
-    fn canonicalized_query(&self, mut query: Query) -> Result<Query, StoreError> {
-        query.referent_selection =
-            self.canonicalized_referent_selection(query.referent_selection)?;
+    fn canonicalized_query(&self, query: Query) -> Result<Query, StoreError> {
         Ok(query)
-    }
-
-    fn canonicalized_referent_selection(
-        &self,
-        selection: ReferentSelection,
-    ) -> Result<ReferentSelection, StoreError> {
-        match selection {
-            ReferentSelection::Any => Ok(ReferentSelection::Any),
-            ReferentSelection::AnyReferent(referents) => Ok(ReferentSelection::any_referent(
-                self.canonicalized_referents(referents.into_payload())?,
-            )),
-            ReferentSelection::AllReferents(referents) => Ok(ReferentSelection::all_referents(
-                self.canonicalized_referents(referents.into_payload())?,
-            )),
-        }
-    }
-
-    fn canonicalized_referents(&self, referents: Referents) -> Result<Referents, StoreError> {
-        let mut canonical = Vec::new();
-        for referent in referents.into_payload() {
-            canonical.push(
-                self.canonical_referent(&referent)?
-                    .ok_or_else(|| StoreError::UnregisteredReferent(referent.payload().clone()))?,
-            );
-        }
-        Ok(Referents::new(canonical))
-    }
-
-    fn canonical_referent(&self, referent: &Referent) -> Result<Option<Referent>, StoreError> {
-        Ok(self
-            .referents()?
-            .into_iter()
-            .find(|registered| registered.matches(referent))
-            .map(|registered| registered.referent))
     }
 
     fn next_record_identifier(&self) -> Result<String, StoreError> {
@@ -1501,93 +1460,282 @@ impl GuardianEntryExt for Entry {
 #[cfg(feature = "agent-guardian")]
 pub trait GuardianQueryExt {
     fn guardian_domain_scope(scope: DomainScope) -> Self;
-    fn guardian_referents(referents: Referents) -> Self;
-    fn guardian_context(domain_match: DomainMatch, referent_selection: ReferentSelection) -> Self;
+    fn guardian_context(domain_match: DomainMatch) -> Self;
 }
 
 #[cfg(feature = "agent-guardian")]
 impl GuardianQueryExt for Query {
     fn guardian_domain_scope(scope: DomainScope) -> Self {
-        Self::guardian_context(
-            DomainMatch::full(DomainScopes::new(vec![scope])),
-            ReferentSelection::Any,
-        )
+        Self::guardian_context(DomainMatch::full(DomainScopes::new(vec![scope])))
     }
 
-    fn guardian_referents(referents: Referents) -> Self {
-        Self::guardian_context(DomainMatch::Any, ReferentSelection::any_referent(referents))
-    }
-
-    fn guardian_context(domain_match: DomainMatch, referent_selection: ReferentSelection) -> Self {
+    fn guardian_context(domain_match: DomainMatch) -> Self {
         Self {
             domain_match,
             keyword_match: KeywordMatch::Any,
             text_match: TextMatch::Any,
-            referent_selection,
             selected_kind: SelectedKind::new(None),
             privacy_selection: PrivacySelection::Any,
-            certainty_selection: CertaintySelection::default_observation_certainty(),
             importance_selection: ImportanceSelection::default_observation_importance(),
         }
     }
 }
 
+#[derive(Clone, Debug)]
+struct PublicIntentQuery {
+    requested_scopes: DomainScopes,
+}
+
+impl PublicIntentQuery {
+    fn new(requested_scopes: DomainScopes) -> Self {
+        Self { requested_scopes }
+    }
+
+    fn expanded_scopes(&self) -> Vec<DomainScope> {
+        let mut scopes = Vec::new();
+        for scope in self.requested_scopes.payload() {
+            for expanded in Self::ancestors_for(scope) {
+                if !scopes.contains(&expanded) {
+                    scopes.push(expanded);
+                }
+            }
+        }
+        scopes
+    }
+
+    fn ancestors_for(scope: &DomainScope) -> Vec<DomainScope> {
+        let mut scopes = Vec::new();
+        if let DomainScope::Technology(technology) = scope {
+            scopes.push(DomainScope::Technology(TechnologyScope::All));
+            match technology {
+                TechnologyScope::All => {}
+                TechnologyScope::Hardware(payload) => {
+                    scopes.push(DomainScope::Technology(TechnologyScope::Hardware(
+                        HardwareLeafScope::All,
+                    )));
+                    if payload != &HardwareLeafScope::All {
+                        scopes.push(scope.clone());
+                    }
+                }
+                TechnologyScope::Software(software) => {
+                    scopes.push(DomainScope::Technology(TechnologyScope::Software(
+                        SoftwareScope::All,
+                    )));
+                    Self::push_software_branch_ancestors(software, scope, &mut scopes);
+                }
+            }
+        } else {
+            scopes.push(scope.clone());
+        }
+        scopes
+    }
+
+    fn push_software_branch_ancestors(
+        software: &SoftwareScope,
+        exact_scope: &DomainScope,
+        scopes: &mut Vec<DomainScope>,
+    ) {
+        match software {
+            SoftwareScope::All => {}
+            SoftwareScope::Theory => scopes.push(exact_scope.clone()),
+            SoftwareScope::Programming(payload) => {
+                Self::push_software_leaf_scope(
+                    SoftwareScope::Programming(ProgrammingLeafScope::All),
+                    payload == &ProgrammingLeafScope::All,
+                    exact_scope,
+                    scopes,
+                );
+            }
+            SoftwareScope::Systems(payload) => {
+                Self::push_software_leaf_scope(
+                    SoftwareScope::Systems(SystemsLeafScope::All),
+                    payload == &SystemsLeafScope::All,
+                    exact_scope,
+                    scopes,
+                );
+            }
+            SoftwareScope::Distributed(payload) => {
+                Self::push_software_leaf_scope(
+                    SoftwareScope::Distributed(DistributedLeafScope::All),
+                    payload == &DistributedLeafScope::All,
+                    exact_scope,
+                    scopes,
+                );
+            }
+            SoftwareScope::Data(payload) => {
+                Self::push_software_leaf_scope(
+                    SoftwareScope::Data(DataLeafScope::All),
+                    payload == &DataLeafScope::All,
+                    exact_scope,
+                    scopes,
+                );
+            }
+            SoftwareScope::Intelligence(payload) => {
+                Self::push_software_leaf_scope(
+                    SoftwareScope::Intelligence(IntelligenceLeafScope::All),
+                    payload == &IntelligenceLeafScope::All,
+                    exact_scope,
+                    scopes,
+                );
+            }
+            SoftwareScope::Security(payload) => {
+                Self::push_software_leaf_scope(
+                    SoftwareScope::Security(SecurityLeafScope::All),
+                    payload == &SecurityLeafScope::All,
+                    exact_scope,
+                    scopes,
+                );
+            }
+            SoftwareScope::Quality(payload) => {
+                Self::push_software_leaf_scope(
+                    SoftwareScope::Quality(QualityLeafScope::All),
+                    payload == &QualityLeafScope::All,
+                    exact_scope,
+                    scopes,
+                );
+            }
+            SoftwareScope::Operations(payload) => {
+                Self::push_software_leaf_scope(
+                    SoftwareScope::Operations(OperationsLeafScope::All),
+                    payload == &OperationsLeafScope::All,
+                    exact_scope,
+                    scopes,
+                );
+            }
+            SoftwareScope::Observability(payload) => {
+                Self::push_software_leaf_scope(
+                    SoftwareScope::Observability(ObservabilityLeafScope::All),
+                    payload == &ObservabilityLeafScope::All,
+                    exact_scope,
+                    scopes,
+                );
+            }
+            SoftwareScope::Surfaces(payload) => {
+                Self::push_software_leaf_scope(
+                    SoftwareScope::Surfaces(SurfacesLeafScope::All),
+                    payload == &SurfacesLeafScope::All,
+                    exact_scope,
+                    scopes,
+                );
+            }
+            SoftwareScope::Engineering(payload) => {
+                Self::push_software_leaf_scope(
+                    SoftwareScope::Engineering(EngineeringLeafScope::All),
+                    payload == &EngineeringLeafScope::All,
+                    exact_scope,
+                    scopes,
+                );
+            }
+        }
+    }
+
+    fn push_software_leaf_scope(
+        branch_all: SoftwareScope,
+        exact_is_all: bool,
+        exact_scope: &DomainScope,
+        scopes: &mut Vec<DomainScope>,
+    ) {
+        scopes.push(DomainScope::Technology(TechnologyScope::Software(
+            branch_all,
+        )));
+        if !exact_is_all {
+            scopes.push(exact_scope.clone());
+        }
+    }
+}
+
 struct PublicTextSearchNeedle {
-    full_text: String,
-    tokens: Vec<String>,
+    #[cfg(not(feature = "nota-text"))]
+    phrase: String,
+    words: Vec<String>,
+    empty: bool,
 }
 
 impl PublicTextSearchNeedle {
     fn new(search_text: &SearchText) -> Self {
-        let full_text = search_text.payload().trim().to_lowercase();
-        let tokens = full_text
-            .split_whitespace()
-            .map(str::trim)
-            .filter(|token| !token.is_empty())
-            .map(ToOwned::to_owned)
-            .collect();
-        Self { full_text, tokens }
+        let words = Self::normalized_words(search_text.payload());
+        #[cfg(not(feature = "nota-text"))]
+        let phrase = words.join(" ");
+        let empty = words.is_empty();
+        Self {
+            #[cfg(not(feature = "nota-text"))]
+            phrase,
+            words,
+            empty,
+        }
     }
 
     fn is_empty(&self) -> bool {
-        self.full_text.is_empty()
+        self.empty
+    }
+
+    #[cfg(feature = "nota-text")]
+    fn normalized_words(search_text: &str) -> Vec<String> {
+        QuerySearchText::new(search_text)
+            .words
+            .into_iter()
+            .map(|word| word.as_str().to_owned())
+            .collect::<Vec<_>>()
+    }
+
+    #[cfg(not(feature = "nota-text"))]
+    fn normalized_words(search_text: &str) -> Vec<String> {
+        search_text
+            .split_whitespace()
+            .map(|word| {
+                word.chars()
+                    .filter(|character| character.is_alphanumeric())
+                    .collect::<String>()
+                    .to_lowercase()
+            })
+            .filter(|word| !word.is_empty())
+            .collect::<Vec<_>>()
     }
 
     fn score_entry(&self, entry: &Entry) -> Option<u64> {
-        let score =
-            self.score_description(&entry.description) + self.score_referents(&entry.referents);
+        let score = self.score_description(&entry.description);
         (score > 0).then_some(score)
     }
 
     fn score_description(&self, description: &Description) -> u64 {
-        let haystack = description.payload().to_lowercase();
+        #[cfg(feature = "nota-text")]
+        {
+            return self.score_description_with_nota_text_query(description);
+        }
+        #[cfg(not(feature = "nota-text"))]
+        {
+            self.score_description_without_nota(description)
+        }
+    }
+
+    #[cfg(feature = "nota-text")]
+    fn score_description_with_nota_text_query(&self, description: &Description) -> u64 {
+        let haystack = QuerySearchText::new(description.payload());
         let mut score = 0;
-        if haystack.contains(&self.full_text) {
+        let phrase_query = TextQuery::contains(QueryTerm::phrase(self.words.clone()));
+        if matches!(phrase_query.find_in(&haystack), SearchOutcome::Matched(_)) {
             score += 100;
         }
-        for token in &self.tokens {
-            if haystack.contains(token) {
+        for word in &self.words {
+            let query = TextQuery::contains(QueryTerm::word(word.clone()));
+            if matches!(query.find_in(&haystack), SearchOutcome::Matched(_)) {
                 score += 10;
             }
         }
         score
     }
 
-    fn score_referents(&self, referents: &Referents) -> u64 {
+    #[cfg(not(feature = "nota-text"))]
+    fn score_description_without_nota(&self, description: &Description) -> u64 {
+        let haystack = Self::normalized_words(description.payload());
+        let haystack_text = haystack.join(" ");
         let mut score = 0;
-        for referent in referents.payload() {
-            let candidate = referent.payload().to_lowercase();
-            if candidate == self.full_text {
-                score += 120;
-            } else if candidate.contains(&self.full_text) {
-                score += 60;
-            }
-            for token in &self.tokens {
-                if candidate == *token {
-                    score += 30;
-                } else if candidate.contains(token) {
-                    score += 15;
-                }
+        if !self.phrase.is_empty() && haystack_text.contains(&self.phrase) {
+            score += 100;
+        }
+        for word in &self.words {
+            if haystack.iter().any(|candidate| candidate == word) {
+                score += 10;
             }
         }
         score
@@ -1596,8 +1744,8 @@ impl PublicTextSearchNeedle {
 
 pub trait EntryStoreExt {
     fn matches(&self, query: &Query) -> bool;
+    fn matches_exact_scope(&self, scope: &DomainScope) -> bool;
     fn is_public_active(&self) -> bool;
-    fn certainty_rank(&self) -> u64;
     fn importance_rank(&self) -> u64;
 }
 
@@ -1606,14 +1754,15 @@ impl EntryStoreExt for Entry {
         query.matches(self)
     }
 
-    fn is_public_active(&self) -> bool {
-        PrivacySelection::default_observation_privacy().matches(&self.privacy)
-            && CertaintySelection::default_observation_certainty().matches(&self.certainty)
-            && ImportanceSelection::default_observation_importance().matches(&self.importance)
+    fn matches_exact_scope(&self, scope: &DomainScope) -> bool {
+        self.domains
+            .iter()
+            .any(|domain| DomainScope::from(domain.clone()) == *scope)
     }
 
-    fn certainty_rank(&self) -> u64 {
-        self.certainty.payload().rank()
+    fn is_public_active(&self) -> bool {
+        PrivacySelection::default_observation_privacy().matches(&self.privacy)
+            && ImportanceSelection::default_observation_importance().matches(&self.importance)
     }
 
     fn importance_rank(&self) -> u64 {
@@ -1715,37 +1864,13 @@ impl QueryStoreExt for Query {
         self.domain_match.matches(&entry.domains)
             && self.keyword_match.matches(&entry.description)
             && self.text_match.matches(&entry.description)
-            && self.referent_selection.matches(&entry.referents)
             && self
                 .selected_kind
                 .payload()
                 .as_ref()
                 .is_none_or(|kind| &entry.kind == kind)
             && self.privacy_selection.matches(&entry.privacy)
-            && self.certainty_selection.matches(&entry.certainty)
             && self.importance_selection.matches(&entry.importance)
-    }
-}
-
-pub trait ReferentSelectionStoreExt {
-    fn matches(&self, entry_referents: &Referents) -> bool;
-}
-
-impl ReferentSelectionStoreExt for ReferentSelection {
-    fn matches(&self, entry_referents: &Referents) -> bool {
-        match self {
-            Self::Any => true,
-            Self::AnyReferent(expected) => expected
-                .payload()
-                .payload()
-                .iter()
-                .any(|referent| entry_referents.payload().contains(referent)),
-            Self::AllReferents(expected) => expected
-                .payload()
-                .payload()
-                .iter()
-                .all(|referent| entry_referents.payload().contains(referent)),
-        }
     }
 }
 
@@ -1795,36 +1920,6 @@ impl PrivacySelectionStoreExt for PrivacySelection {
             Self::AtMost(maximum) => privacy.payload().rank() <= maximum.payload().payload().rank(),
             Self::AtLeast(minimum) => {
                 privacy.payload().rank() >= minimum.payload().payload().rank()
-            }
-        }
-    }
-}
-
-pub trait CertaintySelectionStoreExt {
-    fn default_observation_certainty() -> Self;
-    fn removal_candidate_certainty() -> Self;
-    fn matches(&self, certainty: &Certainty) -> bool;
-}
-
-impl CertaintySelectionStoreExt for CertaintySelection {
-    fn default_observation_certainty() -> Self {
-        Self::at_least_certainty(Certainty::new(Magnitude::Minimum))
-    }
-
-    fn removal_candidate_certainty() -> Self {
-        Self::exact_certainty(Certainty::new(Magnitude::Zero))
-    }
-
-    fn matches(&self, certainty: &Certainty) -> bool {
-        let certainty = certainty.payload();
-        match self {
-            Self::Any => true,
-            Self::ExactCertainty(expected) => certainty == expected.payload().payload(),
-            Self::AtMostCertainty(maximum) => {
-                certainty.rank() <= maximum.payload().payload().rank()
-            }
-            Self::AtLeastCertainty(minimum) => {
-                certainty.rank() >= minimum.payload().payload().rank()
             }
         }
     }

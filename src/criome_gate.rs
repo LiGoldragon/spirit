@@ -145,7 +145,6 @@ impl CriomeAuthorization {
                 | Input::ResolveClarification(_)
                 | Input::Supersede(_)
                 | Input::Retire(_)
-                | Input::ChangeCertainty(_)
                 | Input::BumpImportance(_)
                 | Input::ChangeRecord(_)
                 | Input::RegisterReferent(_) => false,

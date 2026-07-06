@@ -11,17 +11,15 @@ use spirit::{
             WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
         },
         signal::{
-            Certainty, CertaintyChange, CertaintySelection, Clarification, DataLeaf,
-            DatabaseMarker, Description, Domain, DomainMatch, DomainScope, DomainScopes, Domains,
-            Entry, ErrorMessage, ErrorReport, GuardianRejectionReason, HardwareLeaf,
-            ImportanceBump, ImportanceSelection, Information, Input, Justification, Keyword,
-            KeywordMatch, Keywords, Kind, Magnitude, Output, Privacy, PrivacySelection, Proposal,
-            Query, QuoteText, Reasoning, RecordChange, RecordIdentifier, RecordRequest,
-            RecordSelection, Referent, ReferentRegistration, ReferentSelection, Referents,
-            Replacements, RetiredIdentifier, RetiredIdentifiers, Retirement, SearchText,
-            SelectedKind, SemaReceipt, SignalRejection, Software, StashHandle, Statement,
-            StatementText, Supersession, Technology, Testimony, TextMatch, ValidationError,
-            VerbatimQuote,
+            Clarification, DataLeaf, DatabaseMarker, Description, Domain, DomainMatch, DomainScope,
+            DomainScopes, Domains, Entry, ErrorMessage, ErrorReport, GuardianRejectionReason,
+            HardwareLeaf, ImportanceBump, ImportanceSelection, Information, Input, Justification,
+            Keyword, KeywordMatch, Keywords, Kind, Magnitude, Output, Privacy, PrivacySelection,
+            Proposal, Query, QuoteText, Reasoning, RecordChange, RecordIdentifier, RecordRequest,
+            RecordSelection, Referent, ReferentRegistration, Referents, Replacements,
+            RetiredIdentifier, RetiredIdentifiers, Retirement, SearchText, SelectedKind,
+            SemaReceipt, SignalRejection, Software, StashHandle, Statement, StatementText,
+            Supersession, Technology, Testimony, TextMatch, ValidationError, VerbatimQuote,
         },
     },
 };
@@ -318,12 +316,8 @@ fn entry_with_domains(domains: &[&str], description: &str) -> Entry {
         domains: domains_from_slice(domains),
         kind: Kind::Decision,
         description: Description::new(description),
-        certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(vec![
-            spirit::schema::signal::Referent::new("spirit"),
-        ]),
     }
 }
 
@@ -333,10 +327,8 @@ fn entry_without_referents(description: &str) -> Entry {
         domains: domains_from_slice(&["runtime-triad"]),
         kind: Kind::Decision,
         description: Description::new(description),
-        certainty: Magnitude::Zero.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: Referents::new(Vec::new()),
     }
 }
 
@@ -345,12 +337,8 @@ fn entry_with_domain(domain: Domain, description: &str) -> Entry {
         domains: Domains::new(vec![domain]),
         kind: Kind::Decision,
         description: Description::new(description),
-        certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(vec![
-            spirit::schema::signal::Referent::new("spirit"),
-        ]),
     }
 }
 
@@ -364,13 +352,6 @@ fn entry_with_privacy(description: &str, privacy: Magnitude) -> Entry {
 fn entry_with_importance(description: &str, importance: Magnitude) -> Entry {
     Entry {
         importance: importance.into(),
-        ..entry(description)
-    }
-}
-
-fn entry_with_referents(description: &str, referents: &[&str]) -> Entry {
-    Entry {
-        referents: referents_from_slice(referents),
         ..entry(description)
     }
 }
@@ -429,20 +410,20 @@ fn domain_scopes_from_scopes(scopes: &[DomainScope]) -> DomainScopes {
     DomainScopes::new(scopes.to_vec())
 }
 
-fn keywords_from_slice(keywords: &[&str]) -> Keywords {
-    Keywords::new(
-        keywords
-            .iter()
-            .map(|keyword| Keyword::new(String::from(*keyword)))
-            .collect(),
-    )
-}
-
 fn referents_from_slice(referents: &[&str]) -> Referents {
     Referents::new(
         referents
             .iter()
             .map(|referent| Referent::new(*referent))
+            .collect(),
+    )
+}
+
+fn keywords_from_slice(keywords: &[&str]) -> Keywords {
+    Keywords::new(
+        keywords
+            .iter()
+            .map(|keyword| Keyword::new(String::from(*keyword)))
             .collect(),
     )
 }
@@ -472,10 +453,8 @@ fn full_query(domains: &[&str], kind: Option<Kind>) -> Query {
         domain_match: DomainMatch::full(domain_scopes_from_slice(domains)),
         keyword_match: KeywordMatch::Any,
         text_match: TextMatch::Any,
-        referent_selection: spirit::schema::signal::ReferentSelection::Any,
         selected_kind: SelectedKind::new(kind),
         privacy_selection: PrivacySelection::default_observation_privacy(),
-        certainty_selection: CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
     }
 }
@@ -485,10 +464,8 @@ fn partial_query(domains: &[&str], kind: Option<Kind>) -> Query {
         domain_match: DomainMatch::partial(domain_scopes_from_slice(domains)),
         keyword_match: KeywordMatch::Any,
         text_match: TextMatch::Any,
-        referent_selection: spirit::schema::signal::ReferentSelection::Any,
         selected_kind: SelectedKind::new(kind),
         privacy_selection: PrivacySelection::default_observation_privacy(),
-        certainty_selection: CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
     }
 }
@@ -498,10 +475,8 @@ fn query_with_domain_scopes(domain_scopes: DomainScopes) -> Query {
         domain_match: DomainMatch::full(domain_scopes),
         keyword_match: KeywordMatch::Any,
         text_match: TextMatch::Any,
-        referent_selection: spirit::schema::signal::ReferentSelection::Any,
         selected_kind: SelectedKind::new(Some(Kind::Decision)),
         privacy_selection: PrivacySelection::default_observation_privacy(),
-        certainty_selection: CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
     }
 }
@@ -597,6 +572,10 @@ fn input_public_records(selection: RecordSelection) -> Input {
     Input::public_records(selection)
 }
 
+fn input_public_intent(scopes: DomainScopes) -> Input {
+    Input::public_intent(scopes)
+}
+
 fn input_private_records(selection: RecordSelection) -> Input {
     Input::private_records(selection)
 }
@@ -634,13 +613,6 @@ fn input_count(query: Query) -> Input {
     Input::count(query)
 }
 
-fn input_change_certainty(record_identifier: RecordIdentifier, certainty: Magnitude) -> Input {
-    Input::change_certainty(CertaintyChange {
-        record_identifier,
-        certainty: Certainty::new(certainty),
-    })
-}
-
 fn input_change_record(record_identifier: RecordIdentifier, entry: Entry) -> Input {
     Input::change_record(RecordChange {
         record_identifier,
@@ -671,16 +643,6 @@ fn nexus_signal_arrived(input: Input) -> NexusWork {
 
 fn sema_record(entry: Entry) -> SemaWriteInput {
     SemaWriteInput::record(entry)
-}
-
-fn sema_change_certainty(
-    record_identifier: RecordIdentifier,
-    certainty: Magnitude,
-) -> SemaWriteInput {
-    SemaWriteInput::change_certainty(CertaintyChange {
-        record_identifier,
-        certainty: Certainty::new(certainty),
-    })
 }
 
 fn sema_change_record(record_identifier: RecordIdentifier, entry: Entry) -> SemaWriteInput {
@@ -806,38 +768,11 @@ fn nexus_classifies_state_into_provisional_record_through_sema_write() {
                 "capture this statement"
             );
             assert_eq!(
-                records.payload().payload()[0].entry.certainty,
-                Magnitude::Minimum
-            );
-            assert_eq!(
                 records.payload().payload()[0].entry.privacy,
                 Magnitude::Zero
             );
         }
         other => panic!("expected classified State record to be observable, got {other:?}"),
-    }
-}
-
-#[test]
-fn nexus_change_certainty_is_visible_as_schema_declared_write_command() {
-    let sema = SemaFile::new();
-    let mut nexus = Nexus::new(sema.open_store());
-    let identifier = record_identifier("003g");
-    let nexus_input =
-        nexus_signal_arrived(input_change_certainty(identifier.clone(), Magnitude::Zero))
-            .with_origin_route(nexus_route(5));
-
-    let first_action = NexusEngine::decide(&mut nexus, nexus_input);
-
-    assert_eq!(first_action.origin_route(), nexus_route(5));
-    match first_action.root() {
-        NexusAction::CommandSemaWrite(CommandSemaWrite::ChangeCertainty(change)) => {
-            assert_eq!(change.record_identifier, identifier);
-            assert_eq!(change.certainty, Magnitude::Zero);
-        }
-        other => panic!(
-            "expected ChangeCertainty to become CommandSemaWrite(ChangeCertainty), got {other:?}"
-        ),
     }
 }
 
@@ -856,15 +791,15 @@ fn nexus_change_record_is_visible_as_schema_declared_write_command() {
     assert_eq!(first_action.origin_route(), nexus_route(6));
     match first_action.root() {
         NexusAction::CommandEffect(effect) => {
-            let NexusEffectCommand::ChangeRecordWithImpliedReferents(change) = effect else {
-                panic!("expected ChangeRecordWithImpliedReferents effect, got {effect:?}");
+            let NexusEffectCommand::GuardChangeRecord(change) = effect else {
+                panic!("expected GuardChangeRecord effect, got {effect:?}");
             };
             assert_eq!(change.payload().record_identifier, identifier);
             assert_eq!(change.payload().entry, replacement);
         }
         other => {
             panic!(
-                "expected ChangeRecord to become CommandEffect(ChangeRecordWithImpliedReferents), got {other:?}"
+                "expected ChangeRecord to become CommandEffect(GuardChangeRecord), got {other:?}"
             )
         }
     }
@@ -923,48 +858,6 @@ fn nexus_state_classification_is_visible_as_schema_declared_effect_command() {
 }
 
 #[test]
-fn sema_engine_changes_certainty_without_changing_record_identifier() {
-    let sema = SemaFile::new();
-    let mut store = sema.open_store();
-    let recorded = SemaEngine::apply(
-        &mut store,
-        sema_write_message(sema_record(entry("certainty target")), 1),
-    );
-    let record_identifier = match recorded.into_root() {
-        SemaWriteOutput::Recorded(receipt) => receipt.record_identifier.clone(),
-        other => panic!("expected initial Recorded receipt, got {other:?}"),
-    };
-
-    let changed = SemaEngine::apply(
-        &mut store,
-        sema_write_message(
-            sema_change_certainty(record_identifier.clone(), Magnitude::Zero),
-            2,
-        ),
-    );
-    match changed.root() {
-        SemaWriteOutput::CertaintyChanged(receipt) => {
-            assert_eq!(receipt.record_identifier, record_identifier);
-            assert_eq!(receipt.certainty, Magnitude::Zero);
-        }
-        other => panic!("expected CertaintyChanged receipt, got {other:?}"),
-    }
-
-    let found = SemaEngine::observe(
-        &store,
-        sema_read_message(sema_lookup(record_identifier.clone()), 3),
-    );
-    match found.root() {
-        SemaReadOutput::Found(record) => {
-            assert_eq!(record.record_identifier, record_identifier);
-            assert_eq!(record.entry.description.payload(), "certainty target");
-            assert_eq!(record.entry.certainty, Magnitude::Zero);
-        }
-        other => panic!("expected changed record lookup, got {other:?}"),
-    }
-}
-
-#[test]
 fn nexus_write_operations_are_visible_as_schema_declared_effect_commands() {
     let sema = SemaFile::new();
     let mut nexus = Nexus::new(sema.open_store());
@@ -977,14 +870,9 @@ fn nexus_write_operations_are_visible_as_schema_declared_effect_commands() {
     );
     match propose.root() {
         NexusAction::CommandEffect(effect) => {
-            assert!(matches!(
-                effect,
-                NexusEffectCommand::ProposeWithImpliedReferents(_)
-            ));
+            assert!(matches!(effect, NexusEffectCommand::Propose(_)));
         }
-        other => panic!(
-            "expected Propose to become CommandEffect(ProposeWithImpliedReferents), got {other:?}"
-        ),
+        other => panic!("expected Propose to become CommandEffect(Propose), got {other:?}"),
     }
 
     let clarify = NexusEngine::decide(
@@ -1009,14 +897,9 @@ fn nexus_write_operations_are_visible_as_schema_declared_effect_commands() {
     );
     match supersede.root() {
         NexusAction::CommandEffect(effect) => {
-            assert!(matches!(
-                effect,
-                NexusEffectCommand::SupersedeWithImpliedReferents(_)
-            ));
+            assert!(matches!(effect, NexusEffectCommand::Supersede(_)));
         }
-        other => panic!(
-            "expected Supersede to become CommandEffect(SupersedeWithImpliedReferents), got {other:?}"
-        ),
+        other => panic!("expected Supersede to become CommandEffect(Supersede), got {other:?}"),
     }
 
     let retire = NexusEngine::decide(
@@ -1630,18 +1513,6 @@ fn agent_guardian_prompt_bundle_stays_bounded_as_corpus_grows() {
             .root(),
         Output::RecordAccepted(_)
     ));
-    assert!(matches!(
-        setup_engine
-            .handle(input_record(Entry {
-                domains: Domains::new(vec![Domain::Health(
-                    spirit::schema::signal::Health::Medicine,
-                )]),
-                referents: referents_from_slice(&["schema"]),
-                ..entry("guardian-referent-neighbor-live")
-            }))
-            .root(),
-        Output::RecordAccepted(_)
-    ));
     drop(setup_engine);
 
     let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::Accept);
@@ -1650,7 +1521,6 @@ fn agent_guardian_prompt_bundle_stays_bounded_as_corpus_grows() {
         domains: Domains::new(vec![Domain::Technology(Technology::Software(
             Software::Quality(spirit::schema::signal::QualityLeaf::Testing),
         ))]),
-        referents: referents_from_slice(&["schema"]),
         ..entry("guardian bounded candidate")
     }));
 
@@ -1666,11 +1536,6 @@ fn agent_guardian_prompt_bundle_stays_bounded_as_corpus_grows() {
     assert!(
         prompts[0].contains("guardian-domain-neighbor-live"),
         "guardian prompt should include exact-domain neighbors: {}",
-        prompts[0]
-    );
-    assert!(
-        prompts[0].contains("guardian-referent-neighbor-live"),
-        "guardian prompt should include shared-referent neighbors: {}",
         prompts[0]
     );
     fake_agent.join();
@@ -1981,7 +1846,7 @@ fn sema_engine_writes_durable_records_and_returns_schema_objects() {
     match response.root() {
         SemaWriteOutput::Recorded(receipt) => {
             assert_short_record_identifier(&receipt.record_identifier);
-            assert_eq!(*receipt.database_marker.commit_sequence.payload(), 2);
+            assert_eq!(*receipt.database_marker.commit_sequence.payload(), 1);
             assert_ne!(
                 *receipt.database_marker.state_digest.payload(),
                 0,
@@ -2093,9 +1958,9 @@ fn sema_store_persists_records_across_reopen_of_the_same_sema_file() {
         "records written before the drop survive the reopen"
     );
 
-    // The commit ledger resumed: the next write is commit sequence 4,
+    // The commit ledger resumed: the next write is commit sequence 3,
     // not 1, proving the counter persisted, not just the records and the
-    // implied referent-registration writes.
+    // old implied referent-registration writes.
     let after = SemaEngine::apply(
         &mut reopened,
         sema_write_message(sema_record(entry("durable three")), 3),
@@ -2103,7 +1968,7 @@ fn sema_store_persists_records_across_reopen_of_the_same_sema_file() {
     match after.root() {
         SemaWriteOutput::Recorded(receipt) => {
             assert_short_record_identifier(&receipt.record_identifier);
-            assert_eq!(*receipt.database_marker.commit_sequence.payload(), 4);
+            assert_eq!(*receipt.database_marker.commit_sequence.payload(), 3);
         }
         other => panic!("expected Recorded after reopen, got {other:?}"),
     }
@@ -2490,7 +2355,7 @@ fn signal_admission_rejects_empty_keyword_and_text_queries() {
 }
 
 #[test]
-fn sema_engine_observation_orders_by_certainty_then_importance() {
+fn sema_engine_observation_orders_by_importance_then_identifier() {
     let sema = SemaFile::new();
     let mut store = sema.open_store();
     SemaEngine::apply(
@@ -2692,6 +2557,72 @@ fn public_private_record_shortcuts_project_to_privacy_queries_through_nexus() {
             );
         }
         other => panic!("expected private shortcut stash lookup to return records, got {other:?}"),
+    }
+}
+
+#[test]
+fn public_intent_expands_exact_paths_and_dedupes_shared_ancestors() {
+    let sema = SemaFile::new();
+    let mut engine = sema.engine();
+
+    for entry in [
+        Entry {
+            importance: Magnitude::VeryHigh.into(),
+            ..entry_with_domain(
+                Domain::Technology(Technology::Software(Software::Data(DataLeaf::All))),
+                "data ancestor",
+            )
+        },
+        Entry {
+            importance: Magnitude::High.into(),
+            ..entry_with_domain(
+                Domain::Technology(Technology::Software(Software::Data(DataLeaf::Persistence))),
+                "persistence leaf",
+            )
+        },
+        Entry {
+            importance: Magnitude::Low.into(),
+            ..entry_with_domain(
+                Domain::Technology(Technology::Software(Software::Data(
+                    DataLeaf::SchemaEvolution,
+                ))),
+                "schema leaf",
+            )
+        },
+        entry_with_domain(
+            Domain::Technology(Technology::Software(Software::Quality(
+                spirit::schema::signal::QualityLeaf::Testing,
+            ))),
+            "quality sibling",
+        ),
+    ] {
+        assert!(matches!(
+            engine.handle(input_record(entry)).root(),
+            Output::RecordAccepted(_)
+        ));
+    }
+
+    let output = engine.handle(input_public_intent(DomainScopes::new(vec![
+        DomainScope::from(Domain::Technology(Technology::Software(Software::Data(
+            DataLeaf::Persistence,
+        )))),
+        schema_evolution_scope(),
+    ])));
+
+    match output.root() {
+        Output::RecordsObserved(records) => {
+            let descriptions = records
+                .payload()
+                .payload()
+                .iter()
+                .map(|record| record.entry.description.payload().as_str())
+                .collect::<Vec<_>>();
+            assert_eq!(
+                descriptions,
+                vec!["data ancestor", "persistence leaf", "schema leaf"]
+            );
+        }
+        other => panic!("expected PublicIntent to return observed records, got {other:?}"),
     }
 }
 
@@ -2938,7 +2869,7 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
         }
         other => panic!("expected RecordAccepted, got {other:?}"),
     };
-    assert_eq!(*record_marker.commit_sequence.payload(), 2);
+    assert_eq!(*record_marker.commit_sequence.payload(), 1);
     assert_eq!(engine.sent_message_count(), 1);
     assert_eq!(engine.processed_message_count(), 1);
 
@@ -2948,10 +2879,8 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
         )])),
         keyword_match: KeywordMatch::Any,
         text_match: TextMatch::Any,
-        referent_selection: spirit::schema::signal::ReferentSelection::Any,
         selected_kind: SelectedKind::new(Some(Kind::Decision)),
         privacy_selection: PrivacySelection::default_observation_privacy(),
-        certainty_selection: CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
     }));
 
@@ -3067,7 +2996,7 @@ fn full_runtime_triad_reports_database_marker_only_through_marker_operation() {
     let marker = engine.handle(Input::Marker);
     match marker.root() {
         Output::MarkerReported(marker) => {
-            assert_eq!(marker.payload().commit_sequence.payload(), &2);
+            assert_eq!(marker.payload().commit_sequence.payload(), &1);
             assert_ne!(marker.payload().state_digest.payload(), &0);
         }
         other => panic!("expected MarkerReported after write, got {other:?}"),
@@ -3090,58 +3019,7 @@ fn full_runtime_triad_registers_referent_through_signal_nexus_and_sema() {
 }
 
 #[test]
-fn full_runtime_triad_records_and_registers_embedded_referent() {
-    let sema = SemaFile::new();
-    let mut engine = sema.engine();
-
-    let output = engine.handle(input_record(entry_with_referents(
-        "embedded referent should register",
-        &["schema"],
-    )));
-
-    match output.root() {
-        Output::RecordAccepted(receipt) => assert_short_record_identifier(receipt.payload()),
-        other => panic!("expected RecordAccepted for embedded referent, got {other:?}"),
-    }
-    let observed = engine.handle(input_observe(Query {
-        referent_selection: ReferentSelection::any_referent(referents_from_slice(&["schema"])),
-        ..query()
-    }));
-    let stash = match observed.root() {
-        Output::RecordsStashed(stashed) => stashed.stash_handle.clone(),
-        other => panic!("expected RecordsStashed for embedded referent query, got {other:?}"),
-    };
-    let records = engine.handle(input_lookup_stash(stash));
-    match records.root() {
-        Output::RecordsObserved(records) => {
-            assert_eq!(records.payload().payload().len(), 1);
-            assert_eq!(
-                records.payload().payload()[0].entry.description.payload(),
-                "embedded referent should register"
-            );
-        }
-        other => panic!("expected RecordsObserved for embedded referent query, got {other:?}"),
-    }
-}
-
-#[test]
-fn full_runtime_triad_proposes_and_registers_embedded_referent() {
-    let sema = SemaFile::new();
-    let mut engine = sema.engine();
-
-    let output = engine.handle(input_propose(entry_with_referents(
-        "embedded proposal referent should register",
-        &["schema"],
-    )));
-
-    match output.root() {
-        Output::Proposed(receipt) => assert_short_record_identifier(receipt.payload()),
-        other => panic!("expected Proposed for embedded referent, got {other:?}"),
-    }
-}
-
-#[test]
-fn full_runtime_triad_change_record_registers_embedded_referent() {
+fn full_runtime_triad_change_record_replaces_entry_under_same_identifier() {
     let sema = SemaFile::new();
     let mut engine = sema.engine();
 
@@ -3154,7 +3032,7 @@ fn full_runtime_triad_change_record_registers_embedded_referent() {
     };
     let changed = engine.handle(input_change_record(
         record_identifier.clone(),
-        entry_with_referents("record after embedded referent change", &["schema"]),
+        entry_with_domains(&["runtime-triad", "replacement"], "record after change"),
     ));
 
     match changed.root() {
@@ -3164,82 +3042,17 @@ fn full_runtime_triad_change_record_registers_embedded_referent() {
                 record_identifier.payload()
             )
         }
-        other => panic!("expected RecordChanged for embedded referent change, got {other:?}"),
+        other => panic!("expected RecordChanged after replacement, got {other:?}"),
     }
     let found = engine.handle(Input::lookup(record_identifier));
     match found.root() {
         Output::RecordFound(record) => {
-            assert_eq!(record.entry.referents.payload(), &[Referent::new("schema")]);
-        }
-        other => panic!("expected RecordFound after embedded referent change, got {other:?}"),
-    }
-}
-
-#[test]
-fn full_runtime_triad_canonicalizes_referent_aliases_on_write_and_query() {
-    let sema = SemaFile::new();
-    let mut engine = sema.engine();
-    engine.handle(input_register_referent("schema", &["schema-alias"]));
-
-    let recorded = engine.handle(input_record(entry_with_referents(
-        "alias referent canonicalizes",
-        &["schema-alias"],
-    )));
-    let identifier = match recorded.into_root() {
-        Output::RecordAccepted(receipt) => receipt.payload().clone(),
-        other => panic!("expected RecordAccepted, got {other:?}"),
-    };
-
-    let found = engine.handle(input_lookup(identifier.clone()));
-    match found.root() {
-        Output::RecordFound(record) => {
-            assert_eq!(record.record_identifier, identifier);
+            assert_eq!(record.entry.description.payload(), "record after change");
             assert_eq!(
-                record.entry.referents.payload(),
-                &vec![Referent::new("schema")]
+                record.entry.domains,
+                domains_from_slice(&["runtime-triad", "replacement"])
             );
         }
-        other => panic!("expected RecordFound, got {other:?}"),
-    }
-
-    let observed = engine.handle(input_observe(Query {
-        referent_selection: ReferentSelection::any_referent(referents_from_slice(&[
-            "schema-alias",
-        ])),
-        ..query()
-    }));
-    match observed.root() {
-        Output::RecordsStashed(stash) => {
-            assert_eq!(*stash.record_count.payload(), 1);
-        }
-        other => panic!("expected alias query to match the canonical record, got {other:?}"),
-    }
-}
-
-#[test]
-fn full_runtime_triad_canonicalizes_referent_aliases_on_propose() {
-    let sema = SemaFile::new();
-    let mut engine = sema.engine();
-    engine.handle(input_register_referent("schema", &["schema-alias"]));
-
-    let proposed = engine.handle(input_propose(entry_with_referents(
-        "alias referent canonicalizes on proposal",
-        &["schema-alias"],
-    )));
-    let identifier = match proposed.into_root() {
-        Output::Proposed(receipt) => receipt.payload().clone(),
-        other => panic!("expected Proposed, got {other:?}"),
-    };
-
-    let found = engine.handle(input_lookup(identifier.clone()));
-    match found.root() {
-        Output::RecordFound(record) => {
-            assert_eq!(record.record_identifier, identifier);
-            assert_eq!(
-                record.entry.referents.payload(),
-                &vec![Referent::new("schema")]
-            );
-        }
-        other => panic!("expected RecordFound, got {other:?}"),
+        other => panic!("expected RecordFound after replacement, got {other:?}"),
     }
 }

@@ -18,8 +18,8 @@ use spirit::{
             WriteOutput as SemaWriteOutput,
         },
         signal::{
-            Certainty, CertaintyChange, Description, Domain, Domains, Entry, Importance, Kind,
-            Magnitude, Privacy, Referent, ReferentRegistration, Referents, Retirement,
+            Description, Domain, Domains, Entry, Importance, Kind, Magnitude, Privacy,
+            RecordChange, Referent, ReferentRegistration, Referents, Retirement,
         },
     },
 };
@@ -53,17 +53,15 @@ fn justification(reasoning: &str) -> spirit::schema::signal::Justification {
     }
 }
 
-fn entry(description: &str, referents: Vec<Referent>) -> Entry {
+fn entry(description: &str) -> Entry {
     Entry {
         domains: Domains::new(vec![Domain::Information(
             spirit::schema::signal::Information::Documentation,
         )]),
         kind: Kind::Decision,
         description: Description::new(description),
-        certainty: Certainty::new(Magnitude::High),
         importance: Importance::new(Magnitude::Medium),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: Referents::new(referents),
     }
 }
 
@@ -83,16 +81,10 @@ fn checkpoint_and_suffix_restore_an_identical_store() {
         })
         .expect("register referent");
     let first = source
-        .record_entry(entry(
-            "the log is authoritative",
-            vec![Referent::new("sema-engine")],
-        ))
+        .record_entry(entry("the log is authoritative"))
         .expect("record first entry");
     source
-        .import_record(
-            String::from("hj63"),
-            entry("imported identifier survives", Vec::new()),
-        )
+        .import_record(String::from("hj63"), entry("imported identifier survives"))
         .expect("import keyed record");
 
     source.checkpoint().expect("write checkpoint");
@@ -100,7 +92,7 @@ fn checkpoint_and_suffix_restore_an_identical_store() {
     // Post-checkpoint suffix: one more record so the import has both a
     // checkpoint body and a live suffix to carry.
     let second = source
-        .record_entry(entry("suffix entry rides the log", Vec::new()))
+        .record_entry(entry("suffix entry rides the log"))
         .expect("record suffix entry");
 
     let checkpoint = source
@@ -142,7 +134,7 @@ fn sema_write(input: SemaWriteInput, offset: u64) -> sema::Sema<sema::WriteInput
 /// Mutations land in the versioned log with the shape replay depends on:
 /// a keyed operation labeled `Mutate` whose payload decodes through the
 /// generated closed family sum to the post-mutation row — for both a
-/// record certainty change and a referent alias merge, driven through the
+/// record replacement and a referent alias merge, driven through the
 /// generated SEMA write surface the daemon itself uses. A log-shape
 /// regression on the mutation path fails here, not in a later replay.
 #[test]
@@ -158,22 +150,27 @@ fn versioned_log_witnesses_mutation_payloads() {
         })
         .expect("register referent");
     let receipt = store
-        .record_entry(entry("mutation target", Vec::new()))
+        .record_entry(entry("mutation target"))
         .expect("record entry");
 
     let changed = SemaEngine::apply(
         &mut store,
         sema_write(
-            SemaWriteInput::change_certainty(CertaintyChange {
+            SemaWriteInput::change_record(RecordChange {
                 record_identifier: receipt.record_identifier.clone(),
-                certainty: Certainty::new(Magnitude::Zero),
+                entry: Entry {
+                    description: Description::new("mutated target"),
+                    importance: Importance::new(Magnitude::High),
+                    ..entry("mutation target")
+                },
+                justification: justification("witness record replacement"),
             }),
             1,
         ),
     );
     match changed.root() {
-        SemaWriteOutput::CertaintyChanged(_) => {}
-        other => panic!("expected CertaintyChanged receipt, got {other:?}"),
+        SemaWriteOutput::RecordChanged(_) => {}
+        other => panic!("expected RecordChanged receipt, got {other:?}"),
     }
     let merged = SemaEngine::apply(
         &mut store,
@@ -200,7 +197,7 @@ fn versioned_log_witnesses_mutation_payloads() {
     assert_eq!(
         mutations.len(),
         2,
-        "expected exactly the certainty-change and alias-merge mutations",
+        "expected exactly the record-change and alias-merge mutations",
     );
     let mut record_mutations = 0;
     let mut referent_mutations = 0;
@@ -213,7 +210,8 @@ fn versioned_log_witnesses_mutation_payloads() {
             RecordFamily::RecordsFamily(record) => {
                 record_mutations += 1;
                 assert_eq!(&record.record_identifier, &receipt.record_identifier);
-                assert_eq!(record.entry.certainty, Certainty::new(Magnitude::Zero));
+                assert_eq!(record.entry.description.payload(), "mutated target");
+                assert_eq!(record.entry.importance, Importance::new(Magnitude::High));
                 assert_eq!(
                     mutation.key().map(|key| key.to_owned_string()),
                     Some(receipt.record_identifier.payload().clone()),
@@ -235,7 +233,7 @@ fn versioned_log_witnesses_mutation_payloads() {
             }
         }
     }
-    assert_eq!(record_mutations, 1, "one certainty-change mutation");
+    assert_eq!(record_mutations, 1, "one record-change mutation");
     assert_eq!(referent_mutations, 1, "one referent alias-merge mutation");
 }
 
@@ -249,10 +247,10 @@ fn versioned_log_witnesses_retraction_tombstones() {
     let store = Store::open(fixture.database_path("retracted")).expect("open store");
 
     let kept = store
-        .record_entry(entry("kept neighbor", Vec::new()))
+        .record_entry(entry("kept neighbor"))
         .expect("record kept entry");
     let removed = store
-        .record_entry(entry("removal target", Vec::new()))
+        .record_entry(entry("removal target"))
         .expect("record removal target");
 
     // Retire is now the surviving retraction path (the hard-delete SEMA `Remove`
@@ -317,7 +315,7 @@ fn versioned_log_covers_every_durable_write() {
     let store = Store::open(fixture.database_path("covered")).expect("open store");
 
     let receipt = store
-        .record_entry(entry("covered by the log", Vec::new()))
+        .record_entry(entry("covered by the log"))
         .expect("record entry");
     store
         .register_referent(spirit::schema::signal::ReferentRegistration {

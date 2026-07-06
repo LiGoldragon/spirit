@@ -43,11 +43,10 @@ invalid or misspelled segment is rejected at parse time.
 The canonical stored record stays one uniform shape — no per-kind storage
 variants. A creation shorthand or a per-kind view is a presentation/ergonomics
 layer over the uniform record, not a second stored shape. The record carries
-`Certainty` and `Importance` as two orthogonal `Magnitude` axes, plus a privacy
-field. Privacy is a directional `Magnitude` on its own axis: `Zero` means
-open/public and higher magnitudes narrow the intended audience, reusing the
-existing `Magnitude` vocabulary (with `AtMost`/`AtLeast` filters paired to the
-certainty selectors) rather than introducing a separate audience-register enum.
+`Importance` plus a privacy field. Privacy is a directional `Magnitude` on its
+own axis: `Zero` means open/public and higher magnitudes narrow the intended
+audience, reusing the existing `Magnitude` vocabulary (with `AtMost`/`AtLeast`
+filters) rather than introducing a separate audience-register enum.
 The earlier framing of privacy as an `Optional` field — `None` for public,
 `(Some Magnitude)` for elevated, with the `None` token always written explicitly
 since every NOTA positional record carries every field — is the same intent
@@ -60,8 +59,7 @@ for common operations, complex forms with full metadata for precise control. Bot
 coexist as distinct wire operation roots; the complex root is canonical and the
 short root expands to a default of it. A `RecordQuery` composes filter dimensions
 — topic selection (multi-topic, partial any-of or full all-of, plus
-topic-catalog queries), optional `Kind`, a certainty selection that can target
-removal candidates by magnitude, and a first-class recency selection (`Any`,
+topic-catalog queries), optional `Kind`, and a first-class recency selection (`Any`,
 newest N, since an identifier or timestamp, or a window range) — alongside
 identifier lookup, public-only/private-only shortcut verbs, and an explicit
 privacy-query subtype exposing at-most/equal/at-least selectors while ordinary
@@ -138,7 +136,7 @@ Signal/Nexus/SEMA event sequence that returns over the trace socket.
 The current plane schemas intentionally keep braces strict as NOTA key-value
 maps. The Signal namespace contains pairs such as `Referent String`,
 `RecordSet (Vec ObservedRecord)`, and
-`Entry { Domains * Kind * Description * Certainty * Importance * Privacy * Referents * }`; it does not
+`Entry { Domains * Kind * Description * Importance * Privacy * }`; it does not
 contain declarations that repeat their own name inside the value.
 Inside a struct map, `Domains *` derives the `domains` field from the existing
 `Domains` type, and explicit bindings such as `kind (Optional Kind)` stay only
@@ -459,7 +457,8 @@ language. This is an exploratory direction, not a settled immediate requirement.
 
 Nexus write commands are feature-specific. `CommandSemaWrite` is not a raw
 pass-through alias for the whole SEMA write enum; it is a Nexus-plane enum with
-visible `Record`, `ChangeCertainty`, and `ChangeRecord` objects. The
+visible `Record` and `ChangeRecord` objects plus the other explicit write
+features such as `BumpImportance` and `RegisterReferent`. The
 generated runner still treats it as the fixed `SemaWrite` outcome, but the
 component schema keeps each internal write feature readable in
 `schema/nexus.schema`.
@@ -486,31 +485,40 @@ token to a live socket writer. Successful `Record` writes are projected back
 through `Engine::intent_recorded_event`/`Nexus::intent_recorded_event`, so the
 daemon never opens SEMA directly to publish events.
 
-`ChangeCertainty` and `ChangeRecord` are production mutation parity slices.
-Signal admits the generated `CertaintyChange` or `RecordChange` payload. Nexus
-emits the schema-declared `CommandSemaWrite(ChangeCertainty(...))` or
+`ChangeRecord` is the production record-replacement mutation slice. Signal
+admits the generated `RecordChange` payload. Nexus routes it through the
+guardian effect path, then emits the schema-declared
 `CommandSemaWrite(ChangeRecord(...))`. SEMA looks up the keyed record and
-writes back through a keyed mutation; certainty changes mutate only the stored
-entry's `Magnitude` through the `Certainty` alias, while record changes replace
-the full stored `Entry` under the same `RecordIdentifier`. The reply is
-`CertaintyChangeReceipt` or `RecordChangeReceipt` with a new database marker.
-`Zero` certainty is the soft-removal candidate state. Ordinary observation uses
-`AtLeastCertainty Minimum`; explicit review uses `ExactCertainty Zero`; direct
-`Lookup` remains available by record identifier.
+replaces the full stored `Entry` under the same `RecordIdentifier`. The reply is
+`RecordChangeReceipt` with a new database marker. Direct `Lookup` remains
+available by record identifier.
 
-`PublicTextSearch`, `PublicRecords`, and `PrivateRecords` are ergonomic read
-shortcuts. `PublicTextSearch(SearchText)` is the common agent-facing search
-path: Signal admits one text payload, Nexus projects it to the schema-declared
-SEMA `PublicTextSearch(SearchText)` read, and SEMA searches active public
-records by description text and referent text, ranks likely matches, and
-returns capped `RecordsObserved` results directly. It intentionally does not
-canonicalize referents first, so unknown words are search terms rather than
-errors. `PublicRecords` and `PrivateRecords` admit a generated
+`PublicIntent`, `PublicTextSearch`, `PublicRecords`, and `PrivateRecords` are
+ergonomic read shortcuts. `PublicIntent(DomainScopes)` is the ordinary
+agent-facing structural lookup path: Signal admits a schema-backed domain-scope
+vector, Nexus projects it to the schema-declared SEMA `PublicIntent` read, and
+SEMA expands requested exact domain paths to ancestor `All` scopes, dedupes
+shared ancestors and repeated returned records, orders deterministically, and
+returns public `RecordsObserved` results directly. `PublicTextSearch(SearchText)`
+remains a fallback/debug path: Signal admits one text payload, Nexus projects it
+to the schema-declared SEMA `PublicTextSearch(SearchText)` read, and SEMA
+searches active public records by description text, ranks likely matches, and
+returns capped `RecordsObserved` results directly. `PublicRecords` and
+`PrivateRecords` admit a generated
 `RecordSelection` payload — topic match plus optional kind, without a privacy
 field. Nexus projects those to canonical SEMA `Observe(Query)`: public means
 exact `Zero` privacy, private means `AtLeast Minimum` privacy. This keeps
 friendly working-signal verbs visible while preserving the full `Query`
 predicate for structured/exhaustive reads.
+
+Compatibility note: active records no longer carry certainty or embedded
+referents. The normal store and wire surface compile and run against the new
+shape, but the `production-migration` feature still needs a dedicated legacy
+entry conversion pass that reads older stored certainty/referent fields, drops
+them from current `Entry`, and preserves explicit referent table rows. Until
+that pass lands, old production stores require migration tooling from the
+pre-redesign branch or a one-off conversion step before opening with this
+schema.
 
 `CollectRemovalCandidates` is the owner-only archiving operation on the meta
 socket — the component's only physical-deletion path, ported from old
@@ -521,8 +529,8 @@ effect: `Engine::collect_removal_candidates` calls
 `Store::collect_removal_candidates` directly, which opens the SEPARATE archive
 database on demand at the owner-configured `ArchiveDatabaseTarget` (a distinct
 `ArchiveDatabase` noun over its own `*.sema` file, resolving `Default` to a
-`<live-stem>.archive.sema` sibling), asserts each exact-zero-certainty matching
-`Entry` into it, retracts the original from the live log, and returns
+`<live-stem>.archive.sema` sibling), asserts each structurally matched `Entry`
+into it, retracts the original from the live log, and returns
 `RemovalCandidatesCollection { archived_records, removed_identifiers,
 skipped_removal_candidates, database_marker }`. A record that fails to archive
 stays in the live log and is reported as a `SkippedRemovalCandidate(ArchiveFailed)`;
@@ -559,7 +567,7 @@ exhaustive match, so a new reason variant will not compile until it is glossed.
 (2) Empty testimony is a **deterministic structural reject** (`AgentGuardian::
 guard` short-circuits `MissingTestimony` before the model call when
 `GuardianOperation::testimony_is_empty()`) — the model judges only the semantic
-cases (fabrication, warrant, the certainty burden).
+cases (fabrication, warrant, admission, and metadata burden).
 
 **The guardian prompt prose lives in standalone files, never in the Rust.** Each
 static section is a file under `src/guardian-prompts/` (`role.md`,
@@ -635,8 +643,8 @@ rather than admitting a standalone sibling that leaves the conflict live.
 
 Guardian testimony and advocacy are distinct evidence classes. Explicit psyche
 declarations are primary evidence for a declared intent value or metadata rung,
-and a psyche-named certainty, importance, or privacy rung supports that named
-rung directly. Agent reasoning is advocacy: it may supply context, architectural
+and a psyche-named importance or privacy rung supports that named rung directly.
+Agent reasoning is advocacy: it may supply context, architectural
 centrality, recurrence, blast radius, blocking effect, and operation-fit
 analysis, and may support an elevated rung when the evidence genuinely warrants
 it. When a psyche declaration conflicts with active records, the guardian names
@@ -648,14 +656,9 @@ returns the existing canonical referent receipt without calling the referent
 guardian and without mutating the store; adding a new alias or new referent is a
 real registry change and stays guardian-gated while the guardian feature is
 active. Entry-bearing writes (`Record`, `Propose`, and the replacement entries
-of `ChangeRecord` and `Supersede`) treat each listed `Referent` as an embedded
-`ReferentRegistration` with no aliases and the write's own `Justification`. Nexus
-exposes that as generated `RecordWithImpliedReferents`,
-`ProposeWithImpliedReferents`, `SupersedeWithImpliedReferents`,
-`ChangeRecordWithImpliedReferents`, and the matching `*ReferentsSettled` results
-before the normal guard/write step, so the implied registration runs the same
-settled-state and referent-guardian path as explicit `RegisterReferent`; a
-rejected implied registration blocks the entry write.
+of `ChangeRecord` and `Supersede`) no longer carry embedded referents. New
+referent names enter only through explicit `RegisterReferent`, keeping the
+registry mutation separate from accepted intent records.
 
 ### SEMA
 
@@ -719,8 +722,8 @@ uses `sema-engine` over a `*.sema` file:
   a keyed assertion: Spirit mints an unused short/base36 string
   `RecordIdentifier`, persists the `Entry`, and advances the durable
   `CommitSequence`. A production migration can instead import a copied
-  production identifier unchanged. `ChangeCertainty` and `ChangeRecord` mutate
-  the stored `Entry` at that same key and advance the durable sequence once. The
+  production identifier unchanged. `ChangeRecord` mutates
+  the stored `Entry` at that same key and advances the durable sequence once. The
   SEMA `WriteInput` carries no delete variant; keyed retraction comes from
   `Store::retire` and the owner-only meta `CollectRemovalCandidates`, both
   through the low-level `Store::remove` retract, which advances the same durable
@@ -728,29 +731,26 @@ uses `sema-engine` over a `*.sema` file:
 - `SemaEngine::observe(sema::Sema<sema::ReadInput>) ->
   sema::Sema<sema::ReadOutput>` is the read surface. `Observe(Query)` reads
   keyed records through sema-engine and applies Spirit's schema-specific
-  domain/keyword/text/referent/kind/privacy/certainty/importance predicate,
-  `PublicTextSearch(SearchText)` performs ranked active-public text lookup and
-  returns direct capped results, `Lookup(RecordIdentifier)` uses a key query,
-  and `Count(Query)` returns the number of matching records without mutating
-  state. `DomainMatch::Any` is the all-record query. The `&self` receiver lets parallel readers share
+  domain/keyword/text/kind/privacy/importance predicate, `PublicIntent`
+  performs structural active-public intent lookup with exact path and ancestor
+  `All` expansion, `PublicTextSearch(SearchText)` performs fallback ranked
+  active-public text lookup and returns direct capped results,
+  `Lookup(RecordIdentifier)` uses a key query, and `Count(Query)` returns the
+  number of matching records without mutating state. `DomainMatch::Any` is the all-record query. The `&self` receiver lets parallel readers share
   the store reference; `tests/runtime_triad.rs` has a scoped-thread witness for
   this shape.
-- Entries carry `Domains`, generated `Certainty`, generated `Importance`,
-  generated `Privacy`, and `Referents`. Referents are runtime registry data:
-  `RegisterReferent` stores a canonical atom plus aliases, writes canonicalize
-  aliases before persistence, and queries canonicalize alias filters before
-  matching. Privacy is a directional `Magnitude`: `Zero` is open/public, and
+- Entries carry `Domains`, generated `Importance`, and generated `Privacy`.
+  Referents are explicit runtime registry data owned by `RegisterReferent`;
+  active entries do not carry referent lists. Privacy is a directional
+  `Magnitude`: `Zero` is open/public, and
   higher magnitudes narrow the intended audience — a nominal level only, not a
-  security boundary (see Known limits). Certainty is a directional
-  `Magnitude`: `Zero` is the recoverable removal-candidate state. Importance is
-  a separate directional `Magnitude` for importance/repetition; observation
-  sorts higher importance first. Queries carry `DomainMatch::{Partial,Full}`,
-  `KeywordMatch`, `TextMatch`, `ReferentSelection`, an optional `Kind`,
-  generated `PrivacySelection`, generated `CertaintySelection`, and generated
+  security boundary (see Known limits). Importance is a separate directional
+  `Magnitude` for importance/repetition; observation sorts higher importance
+  first. Queries carry `DomainMatch::{Partial,Full}`, `KeywordMatch`,
+  `TextMatch`, an optional `Kind`, generated `PrivacySelection`, and generated
   `ImportanceSelection`: `Partial` accepts any requested domain, `Full` requires
-  every requested domain, default privacy selection is exact `Zero`, ordinary
-  certainty selection is `AtLeastCertainty Minimum`, and ordinary importance
-  selection is `Any`. The same
+  every requested domain, default privacy selection is exact `Zero`, and
+  ordinary importance selection is `Any`. The same
   query noun drives both `Observe` and `Count`, while `Lookup` uses the
   generated `RecordIdentifier` alias.
 - sema-engine's transaction model gives crash-consistency: a store reopened
@@ -845,7 +845,8 @@ attaches behavior to those nouns or to state-owning runtime objects:
 - `nexus::Nexus<nexus::Work>` becomes generated
   `nexus::Nexus<nexus::Action>`.
 - `nexus::Action::CommandSemaWrite` carries the Nexus-plane
-  `CommandSemaWrite` feature enum (`Record`, `ChangeCertainty`, `ChangeRecord`);
+  `CommandSemaWrite` feature enum (`Record`, `BumpImportance`, `ChangeRecord`,
+  `RegisterReferent`);
   `nexus::Action::CommandSemaRead` carries the generated `sema::ReadInput`.
 - `sema::Sema<sema::WriteInput>` is applied by `Store` through generated
   `SemaEngine::apply`, writing the durable `.sema` database through

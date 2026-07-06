@@ -45,16 +45,16 @@ Call it from the CLI:
 
 ```sh
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Record (([(Software (Data SchemaEvolution))] Constraint [schema creates the interface] Maximum Minimum Zero []) ([schema creates the interface] None)))"
+  spirit "(Record (([(Software (Data SchemaEvolution))] Constraint [schema creates the interface] Minimum Zero) ([schema creates the interface] None)))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Observe ((Full [(Software (Data SchemaEvolution))]) Any Any Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))"
+  spirit "(PublicIntent [(Software (Data SchemaEvolution))])"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Observe ((Full [(Software (Data SchemaEvolution))]) Any Any Any (Some Constraint) (Exact Zero) (ExactCertainty Zero) Any))"
+  spirit "(Observe ((Full [(Software (Data SchemaEvolution))]) Any Any (Some Constraint) (Exact Zero) Any))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Observe ((Full [(Software (Data SchemaEvolution))]) (AllKeywords [schema]) (ContainsText interface) Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))"
+  spirit "(Observe ((Full [(Software (Data SchemaEvolution))]) (AllKeywords [schema]) (ContainsText interface) (Some Constraint) (Exact Zero) Any))"
 
 SPIRIT_SOCKET=/tmp/spirit.sock \
   spirit "(PublicTextSearch [routing protocol])"
@@ -64,9 +64,9 @@ SPIRIT_SOCKET=/tmp/spirit.sock \
 ```
 
 Physical deletion is an owner-only meta operation, not a working verb. The
-owner archives-then-removes matching exact-Zero-certainty records by issuing
-`CollectRemovalCandidates` over the meta socket (the same socket that carries
-`Configure`/`Import`); there is no working hard-delete path.
+owner archives-then-removes records matched by an explicit structural query by
+issuing `CollectRemovalCandidates` over the meta socket (the same socket that
+carries `Configure`/`Import`); there is no working hard-delete path.
 
 The CLI accepts NOTA. The daemon socket carries length-prefixed rkyv bytes
 with an 8-byte short header.
@@ -76,23 +76,22 @@ Entries carry a vector of domains. Queries use generated `DomainMatch` values:
 domain, while `(Full [(Software (Data SchemaEvolution)) (Information Documentation)])` requires
 every requested domain. The query kind is optional: `(Some Decision)` filters
 by kind and `None` searches without a kind predicate. The full generated query
-carries domain, keyword, text, referent, kind, privacy, certainty, and
-importance predicates. `KeywordMatch` reads
+carries domain, keyword, text, kind, privacy, and importance predicates.
+`KeywordMatch` reads
 asterisk-marked description spans such as `*schema language*`; `TextMatch` is a
-case-insensitive full-text substring fallback. `ReferentSelection` filters by
-registered runtime referents; aliases are canonicalized through
-`RegisterReferent`. Ordinary `Observe` and `Count` should use
-`(AtLeastCertainty Minimum)` to hide zero-certainty removal candidates; use
-`(ExactCertainty Zero)` when reviewing candidates. Certainty and importance are
-separate stored axes: certainty names confidence/currentness, while importance
-names intrinsic significance and reaffirmation strength.
+case-insensitive full-text substring fallback. `RegisterReferent` remains an
+explicit registry operation, but active entries do not carry referent lists.
+Importance names intrinsic significance and reaffirmation strength; accepted
+records do not carry a certainty axis.
 
-For ordinary agent lookup, prefer `PublicTextSearch` before spelling the full
-`Observe` predicate. It searches active public records by description text and
-referent text, tolerates unregistered words as search terms, ranks likely
-matches, and returns a capped `RecordsObserved` result directly. Use full
-`Observe` when you need exact domain / kind / referent / privacy / certainty /
-importance predicates or exhaustive stashed results.
+For ordinary agent lookup, prefer `PublicIntent` with schema-backed domain
+scopes. It accepts a structural domain-scope vector, expands requested paths to
+exact ancestor `All` scopes, dedupes shared ancestors and repeated records, and
+returns ordered public `RecordsObserved` results directly. Keep
+`PublicTextSearch` as a fallback/debugging text search when the domain is not
+known. Use full `Observe` when you need exact domain / kind / privacy /
+importance predicates or exhaustive stashed results. `PublicRecords` remains
+the lower-level/admin structural selection surface.
 
 ## Runtime triad
 

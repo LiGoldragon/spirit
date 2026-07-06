@@ -141,7 +141,7 @@ fn nota_text(value: &str) -> String {
 fn record_nota(domains: &str, kind: &str, description: &str) -> String {
     let description = nota_text(description);
     format!(
-        "(Record (({domains} {kind} {description} Maximum Minimum Zero [spirit]) ([({description} None)] {description})))"
+        "(Record (({domains} {kind} {description} Minimum Zero) ([({description} None)] {description})))"
     )
 }
 
@@ -455,12 +455,8 @@ fn entry(description: &str) -> Entry {
         domains: Domains::from_strings(vec![String::from("nix-integration")]),
         kind: Kind::Decision,
         description: Description::new(description),
-        certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(vec![
-            spirit::schema::signal::Referent::new("spirit"),
-        ]),
     }
 }
 
@@ -632,7 +628,7 @@ fn nix_built_daemon_observes_recorded_entries_back_through_query() {
     let observed = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any (Some Decision) (Exact Zero) Any))",
     );
 
     let stash_handle = match observed {
@@ -684,7 +680,7 @@ fn nix_built_daemon_returns_missed_when_no_matching_record_exists() {
     let output = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [(Technology (Software (Intelligence AgentSystems)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Technology (Software (Intelligence AgentSystems)))]) Any Any (Some Decision) (Exact Zero) Any))",
     );
 
     match output {
@@ -720,7 +716,7 @@ fn nix_built_daemon_handles_back_to_back_inputs_through_one_socket() {
     let counted = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Count ((Full [(Technology (Software (Operations Deployment)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Count ((Full [(Technology (Software (Operations Deployment)))]) Any Any (Some Decision) (Exact Zero) Any))",
     );
     match counted {
         Output::RecordsCounted(counted) => assert_eq!(*counted.payload().payload().payload(), 3),
@@ -741,7 +737,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     // Variants exercised: VersionReported (component version),
     // ReferentGuardianRejected (fail-closed referent registration without
     // configured guardian),
-    // CertaintyChanged (SEMA mutate on an imported record), Rejected (Signal
+    // RecordChanged (SEMA mutate on an imported record), Rejected (Signal
     // validation), Error (SEMA missed), RecordsStashed (after Import +
     // Observe). Six typed assertions, all parsed through `Output::from_str`.
     let binaries = NixBuiltBinaries::ensure();
@@ -786,17 +782,17 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let rerecorded_identifier = import_record(&binaries, &daemon, "nixt1", "variant tour");
     assert_short_record_identifier(&rerecorded_identifier);
 
-    // Variant 3: CertaintyChanged.
+    // Variant 3: RecordChanged.
     let changed = run_cli_for_output(
         &binaries,
         daemon.socket(),
         &format!(
-            "(ChangeCertainty ({} Zero))",
+            "(ChangeRecord ({} ([(Technology (Software (Operations Deployment)))] Decision [variant tour changed] Minimum Zero) ([([variant tour changed] None)] [variant tour changed])))",
             record_identifier_argument(&rerecorded_identifier)
         ),
     );
-    assert!(matches!(changed, Output::CertaintyChanged(_)));
-    assert_eq!(changed.route(), OutputRoute::CertaintyChanged);
+    assert!(matches!(changed, Output::RecordChanged(_)));
+    assert_eq!(changed.route(), OutputRoute::RecordChanged);
 
     // Variant 4: Rejected (Signal validation).
     let rejected = run_cli_for_output(
@@ -811,7 +807,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let errored = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [(Technology (Software (Intelligence AgentSystems)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Technology (Software (Intelligence AgentSystems)))]) Any Any (Some Decision) (Exact Zero) Any))",
     );
     assert!(matches!(errored, Output::Error(_)));
     assert_eq!(errored.route(), OutputRoute::Error);
@@ -822,7 +818,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let observed = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any (Some Decision) (Exact Zero) Any))",
     );
     assert!(matches!(observed, Output::RecordsStashed(_)));
     assert_eq!(observed.route(), OutputRoute::RecordsStashed);
@@ -851,7 +847,7 @@ fn nix_built_daemon_alias_state_across_separate_cli_processes() {
 
     // Independent process — exec a fresh CLI binary for the read.
     let mut child_a = Command::new(&binaries.spirit_cli)
-        .arg("(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))")
+        .arg("(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any (Some Decision) (Exact Zero) Any))")
         .env("SPIRIT_SOCKET", daemon.socket())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

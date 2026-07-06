@@ -32,7 +32,7 @@ use tempfile::TempDir;
 
 /// The EXACT owner-only meta `Import` the criome-auth witness sends to seed
 /// node-a's spirit daemon (mkCriomeAuthWitnessTest `importNota`).
-const WITNESS_IMPORT_NOTA: &str = "(Import [(witness-record-1 ([(Technology (Software (Programming CodeGeneration)))] Decision [criome auth witness record] High Low Zero []))])";
+const WITNESS_IMPORT_NOTA: &str = "(Import [(witness-record-1 ([(Technology (Software (Programming CodeGeneration)))] Decision [criome auth witness record] Low Zero))])";
 
 fn open_engine() -> (TempDir, Engine) {
     let directory = tempfile::tempdir().expect("create sandbox");

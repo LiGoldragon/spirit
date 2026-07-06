@@ -1,19 +1,19 @@
 WORKED EXAMPLES. Study the contrastive pairs — within a pair only the tested feature differs.
 
-[Record — the burden pair, the single most important lesson]
-A) Entry Certainty High; Testimony [I could maybe use the schema-derived contracts to emit most of the client side]; Reasoning argues the schema should emit most client machinery. The quote hedges (could, maybe) and cannot clear High. -> (Reject (Overstated [could and maybe are hedged and clear only Low; High is unearned]))
-B) The SAME Testimony, Entry Certainty Low. The hedge honestly clears Low. -> Accept
+[Record — the admission pair, the single most important lesson]
+A) Entry Description [The schema-derived contracts emit most client machinery]; Testimony [I could maybe use the schema-derived contracts to emit most of the client side]; Reasoning treats an exploratory thought as a settled durable rule. -> (Reject (InsufficientWarrant [could and maybe do not license recording this as accepted durable intent]))
+B) Entry Description [Explore whether schema-derived contracts should emit more client machinery]; Testimony [I could maybe use the schema-derived contracts to emit most of the client side]. The description keeps the tentative shape honest and does not overstate it as settled intent. -> Accept
 
 [Record — orthogonal axes]
-C) Entry Certainty VeryLow, Importance High; Testimony [I keep coming back to wanting agents to ask me before any destructive change, I really am not sure how strict yet]; Reasoning notes the want recurs across three sessions and blocks settling the autonomy boundary. Tentative wording clears VeryLow; the want is a genuine psyche preference (not a description of how a component works); recurrence + blocking supports High importance. -> Accept
-D) Entry Certainty VeryLow, Importance High; Testimony [maybe stricter confirmation could be interesting]; Reasoning asserts High importance with no recurrence or blast-radius basis. -> (Reject (ImportanceUnsupported [no recurrence or blast-radius evidence is offered for High importance]))
-AA) Entry Certainty Medium, Importance High, Privacy Maximum; Testimony [I want my family to come first whenever it clashes with a work deadline, and keep this one private — it matters more than almost anything to me]; Reasoning notes the psyche directly named the Privacy (Maximum) and high Importance rungs for a genuine private-affairs want — a durable universal direction about their own life and the world, not a rule about operating Spirit. The named rungs are direct evidence for those values; privacy is orthogonal and nominal, so a private-affairs want is admissible intent carrying its privacy level, never rejected as Matter on privacy grounds. -> Accept
-AB) Entry Certainty Medium, Importance High; Testimony [I want every component to fail loudly instead of quietly degrading]; Reasoning argues High importance because the rule governs the whole system, is architecturally central, and recurs across the workspace. The arrow is a durable universal rule about how the work itself should behave (not how to operate Spirit); architectural centrality + recurrence supports High importance even without a direct rung declaration. -> Accept
+C) Entry Importance High; Testimony [I keep coming back to wanting agents to ask me before any destructive change, I really am not sure how strict yet]; Reasoning notes the want recurs across three sessions and blocks settling the autonomy boundary. The want is a genuine psyche preference (not a description of how a component works); recurrence + blocking supports High importance. -> Accept
+D) Entry Importance High; Testimony [maybe stricter confirmation could be interesting]; Reasoning asserts High importance with no recurrence or blast-radius basis. -> (Reject (ImportanceUnsupported [no recurrence or blast-radius evidence is offered for High importance]))
+AA) Entry Importance High, Privacy Maximum; Testimony [I want my family to come first whenever it clashes with a work deadline, and keep this one private — it matters more than almost anything to me]; Reasoning notes the psyche directly named the Privacy (Maximum) and high Importance rungs for a genuine private-affairs want — a durable universal direction about their own life and the world, not a rule about operating Spirit. The named rungs are direct evidence for those values; privacy is orthogonal and nominal, so a private-affairs want is admissible intent carrying its privacy level, never rejected as Matter on privacy grounds. -> Accept
+AB) Entry Importance High; Testimony [I want every component to fail loudly instead of quietly degrading]; Reasoning argues High importance because the rule governs the whole system, is architecturally central, and recurs across the workspace. The arrow is a durable universal rule about how the work itself should behave (not how to operate Spirit); architectural centrality + recurrence supports High importance even without a direct rung declaration. -> Accept
 
 [Record — testimony production]
 E) Entry any; Testimony empty; Reasoning is a confident paraphrase of what the psyche supposedly wants. No verbatim quote. -> (Reject (MissingTestimony [no verbatim psyche quote is supplied]))
 F) Entry Decision; Testimony [the architecture decision is finalized and the team will proceed accordingly per our alignment]. That sentence reads like agent prose, not how this psyche talks. -> (Reject (TestimonyFabricated [the quote reads like polished agent prose, not a human utterance]))
-G) Entry Decision High; Testimony quote [yes do that] with Antecedent [shall we make the daemon reject inline NOTA configuration?]. The bare affirmation is anchored by its antecedent and clears High. -> Accept
+G) Entry Decision; Testimony quote [yes do that] with Antecedent [shall we make the daemon reject inline NOTA configuration?]. The bare affirmation is anchored by its antecedent. -> Accept
 H) The SAME [yes do that] with NO antecedent. Meaningless alone. -> (Reject (MissingTestimony [a bare yes carries no arrow without its antecedent]))
 
 [Record — shape and classification]
@@ -40,7 +40,7 @@ Z) Candidate is a fresh Record saying daemons MAY parse NOTA config; the bundle 
 
 [Clarify — sharpen vs trample]
 P) Target says the guardian is binary; Clarify adds that a reject is a remand the agent re-pleads. Same arrow, sharper. -> Accept
-Q) Target says the guardian is binary; Clarify rewrites it to allow admitting at a corrected certainty. That reverses the arrow. -> (Reject (ClarifyTramples [admitting-at-corrected-certainty inverts the binary arrow; that is a Supersede, not a Clarify]))
+Q) Target says the guardian is binary; Clarify rewrites it to allow provisional accepted records. That reverses the arrow. -> (Reject (ClarifyTramples [provisional accepted records invert the binary arrow; that is a Supersede, not a Clarify]))
 
 [Supersede — multi-replacement preservation and authorization]
 R) Retire two distinct live arrows (X: testimony stores raw words; Y: asterisks are a render marker) and install TWO replacements preserving both; Testimony carries the psyche quote [supersede those two with these]. -> Accept
@@ -48,7 +48,7 @@ S) The SAME two targets collapsed into ONE replacement that keeps only X. -> (Re
 T) Supersede a live psyche record; Reasoning argues only that the agent judges it stale; no psyche quote authorizes the retirement. -> (Reject (InsufficientWarrant [no verbatim psyche authorization to retire a psyche arrow; staleness judged by the agent is not enough]))
 U) Supersede names target abcd, but abcd is absent from the bundle. -> (Reject (SupersedeTargetMissing [target abcd is not in the bundle and cannot be judged]))
 
-[Retire / ChangeRecord / ChangeCertainty]
+[Retire / ChangeRecord]
 V) Retire a record; Testimony [kill that rule, we are not doing backward compatibility]. Verbatim psyche authorization. -> Accept
 W) ChangeRecord fixes a typo in a Description, same arrow, same magnitudes. -> Accept
-X) ChangeRecord keeps the wording but raises Certainty from Medium to Maximum; Testimony is the original [we should probably do this]. The words still clear only Medium. -> (Reject (Overstated [should probably clears Medium; Maximum is unearned by the quote]))
+X) ChangeRecord keeps the wording but raises Importance to Maximum; Testimony is the original [we should probably do this]. The quote offers no recurrence, blast-radius, or direct importance declaration. -> (Reject (ImportanceUnsupported [Maximum importance is unearned by the quote]))

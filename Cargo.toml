@@ -1,6 +1,6 @@
 [package]
 name         = "spirit"
-version      = "0.22.0"
+version      = "0.23.0"
 edition      = "2024"
 rust-version = "1.89"
 license      = "MIT OR Apache-2.0"
@@ -53,7 +53,7 @@ required-features = ["nota-text"]
 
 [features]
 default = []
-nota-text = ["dep:nota", "signal-spirit/nota-text", "meta-signal-spirit/nota-text", "signal-introspect?/nota-text"]
+nota-text = ["dep:nota", "dep:nota-text-query", "signal-spirit/nota-text", "meta-signal-spirit/nota-text", "signal-introspect?/nota-text"]
 agent-guardian = ["nota-text", "dep:signal-agent"]
 production-migration = ["nota-text", "dep:sema-engine-layout3", "dep:sema-engine-previous"]
 testing-trace = ["dep:signal-introspect", "dep:signal-persona"]
@@ -108,7 +108,7 @@ path = "tests/end_to_end_offline_full_chain.rs"
 required-features = ["offline-full-chain-e2e"]
 
 [dependencies]
-nota = { package = "nota", git = "https://github.com/LiGoldragon/nota.git", branch = "main", optional = true }
+nota = { package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }
 rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
 blake3 = "1"
 getrandom = "0.3"
@@ -168,8 +168,9 @@ signal-introspect = { git = "https://github.com/LiGoldragon/signal-introspect.gi
 # instance directly to construct it; Cargo unifies it with signal-introspect's.
 # Optional and pulled in only by `testing-trace`, for the same no-NOTA reason.
 signal-persona = { git = "https://github.com/LiGoldragon/signal-persona.git", branch = "main", optional = true }
-signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main" }
-meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", branch = "main" }
+signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", rev = "0f4e91fb6df44fa5218824f2879c162751cce402" }
+meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", rev = "c893fa9cb605a089d6b902aa3035097bc7d79bbd" }
+nota-text-query = { git = "https://github.com/LiGoldragon/nota-text-query.git", rev = "555909b318caf58dd834372a814d443f7d21d9b3", optional = true }
 thiserror = "2"
 tokio = { version = "1.47", features = ["io-util", "net", "rt-multi-thread", "sync"] }
 triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }

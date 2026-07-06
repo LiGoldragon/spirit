@@ -29,7 +29,7 @@ use tempfile::TempDir;
 
 /// The EXACT owner-only meta `Import` the criome-auth witness sends to seed
 /// node-a's spirit daemon (mkCriomeAuthWitnessTest `importNota`).
-const WITNESS_IMPORT_NOTA: &str = "(Import [(witness-record-1 ([(Technology (Software (Programming CodeGeneration)))] Decision [criome auth witness record] High Low Zero []))])";
+const WITNESS_IMPORT_NOTA: &str = "(Import [(witness-record-1 ([(Technology (Software (Programming CodeGeneration)))] Decision [criome auth witness record] Low Zero))])";
 
 /// The synthetic stand-in the prior witness forwarded:
 /// `printf '%s' 'witness-record-1:criome auth witness record' | sha256sum`.

@@ -13,7 +13,7 @@
       flake = false;
     };
     nota-source = {
-      url = "github:LiGoldragon/nota";
+      url = "github:LiGoldragon/nota-next";
       flake = false;
     };
     schema-source = {
@@ -69,11 +69,15 @@
       flake = false;
     };
     signal-spirit-source = {
-      url = "github:LiGoldragon/signal-spirit";
+      url = "github:LiGoldragon/signal-spirit/0f4e91fb6df44fa5218824f2879c162751cce402";
+      flake = false;
+    };
+    nota-text-query-source = {
+      url = "github:LiGoldragon/nota-text-query/555909b318caf58dd834372a814d443f7d21d9b3";
       flake = false;
     };
     meta-signal-spirit-source = {
-      url = "github:LiGoldragon/meta-signal-spirit";
+      url = "github:LiGoldragon/meta-signal-spirit/c893fa9cb605a089d6b902aa3035097bc7d79bbd";
       flake = false;
     };
     signal-agent-source = {
@@ -163,6 +167,7 @@
       signal-criome-source,
       meta-signal-criome-source,
       signal-spirit-source,
+      nota-text-query-source,
       meta-signal-spirit-source,
       signal-agent-source,
       signal-introspect-source,
@@ -229,6 +234,7 @@
               signalCriomeSource = signal-criome-source;
               metaSignalCriomeSource = meta-signal-criome-source;
               signalSpiritSource = signal-spirit-source;
+              notaTextQuerySource = nota-text-query-source;
               metaSignalSpiritSource = meta-signal-spirit-source;
               signalAgentSource = signal-agent-source;
               signalIntrospectSource = signal-introspect-source;
@@ -266,6 +272,7 @@
               cp -R "$signalCriomeSource" $out/vendor-sources/signal-criome
               cp -R "$metaSignalCriomeSource" $out/vendor-sources/meta-signal-criome
               cp -R "$signalSpiritSource" $out/vendor-sources/signal-spirit
+              cp -R "$notaTextQuerySource" $out/vendor-sources/nota-text-query
               cp -R "$metaSignalSpiritSource" $out/vendor-sources/meta-signal-spirit
               cp -R "$signalAgentSource" $out/vendor-sources/signal-agent
               cp -R "$signalIntrospectSource" $out/vendor-sources/signal-introspect
@@ -302,22 +309,22 @@
               PYEOF
 
               substituteInPlace $out/Cargo.toml \
-                --replace-fail 'nota = { package = "nota", git = "https://github.com/LiGoldragon/nota.git", branch = "main", optional = true }' 'nota = { path = "vendor-sources/nota", optional = true }' \
+                --replace-fail 'nota = { package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota = { path = "vendor-sources/nota", optional = true }' \
                 --replace-fail 'sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main" }' 'sema-engine = { path = "vendor-sources/sema-engine" }' \
                 --replace-fail 'sema-engine-previous = { git = "https://github.com/LiGoldragon/sema-engine.git", rev = "ebee6e44ba6ee4afcb26998007bcfd128641b54c", package = "sema-engine", optional = true }' 'sema-engine-previous = { path = "vendor-sources/sema-engine-previous", package = "sema-engine", optional = true }' \
                 --replace-fail 'sema-engine-layout3 = { git = "https://github.com/LiGoldragon/sema-engine.git", rev = "dbe29427d9a2c6c194909385485ad42b008048b8", package = "sema-engine", optional = true }' 'sema-engine-layout3 = { path = "vendor-sources/sema-engine-layout3", package = "sema-engine", optional = true }' \
                 --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }' 'signal-frame = { path = "vendor-sources/signal-frame" }' \
                 --replace-fail 'criome = { git = "https://github.com/LiGoldragon/criome.git", branch = "main", optional = true }' 'criome = { path = "vendor-sources/criome", optional = true }' \
                 --replace-fail 'signal-criome = { git = "https://github.com/LiGoldragon/signal-criome.git", branch = "main", default-features = false, optional = true }' 'signal-criome = { path = "vendor-sources/signal-criome", default-features = false, optional = true }' \
-                --replace-fail 'signal-router = { git = "https://github.com/LiGoldragon/signal-router.git", branch = "main", default-features = false, optional = true }' 'signal-router = { path = "vendor-sources/signal-router", default-features = false, optional = true }' \
                 --replace-fail 'signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main", optional = true }' 'signal-agent = { path = "vendor-sources/signal-agent", optional = true }' \
                 --replace-fail 'signal-introspect = { git = "https://github.com/LiGoldragon/signal-introspect.git", branch = "main", default-features = false, optional = true }' 'signal-introspect = { path = "vendor-sources/signal-introspect", default-features = false, optional = true }' \
                 --replace-fail 'signal-persona = { git = "https://github.com/LiGoldragon/signal-persona.git", branch = "main", optional = true }' 'signal-persona = { path = "vendor-sources/signal-persona", optional = true }' \
-                --replace-fail 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main" }' 'signal-spirit = { path = "vendor-sources/signal-spirit" }' \
-                --replace-fail 'meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", branch = "main" }' 'meta-signal-spirit = { path = "vendor-sources/meta-signal-spirit" }' \
+                --replace-fail 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", rev = "0f4e91fb6df44fa5218824f2879c162751cce402" }' 'signal-spirit = { path = "vendor-sources/signal-spirit" }' \
+                --replace-fail 'meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", rev = "c893fa9cb605a089d6b902aa3035097bc7d79bbd" }' 'meta-signal-spirit = { path = "vendor-sources/meta-signal-spirit" }' \
+                --replace-fail 'nota-text-query = { git = "https://github.com/LiGoldragon/nota-text-query.git", rev = "555909b318caf58dd834372a814d443f7d21d9b3", optional = true }' 'nota-text-query = { path = "vendor-sources/nota-text-query", optional = true }' \
                 --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "vendor-sources/triad-runtime" }' \
                 --replace-fail 'schema-rust = { package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust.git", branch = "main" }' 'schema-rust = { path = "vendor-sources/schema-rust" }' \
-                --replace-fail 'agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", features = ["live-provider"] }' 'agent = { path = "vendor-sources/agent", features = ["live-provider"] }' \
+                --replace-fail 'agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", features = ["live-provider"] }' '# agent live-provider dev dependency omitted from standard Nix checks' \
                 --replace-fail 'schema = { package = "schema", git = "https://github.com/LiGoldragon/schema.git", branch = "main" }' 'schema = { path = "vendor-sources/schema" }' \
                 --replace-fail 'signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main" }' 'signal-sema = { path = "vendor-sources/signal-sema" }'
 
@@ -425,8 +432,8 @@
               [patch."https://github.com/LiGoldragon/triad-runtime.git"]
               triad-runtime = { path = "vendor-sources/triad-runtime" }
 
-              [patch."https://github.com/LiGoldragon/signal-spirit.git"]
-              signal-spirit = { path = "vendor-sources/signal-spirit" }
+              [patch."https://github.com/LiGoldragon/nota-text-query.git"]
+              nota-text-query = { path = "vendor-sources/nota-text-query" }
 
               [patch."https://github.com/LiGoldragon/meta-signal-spirit.git"]
               meta-signal-spirit = { path = "vendor-sources/meta-signal-spirit" }
@@ -525,6 +532,7 @@
               "signal-frame-macros",
               "signal-sema",
               "signal-spirit",
+              "nota-text-query",
               "triad-runtime",
               "version-projection",
               "mirror",

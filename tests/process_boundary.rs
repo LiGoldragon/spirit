@@ -44,6 +44,9 @@ use tempfile::TempDir;
 #[cfg(feature = "agent-guardian")]
 use triad_runtime::{FrameBody, LengthPrefixedCodec};
 
+const LOCAL_OPENAI_COMPATIBLE_PROVIDER: &str = "local-openai";
+const LOCAL_OPENAI_COMPATIBLE_MODEL: &str = "gpt-5.5";
+
 struct DaemonProcess {
     child: Child,
     #[cfg(feature = "agent-guardian")]
@@ -351,9 +354,8 @@ fn configuration_writer_accepts_local_openai_compatible_guardian() {
         nota_path(&meta_socket_path),
         nota_path(&database_path),
         nota_path(&agent_socket_path),
-        String::from(spirit::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_PROVIDER)
-            .to_nota(),
-        String::from(spirit::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_MODEL).to_nota(),
+        String::from(LOCAL_OPENAI_COMPATIBLE_PROVIDER).to_nota(),
+        String::from(LOCAL_OPENAI_COMPATIBLE_MODEL).to_nota(),
         nota_path(&configuration_path)
     );
 
@@ -379,12 +381,9 @@ fn configuration_writer_accepts_local_openai_compatible_guardian() {
     );
     assert_eq!(
         guardian.provider_name(),
-        Some(spirit::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_PROVIDER)
+        Some(LOCAL_OPENAI_COMPATIBLE_PROVIDER)
     );
-    assert_eq!(
-        guardian.model_name(),
-        Some(spirit::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_MODEL)
-    );
+    assert_eq!(guardian.model_name(), Some(LOCAL_OPENAI_COMPATIBLE_MODEL));
     assert_eq!(guardian.timeout_milliseconds(), 180_000);
     assert_eq!(guardian.maximum_output_tokens(), None);
 }
@@ -506,7 +505,7 @@ fn run_cli(socket_path: &Path, nota_argument: &str) -> Output {
 
 fn record_nota(domains: &str, kind: &str, description: &str) -> String {
     format!(
-        "(Record (({domains} {kind} [{description}] Maximum Minimum Zero [process-boundary-test]) ([([{description}] None)] [{description}])))"
+        "(Record (({domains} {kind} [{description}] Minimum Zero) ([([{description}] None)] [{description}])))"
     )
 }
 
@@ -696,7 +695,7 @@ fn cli_and_daemon_exchange_nota_over_rkyv_socket() {
 
     let observed = run_cli(
         &socket_path,
-        "(Observe ((Full [(Information Documentation)]) Any Any Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Information Documentation)]) Any Any (Some Constraint) (Exact Zero) Any))",
     );
     // Observe flows through Stash and returns both the recovery handle and
     // the observed records.
@@ -891,7 +890,7 @@ fn cli_subscription_receives_matching_intent_events_without_blocking_daemon() {
     let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
     let subscriber = SubscriberProcess::spawn(
         &socket_path,
-        "(SubscribeIntent ((Full [(Kinship Rapport)]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(SubscribeIntent ((Full [(Kinship Rapport)]) Any Any (Some Decision) (Exact Zero) Any))",
     );
 
     match subscriber.next_output(Duration::from_secs(2)) {
@@ -962,7 +961,7 @@ fn cli_and_daemon_classify_state_into_provisional_record() {
 
     let observed = run_cli(
         &socket_path,
-        "(Observe ((Full [(Information Documentation)]) Any Any Any (Some Clarification) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Information Documentation)]) Any Any (Some Clarification) (Exact Zero) Any))",
     );
     let Output::RecordsStashed(stashed) = observed else {
         panic!("expected classified State observation to be stashed, got {observed:?}");
@@ -985,12 +984,6 @@ fn cli_and_daemon_classify_state_into_provisional_record() {
             .description
             .payload(),
         "daemon raw intent"
-    );
-    assert_eq!(
-        stashed.observed_records.payload().payload()[0]
-            .entry
-            .certainty,
-        Magnitude::Minimum
     );
     assert_eq!(
         stashed.observed_records.payload().payload()[0]
@@ -1019,91 +1012,11 @@ fn cli_and_daemon_classify_state_into_provisional_record() {
                 "daemon raw intent"
             );
             assert_eq!(
-                records.payload().payload()[0].entry.certainty,
-                Magnitude::Minimum
-            );
-            assert_eq!(
                 records.payload().payload()[0].entry.privacy,
                 Magnitude::Zero
             );
         }
         other => panic!("expected LookupStash to return classified State record, got {other:?}"),
-    }
-}
-
-#[test]
-fn cli_and_daemon_change_certainty_without_changing_record_identifier() {
-    let temp = TempDir::new().expect("tempdir");
-    let socket_path = temp.path().join("change-certainty.sock");
-    let database_path = temp.path().join("change-certainty.sema");
-
-    let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
-
-    let accepted = run_cli(
-        &socket_path,
-        &record_nota(
-            "[(Information Documentation)]",
-            "Correction",
-            "certainty target",
-        ),
-    );
-    let record_identifier = match accepted {
-        Output::RecordAccepted(receipt) => {
-            assert_short_record_identifier(receipt.payload());
-            receipt.payload().clone()
-        }
-        other => panic!("expected RecordAccepted before certainty change, got {other:?}"),
-    };
-
-    let changed = run_cli(
-        &socket_path,
-        &format!(
-            "(ChangeCertainty ({} Zero))",
-            record_identifier_argument(&record_identifier)
-        ),
-    );
-    match changed {
-        Output::CertaintyChanged(receipt) => {
-            assert_eq!(receipt.record_identifier, record_identifier);
-            assert_eq!(receipt.certainty, Magnitude::Zero);
-        }
-        other => panic!("expected CertaintyChanged, got {other:?}"),
-    }
-
-    let hidden_from_default_query = run_cli(
-        &socket_path,
-        "(Observe ((Full [(Information Documentation)]) Any Any Any (Some Correction) (Exact Zero) (AtLeastCertainty Minimum) Any))",
-    );
-    assert!(
-        matches!(hidden_from_default_query, Output::Error(_)),
-        "zero-certainty records are hidden from ordinary observation, got {hidden_from_default_query:?}"
-    );
-
-    let explicit_candidate_query = run_cli(
-        &socket_path,
-        "(Observe ((Full [(Information Documentation)]) Any Any Any (Some Correction) (Exact Zero) (ExactCertainty Zero) Any))",
-    );
-    match explicit_candidate_query {
-        Output::RecordsStashed(stashed) => {
-            assert_eq!(*stashed.record_count.payload(), 1);
-        }
-        other => panic!("expected explicit zero-certainty query to stash record, got {other:?}"),
-    }
-
-    let found = run_cli(
-        &socket_path,
-        &format!(
-            "(Lookup {})",
-            record_identifier_argument(&record_identifier)
-        ),
-    );
-    match found {
-        Output::RecordFound(record) => {
-            assert_eq!(record.record_identifier, record_identifier);
-            assert_eq!(record.entry.description.payload(), "certainty target");
-            assert_eq!(record.entry.certainty, Magnitude::Zero);
-        }
-        other => panic!("expected changed record lookup, got {other:?}"),
     }
 }
 
@@ -1134,7 +1047,7 @@ fn cli_and_daemon_change_record_replaces_entry_under_same_identifier() {
     let changed = run_cli(
         &socket_path,
         &format!(
-            "(ChangeRecord ({} ([(Information Documentation)] Correction [replacement record] High Minimum Zero [process-boundary-test]) ([([replacement record] None)] [replacement record])))",
+            "(ChangeRecord ({} ([(Information Documentation)] Correction [replacement record] Minimum Zero) ([([replacement record] None)] [replacement record])))",
             record_identifier_argument(&record_identifier)
         ),
     );
@@ -1161,7 +1074,6 @@ fn cli_and_daemon_change_record_replaces_entry_under_same_identifier() {
             );
             assert_eq!(record.entry.kind, Kind::Correction);
             assert_eq!(record.entry.description.payload(), "replacement record");
-            assert_eq!(record.entry.certainty, Magnitude::High);
             assert_eq!(record.entry.privacy, Magnitude::Zero);
         }
         other => panic!("expected changed record lookup, got {other:?}"),
@@ -1169,7 +1081,7 @@ fn cli_and_daemon_change_record_replaces_entry_under_same_identifier() {
 
     let missing_old_query = run_cli(
         &socket_path,
-        "(Observe ((Full [(Information Documentation)]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Information Documentation)]) Any Any (Some Decision) (Exact Zero) Any))",
     );
     assert!(
         matches!(missing_old_query, Output::Error(_)),
@@ -1276,7 +1188,7 @@ fn daemon_persists_sema_file_across_a_restart() {
 
     let observed = run_cli(
         &socket_path,
-        "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any (Some Decision) (Exact Zero) Any))",
     );
     // Observe returns records inline and a recovery stash handle. LookupStash
     // verifies the same content survived the daemon restart.
@@ -1365,7 +1277,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
         let _daemon = DaemonProcess::spawn(&socket_path, &candidate_database_path);
         let observed = run_cli(
             &socket_path,
-            "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+            "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any (Some Constraint) (Exact Zero) Any))",
         );
         assert_eq!(
             stashed_descriptions(&socket_path, observed),
@@ -1390,7 +1302,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
 
         let candidate_observed = run_cli(
             &socket_path,
-            "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+            "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any (Some Constraint) (Exact Zero) Any))",
         );
         assert_eq!(
             stashed_descriptions(&socket_path, candidate_observed),
@@ -1407,7 +1319,7 @@ fn candidate_daemon_handover_from_production_copy_preserves_original_sema_databa
         let _daemon = DaemonProcess::spawn(&socket_path, &production_database_path);
         let observed = run_cli(
             &socket_path,
-            "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+            "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any (Some Constraint) (Exact Zero) Any))",
         );
         assert_eq!(
             stashed_descriptions(&socket_path, observed),
@@ -1477,7 +1389,7 @@ fn cli_receives_testing_trace_events_from_daemon_trace_socket() {
     let observed = run_cli_with_trace(
         &socket_path,
         &trace_socket_path,
-        "(Observe ((Full [(Technology (Software (Engineering Architecture)))]) Any Any Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Technology (Software (Engineering Architecture)))]) Any Any (Some Constraint) (Exact Zero) Any))",
     );
     // Observe flows through the recursive Nexus loop with Stash and returns
     // both the recovery handle and the observed records.

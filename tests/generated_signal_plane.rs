@@ -3,11 +3,11 @@ use signal_frame::{
     SubscriptionTokenInner,
 };
 use spirit::schema::signal::{
-    Certainty, CertaintyChange, CertaintyChangeReceipt, DatabaseMarker, Description, DomainMatch,
-    DomainScopes, Domains, Entry, Input, InputRoute, IntentEvent, IntentRecorded, Justification,
-    Kind, Magnitude, Output, OutputRoute, Privacy, QuoteText, Reasoning, Record, RecordChange,
-    RecordChangeReceipt, RecordIdentifier, RecordRequest, RecordSelection, Rejected, SearchText,
-    SelectedKind, SignalFrameError, SignalRejection, Statement, StatementText, Testimony,
+    DataLeaf, DatabaseMarker, Description, Domain, DomainMatch, DomainScope, DomainScopes, Domains,
+    Entry, Input, InputRoute, IntentEvent, IntentRecorded, Justification, Kind, Magnitude, Output,
+    OutputRoute, Privacy, QuoteText, Reasoning, Record, RecordChange, RecordChangeReceipt,
+    RecordIdentifier, RecordRequest, RecordSelection, Rejected, SearchText, SelectedKind,
+    SignalFrameError, SignalRejection, Software, Statement, StatementText, Technology, Testimony,
     ValidationError, VerbatimQuote, VersionReport, VersionText,
 };
 use spirit::{OriginRoute, SignalAdmission};
@@ -48,12 +48,8 @@ fn generated_input_surface_owns_route_header_and_rkyv_frame() {
         domains: Domains::from_strings(vec![String::from("schema")]),
         kind: Kind::Constraint,
         description: Description::new("schema creates the signal plane"),
-        certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(vec![
-            spirit::schema::signal::Referent::new("spirit"),
-        ]),
     };
     let input = Input::record(record_request(entry, "schema creates the signal plane"));
 
@@ -179,35 +175,16 @@ fn generated_public_text_search_root_owns_route_header_and_rkyv_frame() {
 }
 
 #[test]
-fn generated_change_certainty_surface_owns_route_header_and_rkyv_frame() {
-    let input = Input::change_certainty(CertaintyChange {
-        record_identifier: RecordIdentifier::new("003g"),
-        certainty: Certainty::new(Magnitude::Zero),
-    });
+fn generated_public_intent_root_owns_route_header_and_rkyv_frame() {
+    let input = Input::public_intent(DomainScopes::from_strings(vec![String::from("schema")]));
 
-    assert_eq!(input.route(), InputRoute::ChangeCertainty);
+    assert_eq!(input.route(), InputRoute::PublicIntent);
 
     let frame = input.encode_signal_frame().expect("encode frame");
     let (route, decoded) = Input::decode_signal_frame(&frame).expect("decode frame");
 
-    assert_eq!(route, InputRoute::ChangeCertainty);
+    assert_eq!(route, InputRoute::PublicIntent);
     assert_eq!(decoded, input);
-}
-
-#[test]
-fn generated_certainty_changed_output_owns_route_header_and_rkyv_frame() {
-    let output = Output::certainty_changed(CertaintyChangeReceipt {
-        record_identifier: RecordIdentifier::new("003g"),
-        certainty: Certainty::new(Magnitude::Zero),
-    });
-
-    assert_eq!(output.route(), OutputRoute::CertaintyChanged);
-
-    let frame = output.encode_signal_frame().expect("encode frame");
-    let (route, decoded) = Output::decode_signal_frame(&frame).expect("decode frame");
-
-    assert_eq!(route, OutputRoute::CertaintyChanged);
-    assert_eq!(decoded, output);
 }
 
 #[test]
@@ -216,12 +193,8 @@ fn generated_record_change_surface_owns_route_header_and_rkyv_frame() {
         domains: Domains::from_strings(vec![String::from("schema"), String::from("mutation")]),
         kind: Kind::Correction,
         description: Description::new("record mutation is a schema-visible operation"),
-        certainty: Magnitude::High.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(vec![
-            spirit::schema::signal::Referent::new("spirit"),
-        ]),
     };
     let input = Input::change_record(RecordChange {
         record_identifier: RecordIdentifier::new("003g"),
@@ -258,12 +231,8 @@ fn generated_streaming_surface_owns_subscription_event_frames() {
             domains: Domains::from_strings(vec![String::from("stream")]),
             kind: Kind::Decision,
             description: Description::new("schema emits streaming frames"),
-            certainty: Magnitude::High.into(),
             importance: Magnitude::Minimum.into(),
             privacy: Privacy::new(Magnitude::Zero),
-            referents: spirit::schema::signal::Referents::new(vec![
-                spirit::schema::signal::Referent::new("spirit"),
-            ]),
         },
         record_identifier: RecordIdentifier::new("003g"),
     });
@@ -333,25 +302,8 @@ fn generated_version_round_trips_the_canonical_atom_shape() {
 
 #[cfg(feature = "nota-text")]
 #[test]
-fn generated_change_certainty_round_trips_the_canonical_shape() {
-    let input = "(ChangeCertainty (003g Zero))"
-        .parse::<Input>()
-        .expect("parse change certainty input");
-
-    assert_eq!(
-        input,
-        Input::change_certainty(CertaintyChange {
-            record_identifier: RecordIdentifier::new("003g"),
-            certainty: Certainty::new(Magnitude::Zero),
-        })
-    );
-    assert_eq!(input.to_string(), "(ChangeCertainty (003g Zero))");
-}
-
-#[cfg(feature = "nota-text")]
-#[test]
 fn generated_change_record_round_trips_the_canonical_shape() {
-    let input = "(ChangeRecord (003g ([(Technology (Software (Data SchemaEvolution)))] Correction replacement High Minimum Zero [spirit]) ([(replacement None)] replacement)))"
+    let input = "(ChangeRecord (003g ([(Technology (Software (Data SchemaEvolution)))] Correction replacement Minimum Zero) ([(replacement None)] replacement)))"
         .parse::<Input>()
         .expect("parse change record input");
 
@@ -363,19 +315,15 @@ fn generated_change_record_round_trips_the_canonical_shape() {
                 domains: Domains::from_strings(vec![String::from("schema mutation")]),
                 kind: Kind::Correction,
                 description: Description::new("replacement"),
-                certainty: Magnitude::High.into(),
                 importance: Magnitude::Minimum.into(),
                 privacy: Privacy::new(Magnitude::Zero),
-                referents: spirit::schema::signal::Referents::new(vec![
-                    spirit::schema::signal::Referent::new("spirit")
-                ]),
             },
             justification: justification("replacement"),
         })
     );
     assert_eq!(
         input.to_string(),
-        "(ChangeRecord (003g ([(Technology (Software (Data SchemaEvolution)))] Correction replacement High Minimum Zero [spirit]) ([(replacement None)] replacement)))"
+        "(ChangeRecord (003g ([(Technology (Software (Data SchemaEvolution)))] Correction replacement Minimum Zero) ([(replacement None)] replacement)))"
     );
 }
 
@@ -391,6 +339,30 @@ fn generated_public_text_search_round_trips_nota() {
         Input::public_text_search(SearchText::new("routing protocol"))
     );
     assert_eq!(input.to_string(), "(PublicTextSearch [routing protocol])");
+}
+
+#[cfg(feature = "nota-text")]
+#[test]
+fn generated_public_intent_round_trips_nota() {
+    let input = "(PublicIntent [(Technology (Software (Data SchemaEvolution))) (Technology (Software (Data Persistence)))])"
+        .parse::<Input>()
+        .expect("parse public intent input");
+
+    assert_eq!(
+        input,
+        Input::public_intent(DomainScopes::new(vec![
+            DomainScope::from(Domain::Technology(Technology::Software(Software::Data(
+                DataLeaf::SchemaEvolution,
+            )))),
+            DomainScope::from(Domain::Technology(Technology::Software(Software::Data(
+                DataLeaf::Persistence,
+            )))),
+        ]))
+    );
+    assert_eq!(
+        input.to_string(),
+        "(PublicIntent [(Technology (Software (Data SchemaEvolution))) (Technology (Software (Data Persistence)))])"
+    );
 }
 
 #[cfg(feature = "nota-text")]
@@ -476,19 +448,15 @@ fn generated_record_input_renders_bracket_bearing_strings_losslessly() {
         domains: Domains::from_strings(vec![String::from("schema replay")]),
         kind: Kind::Correction,
         description: Description::new(description.clone()),
-        certainty: Magnitude::High.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(vec![
-            spirit::schema::signal::Referent::new("spirit"),
-        ]),
     };
     let input = Input::record(record_request(entry, &description));
     let rendered = input.to_string();
 
     assert_eq!(
         rendered,
-        "(Record (([(Technology (Software (Data SchemaEvolution)))] Correction [|text contains [brackets] and the pipe close marker \\|]|] High Minimum Zero [spirit]) ([([|text contains [brackets] and the pipe close marker \\|]|] None)] [|text contains [brackets] and the pipe close marker \\|]|])))"
+        "(Record (([(Technology (Software (Data SchemaEvolution)))] Correction [|text contains [brackets] and the pipe close marker \\|]|] Minimum Zero) ([([|text contains [brackets] and the pipe close marker \\|]|] None)] [|text contains [brackets] and the pipe close marker \\|]|])))"
     );
     let reparsed = rendered
         .parse::<Input>()
@@ -517,12 +485,8 @@ fn bare_schema_bindings_are_explicit_payload_wrappers() {
         domains: Domains::from_strings(vec![String::from("schema")]),
         kind: Kind::Constraint,
         description: Description::new("alias bindings carry direct payloads"),
-        certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(vec![
-            spirit::schema::signal::Referent::new("spirit"),
-        ]),
     };
     let record: Record = record_request(entry, "alias bindings carry direct payloads").into();
     let input = Input::Record(record);
@@ -566,12 +530,8 @@ fn generated_signal_surface_rejects_unknown_header_before_body_decode() {
         domains: Domains::from_strings(vec![String::from("schema")]),
         kind: Kind::Constraint,
         description: Description::new("schema rejects unknown routes"),
-        certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(vec![
-            spirit::schema::signal::Referent::new("spirit"),
-        ]),
     };
     let mut frame = Input::record(record_request(entry, "schema rejects unknown routes"))
         .encode_signal_frame()
@@ -595,12 +555,8 @@ fn signal_admission_emits_mail_sent_event() {
         domains: Domains::from_strings(vec![String::from("schema")]),
         kind: Kind::Constraint,
         description: Description::new("signal admission emits mail events"),
-        certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(vec![
-            spirit::schema::signal::Referent::new("spirit"),
-        ]),
     };
     let input = Input::record(record_request(entry, "signal admission emits mail events"));
     let short_header = input.short_header();

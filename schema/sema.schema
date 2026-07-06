@@ -4,13 +4,12 @@
   RecordIdentifier signal-spirit:signal:RecordIdentifier
   Referent signal-spirit:signal:Referent
   Referents signal-spirit:signal:Referents
+  DomainScopes signal-spirit:domain:DomainScopes
   SearchText signal-spirit:signal:SearchText
-  CertaintyChange signal-spirit:signal:CertaintyChange
   ImportanceBump signal-spirit:signal:ImportanceBump
   RecordChange signal-spirit:signal:RecordChange
   ReferentRegistration signal-spirit:signal:ReferentRegistration
   SemaReceipt signal-spirit:signal:SemaReceipt
-  CertaintyChangeReceipt signal-spirit:signal:CertaintyChangeReceipt
   ImportanceBumpReceipt signal-spirit:signal:ImportanceBumpReceipt
   RecordChangeReceipt signal-spirit:signal:RecordChangeReceipt
   ReferentRegistrationReceipt signal-spirit:signal:ReferentRegistrationReceipt
@@ -22,29 +21,29 @@
 [WriteInput ReadInput]
 [WriteOutput ReadOutput]
 {
-  WriteInput [(Record) (ChangeCertainty) (BumpImportance) (ChangeRecord) (RegisterReferent)]
+  WriteInput [(Record) (BumpImportance) (ChangeRecord) (RegisterReferent)]
   Record Entry
-  ChangeCertainty CertaintyChange
   BumpImportance ImportanceBump
   ChangeRecord RecordChange
   RegisterReferent ReferentRegistration
 
-  ReadInput [(Observe) (PublicTextSearch) (Lookup) (Count)]
+  ReadInput [(Observe) (PublicIntent) (PublicTextSearch) (Lookup) (Count)]
   Observe Query
+  PublicIntent DomainScopes
   PublicTextSearch SearchText
   Lookup RecordIdentifier
   Count Query
 
-  WriteOutput [(Recorded) (CertaintyChanged) (ImportanceBumped) (RecordChanged) (ReferentRegistered) (Missed)]
+  WriteOutput [(Recorded) (ImportanceBumped) (RecordChanged) (ReferentRegistered) (Missed)]
   Recorded SemaReceipt
-  CertaintyChanged CertaintyChangeReceipt
   ImportanceBumped ImportanceBumpReceipt
   RecordChanged RecordChangeReceipt
   ReferentRegistered ReferentRegistrationReceipt
   Missed ErrorReport
 
-  ReadOutput [(Observed) (PublicTextSearchResults) (Found) (Counted) (Missed)]
+  ReadOutput [(Observed) (PublicIntentResults) (PublicTextSearchResults) (Found) (Counted) (Missed)]
   Observed ObservedRecords
+  PublicIntentResults ObservedRecords
   PublicTextSearchResults ObservedRecords
   Found FoundRecord
   Counted CountedRecords

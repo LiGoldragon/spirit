@@ -76,12 +76,8 @@ fn decision_entry(description: &str) -> Entry {
         domains: Domains::from_strings(vec![String::from("meta-configure")]),
         kind: Kind::Decision,
         description: Description::new(description),
-        certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
         privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(vec![
-            spirit::schema::signal::Referent::new("spirit"),
-        ]),
     }
 }
 
@@ -105,11 +101,8 @@ fn observe_query() -> Query {
         )])),
         keyword_match: spirit::schema::signal::KeywordMatch::Any,
         text_match: spirit::schema::signal::TextMatch::Any,
-        referent_selection: spirit::schema::signal::ReferentSelection::Any,
         selected_kind: SelectedKind::new(Some(Kind::Decision)),
         privacy_selection: spirit::schema::signal::PrivacySelection::default_observation_privacy(),
-        certainty_selection:
-            spirit::schema::signal::CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
     }
 }
