@@ -216,8 +216,8 @@ dependencies = [
 
 [[package]]
 name = "criome"
-version = "0.6.0"
-source = "git+https://github.com/LiGoldragon/criome.git?branch=main#65b415456997578ff2b69cec67eeafc50ad0b6dc"
+version = "0.7.0"
+source = "git+https://github.com/LiGoldragon/criome.git?branch=main#8732104ab0584c84f55ab654ff42385720a3a0d7"
 dependencies = [
  "blake3",
  "blst",
@@ -1270,8 +1270,8 @@ dependencies = [
 
 [[package]]
 name = "router"
-version = "0.4.1"
-source = "git+https://github.com/LiGoldragon/router.git?branch=main#af9973aee831eafd830acbea4a4467d2cef2591e"
+version = "0.5.0"
+source = "git+https://github.com/LiGoldragon/router.git?branch=main#f1b108009ff2a9c60c74a4a0a85fdae52b7df07c"
 dependencies = [
  "blake3",
  "chacha20poly1305",
@@ -1581,8 +1581,8 @@ dependencies = [
 
 [[package]]
 name = "signal-criome"
-version = "0.9.0"
-source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=main#88becda267c8eca8102b75890788841a140bf62f"
+version = "0.10.0"
+source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=main#e3c9ad3eb74b7cb2e5add952bad2643e89b487a8"
 dependencies = [
  "blake3",
  "blst",
@@ -1782,7 +1782,7 @@ dependencies = [
 
 [[package]]
 name = "spirit"
-version = "0.23.0"
+version = "0.23.1"
 dependencies = [
  "agent",
  "blake3",

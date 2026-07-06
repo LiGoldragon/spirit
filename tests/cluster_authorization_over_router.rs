@@ -30,11 +30,24 @@
 //!      head, then authorizes the new head; the grant binds the fourth
 //!      entry's digest; the whole suffix ships. (§3.4's no-wedge property,
 //!      end to end.)
+//!   5. THE REAL DAEMON MAIL PATH (audit F1): `notify_head_advanced` /
+//!      `drain_serialized` — the exact path the daemon fires after EVERY
+//!      working input, which the direct `drain_propagation_once` drives
+//!      above bypass. An idle mail lands right after the granted ship (the
+//!      Observe-after-grant re-ask, nothing unshipped), then a FIFTH entry
+//!      ships through the mail-driven drain.
+//!   6. A coalesced TWO-COMMIT BURST through the mail path: the coalescing
+//!      re-pass runs against a just-granted head — pre-fix, that re-pass
+//!      durably poisoned criome's ledger with the self-loop veto row.
+//!   7. A post-burst EIGHTH entry still grants and ships via mail — the
+//!      standing-head re-asks left no poison anywhere.
 //!
 //! Falsification: if spirit bypassed criome, step 3 would ship; if the parse
 //! trusted status without the grant, a crafted Granted-without-grant criome
 //! would ship (see tests/cluster_gate_session.rs); if the catch-up rule were
-//! missing, step 4 would self-refuse with QuorumConflict and never grant.
+//! missing, step 4 would self-refuse with QuorumConflict and never grant; if
+//! a standing-head re-ask recorded the self-loop row `(contract, D) → D`,
+//! steps 5 and 7 would never ship (every successor would expire forever).
 
 mod support;
 
@@ -78,7 +91,7 @@ use spirit::schema::meta_signal::{
 };
 use spirit::schema::sema::RecordFamily;
 use spirit::schema::signal::{
-    Certainty, Description, Domains, Entry, Importance, Input, Justification, Kind, Magnitude,
+    Certainty, Description, Entry, Importance, Input, Justification, Kind, Magnitude,
     Output, Privacy, QuoteText, Reasoning, RecordRequest, Referent, Referents, Testimony,
     VerbatimQuote,
 };
@@ -324,6 +337,20 @@ where
     while !predicate() {
         assert!(Instant::now() < deadline, "timed out waiting for {what}");
         thread::sleep(Duration::from_millis(100));
+    }
+}
+
+/// The async twin of [`wait_until`], for conditions settled by the
+/// mail-spawned drain passes inside the test's own tokio runtime (a blocking
+/// sleep would starve the very tasks under wait).
+async fn wait_until_settled<Predicate>(what: &str, predicate: Predicate)
+where
+    Predicate: Fn() -> bool,
+{
+    let deadline = Instant::now() + Duration::from_secs(30);
+    while !predicate() {
+        assert!(Instant::now() < deadline, "timed out waiting for {what}");
+        tokio::time::sleep(Duration::from_millis(100)).await;
     }
 }
 
@@ -788,6 +815,48 @@ async fn spirit_cluster_authorizes_head_advance_over_the_router() {
         handle.unshipped_outbox().expect("outbox reads").is_empty(),
         "the outbox drained to the authorized head"
     );
+
+    // ── Step 5: the REAL daemon mail path — the idle re-ask after a grant. ─
+    // The daemon fires `notify_head_advanced` after EVERY working input,
+    // reads included, so this mail lands with NOTHING unshipped — exactly
+    // the Observe-after-grant re-ask of the standing committed head where
+    // audit F1's poison was minted. The pass must leave criome's ledger
+    // clean, witnessed by the NEXT advance shipping through the same mail
+    // path.
+    engine.notify_head_advanced();
+    record(&mut engine, "a fifth entry after the idle mail").await;
+    engine.notify_head_advanced();
+    wait_until_settled("the fifth entry to ship over the mail-driven drain", || {
+        handle.store_durability().expect("durability reads") == Durability::ServerCommitted
+            && handle.unshipped_outbox().expect("outbox reads").is_empty()
+    })
+    .await;
+
+    // ── Step 6: a coalesced two-commit burst through the mail path. ────────
+    // Two commits land back to back, each pushing mail; the drain coalesces
+    // them, and its re-pass runs against a just-granted head — pre-fix, THAT
+    // re-pass durably poisoned the ledger.
+    record(&mut engine, "burst entry six").await;
+    engine.notify_head_advanced();
+    record(&mut engine, "burst entry seven").await;
+    engine.notify_head_advanced();
+    wait_until_settled("the two-commit burst to ship over the coalesced drain", || {
+        handle.store_durability().expect("durability reads") == Durability::ServerCommitted
+            && handle.unshipped_outbox().expect("outbox reads").is_empty()
+    })
+    .await;
+
+    // ── Step 7: the post-burst advance still grants — no poison anywhere. ──
+    record(&mut engine, "an eighth entry after the burst").await;
+    engine.notify_head_advanced();
+    wait_until_settled(
+        "the post-burst entry to ship — the standing-head re-asks left no poison",
+        || {
+            handle.store_durability().expect("durability reads") == Durability::ServerCommitted
+                && handle.unshipped_outbox().expect("outbox reads").is_empty()
+        },
+    )
+    .await;
 
     let _ = router_b.stop_gracefully().await;
     router_b.wait_for_shutdown().await;

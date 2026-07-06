@@ -13,15 +13,15 @@
       flake = false;
     };
     nota-source = {
-      url = "github:LiGoldragon/nota";
+      url = "github:LiGoldragon/nota-next";
       flake = false;
     };
     schema-source = {
-      url = "git+https://github.com/LiGoldragon/schema.git?ref=main";
+      url = "git+https://github.com/LiGoldragon/schema-next.git?ref=main";
       flake = false;
     };
     schema-rust-source = {
-      url = "git+https://github.com/LiGoldragon/schema-rust.git?ref=main";
+      url = "git+https://github.com/LiGoldragon/schema-rust-next.git?ref=main";
       flake = false;
     };
     sema-source = {
@@ -140,6 +140,10 @@
       url = "github:LiGoldragon/signal-mind";
       flake = false;
     };
+    signal-domain-source = {
+      url = "git+https://github.com/LiGoldragon/signal-domain.git?ref=main";
+      flake = false;
+    };
   };
 
   outputs =
@@ -180,6 +184,7 @@
       signal-harness-source,
       signal-persona-source,
       signal-mind-source,
+      signal-domain-source,
     }:
     flake-utils.lib.eachDefaultSystem (
       system:
@@ -246,6 +251,7 @@
               signalHarnessSource = signal-harness-source;
               signalPersonaSource = signal-persona-source;
               signalMindSource = signal-mind-source;
+              signalDomainSource = signal-domain-source;
             }
             ''
               cp -R ${cleanSource} $out
@@ -283,6 +289,7 @@
               cp -R "$signalHarnessSource" $out/vendor-sources/signal-harness
               cp -R "$signalPersonaSource" $out/vendor-sources/signal-persona
               cp -R "$signalMindSource" $out/vendor-sources/signal-mind
+              cp -R "$signalDomainSource" $out/vendor-sources/signal-domain
               chmod -R u+w $out/vendor-sources
 
               ${pkgs.python3}/bin/python3 - "$out/vendor-sources" <<'PYEOF'
@@ -302,7 +309,7 @@
               PYEOF
 
               substituteInPlace $out/Cargo.toml \
-                --replace-fail 'nota = { package = "nota", git = "https://github.com/LiGoldragon/nota.git", branch = "main", optional = true }' 'nota = { path = "vendor-sources/nota", optional = true }' \
+                --replace-fail 'nota = { package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }' 'nota = { path = "vendor-sources/nota", optional = true }' \
                 --replace-fail 'sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main" }' 'sema-engine = { path = "vendor-sources/sema-engine" }' \
                 --replace-fail 'sema-engine-previous = { git = "https://github.com/LiGoldragon/sema-engine.git", rev = "ebee6e44ba6ee4afcb26998007bcfd128641b54c", package = "sema-engine", optional = true }' 'sema-engine-previous = { path = "vendor-sources/sema-engine-previous", package = "sema-engine", optional = true }' \
                 --replace-fail 'sema-engine-layout3 = { git = "https://github.com/LiGoldragon/sema-engine.git", rev = "dbe29427d9a2c6c194909385485ad42b008048b8", package = "sema-engine", optional = true }' 'sema-engine-layout3 = { path = "vendor-sources/sema-engine-layout3", package = "sema-engine", optional = true }' \
@@ -318,9 +325,9 @@
                 --replace-fail 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main" }' 'signal-spirit = { path = "vendor-sources/signal-spirit" }' \
                 --replace-fail 'meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", branch = "main" }' 'meta-signal-spirit = { path = "vendor-sources/meta-signal-spirit" }' \
                 --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "vendor-sources/triad-runtime" }' \
-                --replace-fail 'schema-rust = { package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust.git", branch = "main" }' 'schema-rust = { path = "vendor-sources/schema-rust" }' \
+                --replace-fail 'schema-rust = { package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }' 'schema-rust = { path = "vendor-sources/schema-rust" }' \
                 --replace-fail 'agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", features = ["live-provider"] }' 'agent = { path = "vendor-sources/agent", features = ["live-provider"] }' \
-                --replace-fail 'schema = { package = "schema", git = "https://github.com/LiGoldragon/schema.git", branch = "main" }' 'schema = { path = "vendor-sources/schema" }' \
+                --replace-fail 'schema = { package = "schema", git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }' 'schema = { path = "vendor-sources/schema" }' \
                 --replace-fail 'signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main" }' 'signal-sema = { path = "vendor-sources/signal-sema" }'
 
               ${pkgs.python3}/bin/python3 - "$out/vendor-sources/schema-rust/Cargo.toml" <<'PYEOF'
@@ -489,6 +496,9 @@
 
               [patch."https://github.com/LiGoldragon/signal-mind.git"]
               signal-mind = { path = "vendor-sources/signal-mind" }
+
+              [patch."https://github.com/LiGoldragon/signal-domain.git"]
+              signal-domain = { path = "vendor-sources/signal-domain" }
               EOF
 
             '';
@@ -544,6 +554,7 @@
               "signal-harness",
               "signal-persona",
               "signal-mind",
+              "signal-domain",
           )
 
           source_text = open(sys.argv[1]).read()

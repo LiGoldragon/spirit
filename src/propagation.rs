@@ -18,7 +18,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use sema_engine::{Engine as SemaDatabase, EntryDigest, VersionedCommitLogEntry};
+use sema_engine::{Engine as SemaDatabase, EntryDigest};
 
 use crate::criome_gate::{ClusterAuthorizer, GateDecision, LocalHeadCapture};
 use crate::engine::GateAndShipError;
@@ -56,11 +56,16 @@ impl PropagationDrain {
     }
 
     /// One authorize-then-ship pass over the current head: capture the head
-    /// of the whole unshipped suffix, ask the cluster authorizer, and on
-    /// Granted ship the suffix up to exactly that head. An empty log is a
-    /// no-op `None`.
+    /// of the UNSHIPPED suffix, ask the cluster authorizer, and on Granted
+    /// ship the suffix up to exactly that head. Nothing unshipped — an empty
+    /// log, or a cursor already acknowledged to the head — is a no-op `None`:
+    /// an idle mail pass (a read input, the coalescing re-pass right after a
+    /// granted ship) never re-asks the cluster for a head it has nothing to
+    /// ship under (audit F1 hygiene; the criome bridge independently
+    /// re-grants a committed head, so the grant-then-ship-failure re-ask —
+    /// where the suffix IS still unshipped — stays live).
     pub async fn drain_once(&self) -> Result<Option<GateDecision>, GateAndShipError> {
-        let Some(head_digest) = self.versioned_log_head()? else {
+        let Some(head_digest) = self.unshipped_suffix_head()? else {
             return Ok(None);
         };
         let capture = LocalHeadCapture::spirit_head(head_digest);
@@ -99,15 +104,19 @@ impl PropagationDrain {
         }
     }
 
-    /// The current versioned-log head straight from the shared durable store
-    /// — the same read `Store::versioned_log_head` serves.
-    fn versioned_log_head(&self) -> Result<Option<EntryDigest>, GateAndShipError> {
+    /// The head of the UNSHIPPED suffix straight from the shared durable
+    /// store's outbox — `None` when every committed entry is already
+    /// acknowledged to the mirror (nothing to authorize, nothing to ship).
+    /// When anything is unshipped, this is exactly the versioned-log head:
+    /// the outbox is the contiguous suffix from the shipped cursor to the
+    /// head.
+    fn unshipped_suffix_head(&self) -> Result<Option<EntryDigest>, GateAndShipError> {
         Ok(self
             .database
-            .versioned_commit_log()
+            .unshipped_outbox()
             .map_err(crate::store::StoreError::from)?
             .last()
-            .map(VersionedCommitLogEntry::entry_digest))
+            .map(sema_engine::OutboxEntry::entry_digest))
     }
 }
 

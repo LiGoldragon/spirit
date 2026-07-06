@@ -191,7 +191,12 @@ impl ClusterAuthorizer {
     ) -> Result<GateDecision, CriomeGateError> {
         let submitted = AuthorizedObjectReference::from(capture);
         let authorization = self.head_authorization(submitted.clone());
-        let client = criome::transport::CriomeClient::new(self.socket.clone());
+        // The IO deadline is applied at connect, BEFORE the first byte moves,
+        // so the SUBMISSION legs (the ask write and the snapshot read) are as
+        // bounded as the later session reads — a hung-but-accepting criome
+        // can never hold this blocking worker and the drain lock forever.
+        let client = criome::transport::CriomeClient::new(self.socket.clone())
+            .with_io_deadline(self.session_deadline);
         let mut session = match client.authorize_signal_call(authorization) {
             Ok(session) => session,
             Err(criome::Error::UnexpectedSignalFrame { got }) => {
@@ -202,9 +207,6 @@ impl ClusterAuthorizer {
             }
             Err(_unreachable) => return Ok(GateDecision::Unreachable),
         };
-        if session.set_read_timeout(Some(self.session_deadline)).is_err() {
-            return Ok(GateDecision::Unreachable);
-        }
         let binding = HeadSessionBinding::new(session.token().payload().clone(), submitted);
         // The fast path: the submission snapshot may already carry the
         // terminal state (the degenerate immediate grant); pending-then-pushed
@@ -483,7 +485,14 @@ impl SpiritOperationAuthorizer {
             kind: AuthorizedObjectKind::Operation,
         };
         let authorization = self.signal_call_authorization(context, submitted.clone());
-        let mut session = match CriomeClient::new(socket).authorize_signal_call(authorization) {
+        // The IO deadline bounds the SUBMISSION legs too (connect-adjacent
+        // write and snapshot read) — including Observing mode, whose whole
+        // check IS the submission and which never reaches a later
+        // set_read_timeout.
+        let mut session = match CriomeClient::new(socket)
+            .with_io_deadline(OPERATION_AUTHORIZATION_SESSION_DEADLINE)
+            .authorize_signal_call(authorization)
+        {
             Ok(session) => session,
             Err(criome::Error::UnexpectedSignalFrame { got }) => {
                 return Err(CriomeGateError::UnexpectedReply { reply: got });
@@ -503,14 +512,6 @@ impl SpiritOperationAuthorizer {
                 let _decision = binding.decide(state)?;
             }
             return Ok(SpiritOperationAuthorization::Allowed);
-        }
-        if session
-            .set_read_timeout(Some(OPERATION_AUTHORIZATION_SESSION_DEADLINE))
-            .is_err()
-        {
-            return Ok(SpiritOperationAuthorization::Blocked(
-                "criome operation authorization unreachable".to_owned(),
-            ));
         }
         for state in session.snapshot().states() {
             if let Some(decision) = binding.decide(state)? {

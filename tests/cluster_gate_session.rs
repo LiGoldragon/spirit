@@ -273,6 +273,12 @@ enum StubScript {
     /// An on-contract non-terminal snapshot, then silence (a dead criome
     /// process that never pushes).
     SnapshotThenSilence,
+    /// A HUNG-BUT-ACCEPTING criome: the connection is accepted and the ask
+    /// is read, but the submission's snapshot reply NEVER comes (audit F2 —
+    /// the read that ran before any deadline was set). The connection is
+    /// held open long past the session deadline so only a bounded
+    /// submission read can return early.
+    AcceptThenNeverReply,
 }
 
 impl StubCriomeSocket {
@@ -305,6 +311,14 @@ impl StubCriomeSocket {
                         None,
                     )]),
                 ),
+                StubScript::AcceptThenNeverReply => {
+                    // Hold the accepted connection open, writing nothing:
+                    // the caller's SUBMISSION read must trip its own
+                    // deadline — an unbounded read would sit here for the
+                    // full hold.
+                    thread::sleep(Duration::from_secs(20));
+                    return;
+                }
             };
             codec
                 .write_reply(stream.get_mut(), reply)
@@ -376,4 +390,31 @@ fn absent_criome_is_held_unreachable() {
     let verdict = authorize_against(directory.path().join("no-criome.sock"))
         .expect("an absent criome is an outcome, not a fault");
     assert_eq!(verdict, GateDecision::Unreachable);
+}
+
+/// AUDIT F2 — the SUBMISSION legs are bounded. A hung-but-accepting criome
+/// (connection accepted, ask read, snapshot never written) must trip the IO
+/// deadline on the submission read and hold the head Unreachable within
+/// bounded time. Pre-fix, this read ran before any deadline was set, so the
+/// blocking worker (and with it the drain's serialization lock) sat for the
+/// stub's full 20-second hold — unboundedly, against a truly hung daemon.
+#[test]
+fn hung_but_accepting_criome_is_held_unreachable_within_the_deadline() {
+    let stub = StubCriomeSocket::spawn(StubScript::AcceptThenNeverReply);
+    let socket = stub.socket_path.clone();
+    let started = std::time::Instant::now();
+    let verdict = authorize_against(socket).expect("a hung criome is an outcome, not a fault");
+    assert_eq!(
+        verdict,
+        GateDecision::Unreachable,
+        "the bounded submission read holds the head Unreachable"
+    );
+    assert!(
+        started.elapsed() < Duration::from_secs(10),
+        "the submission read returned on its own deadline, not on the stub's 20 s hold \
+         (took {:?})",
+        started.elapsed()
+    );
+    // The stub thread is still inside its hold; do not join it — the claim
+    // is precisely that the caller returns first.
 }
