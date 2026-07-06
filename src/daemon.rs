@@ -149,24 +149,21 @@ impl ComponentDaemon for SpiritDaemon {
         _connection: &triad_runtime::ConnectionContext,
     ) -> Result<Output, Self::Error> {
         let output = engine.handle_async(input).await.root().clone();
-        // THE 1-of-1 LOCAL CRIOME GATE (Spirit `xhwa`, report 703-6 Item 1).
+        // THE CRIOME AUTHORIZE-AND-SHIP SEAM (Spirit `xhwa`), DORMANT.
         //
-        // The working write committed LOCALLY above. Before fanning the
-        // committed head out to the configured mirror, ask the co-resident
-        // LOCAL criome daemon to authorize the content-addressed head `D`, and
-        // fan out ONLY on an `Authorized` decision. `gate_and_ship_head`
-        // captures `D` from the local versioned log (never `ShipOutcome.head`),
-        // projects it to the criome reference, calls the local criome over its
-        // Unix socket (synchronous `CriomeClient::send` wrapped in
-        // `spawn_blocking` — the actor mailbox is never blocked), and ships the
-        // outbox only when criome authorizes.
+        // The spirit-side `CriomeAuthorization` policy decides everything
+        // here. `Disabled` — the operative default until criome-cluster
+        // authorization is ready — keeps spirit fully local: the working
+        // write above advanced the head freely, and `gate_and_ship_head`
+        // returns immediately with no head capture, no authorization request,
+        // and no mirror ship. `Enabled` already refused any head-advancing
+        // input inside `handle_async` (fail-closed, no cluster authorizer
+        // exists yet); for a pre-existing head the dormant `CriomeGate` seam
+        // answers `Unconfigured`, which never ships.
         //
-        // Present only under the `mirror-shipper` feature. The gate INVERTS
-        // the prior best-effort ship: an UNCONFIGURED, DENIED, or UNREACHABLE
-        // criome holds the head back (the local commit stands, the suffix
-        // waits for the next authorized drain), and a gate-machinery fault is
-        // logged. Neither ever fails the working reply: the local commit
-        // already landed durably.
+        // Present only under the `mirror-shipper` feature. A seam-machinery
+        // fault never fails the working reply: the local commit (when the
+        // policy admitted it) already landed durably.
         #[cfg(feature = "mirror-shipper")]
         match engine.gate_and_ship_head().await {
             Ok(_decision) => {}

@@ -244,19 +244,16 @@ archive before `spirit-daemon` starts. Production configuration should later
 become another typed binary signal surface differentiated by the root message
 enumerator, not a daemon NOTA side channel.
 
-The binary configuration carries `AuthorizationMode`: `Gating` keeps fan-out
-behind criome's verdict, and `Observing` emits the criome authorization request
-without waiting for the verdict before fan-out. The near-term production posture
-deliberately runs `Observing` first: the live Spirit service is the traced daemon
-target, a co-resident local criome daemon authorizes and answers a real request,
-Spirit observes the authorization return, and for the first traced production
-posture Spirit still does not block on that return — it emits trace evidence
-showing where blocking authorization would later apply. The first gating target
-is the simplest 1-of-1 local authorization: Spirit asks its co-resident criome
-daemon to authorize the content-addressed head, and a single local signature
-(no quorum, no multi-machine cluster) suffices to gate propagation. Quorum
-authorization and a multi-machine cluster are the subsequent step, not a
-prerequisite. Production alignment and orchestration rely on Spirit and do not
+The binary configuration carries `AuthorizationMode`: `Gating` blocks a
+guarded operation on the criome operation authorizer's verdict, and
+`Observing` emits the authorization request without blocking on it. It governs
+the guardian OPERATION authorizer only; head fan-out no longer reads it. Head
+authorization is governed by the spirit-side `CriomeAuthorization` option
+instead (see the mirroring section below). The earlier 1-of-1 local head
+authorization — a co-resident criome daemon authorizing the content-addressed
+head with a single local signature — is DELETED, not kept as a mode;
+criome-cluster authorization is the coming step that will drive the dormant
+head seam. Production alignment and orchestration rely on Spirit and do not
 depend on Mind; Mind stays future/non-production until the psyche marks it
 production-ready. It also carries the daemon's meta slot as `meta_socket_path`.
 The field is optional in the data type because the shared
@@ -282,27 +279,31 @@ it through `Engine::configure` (an owner-config effect under the same
 single-flight Nexus mutex the working path uses, NOT a SEMA log write), which
 stores the target on the SEMA `Store` (`Store::set_archive_target`, a field +
 accessor) and replies with the now-active target plus the live database marker.
-`ConfigureRequest` also carries the optional mirror, local-criome-gate, and
-guardian-prompt targets the same operation arms in one owner round-trip; each is
-runtime policy applied to the live engine, not a SEMA log write, and echoed in
-the `Configured` receipt.
+`ConfigureRequest` also carries the optional mirror, criome-gate, and
+guardian-prompt targets the same operation applies in one owner round-trip;
+each is runtime policy applied to the live engine, not a SEMA log write, and
+echoed in the `Configured` receipt. The criome-gate target no longer arms a
+head authorizer — it configures only the guardian operation authorizer.
 
 Mirroring is not a separate component: it is how Spirit operates over criome and
 the sema mirror. Spirit knows NOTHING about quorums (primary-6kz1): it constructs
-no proposal, holds no round state, and names no threshold — quorum authority, if
-a deployment wants it, is entirely the LOCAL criome's concern behind a plain
-authorization. After a working commit Spirit captures the content-addressed head
-and asks its co-resident LOCAL criome for a 1-of-1 authorization
-(`Engine::gate_and_ship_head` → `CriomeGate::authorize_head`, a fast
-`spawn_blocking` round-trip carrying the `AuthorizationEvaluation` the attestor
-projects from the head). ONLY on criome's `Authorized` verdict
-(`CriomeReply::Authorized`) does the gated `mirror-shipper` ship the unshipped
-versioned-log suffix and publish the latest checkpoint
-(`MirrorShipper::ship_unshipped`, `publish_checkpoint_to_mirror`) to the
-configured mirror; an `Unconfigured`, `Denied`, or `Unreachable` verdict holds
-the head back fail-closed, never last-writer-wins. `AuthorizationMode::Observing`
-emits the same request without blocking fan-out on the verdict, for the traced
-first-production posture above. There is NO spirit-side apply ingress: Spirit
+no proposal, holds no round state, and names no threshold. Whether heads are
+subject to criome authorization at all is the spirit-side `CriomeAuthorization`
+option, a closed typed enum on the `CriomeGate` seam. `Disabled` is the
+operative default until criome-cluster authorization is ready: Spirit runs
+fully local — heads advance freely, nothing propagates, and the whole
+authorize-and-ship seam (`Engine::gate_and_ship_head` →
+`CriomeGate::authorize_head` → `MirrorShipper::ship_unshipped`) stays in
+place, dormant. This lets spirit development continue on main with no spirit
+branch. `Enabled` demands criome authorization for every head advance: no
+cluster authorizer exists yet, so a head-advancing working input is refused
+fail-closed BEFORE any pipeline write, and a pre-existing head is held back
+`Unconfigured` — never last-writer-wins. The earlier 1-of-1 LOCAL criome
+authorization path (co-resident criome Unix socket + deploy-config attestor,
+socket-only bootstrap included) is DELETED, not kept as a mode; the coming
+criome-cluster authorization flow owns the seam and will wire a real cluster
+authorizer behind `CriomeGate::authorize_head`, whose `Authorized` decision is
+the only one that releases the mirror ship. There is NO spirit-side apply ingress: Spirit
 does not accept a foreign authorized-record apply on its working socket. The
 `signal-spirit` contract retains the working-tier `ApplyAuthorizedRecord` variant
 for wire compatibility, but the daemon answers it fail-closed with

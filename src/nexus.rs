@@ -1297,11 +1297,13 @@ impl Nexus {
                 NexusAction::reply_to_signal(Output::marker_reported(self.database_marker()))
             }
             // The authorized-apply ingress is retired together with the
-            // spirit-side quorum (primary-6kz1): the criome_gate direction
-            // originates its own head through the LOCAL 1-of-1 criome gate and
-            // never accepts a foreign authorized-record apply on the working
-            // socket. The contract retains the variant, so the daemon answers it
-            // fail-closed — no criome round-trip, no store write.
+            // spirit-side quorum (primary-6kz1), and the 1-of-1 LOCAL criome
+            // authorization path is deleted with it: head authorization now
+            // waits on the criome-cluster authorization flow behind the
+            // dormant criome_gate seam, and Spirit never accepts a foreign
+            // authorized-record apply on the working socket. The contract
+            // retains the variant, so the daemon answers it fail-closed — no
+            // criome round-trip, no store write.
             Input::ApplyAuthorizedRecord(_) => NexusAction::reply_to_signal(Output::apply_refused(
                 ApplyRefusal::new(ApplyRefusalReason::AuthorizationUnavailable),
             )),

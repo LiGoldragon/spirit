@@ -81,7 +81,7 @@ pub mod schema {
 pub use config::{Configuration, ConfigurationError};
 #[cfg(feature = "mirror-shipper")]
 pub use criome_gate::{
-    CriomeGate, CriomeGateError, GateDecision, LocalHeadCapture, SpiritAttestor,
+    CriomeAuthorization, CriomeGate, CriomeGateError, GateDecision, LocalHeadCapture,
 };
 pub use daemon::{Daemon, SpiritDaemon, SpiritDaemonError};
 #[cfg(feature = "mirror-shipper")]
