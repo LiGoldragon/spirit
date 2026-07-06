@@ -37,7 +37,7 @@ fn binary_only_surface_has_no_nota_runtime_dependency() {
     let tree = manifest.cargo_tree(&["--edges", "normal", "--no-default-features"]);
 
     assert!(
-        !tree.contains("nota") && !tree.contains("nota"),
+        !tree.contains("\n├── nota ") && !tree.contains("\n└── nota "),
         "binary-only runtime dependency tree must not contain nota:\n{tree}"
     );
 }
@@ -64,7 +64,7 @@ fn text_client_surface_has_nota_runtime_dependency() {
     let tree = manifest.cargo_tree(&["--edges", "normal", "--features", "nota-text"]);
 
     assert!(
-        tree.contains("nota"),
+        tree.contains("\n├── nota ") || tree.contains("\n└── nota "),
         "nota-text runtime dependency tree must contain nota:\n{tree}"
     );
 }

@@ -255,17 +255,17 @@
     "nota-text-query-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783339825,
-        "narHash": "sha256-0L7xVwbs6UijqFnZlTfrskU+FIIb20sHUAa0p9Lxbag=",
+        "lastModified": 1783351457,
+        "narHash": "sha256-V7cw3bFmHGlT47aW/h9z79o9YaHS2fhLH2x+P1mFW7I=",
         "owner": "LiGoldragon",
         "repo": "nota-text-query",
-        "rev": "555909b318caf58dd834372a814d443f7d21d9b3",
+        "rev": "6140a3e9afe3f81c18a39cb0a11dec4eab68b561",
         "type": "github"
       },
       "original": {
         "owner": "LiGoldragon",
         "repo": "nota-text-query",
-        "rev": "555909b318caf58dd834372a814d443f7d21d9b3",
+        "rev": "6140a3e9afe3f81c18a39cb0a11dec4eab68b561",
         "type": "github"
       }
     },

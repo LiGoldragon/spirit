@@ -73,7 +73,7 @@
       flake = false;
     };
     nota-text-query-source = {
-      url = "github:LiGoldragon/nota-text-query/555909b318caf58dd834372a814d443f7d21d9b3";
+      url = "github:LiGoldragon/nota-text-query/6140a3e9afe3f81c18a39cb0a11dec4eab68b561";
       flake = false;
     };
     meta-signal-spirit-source = {
@@ -321,7 +321,7 @@
                 --replace-fail 'signal-persona = { git = "https://github.com/LiGoldragon/signal-persona.git", branch = "main", optional = true }' 'signal-persona = { path = "vendor-sources/signal-persona", optional = true }' \
                 --replace-fail 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", rev = "0f4e91fb6df44fa5218824f2879c162751cce402" }' 'signal-spirit = { path = "vendor-sources/signal-spirit" }' \
                 --replace-fail 'meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", rev = "c893fa9cb605a089d6b902aa3035097bc7d79bbd" }' 'meta-signal-spirit = { path = "vendor-sources/meta-signal-spirit" }' \
-                --replace-fail 'nota-text-query = { git = "https://github.com/LiGoldragon/nota-text-query.git", rev = "555909b318caf58dd834372a814d443f7d21d9b3", optional = true }' 'nota-text-query = { path = "vendor-sources/nota-text-query", optional = true }' \
+                --replace-fail 'nota-text-query = { git = "https://github.com/LiGoldragon/nota-text-query.git", rev = "6140a3e9afe3f81c18a39cb0a11dec4eab68b561", default-features = false }' 'nota-text-query = { path = "vendor-sources/nota-text-query", default-features = false }' \
                 --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "vendor-sources/triad-runtime" }' \
                 --replace-fail 'schema-rust = { package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust.git", branch = "main" }' 'schema-rust = { path = "vendor-sources/schema-rust" }' \
                 --replace-fail 'agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", features = ["live-provider"] }' '# agent live-provider dev dependency omitted from standard Nix checks' \

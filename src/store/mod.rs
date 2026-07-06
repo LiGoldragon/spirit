@@ -25,7 +25,6 @@ pub use error::StoreError;
 pub use family_directory::StoreFamilyDirectory;
 #[cfg(feature = "agent-guardian")]
 use guardian_bundle::GuardianRecordBundle;
-#[cfg(feature = "nota-text")]
 use nota_text_query::{
     Query as TextQuery, QueryTerm, SearchOutcome, SearchText as QuerySearchText,
 };
@@ -1645,8 +1644,6 @@ impl PublicIntentQuery {
 }
 
 struct PublicTextSearchNeedle {
-    #[cfg(not(feature = "nota-text"))]
-    phrase: String,
     words: Vec<String>,
     empty: bool,
 }
@@ -1654,41 +1651,19 @@ struct PublicTextSearchNeedle {
 impl PublicTextSearchNeedle {
     fn new(search_text: &SearchText) -> Self {
         let words = Self::normalized_words(search_text.payload());
-        #[cfg(not(feature = "nota-text"))]
-        let phrase = words.join(" ");
         let empty = words.is_empty();
-        Self {
-            #[cfg(not(feature = "nota-text"))]
-            phrase,
-            words,
-            empty,
-        }
+        Self { words, empty }
     }
 
     fn is_empty(&self) -> bool {
         self.empty
     }
 
-    #[cfg(feature = "nota-text")]
     fn normalized_words(search_text: &str) -> Vec<String> {
         QuerySearchText::new(search_text)
             .words
             .into_iter()
             .map(|word| word.as_str().to_owned())
-            .collect::<Vec<_>>()
-    }
-
-    #[cfg(not(feature = "nota-text"))]
-    fn normalized_words(search_text: &str) -> Vec<String> {
-        search_text
-            .split_whitespace()
-            .map(|word| {
-                word.chars()
-                    .filter(|character| character.is_alphanumeric())
-                    .collect::<String>()
-                    .to_lowercase()
-            })
-            .filter(|word| !word.is_empty())
             .collect::<Vec<_>>()
     }
 
@@ -1698,18 +1673,6 @@ impl PublicTextSearchNeedle {
     }
 
     fn score_description(&self, description: &Description) -> u64 {
-        #[cfg(feature = "nota-text")]
-        {
-            return self.score_description_with_nota_text_query(description);
-        }
-        #[cfg(not(feature = "nota-text"))]
-        {
-            self.score_description_without_nota(description)
-        }
-    }
-
-    #[cfg(feature = "nota-text")]
-    fn score_description_with_nota_text_query(&self, description: &Description) -> u64 {
         let haystack = QuerySearchText::new(description.payload());
         let mut score = 0;
         let phrase_query = TextQuery::contains(QueryTerm::phrase(self.words.clone()));
@@ -1719,22 +1682,6 @@ impl PublicTextSearchNeedle {
         for word in &self.words {
             let query = TextQuery::contains(QueryTerm::word(word.clone()));
             if matches!(query.find_in(&haystack), SearchOutcome::Matched(_)) {
-                score += 10;
-            }
-        }
-        score
-    }
-
-    #[cfg(not(feature = "nota-text"))]
-    fn score_description_without_nota(&self, description: &Description) -> u64 {
-        let haystack = Self::normalized_words(description.payload());
-        let haystack_text = haystack.join(" ");
-        let mut score = 0;
-        if !self.phrase.is_empty() && haystack_text.contains(&self.phrase) {
-            score += 100;
-        }
-        for word in &self.words {
-            if haystack.iter().any(|candidate| candidate == word) {
                 score += 10;
             }
         }

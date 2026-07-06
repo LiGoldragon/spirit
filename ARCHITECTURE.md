@@ -502,9 +502,9 @@ shared ancestors and repeated returned records, orders deterministically, and
 returns public `RecordsObserved` results directly. `PublicTextSearch(SearchText)`
 remains a fallback/debug path: Signal admits one text payload, Nexus projects it
 to the schema-declared SEMA `PublicTextSearch(SearchText)` read, and SEMA
-searches active public records by description text, ranks likely matches, and
-returns capped `RecordsObserved` results directly. `PublicRecords` and
-`PrivateRecords` admit a generated
+searches active public records by description text through `nota-text-query`,
+ranks likely matches, and returns capped `RecordsObserved` results directly.
+`PublicRecords` and `PrivateRecords` admit a generated
 `RecordSelection` payload — topic match plus optional kind, without a privacy
 field. Nexus projects those to canonical SEMA `Observe(Query)`: public means
 exact `Zero` privacy, private means `AtLeast Minimum` privacy. This keeps
@@ -733,8 +733,8 @@ uses `sema-engine` over a `*.sema` file:
   keyed records through sema-engine and applies Spirit's schema-specific
   domain/keyword/text/kind/privacy/importance predicate, `PublicIntent`
   performs structural active-public intent lookup with exact path and ancestor
-  `All` expansion, `PublicTextSearch(SearchText)` performs fallback ranked
-  active-public text lookup and returns direct capped results,
+  `All` expansion, `PublicTextSearch(SearchText)` performs `nota-text-query`
+  ranked active-public text lookup and returns direct capped results,
   `Lookup(RecordIdentifier)` uses a key query, and `Count(Query)` returns the
   number of matching records without mutating state. `DomainMatch::Any` is the all-record query. The `&self` receiver lets parallel readers share
   the store reference; `tests/runtime_triad.rs` has a scoped-thread witness for

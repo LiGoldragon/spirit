@@ -53,7 +53,7 @@ required-features = ["nota-text"]
 
 [features]
 default = []
-nota-text = ["dep:nota", "dep:nota-text-query", "signal-spirit/nota-text", "meta-signal-spirit/nota-text", "signal-introspect?/nota-text"]
+nota-text = ["dep:nota", "nota-text-query/nota-text", "signal-spirit/nota-text", "meta-signal-spirit/nota-text", "signal-introspect?/nota-text"]
 agent-guardian = ["nota-text", "dep:signal-agent"]
 production-migration = ["nota-text", "dep:sema-engine-layout3", "dep:sema-engine-previous"]
 testing-trace = ["dep:signal-introspect", "dep:signal-persona"]
@@ -170,7 +170,7 @@ signal-introspect = { git = "https://github.com/LiGoldragon/signal-introspect.gi
 signal-persona = { git = "https://github.com/LiGoldragon/signal-persona.git", branch = "main", optional = true }
 signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", rev = "0f4e91fb6df44fa5218824f2879c162751cce402" }
 meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", rev = "c893fa9cb605a089d6b902aa3035097bc7d79bbd" }
-nota-text-query = { git = "https://github.com/LiGoldragon/nota-text-query.git", rev = "555909b318caf58dd834372a814d443f7d21d9b3", optional = true }
+nota-text-query = { git = "https://github.com/LiGoldragon/nota-text-query.git", rev = "6140a3e9afe3f81c18a39cb0a11dec4eab68b561", default-features = false }
 thiserror = "2"
 tokio = { version = "1.47", features = ["io-util", "net", "rt-multi-thread", "sync"] }
 triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }
