@@ -78,7 +78,7 @@ fn checkpoint_and_suffix_restore_an_identical_store() {
     source
         .register_referent(spirit::schema::signal::ReferentRegistration {
             referent: Referent::new("sema-engine"),
-            aliases: Referents::new(vec![Referent::new("sema engine")]),
+            aliases: Referents::new(vec![Referent::new("sema engine")]).into(),
             justification: justification("witness referent registration"),
         })
         .expect("register referent");
@@ -153,7 +153,7 @@ fn versioned_log_witnesses_mutation_payloads() {
     store
         .register_referent(ReferentRegistration {
             referent: Referent::new("sema-engine"),
-            aliases: Referents::new(vec![Referent::new("sema engine")]),
+            aliases: Referents::new(vec![Referent::new("sema engine")]).into(),
             justification: justification("witness referent registration"),
         })
         .expect("register referent");
@@ -180,7 +180,7 @@ fn versioned_log_witnesses_mutation_payloads() {
         sema_write(
             SemaWriteInput::register_referent(ReferentRegistration {
                 referent: Referent::new("sema-engine"),
-                aliases: Referents::new(vec![Referent::new("semantic engine")]),
+                aliases: Referents::new(vec![Referent::new("semantic engine")]).into(),
                 justification: justification("witness referent alias merge"),
             }),
             2,
@@ -225,7 +225,11 @@ fn versioned_log_witnesses_mutation_payloads() {
                 assert_eq!(referent.referent, Referent::new("sema-engine"));
                 for alias in ["sema engine", "semantic engine"] {
                     assert!(
-                        referent.aliases.payload().contains(&Referent::new(alias)),
+                        referent
+                            .aliases
+                            .payload()
+                            .payload()
+                            .contains(&Referent::new(alias)),
                         "merged referent row carries alias {alias}",
                     );
                 }
@@ -322,7 +326,7 @@ fn versioned_log_covers_every_durable_write() {
     store
         .register_referent(spirit::schema::signal::ReferentRegistration {
             referent: Referent::new("spirit"),
-            aliases: Referents::new(vec![Referent::new("spirit")]),
+            aliases: Referents::new(vec![Referent::new("spirit")]).into(),
             justification: justification("witness referent registration"),
         })
         .expect("register referent");

@@ -4,6 +4,8 @@
   RecordIdentifier signal-spirit:signal:RecordIdentifier
   Referent signal-spirit:signal:Referent
   Referents signal-spirit:signal:Referents
+  Aliases signal-spirit:signal:Aliases
+  DomainScopes signal-spirit:signal:DomainScopes
   SearchText signal-spirit:signal:SearchText
   CertaintyChange signal-spirit:signal:CertaintyChange
   ImportanceBump signal-spirit:signal:ImportanceBump
@@ -29,8 +31,9 @@
   ChangeRecord RecordChange
   RegisterReferent ReferentRegistration
 
-  ReadInput [(Observe) (PublicTextSearch) (Lookup) (Count)]
+  ReadInput [(Observe) (PublicIntent) (PublicTextSearch) (Lookup) (Count)]
   Observe Query
+  PublicIntent DomainScopes
   PublicTextSearch SearchText
   Lookup RecordIdentifier
   Count Query
@@ -43,14 +46,15 @@
   ReferentRegistered ReferentRegistrationReceipt
   Missed ErrorReport
 
-  ReadOutput [(Observed) (PublicTextSearchResults) (Found) (Counted) (Missed)]
+  ReadOutput [(Observed) (PublicIntentResults) (PublicTextSearchResults) (Found) (Counted) (Missed)]
   Observed ObservedRecords
+  PublicIntentResults ObservedRecords
   PublicTextSearchResults ObservedRecords
   Found FoundRecord
   Counted CountedRecords
 
   StoredRecord { RecordIdentifier Entry }
-  StoredReferent { Referent aliases.Referents }
+  StoredReferent { Referent Aliases }
   SourceSchemaVersion Integer
   MigratedRecordCount Integer
   MigratedReferentCount Integer

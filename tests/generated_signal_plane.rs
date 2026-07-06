@@ -1,19 +1,19 @@
 mod support;
 
-use support::domain_fixtures;
 use signal_frame::{
     ExchangeLane, LaneSequence, SessionEpoch, StreamEventIdentifier, StreamingFrameBody,
     SubscriptionTokenInner,
 };
 use spirit::schema::signal::{
     Certainty, CertaintyChange, CertaintyChangeReceipt, DatabaseMarker, Description, DomainMatch,
-    Entry, Input, InputRoute, IntentEvent, IntentRecorded, Justification,
-    Kind, Magnitude, Output, OutputRoute, Privacy, QuoteText, Reasoning, Record, RecordChange,
-    RecordChangeReceipt, RecordIdentifier, RecordRequest, RecordSelection, Rejected, SearchText,
-    SelectedKind, SignalFrameError, SignalRejection, Statement, StatementText, Testimony,
-    ValidationError, VerbatimQuote, VersionReport, VersionText,
+    Entry, Input, InputRoute, IntentEvent, IntentRecorded, Justification, Kind, Magnitude, Output,
+    OutputRoute, Privacy, QuoteText, Reasoning, Record, RecordChange, RecordChangeReceipt,
+    RecordIdentifier, RecordRequest, RecordSelection, Rejected, SearchText, SelectedKind,
+    SignalFrameError, SignalRejection, Statement, StatementText, Testimony, ValidationError,
+    VerbatimQuote, VersionReport, VersionText,
 };
 use spirit::{OriginRoute, SignalAdmission};
+use support::domain_fixtures;
 
 fn marker(commit_sequence: u64, state_digest: u64) -> DatabaseMarker {
     DatabaseMarker {
@@ -176,6 +176,21 @@ fn generated_public_text_search_root_owns_route_header_and_rkyv_frame() {
     let (route, decoded) = Input::decode_signal_frame(&frame).expect("decode frame");
 
     assert_eq!(route, InputRoute::PublicTextSearch);
+    assert_eq!(decoded, input);
+}
+
+#[test]
+fn generated_public_intent_root_owns_route_header_and_rkyv_frame() {
+    let input = Input::public_intent(spirit::schema::signal::DomainScopes::new(vec![
+        spirit::schema::signal::DomainScope::All,
+    ]));
+
+    assert_eq!(input.route(), InputRoute::PublicIntent);
+
+    let frame = input.encode_signal_frame().expect("encode frame");
+    let (route, decoded) = Input::decode_signal_frame(&frame).expect("decode frame");
+
+    assert_eq!(route, InputRoute::PublicIntent);
     assert_eq!(decoded, input);
 }
 
@@ -432,36 +447,30 @@ fn generated_public_private_record_shortcuts_round_trip_nota() {
 
 #[cfg(feature = "nota-text")]
 #[test]
-fn generated_domain_scope_is_a_recursive_enum_text_surface() {
-    use spirit::schema::signal::{DataLeaf, Domain, DomainScope, Software, Technology};
+fn generated_public_intent_round_trips_recursive_domain_scopes() {
+    use spirit::schema::signal::{
+        DataLeaf, Domain, DomainScope, DomainScopes, Software, Technology,
+    };
 
-    let technology = "(Technology All)"
-        .parse::<DomainScope>()
-        .expect("parse root scope");
-    let software = "(Technology (Software All))"
-        .parse::<DomainScope>()
-        .expect("parse internal scope");
-    let schema_evolution = "(Technology (Software (Data SchemaEvolution)))"
-        .parse::<DomainScope>()
-        .expect("parse leaf scope");
-    let impossible = "(Technology Software)".parse::<DomainScope>();
+    let input = "(PublicIntent [(Technology (Software (Data SchemaEvolution)))])"
+        .parse::<Input>()
+        .expect("parse public intent input");
+    let impossible = "(PublicIntent [(Technology Software)])".parse::<Input>();
 
-    assert!(impossible.is_err());
-    assert_eq!(technology.to_string(), "(Technology All)");
-    assert_eq!(software.to_string(), "(Technology (Software All))");
     let schema_evolution_domain = Domain::Technology(Technology::Software(Software::Data(
         DataLeaf::SchemaEvolution,
     )));
+    let schema_evolution_scope = DomainScope::from(schema_evolution_domain.clone());
+
+    assert!(impossible.is_err());
     assert_eq!(
-        DomainScope::from(schema_evolution_domain.clone()),
-        schema_evolution
+        input,
+        Input::public_intent(DomainScopes::new(vec![schema_evolution_scope.clone()]))
     );
-    assert!(technology.contains_domain(&schema_evolution_domain));
-    assert!(software.contains_domain(&schema_evolution_domain));
-    assert!(schema_evolution.contains_domain(&schema_evolution_domain));
+    assert!(schema_evolution_scope.contains_domain(&schema_evolution_domain));
     assert_eq!(
-        schema_evolution.to_string(),
-        "(Technology (Software (Data SchemaEvolution)))"
+        input.to_string(),
+        "(PublicIntent [(Technology (Software (Data SchemaEvolution)))])"
     );
 }
 

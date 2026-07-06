@@ -20,6 +20,10 @@ pub use signal_spirit::schema::signal::Referent as Referent;
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::Referents as Referents;
 #[rustfmt::skip]
+pub use signal_spirit::schema::signal::Aliases as Aliases;
+#[rustfmt::skip]
+pub use signal_spirit::schema::signal::DomainScopes as DomainScopes;
+#[rustfmt::skip]
 pub use signal_spirit::schema::signal::SearchText as SearchText;
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::CertaintyChange as CertaintyChange;
@@ -114,6 +118,7 @@ pub struct RegisterReferent(ReferentRegistration);
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum ReadInput {
     Observe(Observe),
+    PublicIntent(PublicIntent),
     PublicTextSearch(PublicTextSearch),
     Lookup(Lookup),
     Count(Count),
@@ -126,6 +131,14 @@ pub enum ReadInput {
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Observe(Query);
+
+#[rustfmt::skip]
+#[cfg_attr(
+    feature = "nota-text",
+    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
+)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct PublicIntent(DomainScopes);
 
 #[rustfmt::skip]
 #[cfg_attr(
@@ -222,6 +235,7 @@ pub struct Missed(ErrorReport);
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum ReadOutput {
     Observed(Observed),
+    PublicIntentResults(PublicIntentResults),
     PublicTextSearchResults(PublicTextSearchResults),
     Found(Found),
     Counted(Counted),
@@ -235,6 +249,14 @@ pub enum ReadOutput {
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Observed(ObservedRecords);
+
+#[rustfmt::skip]
+#[cfg_attr(
+    feature = "nota-text",
+    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
+)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct PublicIntentResults(ObservedRecords);
 
 #[rustfmt::skip]
 #[cfg_attr(
@@ -279,7 +301,7 @@ pub struct StoredRecord {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct StoredReferent {
     pub referent: Referent,
-    pub aliases: Referents,
+    pub aliases: Aliases,
 }
 
 #[rustfmt::skip]
@@ -450,6 +472,25 @@ impl Observe {
 #[rustfmt::skip]
 impl From<Query> for Observe {
     fn from(payload: Query) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl PublicIntent {
+    pub fn new(payload: DomainScopes) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &DomainScopes {
+        &self.0
+    }
+    pub fn into_payload(self) -> DomainScopes {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<DomainScopes> for PublicIntent {
+    fn from(payload: DomainScopes) -> Self {
         Self::new(payload)
     }
 }
@@ -645,6 +686,25 @@ impl From<ObservedRecords> for Observed {
 }
 
 #[rustfmt::skip]
+impl PublicIntentResults {
+    pub fn new(payload: ObservedRecords) -> Self {
+        Self(payload)
+    }
+    pub fn payload(&self) -> &ObservedRecords {
+        &self.0
+    }
+    pub fn into_payload(self) -> ObservedRecords {
+        self.0
+    }
+}
+#[rustfmt::skip]
+impl From<ObservedRecords> for PublicIntentResults {
+    fn from(payload: ObservedRecords) -> Self {
+        Self::new(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl PublicTextSearchResults {
     pub fn new(payload: ObservedRecords) -> Self {
         Self(payload)
@@ -782,6 +842,9 @@ impl ReadInput {
     pub fn observe(payload: Query) -> Self {
         Self::Observe(Observe::new(payload))
     }
+    pub fn public_intent(payload: DomainScopes) -> Self {
+        Self::PublicIntent(PublicIntent::new(payload))
+    }
     pub fn public_text_search(payload: SearchText) -> Self {
         Self::PublicTextSearch(PublicTextSearch::new(payload))
     }
@@ -819,6 +882,9 @@ impl WriteOutput {
 impl ReadOutput {
     pub fn observed(payload: ObservedRecords) -> Self {
         Self::Observed(Observed::new(payload))
+    }
+    pub fn public_intent_results(payload: ObservedRecords) -> Self {
+        Self::PublicIntentResults(PublicIntentResults::new(payload))
     }
     pub fn public_text_search_results(payload: ObservedRecords) -> Self {
         Self::PublicTextSearchResults(PublicTextSearchResults::new(payload))
@@ -897,6 +963,13 @@ impl From<Observe> for ReadInput {
 }
 
 #[rustfmt::skip]
+impl From<PublicIntent> for ReadInput {
+    fn from(payload: PublicIntent) -> Self {
+        Self::PublicIntent(payload)
+    }
+}
+
+#[rustfmt::skip]
 impl From<PublicTextSearch> for ReadInput {
     fn from(payload: PublicTextSearch) -> Self {
         Self::PublicTextSearch(payload)
@@ -963,6 +1036,13 @@ impl From<Missed> for WriteOutput {
 impl From<Observed> for ReadOutput {
     fn from(payload: Observed) -> Self {
         Self::Observed(payload)
+    }
+}
+
+#[rustfmt::skip]
+impl From<PublicIntentResults> for ReadOutput {
+    fn from(payload: PublicIntentResults) -> Self {
+        Self::PublicIntentResults(payload)
     }
 }
 
@@ -1057,16 +1137,16 @@ impl std::fmt::Display for Output {
 #[rustfmt::skip]
 pub mod family_identity {
     pub const RECORDS_FAMILY: [u8; 32] = [
-        235, 41, 203, 108, 130, 176, 171, 9, 93, 250, 154, 192, 103, 5, 5, 97, 251, 2,
-        85, 83, 56, 80, 183, 104, 86, 13, 207, 85, 221, 76, 239, 138,
+        169, 167, 27, 203, 113, 158, 12, 113, 89, 93, 195, 166, 134, 208, 34, 40, 178,
+        38, 203, 139, 155, 209, 108, 101, 12, 183, 180, 233, 6, 84, 230, 177,
     ];
     pub const REFERENTS_FAMILY: [u8; 32] = [
-        156, 76, 75, 94, 73, 82, 81, 59, 182, 137, 245, 37, 131, 252, 212, 36, 31, 179,
-        31, 16, 51, 227, 149, 129, 207, 22, 87, 156, 39, 3, 200, 205,
+        104, 195, 227, 181, 142, 254, 234, 107, 128, 177, 214, 13, 194, 75, 25, 253, 10,
+        38, 233, 129, 32, 48, 247, 79, 147, 203, 30, 52, 248, 158, 148, 249,
     ];
     pub const MIGRATIONS_FAMILY: [u8; 32] = [
-        103, 38, 145, 207, 19, 9, 194, 248, 165, 152, 75, 144, 4, 147, 78, 137, 32, 60,
-        139, 28, 153, 82, 148, 85, 2, 153, 13, 124, 160, 153, 237, 194,
+        162, 255, 229, 245, 220, 189, 118, 68, 34, 109, 161, 159, 253, 62, 185, 124, 148,
+        130, 225, 124, 212, 69, 80, 89, 118, 12, 161, 139, 156, 198, 112, 174,
     ];
 }
 
@@ -1260,6 +1340,7 @@ impl WriteInput {
 )]
 pub enum ReadInputRoute {
     Observe,
+    PublicIntent,
     PublicTextSearch,
     Lookup,
     Count,
@@ -1270,6 +1351,7 @@ impl ReadInput {
     pub fn route(&self) -> ReadInputRoute {
         match self {
             Self::Observe(_) => ReadInputRoute::Observe,
+            Self::PublicIntent(_) => ReadInputRoute::PublicIntent,
             Self::PublicTextSearch(_) => ReadInputRoute::PublicTextSearch,
             Self::Lookup(_) => ReadInputRoute::Lookup,
             Self::Count(_) => ReadInputRoute::Count,
@@ -1332,6 +1414,7 @@ impl WriteOutput {
 )]
 pub enum ReadOutputRoute {
     Observed,
+    PublicIntentResults,
     PublicTextSearchResults,
     Found,
     Counted,
@@ -1343,6 +1426,7 @@ impl ReadOutput {
     pub fn route(&self) -> ReadOutputRoute {
         match self {
             Self::Observed(_) => ReadOutputRoute::Observed,
+            Self::PublicIntentResults(_) => ReadOutputRoute::PublicIntentResults,
             Self::PublicTextSearchResults(_) => ReadOutputRoute::PublicTextSearchResults,
             Self::Found(_) => ReadOutputRoute::Found,
             Self::Counted(_) => ReadOutputRoute::Counted,
@@ -1392,6 +1476,7 @@ impl SemaObjectName {
             Self::ReadInput(route) => {
                 match route {
                     ReadInputRoute::Observe => "SemaReadInputObserve",
+                    ReadInputRoute::PublicIntent => "SemaReadInputPublicIntent",
                     ReadInputRoute::PublicTextSearch => "SemaReadInputPublicTextSearch",
                     ReadInputRoute::Lookup => "SemaReadInputLookup",
                     ReadInputRoute::Count => "SemaReadInputCount",
@@ -1416,6 +1501,9 @@ impl SemaObjectName {
             Self::ReadOutput(route) => {
                 match route {
                     ReadOutputRoute::Observed => "SemaReadOutputObserved",
+                    ReadOutputRoute::PublicIntentResults => {
+                        "SemaReadOutputPublicIntentResults"
+                    }
                     ReadOutputRoute::PublicTextSearchResults => {
                         "SemaReadOutputPublicTextSearchResults"
                     }

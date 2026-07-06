@@ -1,13 +1,11 @@
 mod support;
 
-use support::domain_fixtures;
 #[cfg(feature = "nota-text")]
 use spirit::schema::signal::{Export, Import, NotaEncode};
 use spirit::{
     Engine, MailIdentifier, MailLedgerEvent, MessageIdentifier, MessageSent, MessageSentHook,
     Nexus, OriginRoute, SentMail, ShortHeader, SignalAdmission, Store,
     schema::{
-        domain::{InformationScope, SoftwareScope, TechnologyScope},
         nexus::{self, CommandSemaWrite, NexusAction, NexusEffectCommand, NexusEngine, NexusWork},
         sema::{
             self, ReadInput as SemaReadInput, ReadOutput as SemaReadOutput, SemaEngine,
@@ -28,6 +26,7 @@ use spirit::{
         },
     },
 };
+use support::domain_fixtures;
 use tempfile::TempDir;
 
 #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
@@ -417,11 +416,11 @@ fn domain_scopes_from_slice(domains: &[&str]) -> DomainScopes {
 }
 
 fn software_scope() -> DomainScope {
-    DomainScope::Technology(TechnologyScope::Software(SoftwareScope::All))
+    data_scope()
 }
 
 fn technology_scope() -> DomainScope {
-    DomainScope::Technology(TechnologyScope::All)
+    DomainScope::All
 }
 
 fn schema_evolution_scope() -> DomainScope {
@@ -608,6 +607,14 @@ fn input_public_records(selection: RecordSelection) -> Input {
     Input::public_records(selection)
 }
 
+fn input_public_intent(scopes: DomainScopes) -> Input {
+    Input::public_intent(scopes)
+}
+
+fn input_public_text_search(search_text: &str) -> Input {
+    Input::public_text_search(SearchText::new(search_text))
+}
+
 fn input_private_records(selection: RecordSelection) -> Input {
     Input::private_records(selection)
 }
@@ -667,7 +674,7 @@ fn input_bump_importance(record_identifier: RecordIdentifier) -> Input {
 fn input_register_referent(referent: &str, aliases: &[&str]) -> Input {
     Input::register_referent(ReferentRegistration {
         referent: Referent::new(referent),
-        aliases: referents_from_slice(aliases),
+        aliases: referents_from_slice(aliases).into(),
         justification: justification(referent),
     })
 }
@@ -2265,10 +2272,10 @@ fn sema_engine_queries_domain_scopes_by_prefix_breadth() {
     );
     match technology.root() {
         SemaReadOutput::Observed(records) => {
-            assert_eq!(records.payload().payload().len(), 2);
+            assert_eq!(records.payload().payload().len(), 3);
         }
         other => {
-            panic!("expected technology scope to observe both technology records, got {other:?}")
+            panic!("expected all scope to observe all records, got {other:?}")
         }
     }
 
@@ -2344,7 +2351,7 @@ fn sema_engine_expands_symmetric_domain_equivalence_without_chaining() {
         &store,
         sema_read_message(
             sema_observe(query_with_domain_scopes(domain_scopes_from_scopes(&[
-                DomainScope::Information(InformationScope::Database),
+                DomainScope::Information(Information::Database),
             ]))),
             4,
         ),
@@ -2360,9 +2367,8 @@ fn sema_engine_expands_symmetric_domain_equivalence_without_chaining() {
         other => panic!("expected information-database scope to observe itself, got {other:?}"),
     }
 
-    let data_expansion = data_scope().expand();
     assert!(
-        !data_expansion.matches_domain(&Domain::Technology(Technology::Hardware(
+        !data_scope().contains_domain(&Domain::Technology(Technology::Hardware(
             HardwareLeaf::Networking
         ))),
         "equivalence expansion must not chain from database into unrelated hardware"
@@ -2711,6 +2717,137 @@ fn public_private_record_shortcuts_project_to_privacy_queries_through_nexus() {
             );
         }
         other => panic!("expected private shortcut stash lookup to return records, got {other:?}"),
+    }
+}
+
+#[test]
+fn public_intent_returns_public_domain_ancestors_and_requested_leaves() {
+    let sema = SemaFile::new();
+    let mut engine = sema.engine();
+
+    for entry in [
+        Entry {
+            importance: Magnitude::Maximum.into(),
+            ..entry_with_domain(Domain::All, "all intent ancestor")
+        },
+        Entry {
+            importance: Magnitude::VeryHigh.into(),
+            ..entry_with_domain(
+                Domain::Technology(Technology::Software(Software::Data(DataLeaf::All))),
+                "data ancestor",
+            )
+        },
+        Entry {
+            importance: Magnitude::High.into(),
+            ..entry_with_domain(
+                Domain::Technology(Technology::Software(Software::Data(DataLeaf::Persistence))),
+                "persistence leaf",
+            )
+        },
+        Entry {
+            importance: Magnitude::Low.into(),
+            ..entry_with_domain(
+                Domain::Technology(Technology::Software(Software::Data(
+                    DataLeaf::SchemaEvolution,
+                ))),
+                "schema leaf",
+            )
+        },
+        entry_with_domain(
+            Domain::Technology(Technology::Software(Software::Quality(
+                spirit::schema::signal::QualityLeaf::Testing,
+            ))),
+            "quality sibling",
+        ),
+    ] {
+        assert!(matches!(
+            engine.handle(input_record(entry)).root(),
+            Output::RecordAccepted(_)
+        ));
+    }
+
+    let output = engine.handle(input_public_intent(DomainScopes::new(vec![
+        DomainScope::from(Domain::Technology(Technology::Software(Software::Data(
+            DataLeaf::Persistence,
+        )))),
+        schema_evolution_scope(),
+    ])));
+
+    match output.root() {
+        Output::RecordsObserved(records) => {
+            let descriptions = records
+                .payload()
+                .payload()
+                .iter()
+                .map(|record| record.entry.description.payload().as_str())
+                .collect::<Vec<_>>();
+            assert_eq!(
+                descriptions,
+                vec![
+                    "all intent ancestor",
+                    "data ancestor",
+                    "persistence leaf",
+                    "schema leaf"
+                ]
+            );
+        }
+        other => panic!("expected PublicIntent to return observed records, got {other:?}"),
+    }
+}
+
+#[test]
+fn public_text_search_returns_ranked_public_records() {
+    let sema = SemaFile::new();
+    let mut engine = sema.engine();
+
+    for entry in [
+        entry_with_domain(
+            Domain::Technology(Technology::Software(Software::Engineering(
+                spirit::schema::signal::EngineeringLeaf::Architecture,
+            ))),
+            "standardized routing protocol envelope",
+        ),
+        entry_with_domain(
+            Domain::Technology(Technology::Software(Software::Distributed(
+                spirit::schema::signal::DistributedLeaf::ProtocolDesign,
+            ))),
+            "routing fallback note",
+        ),
+        Entry {
+            privacy: Magnitude::High.into(),
+            ..entry_with_domain(
+                Domain::Technology(Technology::Software(Software::Distributed(
+                    spirit::schema::signal::DistributedLeaf::ProtocolDesign,
+                ))),
+                "private routing protocol note",
+            )
+        },
+    ] {
+        assert!(matches!(
+            engine.handle(input_record(entry)).root(),
+            Output::RecordAccepted(_)
+        ));
+    }
+
+    let output = engine.handle(input_public_text_search("routing protocol"));
+
+    match output.root() {
+        Output::RecordsObserved(records) => {
+            let descriptions = records
+                .payload()
+                .payload()
+                .iter()
+                .map(|record| record.entry.description.payload().as_str())
+                .collect::<Vec<_>>();
+            assert_eq!(
+                descriptions,
+                vec![
+                    "standardized routing protocol envelope",
+                    "routing fallback note"
+                ]
+            );
+        }
+        other => panic!("expected PublicTextSearch to return public records, got {other:?}"),
     }
 }
 

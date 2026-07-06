@@ -190,11 +190,11 @@
     "meta-signal-spirit-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783355389,
-        "narHash": "sha256-a77LvqKGc0qlQqICo4ijSSCTAkwdjnuM4VqWxFsElkI=",
+        "lastModified": 1783369323,
+        "narHash": "sha256-CGPia6qERt5EK0ajIZsAuDW62pyeKiA83fyBbcZwlMU=",
         "owner": "LiGoldragon",
         "repo": "meta-signal-spirit",
-        "rev": "4ee20388485150d44decb509143fb8280ff93f17",
+        "rev": "2c765101f3cb39a8439289e6116b7998450039bf",
         "type": "github"
       },
       "original": {
@@ -241,13 +241,29 @@
         "lastModified": 1783224919,
         "narHash": "sha256-0sYkfB1gE/RmWJX5ltxQmTkrFSx+2AhpWCPGCgacm/g=",
         "owner": "LiGoldragon",
-        "repo": "nota-next",
+        "repo": "nota",
         "rev": "ce7c564de0a0518eaa1938d55dccc460a67cadb4",
         "type": "github"
       },
       "original": {
         "owner": "LiGoldragon",
-        "repo": "nota-next",
+        "repo": "nota",
+        "type": "github"
+      }
+    },
+    "nota-text-query-source": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1783351457,
+        "narHash": "sha256-V7cw3bFmHGlT47aW/h9z79o9YaHS2fhLH2x+P1mFW7I=",
+        "owner": "LiGoldragon",
+        "repo": "nota-text-query",
+        "rev": "6140a3e9afe3f81c18a39cb0a11dec4eab68b561",
+        "type": "github"
+      },
+      "original": {
+        "owner": "LiGoldragon",
+        "repo": "nota-text-query",
         "type": "github"
       }
     },
@@ -265,6 +281,7 @@
         "mirror-source": "mirror-source",
         "nixpkgs": "nixpkgs",
         "nota-source": "nota-source",
+        "nota-text-query-source": "nota-text-query-source",
         "router-source": "router-source",
         "rust-build": "rust-build",
         "schema-rust-source": "schema-rust-source",
@@ -350,35 +367,33 @@
     "schema-rust-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783244793,
-        "narHash": "sha256-5ygzVg4lSyySBzocmNAX4zgsfMbciICtsOQDiGqQF5Y=",
-        "ref": "main",
-        "rev": "0f306826f64622b375ad232f0a59d32904487b9d",
-        "revCount": 219,
-        "type": "git",
-        "url": "https://github.com/LiGoldragon/schema-rust-next.git"
+        "lastModified": 1783361655,
+        "narHash": "sha256-M6DF5Ngx6OXRw19yHNuvbs23Jc6OnYZ63F8pphKmDGA=",
+        "owner": "LiGoldragon",
+        "repo": "schema-rust",
+        "rev": "a4b46ffffe5307eca3e1537539d0a70884955b4c",
+        "type": "github"
       },
       "original": {
-        "ref": "main",
-        "type": "git",
-        "url": "https://github.com/LiGoldragon/schema-rust-next.git"
+        "owner": "LiGoldragon",
+        "repo": "schema-rust",
+        "type": "github"
       }
     },
     "schema-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783222520,
-        "narHash": "sha256-BRRzVoCKwJVSoRmy3dhWQaw1V6+Ba/FklAZjFkcAmhE=",
-        "ref": "main",
-        "rev": "f351f90d3b8898205cf3057f3c253a5e451180a9",
-        "revCount": 164,
-        "type": "git",
-        "url": "https://github.com/LiGoldragon/schema-next.git"
+        "lastModified": 1783361316,
+        "narHash": "sha256-mBRGdHiSGp8/3n1+I+N6IfGUVV0YEGaag1S7T2HefIg=",
+        "owner": "LiGoldragon",
+        "repo": "schema",
+        "rev": "92bed64ad644ce4caa2827398ada5b7b79221165",
+        "type": "github"
       },
       "original": {
-        "ref": "main",
-        "type": "git",
-        "url": "https://github.com/LiGoldragon/schema-next.git"
+        "owner": "LiGoldragon",
+        "repo": "schema",
+        "type": "github"
       }
     },
     "sema-engine-layout3-source": {
@@ -645,11 +660,11 @@
     "signal-spirit-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783354693,
-        "narHash": "sha256-Pr8zaul+e5LpG3zOcjWfxKPK2iQ3s+To25WwSJpucXE=",
+        "lastModified": 1783368789,
+        "narHash": "sha256-Ztcnss38WKFLhee/cS69cDhYtneAD+PqZ1DrN+iIBnw=",
         "owner": "LiGoldragon",
         "repo": "signal-spirit",
-        "rev": "0f57e00c6ae692117f5b7c57c59626caaca1ca45",
+        "rev": "d06e8efffa0ad9cc5305c53977f9833dec3c6038",
         "type": "github"
       },
       "original": {

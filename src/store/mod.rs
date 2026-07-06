@@ -25,6 +25,9 @@ pub use error::StoreError;
 pub use family_directory::StoreFamilyDirectory;
 #[cfg(feature = "agent-guardian")]
 use guardian_bundle::GuardianRecordBundle;
+use nota_text_query::{
+    Query as TextQuery, QueryTerm, SearchOutcome, SearchText as QuerySearchText,
+};
 use record_identifier::RecordIdentifierMint;
 
 #[cfg(feature = "agent-guardian")]
@@ -38,28 +41,27 @@ use crate::schema::{
         WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
     },
     signal::{
-        Certainty, CertaintyChange, CertaintyChangeReceipt, CertaintySelection, Clarification,
-        ClarificationReceipt, ClarificationRecordIdentifier, ClarificationResolution,
-        ClarificationResolutionReceipt, CountedRecords, DatabaseMarker, Description, Entry,
-        ErrorMessage, ErrorReport, Explanation, FoundRecord, GuardianRejection,
-        GuardianRejectionReason, Importance, ImportanceBump, ImportanceBumpReceipt,
-        ImportanceSelection, Keyword, KeywordMatch, Keywords, Magnitude, ObservedRecord,
-        ObservedRecords, Privacy, PrivacySelection, Query, RecordChange, RecordChangeReceipt,
-        RecordCount, RecordIdentifier, RecordIdentifiers, RecordSet, Referent,
-        ReferentRegistration, ReferentRegistrationReceipt, ReferentSelection, Referents,
-        RemovalArchiveRecord, RemovalArchiveRecords, RemovalCandidateCollection,
-        RemovalCandidatesCollection, RemovedIdentifier, RemovedIdentifiers, Retirement,
-        RetirementReceipt, SearchText, SemaReceipt, SkippedRemovalCandidate,
-        SkippedRemovalCandidates, Supersession, SupersessionReceipt, TextMatch,
+        Aliases, Certainty, CertaintyChange, CertaintyChangeReceipt, CertaintySelection,
+        Clarification, ClarificationReceipt, ClarificationRecordIdentifier,
+        ClarificationResolution, ClarificationResolutionReceipt, CountedRecords, DatabaseMarker,
+        Description, Domain, DomainMatch, DomainScope, DomainScopes, Entry, ErrorMessage,
+        ErrorReport, Explanation, FoundRecord, GuardianRejection, GuardianRejectionReason,
+        Importance, ImportanceBump, ImportanceBumpReceipt, ImportanceSelection, Keyword,
+        KeywordMatch, Keywords, Magnitude, ObservedRecord, ObservedRecords, Privacy,
+        PrivacySelection, Query, RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier,
+        RecordIdentifiers, RecordSet, Referent, ReferentRegistration, ReferentRegistrationReceipt,
+        ReferentSelection, Referents, RemovalArchiveRecord, RemovalArchiveRecords,
+        RemovalCandidateCollection, RemovalCandidatesCollection, RemovedIdentifier,
+        RemovedIdentifiers, Retirement, RetirementReceipt, SearchText, SemaReceipt,
+        SkippedRemovalCandidate, SkippedRemovalCandidates, Supersession, SupersessionReceipt,
+        TextMatch,
     },
 };
 
 const PUBLIC_TEXT_SEARCH_LIMIT: usize = 25;
 
 #[cfg(feature = "agent-guardian")]
-use crate::schema::signal::{
-    DomainMatch, DomainScope, DomainScopes, RegisteredReferent, RegisteredReferents, SelectedKind,
-};
+use crate::schema::signal::{RegisteredReferent, RegisteredReferents, SelectedKind};
 
 #[cfg(feature = "testing-trace")]
 use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
@@ -83,7 +85,16 @@ use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
 // frozen snapshot of the old layout and folds them forward: an absent payload
 // becomes the new `All` member and a present leaf is remapped across the +1
 // discriminant shift.
-pub(super) const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(11);
+//
+// Version 12 adopts the signal-spirit `Aliases` wrapper in the durable referent
+// family so the stored alias role uses the same public contract noun as
+// referent registration and observation.
+//
+// Version 13 adopts the signal-spirit top-level `Domain::All` contract. Adding
+// the root enum member shifts every stored `Domain` discriminant, so version-12
+// `Entry` bytes must be folded through `production_migration` instead of being
+// decoded directly by this build.
+pub(super) const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(13);
 
 /// The SEMA durable store: a sema-engine keyed table written to a `*.sema`
 /// file.
@@ -263,6 +274,19 @@ impl SemaEngine for Store {
                     SemaReadOutput::missed(ErrorReport::new(ErrorMessage::new(error.to_string())))
                 }
             },
+            SemaReadInput::PublicIntent(public_intent) => {
+                match self.public_intent(public_intent.payload()) {
+                    Ok(entries) if !entries.is_empty() => SemaReadOutput::public_intent_results(
+                        ObservedRecords::new(RecordSet::new(entries)),
+                    ),
+                    Ok(_) => SemaReadOutput::missed(ErrorReport::new(ErrorMessage::new(
+                        "no matching record",
+                    ))),
+                    Err(error) => SemaReadOutput::missed(ErrorReport::new(ErrorMessage::new(
+                        error.to_string(),
+                    ))),
+                }
+            }
             SemaReadInput::PublicTextSearch(search) => match self
                 .public_text_search(search.payload())
             {
@@ -580,12 +604,11 @@ impl Store {
             .map(|stem| stem.to_string_lossy().into_owned())
             .unwrap_or_else(|| String::from("spirit"));
         // The version suffix tracks GUARDIAN_JOURNAL_SCHEMA_VERSION: a
-        // journal-schema change (v5: GuardianRejectionReason gained Matter and
-        // GuardianOperation dropped its removal arms, shifting the rkyv
-        // positional discriminants the journal persists) lands a fresh file
-        // rather than reading an incompatible layout. The older v4 file stays
-        // on disk untouched, orphaned and ignored by this engine.
-        self.path.with_file_name(format!("{stem}.guardian.v5.sema"))
+        // journal-schema change lands a fresh file rather than reading an
+        // incompatible layout. Version 6 carries the top-level `Domain::All`
+        // `Entry` layout in stored GuardianOperation payloads; older journal
+        // files stay on disk untouched, orphaned and ignored by this engine.
+        self.path.with_file_name(format!("{stem}.guardian.v6.sema"))
     }
 
     #[cfg(feature = "agent-guardian")]
@@ -642,7 +665,7 @@ impl Store {
         let mut skipped_candidates = Vec::new();
         for record in self.records()? {
             let identifier = record.record_identifier.payload().clone();
-            if !record.entry.matches(&query) {
+            if !EntryStoreExt::matches(&record.entry, &query) {
                 continue;
             }
             match archive.archive_record(record.clone(), self.archive_identifier(&identifier)) {
@@ -700,7 +723,10 @@ impl Store {
         // on UnregisteredReferent the way the guarded working path would.
         for referent in entry.referents.payload() {
             if self.canonical_referent(referent)?.is_none() {
-                self.register_referent_record(referent.clone(), Referents::new(Vec::new()))?;
+                self.register_referent_record(
+                    referent.clone(),
+                    Aliases::new(Referents::new(Vec::new())),
+                )?;
             }
         }
         let entry = self.canonicalized_entry(entry)?;
@@ -738,7 +764,7 @@ impl Store {
     fn register_referent_record(
         &self,
         referent: Referent,
-        aliases: Referents,
+        aliases: Aliases,
     ) -> Result<ReferentRegistrationReceipt, StoreError> {
         let mut record = StoredReferent::new(referent, aliases);
         self.reject_conflicting_referent_names(&record)?;
@@ -833,7 +859,7 @@ impl Store {
         let mut records = self
             .records()?
             .into_iter()
-            .filter(|record| record.entry.matches(&query))
+            .filter(|record| EntryStoreExt::matches(&record.entry, &query))
             .collect::<Vec<_>>();
         records.sort_by_key(|record| {
             std::cmp::Reverse((
@@ -845,6 +871,31 @@ impl Store {
             .into_iter()
             .map(StoredRecord::into_observed_record)
             .collect())
+    }
+
+    fn public_intent(
+        &self,
+        requested_scopes: &DomainScopes,
+    ) -> Result<Vec<ObservedRecord>, StoreError> {
+        let query = PublicIntentQuery::new(requested_scopes.clone());
+        let mut records = Vec::new();
+        let mut seen = BTreeSet::new();
+        for record in self
+            .records()?
+            .into_iter()
+            .filter(|record| record.entry.is_public_active() && query.matches_entry(&record.entry))
+        {
+            if seen.insert(record.record_identifier.payload().clone()) {
+                records.push(record.into_observed_record());
+            }
+        }
+        records.sort_by_key(|record| {
+            std::cmp::Reverse((
+                record.entry.certainty_rank(),
+                record.entry.importance_rank(),
+            ))
+        });
+        Ok(records)
     }
 
     fn public_text_search(
@@ -1434,29 +1485,30 @@ impl EngineRecord for StoredRecord {
 }
 
 impl StoredReferent {
-    fn new(referent: Referent, aliases: Referents) -> Self {
+    fn new(referent: Referent, aliases: Aliases) -> Self {
         Self { referent, aliases }
     }
 
-    fn with_aliases_merged(mut self, aliases: Referents) -> Self {
-        let mut merged = self.aliases.into_payload();
-        for alias in aliases.into_payload() {
+    fn with_aliases_merged(mut self, aliases: Aliases) -> Self {
+        let mut merged = self.aliases.into_payload().into_payload();
+        for alias in aliases.into_payload().into_payload() {
             if alias != self.referent && !merged.contains(&alias) {
                 merged.push(alias);
             }
         }
-        self.aliases = Referents::new(merged);
+        self.aliases = Aliases::new(Referents::new(merged));
         self
     }
 
     fn matches(&self, referent: &Referent) -> bool {
-        &self.referent == referent || self.aliases.payload().contains(referent)
+        &self.referent == referent || self.aliases.payload().payload().contains(referent)
     }
 
     fn has_any_name(&self, other: &StoredReferent) -> bool {
         self.matches(&other.referent)
             || other
                 .aliases
+                .payload()
                 .payload()
                 .iter()
                 .any(|alias| self.matches(alias))
@@ -1466,6 +1518,7 @@ impl StoredReferent {
         self.matches(&registration.referent)
             && registration
                 .aliases
+                .payload()
                 .payload()
                 .iter()
                 .all(|alias| self.matches(alias))
@@ -1532,25 +1585,56 @@ impl GuardianQueryExt for Query {
     }
 }
 
+#[derive(Clone, Debug)]
+struct PublicIntentQuery {
+    requested_scopes: DomainScopes,
+}
+
+impl PublicIntentQuery {
+    fn new(requested_scopes: DomainScopes) -> Self {
+        Self { requested_scopes }
+    }
+
+    fn matches_entry(&self, entry: &Entry) -> bool {
+        self.requested_scopes
+            .payload()
+            .iter()
+            .any(|requested_scope| self.matches_requested_scope(entry, requested_scope))
+    }
+
+    fn matches_requested_scope(&self, entry: &Entry, requested_scope: &DomainScope) -> bool {
+        let Some(requested_domain) = requested_scope.to_domain() else {
+            return true;
+        };
+        entry.domains.payload().iter().any(|record_domain| {
+            requested_scope.matches_spirit_domain(record_domain)
+                || DomainScope::from(record_domain.clone()).matches_spirit_domain(&requested_domain)
+        })
+    }
+}
+
 struct PublicTextSearchNeedle {
-    full_text: String,
-    tokens: Vec<String>,
+    words: Vec<String>,
+    empty: bool,
 }
 
 impl PublicTextSearchNeedle {
     fn new(search_text: &SearchText) -> Self {
-        let full_text = search_text.payload().trim().to_lowercase();
-        let tokens = full_text
-            .split_whitespace()
-            .map(str::trim)
-            .filter(|token| !token.is_empty())
-            .map(ToOwned::to_owned)
-            .collect();
-        Self { full_text, tokens }
+        let words = Self::normalized_words(search_text.payload());
+        let empty = words.is_empty();
+        Self { words, empty }
     }
 
     fn is_empty(&self) -> bool {
-        self.full_text.is_empty()
+        self.empty
+    }
+
+    fn normalized_words(search_text: &str) -> Vec<String> {
+        QuerySearchText::new(search_text)
+            .words
+            .into_iter()
+            .map(|word| word.as_str().to_owned())
+            .collect()
     }
 
     fn score_entry(&self, entry: &Entry) -> Option<u64> {
@@ -1560,42 +1644,128 @@ impl PublicTextSearchNeedle {
     }
 
     fn score_description(&self, description: &Description) -> u64 {
-        let haystack = description.payload().to_lowercase();
-        let mut score = 0;
-        if haystack.contains(&self.full_text) {
-            score += 100;
-        }
-        for token in &self.tokens {
-            if haystack.contains(token) {
-                score += 10;
-            }
-        }
-        score
+        self.score_text(description.payload(), 100, 10)
     }
 
     fn score_referents(&self, referents: &Referents) -> u64 {
         let mut score = 0;
         for referent in referents.payload() {
-            let candidate = referent.payload().to_lowercase();
-            if candidate == self.full_text {
+            if Self::normalized_words(referent.payload()) == self.words {
                 score += 120;
-            } else if candidate.contains(&self.full_text) {
-                score += 60;
+            } else {
+                score += self.score_text(referent.payload(), 60, 15);
             }
-            for token in &self.tokens {
-                if candidate == *token {
-                    score += 30;
-                } else if candidate.contains(token) {
-                    score += 15;
-                }
+        }
+        score
+    }
+
+    fn score_text(&self, text: &str, phrase_score: u64, word_score: u64) -> u64 {
+        let haystack = QuerySearchText::new(text);
+        let mut score = 0;
+        let phrase_query = TextQuery::contains(QueryTerm::phrase(self.words.clone()));
+        if matches!(phrase_query.find_in(&haystack), SearchOutcome::Matched(_)) {
+            score += phrase_score;
+        }
+        for word in &self.words {
+            let query = TextQuery::contains(QueryTerm::word(word.clone()));
+            if matches!(query.find_in(&haystack), SearchOutcome::Matched(_)) {
+                score += word_score;
             }
         }
         score
     }
 }
 
+pub trait DomainStoreExt {
+    fn to_signal_domain(&self) -> Option<signal_domain::Domain>;
+}
+
+impl DomainStoreExt for Domain {
+    fn to_signal_domain(&self) -> Option<signal_domain::Domain> {
+        match self {
+            Domain::All => None,
+            Domain::Health(payload) => Some(signal_domain::Domain::Health(*payload)),
+            Domain::Food(payload) => Some(signal_domain::Domain::Food(*payload)),
+            Domain::Home(payload) => Some(signal_domain::Domain::Home(*payload)),
+            Domain::Finance(payload) => Some(signal_domain::Domain::Finance(*payload)),
+            Domain::Work(payload) => Some(signal_domain::Domain::Work(*payload)),
+            Domain::Craft(payload) => Some(signal_domain::Domain::Craft(*payload)),
+            Domain::Knowledge(payload) => Some(signal_domain::Domain::Knowledge(*payload)),
+            Domain::Education(payload) => Some(signal_domain::Domain::Education(*payload)),
+            Domain::Language(payload) => Some(signal_domain::Domain::Language(*payload)),
+            Domain::Art(payload) => Some(signal_domain::Domain::Art(*payload)),
+            Domain::Kinship(payload) => Some(signal_domain::Domain::Kinship(*payload)),
+            Domain::Selfhood(payload) => Some(signal_domain::Domain::Selfhood(*payload)),
+            Domain::Spirituality(payload) => Some(signal_domain::Domain::Spirituality(*payload)),
+            Domain::Governance(payload) => Some(signal_domain::Domain::Governance(*payload)),
+            Domain::Law(payload) => Some(signal_domain::Domain::Law(*payload)),
+            Domain::Community(payload) => Some(signal_domain::Domain::Community(*payload)),
+            Domain::Nature(payload) => Some(signal_domain::Domain::Nature(*payload)),
+            Domain::Travel(payload) => Some(signal_domain::Domain::Travel(*payload)),
+            Domain::Commerce(payload) => Some(signal_domain::Domain::Commerce(*payload)),
+            Domain::Leisure(payload) => Some(signal_domain::Domain::Leisure(*payload)),
+            Domain::Appearance(payload) => Some(signal_domain::Domain::Appearance(*payload)),
+            Domain::Safety(payload) => Some(signal_domain::Domain::Safety(*payload)),
+            Domain::Information(payload) => Some(signal_domain::Domain::Information(*payload)),
+            Domain::Technology(payload) => Some(signal_domain::Domain::Technology(payload.clone())),
+        }
+    }
+}
+
+pub trait DomainScopeStoreExt {
+    fn to_domain(&self) -> Option<Domain>;
+    fn matches_spirit_domain(&self, domain: &Domain) -> bool;
+}
+
+impl DomainScopeStoreExt for DomainScope {
+    fn to_domain(&self) -> Option<Domain> {
+        match self {
+            DomainScope::All => None,
+            DomainScope::Health(payload) => Some(Domain::Health(*payload)),
+            DomainScope::Food(payload) => Some(Domain::Food(*payload)),
+            DomainScope::Home(payload) => Some(Domain::Home(*payload)),
+            DomainScope::Finance(payload) => Some(Domain::Finance(*payload)),
+            DomainScope::Work(payload) => Some(Domain::Work(*payload)),
+            DomainScope::Craft(payload) => Some(Domain::Craft(*payload)),
+            DomainScope::Knowledge(payload) => Some(Domain::Knowledge(*payload)),
+            DomainScope::Education(payload) => Some(Domain::Education(*payload)),
+            DomainScope::Language(payload) => Some(Domain::Language(*payload)),
+            DomainScope::Art(payload) => Some(Domain::Art(*payload)),
+            DomainScope::Kinship(payload) => Some(Domain::Kinship(*payload)),
+            DomainScope::Selfhood(payload) => Some(Domain::Selfhood(*payload)),
+            DomainScope::Spirituality(payload) => Some(Domain::Spirituality(*payload)),
+            DomainScope::Governance(payload) => Some(Domain::Governance(*payload)),
+            DomainScope::Law(payload) => Some(Domain::Law(*payload)),
+            DomainScope::Community(payload) => Some(Domain::Community(*payload)),
+            DomainScope::Nature(payload) => Some(Domain::Nature(*payload)),
+            DomainScope::Travel(payload) => Some(Domain::Travel(*payload)),
+            DomainScope::Commerce(payload) => Some(Domain::Commerce(*payload)),
+            DomainScope::Leisure(payload) => Some(Domain::Leisure(*payload)),
+            DomainScope::Appearance(payload) => Some(Domain::Appearance(*payload)),
+            DomainScope::Safety(payload) => Some(Domain::Safety(*payload)),
+            DomainScope::Information(payload) => Some(Domain::Information(*payload)),
+            DomainScope::Technology(payload) => Some(Domain::Technology(payload.clone())),
+        }
+    }
+
+    fn matches_spirit_domain(&self, domain: &Domain) -> bool {
+        let Some(scope) = self
+            .to_domain()
+            .and_then(|domain| domain.to_signal_domain())
+            .map(signal_domain::DomainScope::from)
+        else {
+            return true;
+        };
+        let Some(domain) = domain.to_signal_domain() else {
+            return true;
+        };
+        scope.expand().matches_domain(&domain)
+    }
+}
+
 pub trait EntryStoreExt {
     fn matches(&self, query: &Query) -> bool;
+    fn matches_domain_match(&self, domain_match: &DomainMatch) -> bool;
     fn is_public_active(&self) -> bool;
     fn certainty_rank(&self) -> u64;
     fn importance_rank(&self) -> u64;
@@ -1603,7 +1773,43 @@ pub trait EntryStoreExt {
 
 impl EntryStoreExt for Entry {
     fn matches(&self, query: &Query) -> bool {
-        query.matches(self)
+        self.matches_domain_match(&query.domain_match)
+            && query.keyword_match.matches(&self.description)
+            && query.text_match.matches(&self.description)
+            && query.referent_selection.matches(&self.referents)
+            && query
+                .selected_kind
+                .payload()
+                .as_ref()
+                .is_none_or(|kind| &self.kind == kind)
+            && query.privacy_selection.matches(&self.privacy)
+            && query.certainty_selection.matches(&self.certainty)
+            && query.importance_selection.matches(&self.importance)
+    }
+
+    fn matches_domain_match(&self, domain_match: &DomainMatch) -> bool {
+        if self.domains.payload().contains(&Domain::All) {
+            return match domain_match {
+                DomainMatch::Any => true,
+                DomainMatch::Partial(scopes) => !scopes.payload().is_empty(),
+                DomainMatch::Full(scopes) => !scopes.payload().is_empty(),
+            };
+        }
+        match domain_match {
+            DomainMatch::Any => true,
+            DomainMatch::Partial(scopes) => scopes.payload().iter().any(|scope| {
+                self.domains
+                    .payload()
+                    .iter()
+                    .any(|domain| scope.matches_spirit_domain(domain))
+            }),
+            DomainMatch::Full(scopes) => scopes.payload().iter().all(|scope| {
+                self.domains
+                    .payload()
+                    .iter()
+                    .any(|domain| scope.matches_spirit_domain(domain))
+            }),
+        }
     }
 
     fn is_public_active(&self) -> bool {
@@ -1712,18 +1918,7 @@ pub trait QueryStoreExt {
 
 impl QueryStoreExt for Query {
     fn matches(&self, entry: &Entry) -> bool {
-        self.domain_match.matches(&entry.domains)
-            && self.keyword_match.matches(&entry.description)
-            && self.text_match.matches(&entry.description)
-            && self.referent_selection.matches(&entry.referents)
-            && self
-                .selected_kind
-                .payload()
-                .as_ref()
-                .is_none_or(|kind| &entry.kind == kind)
-            && self.privacy_selection.matches(&entry.privacy)
-            && self.certainty_selection.matches(&entry.certainty)
-            && self.importance_selection.matches(&entry.importance)
+        EntryStoreExt::matches(entry, self)
     }
 }
 

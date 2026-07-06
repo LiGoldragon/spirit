@@ -17,12 +17,12 @@ use crate::{
             SemaEngine, WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
         },
         signal::{
-            ApplyRefusal, ApplyRefusalReason, Certainty, Clarification, ClarificationReceipt,
-            ClarificationResolution,
-            ClarificationResolutionReceipt, DatabaseMarker, Description, Domain, Domains, Entry,
-            ErrorMessage, ErrorReport, GuardianRejection, Importance, Input, IntentClarified,
-            IntentEvent, IntentRecorded, IntentSubscription, IntentSuperseded, Justification, Kind,
-            Magnitude, ObservedOperation, ObservedOperations, ObservedRecords, ObserverFilter,
+            Aliases, ApplyRefusal, ApplyRefusalReason, Certainty, Clarification,
+            ClarificationReceipt, ClarificationResolution, ClarificationResolutionReceipt,
+            DatabaseMarker, Description, Domain, Domains, Entry, ErrorMessage, ErrorReport,
+            GuardianRejection, Importance, Input, IntentClarified, IntentEvent, IntentRecorded,
+            IntentSubscription, IntentSuperseded, Justification, Kind, Magnitude,
+            ObservedOperation, ObservedOperations, ObservedRecords, ObserverFilter,
             ObserverRetraction, ObserverSubscription, OperationKind, Output, Privacy, Proposal,
             QuoteText, Reasoning, RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier,
             RecordRequest, RecordSet, Records, Referent, ReferentGuardianRejection,
@@ -957,7 +957,7 @@ impl Nexus {
         for referent in entry.referents.payload() {
             let registration = ReferentRegistration {
                 referent: referent.clone(),
-                aliases: Referents::new(Vec::new()),
+                aliases: Aliases::new(Referents::new(Vec::new())),
                 justification: justification.clone(),
             };
             if let Err(rejection) = self.guard_referent_registration(registration).await? {
@@ -1244,6 +1244,9 @@ impl Nexus {
             Input::Observe(observe) => {
                 NexusAction::command_sema_read(SemaReadInput::observe(observe.into_payload()))
             }
+            Input::PublicIntent(public_intent) => NexusAction::command_sema_read(
+                SemaReadInput::public_intent(public_intent.into_payload()),
+            ),
             Input::PublicTextSearch(search) => NexusAction::command_sema_read(
                 SemaReadInput::public_text_search(search.into_payload()),
             ),
@@ -1344,6 +1347,9 @@ impl Nexus {
                     records,
                     database_marker: self.database_marker(),
                 }))
+            }
+            SemaReadOutput::PublicIntentResults(observed) => {
+                NexusAction::reply_to_signal(Output::records_observed(observed.into_payload()))
             }
             SemaReadOutput::PublicTextSearchResults(observed) => {
                 NexusAction::reply_to_signal(Output::records_observed(observed.into_payload()))

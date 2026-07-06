@@ -1,23 +1,20 @@
 //! Store migration as a logged fold.
 //!
-//! The previous store generations (schema versions 7 and 8) carry no
-//! versioned operation log: spirit never opted into engine versioning before
-//! schema version 9, and they predate the current engine's storage layout, so
-//! the current engine refuses to open them at all. No pre-version-7 store
-//! exists anywhere, so any schema version below 7 is rejected outright as an
-//! unrecognized version rather than folded forward. This module therefore
-//! reads them with `sema-engine-previous` — the engine generation that wrote
-//! them — converts each row through the historical `From`-chain, and writes
-//! every record into a fresh version-9 store THROUGH the current engine's
-//! logged choke points. The migrated store's versioned commit log thereby
-//! begins with a complete, replayable record of the migration — the first
-//! complete history a spirit store has ever had — closed by a typed
-//! [`Migration`] marker row that is itself logged and restorable.
+//! Store generations before schema version 9 carry no versioned operation log:
+//! spirit had not opted into engine versioning yet, and those stores predate the
+//! current engine storage layout. This module reads them with
+//! `sema-engine-previous` — the engine generation that wrote them. Later schema
+//! versions use the current or layout-3 engine plus frozen historical row types
+//! for the materialized tables whose archived rkyv shape changed. Every source
+//! generation is folded into a fresh current store THROUGH the current engine's
+//! logged choke points, preserving identifiers while producing a complete,
+//! replayable migration history closed by a typed [`Migration`] marker row.
 //!
-//! This bootstrap is not yet a previous-LOG fold: there is no previous log to
-//! fold, so the fold input is the previous store's materialized rows. From
-//! version 9 onward the versioned log is authoritative and the next schema
-//! bump replays the previous store's log through the version chain instead.
+//! This bootstrap still folds materialized rows rather than replaying an older
+//! log: some deployed versioned logs were written by incompatible engine layouts,
+//! and the v10/v11/v12 schema changes altered durable row bytes. No
+//! pre-version-7 store exists anywhere, so any schema version below 7 is
+//! rejected outright as unrecognized rather than guessed forward.
 //!
 //! # Crash safety of the in-place swap
 //!
@@ -39,8 +36,8 @@
 //!   bytes. Recovery: re-run the migration (it mints the next free backup
 //!   suffix; the extra backup name may be deleted).
 //! - crash after the rename: the migration is complete — the live path holds
-//!   the migrated version-9 store, the backup path holds the previous store.
-//!   A re-run reports `Current` and changes nothing.
+//!   the migrated current store, the backup path holds the previous store. A
+//!   re-run reports `Current` and changes nothing.
 //!
 //! To roll back to the previous store, an operator stops the daemon and
 //! copies the newest backup over the live path:
@@ -98,6 +95,8 @@ const SPIRIT_STORE_V7_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(7);
 const SPIRIT_STORE_V8_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(8);
 const SPIRIT_STORE_V9_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(9);
 const SPIRIT_STORE_V10_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(10);
+const SPIRIT_STORE_V11_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(11);
+const SPIRIT_STORE_V12_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(12);
 const RECORDS_TABLE: TableName = TableName::new("records");
 const REFERENTS_TABLE: TableName = TableName::new("referents");
 const LAYOUT3_RECORDS_TABLE: Layout3TableName = Layout3TableName::new("records");
@@ -151,6 +150,32 @@ const SPIRIT_STORE_V10_RELEASE_SIXTEEN_REFERENTS_FAMILY: [u8; 32] = [
     188, 175, 255, 243, 118, 25, 152, 34, 112, 24, 219, 110, 187, 78, 78, 34, 118, 22, 115, 224,
     202, 82, 84, 91, 187, 206, 22, 170, 72, 207, 109, 223,
 ];
+// The schema-11 family identities from the deployed strict-positional Spirit
+// generation (`spirit-strict-positional-v11`, commit 05269499). Records carry
+// the same field layout later read by the schema-12 snapshot; referents still
+// store aliases as bare `Referents`, before schema 12 wrapped that role in the
+// public `Aliases` noun.
+const SPIRIT_STORE_V11_RECORDS_FAMILY: [u8; 32] = [
+    235, 41, 203, 108, 130, 176, 171, 9, 93, 250, 154, 192, 103, 5, 5, 97, 251, 2, 85, 83, 56, 80,
+    183, 104, 86, 13, 207, 85, 221, 76, 239, 138,
+];
+const SPIRIT_STORE_V11_REFERENTS_FAMILY: [u8; 32] = [
+    156, 76, 75, 94, 73, 82, 81, 59, 182, 137, 245, 37, 131, 252, 212, 36, 31, 179, 31, 16, 51,
+    227, 149, 129, 207, 22, 87, 156, 39, 3, 200, 205,
+];
+// The version-12 family identities immediately before the top-level
+// `Domain::All` contract. The current schema-rust family hash projection does
+// not include imported dependency closure bytes, so these match the generated
+// current constants in this build; keep named historical constants here so the
+// v12 reader remains explicit about the bytes it accepts.
+const SPIRIT_STORE_V12_RECORDS_FAMILY: [u8; 32] = [
+    169, 167, 27, 203, 113, 158, 12, 113, 89, 93, 195, 166, 134, 208, 34, 40, 178, 38, 203, 139,
+    155, 209, 108, 101, 12, 183, 180, 233, 6, 84, 230, 177,
+];
+const SPIRIT_STORE_V12_REFERENTS_FAMILY: [u8; 32] = [
+    104, 195, 227, 181, 142, 254, 234, 107, 128, 177, 214, 13, 194, 75, 25, 253, 10, 38, 233, 129,
+    32, 48, 247, 79, 147, 203, 30, 52, 248, 158, 148, 249,
+];
 
 #[derive(Debug, Clone, PartialEq, Eq, NotaDecode, NotaEncode)]
 pub struct StoreMigrationRequest {
@@ -203,6 +228,8 @@ enum SourceStoreVersion {
     VersionTenCurrent,
     VersionTenLegacyFamilyCurrent,
     VersionTenLayout3,
+    VersionElevenCurrent,
+    VersionTwelveCurrent,
     Previous(SchemaVersion),
 }
 
@@ -310,6 +337,37 @@ struct SpiritStoreV10LegacyFamilyCurrentArchiveDatabase {
 struct SpiritStoreV10Layout3ArchiveDatabase {
     database: Layout3SemaDatabase,
     records: Layout3TableReference<store_version_ten::StoredRecord>,
+}
+
+/// A schema-11 store written by the deployed strict-positional runtime. It is
+/// layout-5 and versioned; records use the pre-`Domain::All` root enum and
+/// referents still store aliases as bare `Referents`.
+struct SpiritStoreV11CurrentLiveDatabase {
+    database: CurrentSemaDatabase,
+    records: CurrentTableReference<store_version_eleven::StoredRecord>,
+    referents: CurrentTableReference<store_version_eleven::StoredReferent>,
+}
+
+/// The matching schema-11 default archive sibling.
+struct SpiritStoreV11CurrentArchiveDatabase {
+    database: CurrentSemaDatabase,
+    records: CurrentTableReference<store_version_eleven::StoredRecord>,
+}
+
+/// A schema-12 store written by the pre-`Domain::All` runtime. It is layout-5
+/// and versioned, but its stored `Entry` bytes carry the old top-level Domain
+/// discriminants and must be folded into schema 13 before the current daemon
+/// opens them.
+struct SpiritStoreV12CurrentLiveDatabase {
+    database: CurrentSemaDatabase,
+    records: CurrentTableReference<store_version_twelve::StoredRecord>,
+    referents: CurrentTableReference<StoredReferent>,
+}
+
+/// The matching schema-12 default archive sibling.
+struct SpiritStoreV12CurrentArchiveDatabase {
+    database: CurrentSemaDatabase,
+    records: CurrentTableReference<store_version_twelve::StoredRecord>,
 }
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -2557,6 +2615,160 @@ mod store_version_ten {
     }
 }
 
+/// The schema-11 record bytes share the later schema-12 frozen `Entry` shape:
+/// strict-positional branch payloads are already in place, and the top-level
+/// `Domain::All` member is still absent. The referent row is the part schema 12
+/// changed, from a bare `Referents` aliases field to the public `Aliases` noun.
+mod store_version_eleven {
+    use crate::schema::{
+        sema::StoredReferent as CurrentStoredReferent,
+        signal::{Referent, Referents},
+    };
+
+    pub(super) type StoredRecord = super::store_version_twelve::StoredRecord;
+    #[cfg(test)]
+    pub(super) type Domain = super::store_version_twelve::Domain;
+
+    #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+    pub(super) struct StoredReferent {
+        pub(super) referent: Referent,
+        pub(super) aliases: Referents,
+    }
+
+    impl StoredReferent {
+        pub(super) fn into_current(self) -> CurrentStoredReferent {
+            CurrentStoredReferent {
+                referent: self.referent,
+                aliases: self.aliases.into(),
+            }
+        }
+    }
+}
+
+/// A frozen snapshot of the schema-12 stored Entry shape immediately before the
+/// top-level `Domain::All` insertion. All branch payload enums already match the
+/// current contract; only the root Domain discriminants shifted.
+mod store_version_twelve {
+    use crate::schema::{
+        sema::StoredRecord as CurrentStoredRecord,
+        signal::{
+            Appearance, Art, Certainty, Commerce, Community, Craft, Description,
+            Domain as CurrentDomain, Domains as CurrentDomains, Education, Entry as CurrentEntry,
+            Finance, Food, Governance, Health, Home, Importance, Information, Kind, Kinship,
+            Knowledge, Language, Law, Leisure, Nature, Privacy, RecordIdentifier, Referents,
+            Safety, Selfhood, Spirituality, Technology, Travel, Work,
+        },
+    };
+
+    #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+    pub(super) struct StoredRecord {
+        pub(super) record_identifier: RecordIdentifier,
+        pub(super) entry: Entry,
+    }
+
+    #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+    pub(super) struct Entry {
+        pub(super) domains: Domains,
+        pub(super) kind: Kind,
+        pub(super) description: Description,
+        pub(super) certainty: Certainty,
+        pub(super) importance: Importance,
+        pub(super) privacy: Privacy,
+        pub(super) referents: Referents,
+    }
+
+    #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+    pub(super) struct Domains(pub(super) Vec<Domain>);
+
+    #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
+    pub(super) enum Domain {
+        Health(Health),
+        Food(Food),
+        Home(Home),
+        Finance(Finance),
+        Work(Work),
+        Craft(Craft),
+        Knowledge(Knowledge),
+        Education(Education),
+        Language(Language),
+        Art(Art),
+        Kinship(Kinship),
+        Selfhood(Selfhood),
+        Spirituality(Spirituality),
+        Governance(Governance),
+        Law(Law),
+        Community(Community),
+        Nature(Nature),
+        Travel(Travel),
+        Commerce(Commerce),
+        Leisure(Leisure),
+        Appearance(Appearance),
+        Safety(Safety),
+        Information(Information),
+        Technology(Technology),
+    }
+
+    impl StoredRecord {
+        pub(super) fn into_current(self) -> CurrentStoredRecord {
+            CurrentStoredRecord {
+                record_identifier: self.record_identifier,
+                entry: self.entry.into_current(),
+            }
+        }
+    }
+
+    impl Entry {
+        pub(super) fn into_current(self) -> CurrentEntry {
+            CurrentEntry {
+                domains: self.domains.into_current(),
+                kind: self.kind,
+                description: self.description,
+                certainty: self.certainty,
+                importance: self.importance,
+                privacy: self.privacy,
+                referents: self.referents,
+            }
+        }
+    }
+
+    impl Domains {
+        pub(super) fn into_current(self) -> CurrentDomains {
+            CurrentDomains::new(self.0.into_iter().map(Domain::into_current).collect())
+        }
+    }
+
+    impl Domain {
+        fn into_current(self) -> CurrentDomain {
+            match self {
+                Self::Health(value) => CurrentDomain::Health(value),
+                Self::Food(value) => CurrentDomain::Food(value),
+                Self::Home(value) => CurrentDomain::Home(value),
+                Self::Finance(value) => CurrentDomain::Finance(value),
+                Self::Work(value) => CurrentDomain::Work(value),
+                Self::Craft(value) => CurrentDomain::Craft(value),
+                Self::Knowledge(value) => CurrentDomain::Knowledge(value),
+                Self::Education(value) => CurrentDomain::Education(value),
+                Self::Language(value) => CurrentDomain::Language(value),
+                Self::Art(value) => CurrentDomain::Art(value),
+                Self::Kinship(value) => CurrentDomain::Kinship(value),
+                Self::Selfhood(value) => CurrentDomain::Selfhood(value),
+                Self::Spirituality(value) => CurrentDomain::Spirituality(value),
+                Self::Governance(value) => CurrentDomain::Governance(value),
+                Self::Law(value) => CurrentDomain::Law(value),
+                Self::Community(value) => CurrentDomain::Community(value),
+                Self::Nature(value) => CurrentDomain::Nature(value),
+                Self::Travel(value) => CurrentDomain::Travel(value),
+                Self::Commerce(value) => CurrentDomain::Commerce(value),
+                Self::Leisure(value) => CurrentDomain::Leisure(value),
+                Self::Appearance(value) => CurrentDomain::Appearance(value),
+                Self::Safety(value) => CurrentDomain::Safety(value),
+                Self::Information(value) => CurrentDomain::Information(value),
+                Self::Technology(value) => CurrentDomain::Technology(value),
+            }
+        }
+    }
+}
+
 impl StoreMigrationRequest {
     pub fn new(database_path: impl Into<String>) -> Self {
         Self {
@@ -2626,6 +2838,12 @@ impl StoreMigration {
             SourceStoreVersion::VersionTenLayout3 => {
                 self.migrate_version_ten_layout3_store(database_path)
             }
+            SourceStoreVersion::VersionElevenCurrent => {
+                self.migrate_version_eleven_current_store(database_path)
+            }
+            SourceStoreVersion::VersionTwelveCurrent => {
+                self.migrate_version_twelve_current_store(database_path)
+            }
             SourceStoreVersion::Previous(previous_schema_version) => {
                 self.migrate_previous_store(database_path, previous_schema_version)
             }
@@ -2644,6 +2862,16 @@ impl StoreMigration {
         if Store::open(database_path).is_ok() {
             return Ok(SourceStoreVersion::Current);
         }
+        let version_twelve_current_error =
+            match SpiritStoreV12CurrentLiveDatabase::open(database_path) {
+                Ok(_) => return Ok(SourceStoreVersion::VersionTwelveCurrent),
+                Err(error) => error,
+            };
+        let version_eleven_current_error =
+            match SpiritStoreV11CurrentLiveDatabase::open(database_path) {
+                Ok(_) => return Ok(SourceStoreVersion::VersionElevenCurrent),
+                Err(error) => error,
+            };
         if SpiritStoreV9CurrentLiveDatabase::open(database_path).is_ok() {
             return Ok(SourceStoreVersion::VersionNineCurrent);
         }
@@ -2674,7 +2902,11 @@ impl StoreMigration {
                 found,
                 ..
             })) => {
-                if found == SPIRIT_STORE_V10_SCHEMA_VERSION {
+                if found == SPIRIT_STORE_V12_SCHEMA_VERSION {
+                    Err(version_twelve_current_error)
+                } else if found == SPIRIT_STORE_V11_SCHEMA_VERSION {
+                    Err(version_eleven_current_error)
+                } else if found == SPIRIT_STORE_V10_SCHEMA_VERSION {
                     match version_ten_current_error {
                         StoreMigrationError::CurrentSemaStore(_) => {
                             Err(version_ten_legacy_family_error)
@@ -2748,6 +2980,26 @@ impl StoreMigration {
             SpiritStoreV10Layout3LiveDatabase::open(&database_path)?,
         )?;
         self.fold_previous_rows(database_path, source, SPIRIT_STORE_V10_SCHEMA_VERSION)
+    }
+
+    fn migrate_version_eleven_current_store(
+        &self,
+        database_path: PathBuf,
+    ) -> Result<StoreMigrationOutput, StoreMigrationError> {
+        let source = SpiritPreviousStore::from_v11_current(
+            SpiritStoreV11CurrentLiveDatabase::open(&database_path)?,
+        )?;
+        self.fold_previous_rows(database_path, source, SPIRIT_STORE_V11_SCHEMA_VERSION)
+    }
+
+    fn migrate_version_twelve_current_store(
+        &self,
+        database_path: PathBuf,
+    ) -> Result<StoreMigrationOutput, StoreMigrationError> {
+        let source = SpiritPreviousStore::from_v12_current(
+            SpiritStoreV12CurrentLiveDatabase::open(&database_path)?,
+        )?;
+        self.fold_previous_rows(database_path, source, SPIRIT_STORE_V12_SCHEMA_VERSION)
     }
 
     /// The logged fold: read every previous row with the previous engine,
@@ -2832,6 +3084,8 @@ impl StoreMigration {
     ) -> Result<(), StoreMigrationError> {
         if previous_schema_version != SPIRIT_STORE_V8_SCHEMA_VERSION
             && previous_schema_version != SPIRIT_STORE_V10_SCHEMA_VERSION
+            && previous_schema_version != SPIRIT_STORE_V11_SCHEMA_VERSION
+            && previous_schema_version != SPIRIT_STORE_V12_SCHEMA_VERSION
         {
             return Ok(());
         }
@@ -2839,14 +3093,28 @@ impl StoreMigration {
         if !archive_path.exists() {
             return Ok(());
         }
-        if previous_schema_version == SPIRIT_STORE_V10_SCHEMA_VERSION
-            && ArchiveDatabase::open(&archive_path).is_ok()
-        {
+        // A crash after the archive swap but before the live-store swap leaves
+        // an already-current archive beside an old live store. Treat that as the
+        // normal rerun state rather than trying to decode current bytes through
+        // the old archive reader.
+        if ArchiveDatabase::open(&archive_path).is_ok() {
             return Ok(());
         }
         let archive_records: Vec<StoredRecord> = if previous_schema_version
-            == SPIRIT_STORE_V10_SCHEMA_VERSION
+            == SPIRIT_STORE_V12_SCHEMA_VERSION
         {
+            SpiritStoreV12CurrentArchiveDatabase::open(&archive_path)?
+                .records()?
+                .into_iter()
+                .map(store_version_twelve::StoredRecord::into_current)
+                .collect()
+        } else if previous_schema_version == SPIRIT_STORE_V11_SCHEMA_VERSION {
+            SpiritStoreV11CurrentArchiveDatabase::open(&archive_path)?
+                .records()?
+                .into_iter()
+                .map(store_version_eleven::StoredRecord::into_current)
+                .collect()
+        } else if previous_schema_version == SPIRIT_STORE_V10_SCHEMA_VERSION {
             if let Ok(archive) = SpiritStoreV10CurrentArchiveDatabase::open(&archive_path) {
                 archive
                     .records()?
@@ -3441,6 +3709,138 @@ impl SpiritStoreV10Layout3ArchiveDatabase {
     }
 }
 
+impl SpiritStoreV11CurrentLiveDatabase {
+    fn open(path: &Path) -> Result<Self, StoreMigrationError> {
+        let mut database = CurrentSemaDatabase::open(
+            CurrentEngineOpen::new(path, SPIRIT_STORE_V11_SCHEMA_VERSION).with_versioning(
+                sema_engine::VersioningPolicy::new(sema_engine::VersionedStoreName::new(
+                    "spirit:sema",
+                )),
+            ),
+        )?;
+        let records = database.register_table(CurrentTableDescriptor::new(
+            CURRENT_RECORDS_TABLE,
+            sema_engine::FamilyName::new("RecordsFamily"),
+            CurrentSchemaHash::new(SPIRIT_STORE_V11_RECORDS_FAMILY),
+        ))?;
+        let referents = database.register_table(CurrentTableDescriptor::new(
+            CURRENT_REFERENTS_TABLE,
+            sema_engine::FamilyName::new("ReferentsFamily"),
+            CurrentSchemaHash::new(SPIRIT_STORE_V11_REFERENTS_FAMILY),
+        ))?;
+        Ok(Self {
+            database,
+            records,
+            referents,
+        })
+    }
+
+    fn records(&self) -> Result<Vec<store_version_eleven::StoredRecord>, StoreMigrationError> {
+        Ok(self
+            .database
+            .match_records(CurrentQueryPlan::all(self.records))?
+            .records()
+            .to_vec())
+    }
+
+    fn referents(&self) -> Result<Vec<store_version_eleven::StoredReferent>, StoreMigrationError> {
+        Ok(self
+            .database
+            .match_records(CurrentQueryPlan::all(self.referents))?
+            .records()
+            .to_vec())
+    }
+}
+
+impl SpiritStoreV11CurrentArchiveDatabase {
+    fn open(path: &Path) -> Result<Self, StoreMigrationError> {
+        let mut database = CurrentSemaDatabase::open(CurrentEngineOpen::new(
+            path,
+            SPIRIT_STORE_V11_SCHEMA_VERSION,
+        ))?;
+        let records = database.register_table(CurrentTableDescriptor::new(
+            CURRENT_RECORDS_TABLE,
+            sema_engine::FamilyName::new("RecordsFamily"),
+            CurrentSchemaHash::new(SPIRIT_STORE_V11_RECORDS_FAMILY),
+        ))?;
+        Ok(Self { database, records })
+    }
+
+    fn records(&self) -> Result<Vec<store_version_eleven::StoredRecord>, StoreMigrationError> {
+        Ok(self
+            .database
+            .match_records(CurrentQueryPlan::all(self.records))?
+            .records()
+            .to_vec())
+    }
+}
+
+impl SpiritStoreV12CurrentLiveDatabase {
+    fn open(path: &Path) -> Result<Self, StoreMigrationError> {
+        let mut database = CurrentSemaDatabase::open(
+            CurrentEngineOpen::new(path, SPIRIT_STORE_V12_SCHEMA_VERSION).with_versioning(
+                sema_engine::VersioningPolicy::new(sema_engine::VersionedStoreName::new(
+                    "spirit:sema",
+                )),
+            ),
+        )?;
+        let records = database.register_table(CurrentTableDescriptor::new(
+            CURRENT_RECORDS_TABLE,
+            sema_engine::FamilyName::new("RecordsFamily"),
+            CurrentSchemaHash::new(SPIRIT_STORE_V12_RECORDS_FAMILY),
+        ))?;
+        let referents = database.register_table(CurrentTableDescriptor::new(
+            CURRENT_REFERENTS_TABLE,
+            sema_engine::FamilyName::new("ReferentsFamily"),
+            CurrentSchemaHash::new(SPIRIT_STORE_V12_REFERENTS_FAMILY),
+        ))?;
+        Ok(Self {
+            database,
+            records,
+            referents,
+        })
+    }
+
+    fn records(&self) -> Result<Vec<store_version_twelve::StoredRecord>, StoreMigrationError> {
+        Ok(self
+            .database
+            .match_records(CurrentQueryPlan::all(self.records))?
+            .records()
+            .to_vec())
+    }
+
+    fn referents(&self) -> Result<Vec<StoredReferent>, StoreMigrationError> {
+        Ok(self
+            .database
+            .match_records(CurrentQueryPlan::all(self.referents))?
+            .records()
+            .to_vec())
+    }
+}
+
+impl SpiritStoreV12CurrentArchiveDatabase {
+    fn open(path: &Path) -> Result<Self, StoreMigrationError> {
+        let mut database = CurrentSemaDatabase::open(CurrentEngineOpen::new(
+            path,
+            SPIRIT_STORE_V12_SCHEMA_VERSION,
+        ))?;
+        let records = database.register_table(CurrentTableDescriptor::new(
+            CURRENT_RECORDS_TABLE,
+            sema_engine::FamilyName::new("RecordsFamily"),
+            CurrentSchemaHash::new(SPIRIT_STORE_V12_RECORDS_FAMILY),
+        ))?;
+        Ok(Self { database, records })
+    }
+
+    fn records(&self) -> Result<Vec<store_version_twelve::StoredRecord>, StoreMigrationError> {
+        Ok(self
+            .database
+            .match_records(CurrentQueryPlan::all(self.records))?
+            .records()
+            .to_vec())
+    }
+}
+
 /// The previous store's rows after conversion through the historical
 /// `From`-chain: current-shape records plus the registered referents, ready
 /// for the logged fold into a fresh store.
@@ -3547,6 +3947,36 @@ impl SpiritPreviousStore {
             referents: database.referents()?,
         })
     }
+
+    fn from_v11_current(
+        database: SpiritStoreV11CurrentLiveDatabase,
+    ) -> Result<Self, StoreMigrationError> {
+        Ok(Self {
+            records: database
+                .records()?
+                .into_iter()
+                .map(SpiritPreviousRecord::from_version_eleven)
+                .collect(),
+            referents: database
+                .referents()?
+                .into_iter()
+                .map(store_version_eleven::StoredReferent::into_current)
+                .collect(),
+        })
+    }
+
+    fn from_v12_current(
+        database: SpiritStoreV12CurrentLiveDatabase,
+    ) -> Result<Self, StoreMigrationError> {
+        Ok(Self {
+            records: database
+                .records()?
+                .into_iter()
+                .map(SpiritPreviousRecord::from_version_twelve)
+                .collect(),
+            referents: database.referents()?,
+        })
+    }
 }
 
 impl SpiritPreviousRecord {
@@ -3577,13 +4007,29 @@ impl SpiritPreviousRecord {
             entry: record.entry.into_current(),
         }
     }
+
+    fn from_version_eleven(record: store_version_eleven::StoredRecord) -> Self {
+        let current = record.into_current();
+        Self {
+            record_identifier: current.record_identifier.payload().clone(),
+            entry: current.entry,
+        }
+    }
+
+    fn from_version_twelve(record: store_version_twelve::StoredRecord) -> Self {
+        let current = record.into_current();
+        Self {
+            record_identifier: current.record_identifier.payload().clone(),
+            entry: current.entry,
+        }
+    }
 }
 
 impl From<SpiritStoreV7Referent> for StoredReferent {
     fn from(referent: SpiritStoreV7Referent) -> Self {
         Self {
             referent: referent.referent,
-            aliases: referent.aliases,
+            aliases: referent.aliases.into(),
         }
     }
 }
@@ -3592,7 +4038,7 @@ impl From<SpiritStoreV8Referent> for StoredReferent {
     fn from(referent: SpiritStoreV8Referent) -> Self {
         Self {
             referent: referent.referent,
-            aliases: referent.aliases,
+            aliases: referent.aliases.into(),
         }
     }
 }
@@ -3642,6 +4088,18 @@ impl Layout3EngineRecord for store_version_ten::StoredRecord {
 impl CurrentEngineRecord for store_version_ten::StoredRecord {
     fn record_key(&self) -> CurrentRecordKey {
         CurrentRecordKey::new(self.record_identifier.payload().clone())
+    }
+}
+
+impl CurrentEngineRecord for store_version_twelve::StoredRecord {
+    fn record_key(&self) -> CurrentRecordKey {
+        CurrentRecordKey::new(self.record_identifier.payload().clone())
+    }
+}
+
+impl CurrentEngineRecord for store_version_eleven::StoredReferent {
+    fn record_key(&self) -> CurrentRecordKey {
+        CurrentRecordKey::new(self.referent.payload().clone())
     }
 }
 
@@ -3696,18 +4154,29 @@ mod tests {
         SPIRIT_STORE_V10_PRE_STANDARD_IMPL_REFERENTS_FAMILY,
         SPIRIT_STORE_V10_RELEASE_SIXTEEN_RECORDS_FAMILY,
         SPIRIT_STORE_V10_RELEASE_SIXTEEN_REFERENTS_FAMILY, SPIRIT_STORE_V10_SCHEMA_VERSION,
-        SpiritStoreV7Entry, SpiritStoreV7Record, SpiritStoreV7Referent, SpiritStoreV8Record,
-        SpiritStoreV8Referent, SpiritStoreV9Record, StoreMigration, StoreMigrationOutput,
-        StoreMigrationRequest, store_version_nine, store_version_seven, store_version_ten,
+        SPIRIT_STORE_V11_RECORDS_FAMILY, SPIRIT_STORE_V11_REFERENTS_FAMILY,
+        SPIRIT_STORE_V11_SCHEMA_VERSION, SPIRIT_STORE_V12_RECORDS_FAMILY,
+        SPIRIT_STORE_V12_REFERENTS_FAMILY, SPIRIT_STORE_V12_SCHEMA_VERSION, SpiritStoreV7Entry,
+        SpiritStoreV7Record, SpiritStoreV7Referent, SpiritStoreV8Record, SpiritStoreV8Referent,
+        SpiritStoreV9Record, SpiritStoreV11CurrentArchiveDatabase,
+        SpiritStoreV11CurrentLiveDatabase, SpiritStoreV12CurrentArchiveDatabase,
+        SpiritStoreV12CurrentLiveDatabase, StoreMigration, StoreMigrationOutput,
+        StoreMigrationRequest, store_version_eleven, store_version_nine, store_version_seven,
+        store_version_ten, store_version_twelve,
     };
     use crate::{
         Store,
         schema::{
-            sema::{RecordFamily, StoredRecord, StoredReferent, family_identity},
+            sema::{
+                self as sema, ReadInput as SemaReadInput, ReadOutput as SemaReadOutput,
+                RecordFamily, SemaEngine, StoredRecord, StoredReferent, family_identity,
+            },
             signal::{
-                Certainty, DataLeaf, Description, Domain, Domains, Entry, HardwareLeaf, Importance,
-                Information, Kind, Magnitude, OperationsLeaf, Privacy, RecordIdentifier, Referent,
-                Referents, Software, Technology,
+                Certainty, CertaintySelection, DataLeaf, Description, Domain, DomainMatch,
+                DomainScopes, Domains, Entry, HardwareLeaf, Health, Importance,
+                ImportanceSelection, Information, KeywordMatch, Kind, Magnitude, OperationsLeaf,
+                Privacy, PrivacySelection, Query, RecordIdentifier, Referent, ReferentSelection,
+                Referents, SelectedKind, Software, Technology, TextMatch,
             },
         },
         store::ArchiveDatabase,
@@ -3745,6 +4214,65 @@ mod tests {
                 domains: store_version_ten::Domains(vec![store_version_ten::Domain::Information(
                     Information::Documentation,
                 )]),
+                kind: Kind::Decision,
+                description: Description::new(description),
+                certainty: Certainty::new(Magnitude::High),
+                importance: Importance::new(Magnitude::Medium),
+                privacy: Privacy::new(Magnitude::Zero),
+                referents: Referents::new(referents),
+            },
+        }
+    }
+
+    fn version_eleven_record(
+        identifier: &str,
+        domain: store_version_eleven::Domain,
+        description: &str,
+        referents: Vec<Referent>,
+    ) -> store_version_eleven::StoredRecord {
+        store_version_eleven::StoredRecord {
+            record_identifier: RecordIdentifier::new(identifier),
+            entry: store_version_twelve::Entry {
+                domains: store_version_twelve::Domains(vec![domain]),
+                kind: Kind::Decision,
+                description: Description::new(description),
+                certainty: Certainty::new(Magnitude::High),
+                importance: Importance::new(Magnitude::Medium),
+                privacy: Privacy::new(Magnitude::Zero),
+                referents: Referents::new(referents),
+            },
+        }
+    }
+
+    fn sema_read(input: SemaReadInput, offset: u64) -> sema::Sema<sema::ReadInput> {
+        input.with_origin_route(sema::OriginRoute::new(8_000_000 + offset))
+    }
+
+    fn query_for_domain(domain: Domain) -> Query {
+        Query {
+            domain_match: DomainMatch::full(DomainScopes::from_domains(&Domains::new(vec![
+                domain,
+            ]))),
+            keyword_match: KeywordMatch::Any,
+            text_match: TextMatch::Any,
+            referent_selection: ReferentSelection::Any,
+            selected_kind: SelectedKind::new(Some(Kind::Decision)),
+            privacy_selection: PrivacySelection::default_observation_privacy(),
+            certainty_selection: CertaintySelection::default_observation_certainty(),
+            importance_selection: ImportanceSelection::default_observation_importance(),
+        }
+    }
+
+    fn version_twelve_record(
+        identifier: &str,
+        domain: store_version_twelve::Domain,
+        description: &str,
+        referents: Vec<Referent>,
+    ) -> store_version_twelve::StoredRecord {
+        store_version_twelve::StoredRecord {
+            record_identifier: RecordIdentifier::new(identifier),
+            entry: store_version_twelve::Entry {
+                domains: store_version_twelve::Domains(vec![domain]),
                 kind: Kind::Decision,
                 description: Description::new(description),
                 certainty: Certainty::new(Magnitude::High),
@@ -3895,7 +4423,7 @@ mod tests {
             referents,
             StoredReferent {
                 referent: Referent::new("pre-standard"),
-                aliases: Referents::new(vec![Referent::new("pre standard")]),
+                aliases: Referents::new(vec![Referent::new("pre standard")]).into(),
             },
         ))
         .expect("seed pre-standard-impl referent");
@@ -3962,7 +4490,7 @@ mod tests {
             referents,
             StoredReferent {
                 referent: Referent::new("live-june19"),
-                aliases: Referents::new(vec![Referent::new("live june19")]),
+                aliases: Referents::new(vec![Referent::new("live june19")]).into(),
             },
         ))
         .expect("seed live-june19 referent");
@@ -4029,7 +4557,7 @@ mod tests {
             referents,
             StoredReferent {
                 referent: Referent::new("release-sixteen"),
-                aliases: Referents::new(vec![Referent::new("release sixteen")]),
+                aliases: Referents::new(vec![Referent::new("release sixteen")]).into(),
             },
         ))
         .expect("seed release-sixteen referent");
@@ -4096,7 +4624,7 @@ mod tests {
             referents,
             StoredReferent {
                 referent: Referent::new("schema-ten"),
-                aliases: Referents::new(vec![Referent::new("schema 10")]),
+                aliases: Referents::new(vec![Referent::new("schema 10")]).into(),
             },
         ))
         .expect("seed schema ten referent");
@@ -4159,7 +4687,7 @@ mod tests {
             referents,
             StoredReferent {
                 referent: Referent::new("mixed-schema-ten"),
-                aliases: Referents::new(Vec::new()),
+                aliases: Referents::new(Vec::new()).into(),
             },
         ))
         .expect("seed mixed schema ten referent");
@@ -4182,6 +4710,170 @@ mod tests {
                 entry: version_eight_entry("current archived record stays readable", Vec::new()),
             })
             .expect("seed current schema ten archive record");
+    }
+
+    fn seed_version_eleven_store(live_path: &std::path::Path, archive_path: &std::path::Path) {
+        let mut live = CurrentSemaDatabase::open(
+            CurrentEngineOpen::new(live_path, SPIRIT_STORE_V11_SCHEMA_VERSION).with_versioning(
+                CurrentVersioningPolicy::new(CurrentVersionedStoreName::new("spirit:sema")),
+            ),
+        )
+        .expect("open schema eleven live store");
+        let records = live
+            .register_table(CurrentTableDescriptor::new(
+                CURRENT_RECORDS_TABLE,
+                CurrentFamilyName::new("RecordsFamily"),
+                CurrentSchemaHash::new(SPIRIT_STORE_V11_RECORDS_FAMILY),
+            ))
+            .expect("register schema eleven records table");
+        let referents = live
+            .register_table(CurrentTableDescriptor::new(
+                CURRENT_REFERENTS_TABLE,
+                CurrentFamilyName::new("ReferentsFamily"),
+                CurrentSchemaHash::new(SPIRIT_STORE_V11_REFERENTS_FAMILY),
+            ))
+            .expect("register schema eleven referents table");
+        live.assert(CurrentAssertion::new(
+            referents,
+            store_version_eleven::StoredReferent {
+                referent: Referent::new("domain-all"),
+                aliases: Referents::new(vec![Referent::new("all domains")]),
+            },
+        ))
+        .expect("seed schema eleven referent");
+        live.assert(CurrentAssertion::new(
+            records,
+            version_eleven_record(
+                "v11-health",
+                store_version_eleven::Domain::Health(Health::Mind),
+                "schema eleven health record survives direct migration",
+                vec![Referent::new("domain-all")],
+            ),
+        ))
+        .expect("seed schema eleven health record");
+        live.assert(CurrentAssertion::new(
+            records,
+            version_eleven_record(
+                "v11-tech-all",
+                store_version_eleven::Domain::Technology(Technology::Software(Software::Data(
+                    DataLeaf::All,
+                ))),
+                "schema eleven branch all record survives direct migration",
+                Vec::new(),
+            ),
+        ))
+        .expect("seed schema eleven technology record");
+        live.assert(CurrentAssertion::new(
+            records,
+            version_eleven_record(
+                "v11-info",
+                store_version_eleven::Domain::Information(Information::Documentation),
+                "schema eleven information record survives direct migration",
+                Vec::new(),
+            ),
+        ))
+        .expect("seed schema eleven information record");
+        drop(live);
+
+        let mut archive = CurrentSemaDatabase::open(CurrentEngineOpen::new(
+            archive_path,
+            SPIRIT_STORE_V11_SCHEMA_VERSION,
+        ))
+        .expect("open schema eleven archive store");
+        let archive_records = archive
+            .register_table(CurrentTableDescriptor::new(
+                CURRENT_RECORDS_TABLE,
+                CurrentFamilyName::new("RecordsFamily"),
+                CurrentSchemaHash::new(SPIRIT_STORE_V11_RECORDS_FAMILY),
+            ))
+            .expect("register schema eleven archive records table");
+        archive
+            .assert(CurrentAssertion::new(
+                archive_records,
+                version_eleven_record(
+                    "old11-criomos",
+                    store_version_eleven::Domain::Information(Information::Documentation),
+                    "schema eleven archive preserves legacy referent spelling",
+                    vec![Referent::new("CriomOS")],
+                ),
+            ))
+            .expect("seed schema eleven archive record");
+    }
+
+    fn seed_version_twelve_store(live_path: &std::path::Path, archive_path: &std::path::Path) {
+        let mut live = CurrentSemaDatabase::open(
+            CurrentEngineOpen::new(live_path, SPIRIT_STORE_V12_SCHEMA_VERSION).with_versioning(
+                CurrentVersioningPolicy::new(CurrentVersionedStoreName::new("spirit:sema")),
+            ),
+        )
+        .expect("open schema twelve live store");
+        let records = live
+            .register_table(CurrentTableDescriptor::new(
+                CURRENT_RECORDS_TABLE,
+                CurrentFamilyName::new("RecordsFamily"),
+                CurrentSchemaHash::new(SPIRIT_STORE_V12_RECORDS_FAMILY),
+            ))
+            .expect("register schema twelve records table");
+        let referents = live
+            .register_table(CurrentTableDescriptor::new(
+                CURRENT_REFERENTS_TABLE,
+                CurrentFamilyName::new("ReferentsFamily"),
+                CurrentSchemaHash::new(SPIRIT_STORE_V12_REFERENTS_FAMILY),
+            ))
+            .expect("register schema twelve referents table");
+        live.assert(CurrentAssertion::new(
+            referents,
+            StoredReferent {
+                referent: Referent::new("domain-all"),
+                aliases: Referents::new(vec![Referent::new("all domains")]).into(),
+            },
+        ))
+        .expect("seed schema twelve referent");
+        live.assert(CurrentAssertion::new(
+            records,
+            version_twelve_record(
+                "v12-health",
+                store_version_twelve::Domain::Health(Health::Mind),
+                "schema twelve health record survives domain all migration",
+                vec![Referent::new("domain-all")],
+            ),
+        ))
+        .expect("seed schema twelve health record");
+        live.assert(CurrentAssertion::new(
+            records,
+            version_twelve_record(
+                "v12-info",
+                store_version_twelve::Domain::Information(Information::Documentation),
+                "schema twelve information record survives domain all migration",
+                Vec::new(),
+            ),
+        ))
+        .expect("seed schema twelve information record");
+        drop(live);
+
+        let mut archive = CurrentSemaDatabase::open(CurrentEngineOpen::new(
+            archive_path,
+            SPIRIT_STORE_V12_SCHEMA_VERSION,
+        ))
+        .expect("open schema twelve archive store");
+        let archive_records = archive
+            .register_table(CurrentTableDescriptor::new(
+                CURRENT_RECORDS_TABLE,
+                CurrentFamilyName::new("RecordsFamily"),
+                CurrentSchemaHash::new(SPIRIT_STORE_V12_RECORDS_FAMILY),
+            ))
+            .expect("register schema twelve archive records table");
+        archive
+            .assert(CurrentAssertion::new(
+                archive_records,
+                version_twelve_record(
+                    "old12-info",
+                    store_version_twelve::Domain::Information(Information::Documentation),
+                    "schema twelve archive survives domain all migration",
+                    Vec::new(),
+                ),
+            ))
+            .expect("seed schema twelve archive record");
     }
 
     /// The t0tu pilot witness: a version-8 store (no versioned log) migrates
@@ -4843,7 +5535,7 @@ mod tests {
             referents,
             StoredReferent {
                 referent: Referent::new("current-family"),
-                aliases: Referents::new(vec![Referent::new("current family")]),
+                aliases: Referents::new(vec![Referent::new("current family")]).into(),
             },
         ))
         .expect("seed current-family referent");
@@ -4950,6 +5642,410 @@ mod tests {
                 HardwareLeaf::All
             ))]),
             "archived absent Hardware payload must fold to the universal All member",
+        );
+    }
+
+    /// The production v11 witness: a strict-positional schema-11 store folds
+    /// directly into schema 13, crossing both later storage changes in one typed
+    /// pass: bare referent aliases become the `Aliases` noun and pre-root-All
+    /// domain discriminants become the current top-level `Domain::All` contract.
+    /// The archive path also preserves legacy referent spelling in archived
+    /// entries without registering it as a new live referent.
+    #[test]
+    fn migrates_version_eleven_aliases_and_top_level_domain_all_store() {
+        let temporary = tempfile::tempdir().expect("create migration sandbox");
+        let database_path = temporary.path().join("store.sema");
+        let archive_path = temporary.path().join("store.archive.sema");
+        seed_version_eleven_store(&database_path, &archive_path);
+
+        let request = StoreMigrationRequest::new(database_path.display().to_string());
+        let output = StoreMigration::new(request.clone())
+            .run()
+            .expect("run schema eleven direct migration");
+        let StoreMigrationOutput::Migrated(completed) = output else {
+            panic!("schema eleven store must migrate, got {output:?}");
+        };
+        assert_eq!(completed.record_count(), 3);
+        assert_eq!(completed.referent_count(), 1);
+
+        let migrated = Store::open(&database_path).expect("open migrated schema eleven store");
+        let health = migrated
+            .entry_by_identifier("v11-health")
+            .expect("query migrated schema eleven health record")
+            .expect("migrated schema eleven health record exists");
+        assert_eq!(
+            health.domains,
+            Domains::new(vec![Domain::Health(Health::Mind)]),
+            "old schema eleven root discriminant 0 must remain Health, not become Domain::All",
+        );
+        assert_eq!(
+            health.referents.payload(),
+            &vec![Referent::new("domain-all")]
+        );
+        let branch_all = migrated
+            .entry_by_identifier("v11-tech-all")
+            .expect("query migrated schema eleven technology record")
+            .expect("migrated schema eleven technology record exists");
+        assert_eq!(
+            branch_all.domains,
+            Domains::new(vec![Domain::Technology(Technology::Software(
+                Software::Data(DataLeaf::All)
+            ))]),
+            "schema eleven branch-level All payload must survive the direct fold",
+        );
+        let information = migrated
+            .entry_by_identifier("v11-info")
+            .expect("query migrated schema eleven information record")
+            .expect("migrated schema eleven information record exists");
+        assert_eq!(
+            information.domains,
+            Domains::new(vec![Domain::Information(Information::Documentation)]),
+        );
+
+        let migrations = migrated.migrations().expect("read migration markers");
+        assert_eq!(migrations.len(), 1);
+        assert_eq!(*migrations[0].source_schema_version.payload(), 11);
+        assert_eq!(*migrations[0].migrated_record_count.payload(), 3);
+        assert_eq!(*migrations[0].migrated_referent_count.payload(), 1);
+
+        let log = migrated
+            .versioned_log()
+            .expect("read migrated versioned log");
+        let operations: Vec<_> = log
+            .iter()
+            .flat_map(|entry| entry.operations().iter())
+            .collect();
+        assert_eq!(operations.len(), 5);
+        let mut logged_record_identifiers = Vec::new();
+        let mut logged_referent_aliases = Vec::new();
+        let mut logged_marker_count = 0;
+        for operation in &operations {
+            let payload = operation.payload().bytes().expect("assert payload bytes");
+            match RecordFamily::decode(operation.family(), payload)
+                .expect("decode migrated schema eleven logged family payload")
+            {
+                RecordFamily::RecordsFamily(record) => {
+                    logged_record_identifiers.push(record.record_identifier.payload().clone());
+                }
+                RecordFamily::ReferentsFamily(referent) => {
+                    assert_eq!(referent.referent, Referent::new("domain-all"));
+                    logged_referent_aliases.extend(
+                        referent
+                            .aliases
+                            .payload()
+                            .payload()
+                            .iter()
+                            .map(|alias| alias.payload().clone()),
+                    );
+                }
+                RecordFamily::MigrationsFamily(migration) => {
+                    assert_eq!(*migration.source_schema_version.payload(), 11);
+                    logged_marker_count += 1;
+                }
+            }
+        }
+        logged_record_identifiers.sort();
+        assert_eq!(
+            logged_record_identifiers,
+            vec!["v11-health", "v11-info", "v11-tech-all"]
+        );
+        assert_eq!(logged_referent_aliases, vec![String::from("all domains")]);
+        assert_eq!(logged_marker_count, 1);
+
+        let all_receipt = migrated
+            .record_entry(Entry {
+                domains: Domains::new(vec![Domain::All]),
+                kind: Kind::Decision,
+                description: Description::new(
+                    "post-migration all-domain record applies everywhere",
+                ),
+                certainty: Certainty::new(Magnitude::High),
+                importance: Importance::new(Magnitude::Medium),
+                privacy: Privacy::new(Magnitude::Zero),
+                referents: Referents::new(Vec::new()),
+            })
+            .expect("record explicit Domain::All after migration");
+        let observed = SemaEngine::observe(
+            &migrated,
+            sema_read(
+                SemaReadInput::observe(query_for_domain(Domain::Health(Health::Mind))),
+                1,
+            ),
+        );
+        let SemaReadOutput::Observed(records) = observed.root() else {
+            panic!(
+                "concrete health query must observe migrated and Domain::All records, got {observed:?}"
+            );
+        };
+        let mut observed_descriptions = records
+            .payload()
+            .payload()
+            .iter()
+            .map(|record| record.entry.description.payload().clone())
+            .collect::<Vec<_>>();
+        observed_descriptions.sort();
+        assert_eq!(
+            observed_descriptions,
+            vec![
+                String::from("post-migration all-domain record applies everywhere"),
+                String::from("schema eleven health record survives direct migration"),
+            ],
+            "explicit Domain::All records must match concrete domain queries after v11 migration",
+        );
+        let migrated_head = migrated
+            .versioned_log_head()
+            .expect("read migrated versioned-log head")
+            .expect("migrated fold writes a head");
+        assert!(
+            migrated
+                .entry_by_identifier(all_receipt.record_identifier.payload())
+                .expect("query post-migration Domain::All entry")
+                .is_some(),
+            "explicit Domain::All entry must be stored after migration",
+        );
+        drop(migrated);
+
+        let live_backup = database_path.with_extension("schema-old-backup-0.sema");
+        assert!(
+            live_backup.exists(),
+            "migration keeps a rollback hard-link to the schema eleven live store",
+        );
+        let backup_live = SpiritStoreV11CurrentLiveDatabase::open(&live_backup)
+            .expect("open schema eleven rollback backup");
+        assert_eq!(backup_live.records().expect("read backup records").len(), 3);
+        assert_eq!(
+            backup_live
+                .referents()
+                .expect("read backup referents")
+                .len(),
+            1
+        );
+
+        let archive_backup = archive_path.with_extension("schema-old-backup-0.sema");
+        assert!(
+            archive_backup.exists(),
+            "migration keeps a rollback hard-link to the schema eleven archive store",
+        );
+        let backup_archive = SpiritStoreV11CurrentArchiveDatabase::open(&archive_backup)
+            .expect("open schema eleven archive rollback backup");
+        assert_eq!(
+            backup_archive
+                .records()
+                .expect("read archive backup records")
+                .len(),
+            1,
+        );
+
+        ArchiveDatabase::open(&archive_path).expect("open migrated schema thirteen archive");
+        let mut archive_reader = CurrentSemaDatabase::open(CurrentEngineOpen::new(
+            &archive_path,
+            crate::store::SPIRIT_SCHEMA_VERSION,
+        ))
+        .expect("open migrated schema eleven archive for readback");
+        let archive_records: super::CurrentTableReference<StoredRecord> = archive_reader
+            .register_table(CurrentTableDescriptor::new(
+                CURRENT_RECORDS_TABLE,
+                CurrentFamilyName::new("RecordsFamily"),
+                CurrentSchemaHash::new(family_identity::RECORDS_FAMILY),
+            ))
+            .expect("register current archive records table");
+        let archived = archive_reader
+            .match_records(super::CurrentQueryPlan::all(archive_records))
+            .expect("query migrated schema eleven archive records")
+            .records()
+            .to_vec();
+        let archived_record = archived
+            .iter()
+            .find(|record| record.record_identifier.payload() == "old11-criomos")
+            .expect("schema eleven archive record survives");
+        assert_eq!(
+            archived_record.entry.referents.payload(),
+            &vec![Referent::new("CriomOS")],
+            "archive migration preserves record contents without live referent registration",
+        );
+
+        let second = StoreMigration::new(request)
+            .run()
+            .expect("second schema eleven migration run");
+        let StoreMigrationOutput::Current(completed) = second else {
+            panic!("already-migrated schema eleven store must report Current, got {second:?}");
+        };
+        assert_eq!(completed.record_count(), 4);
+        let reopened = Store::open(&database_path).expect("reopen migrated schema eleven store");
+        assert_eq!(
+            reopened
+                .versioned_log_head()
+                .expect("read no-op versioned-log head")
+                .expect("migrated store still has a head"),
+            migrated_head,
+            "a no-op second run must not rewrite the versioned-log head",
+        );
+    }
+
+    /// The Domain::All store-bump witness: a schema-12 store whose root Domain
+    /// enum has no top-level `All` member folds into schema 13 without silently
+    /// reading old discriminants through the new enum. Records and referents
+    /// keep their identifiers, the logged fold produces a stable head on a
+    /// no-op second run, and the backup files retain the pre-migration bytes for
+    /// operator rollback.
+    #[test]
+    fn migrates_version_twelve_top_level_domain_all_store() {
+        let temporary = tempfile::tempdir().expect("create migration sandbox");
+        let database_path = temporary.path().join("store.sema");
+        let archive_path = temporary.path().join("store.archive.sema");
+        seed_version_twelve_store(&database_path, &archive_path);
+
+        let request = StoreMigrationRequest::new(database_path.display().to_string());
+        let output = StoreMigration::new(request.clone())
+            .run()
+            .expect("run schema twelve domain-all migration");
+        let StoreMigrationOutput::Migrated(completed) = output else {
+            panic!("schema twelve store must migrate, got {output:?}");
+        };
+        assert_eq!(completed.record_count(), 2);
+        assert_eq!(completed.referent_count(), 1);
+
+        let migrated = Store::open(&database_path).expect("open migrated schema twelve store");
+        let health = migrated
+            .entry_by_identifier("v12-health")
+            .expect("query migrated schema twelve health record")
+            .expect("migrated schema twelve health record exists");
+        assert_eq!(
+            health.domains,
+            Domains::new(vec![Domain::Health(Health::Mind)]),
+            "old root discriminant 0 must remain Health, not become Domain::All",
+        );
+        assert_eq!(
+            health.referents.payload(),
+            &vec![Referent::new("domain-all")]
+        );
+        let information = migrated
+            .entry_by_identifier("v12-info")
+            .expect("query migrated schema twelve information record")
+            .expect("migrated schema twelve information record exists");
+        assert_eq!(
+            information.domains,
+            Domains::new(vec![Domain::Information(Information::Documentation)]),
+        );
+
+        let migrations = migrated.migrations().expect("read migration markers");
+        assert_eq!(migrations.len(), 1);
+        assert_eq!(*migrations[0].source_schema_version.payload(), 12);
+        assert_eq!(*migrations[0].migrated_record_count.payload(), 2);
+        assert_eq!(*migrations[0].migrated_referent_count.payload(), 1);
+
+        let log = migrated
+            .versioned_log()
+            .expect("read migrated versioned log");
+        let operations: Vec<_> = log
+            .iter()
+            .flat_map(|entry| entry.operations().iter())
+            .collect();
+        assert_eq!(operations.len(), 4);
+        let mut logged_record_identifiers = Vec::new();
+        let mut logged_referent_count = 0;
+        let mut logged_marker_count = 0;
+        for operation in &operations {
+            let payload = operation.payload().bytes().expect("assert payload bytes");
+            match RecordFamily::decode(operation.family(), payload)
+                .expect("decode migrated schema twelve logged family payload")
+            {
+                RecordFamily::RecordsFamily(record) => {
+                    logged_record_identifiers.push(record.record_identifier.payload().clone());
+                }
+                RecordFamily::ReferentsFamily(referent) => {
+                    assert_eq!(referent.referent, Referent::new("domain-all"));
+                    logged_referent_count += 1;
+                }
+                RecordFamily::MigrationsFamily(migration) => {
+                    assert_eq!(*migration.source_schema_version.payload(), 12);
+                    logged_marker_count += 1;
+                }
+            }
+        }
+        logged_record_identifiers.sort();
+        assert_eq!(logged_record_identifiers, vec!["v12-health", "v12-info"]);
+        assert_eq!(logged_referent_count, 1);
+        assert_eq!(logged_marker_count, 1);
+        let migrated_head = migrated
+            .versioned_log_head()
+            .expect("read migrated versioned-log head")
+            .expect("migrated fold writes a head");
+        drop(migrated);
+
+        let live_backup = database_path.with_extension("schema-old-backup-0.sema");
+        assert!(
+            live_backup.exists(),
+            "migration keeps a rollback hard-link to the schema twelve live store",
+        );
+        let backup_live = SpiritStoreV12CurrentLiveDatabase::open(&live_backup)
+            .expect("open schema twelve rollback backup");
+        assert_eq!(backup_live.records().expect("read backup records").len(), 2);
+        assert_eq!(
+            backup_live
+                .referents()
+                .expect("read backup referents")
+                .len(),
+            1
+        );
+
+        let archive_backup = archive_path.with_extension("schema-old-backup-0.sema");
+        assert!(
+            archive_backup.exists(),
+            "migration keeps a rollback hard-link to the schema twelve archive store",
+        );
+        let backup_archive = SpiritStoreV12CurrentArchiveDatabase::open(&archive_backup)
+            .expect("open schema twelve archive rollback backup");
+        assert_eq!(
+            backup_archive
+                .records()
+                .expect("read archive backup records")
+                .len(),
+            1,
+        );
+
+        ArchiveDatabase::open(&archive_path).expect("open migrated schema thirteen archive");
+        let mut archive_reader = CurrentSemaDatabase::open(CurrentEngineOpen::new(
+            &archive_path,
+            crate::store::SPIRIT_SCHEMA_VERSION,
+        ))
+        .expect("open migrated archive for readback");
+        let archive_records: super::CurrentTableReference<StoredRecord> = archive_reader
+            .register_table(CurrentTableDescriptor::new(
+                CURRENT_RECORDS_TABLE,
+                CurrentFamilyName::new("RecordsFamily"),
+                CurrentSchemaHash::new(family_identity::RECORDS_FAMILY),
+            ))
+            .expect("register current archive records table");
+        let archived = archive_reader
+            .match_records(super::CurrentQueryPlan::all(archive_records))
+            .expect("query migrated archive records")
+            .records()
+            .to_vec();
+        let archived_record = archived
+            .iter()
+            .find(|record| record.record_identifier.payload() == "old12-info")
+            .expect("schema twelve archive record survives");
+        assert_eq!(
+            archived_record.entry.domains,
+            Domains::new(vec![Domain::Information(Information::Documentation)]),
+        );
+
+        let second = StoreMigration::new(request)
+            .run()
+            .expect("second schema twelve migration run");
+        let StoreMigrationOutput::Current(completed) = second else {
+            panic!("already-migrated schema twelve store must report Current, got {second:?}");
+        };
+        assert_eq!(completed.record_count(), 2);
+        let reopened = Store::open(&database_path).expect("reopen migrated schema twelve store");
+        assert_eq!(
+            reopened
+                .versioned_log_head()
+                .expect("read no-op versioned-log head")
+                .expect("migrated store still has a head"),
+            migrated_head,
+            "a no-op second run must not rewrite the versioned-log head",
         );
     }
 
