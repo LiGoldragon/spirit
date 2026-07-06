@@ -3,11 +3,11 @@
     "agent-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783244795,
-        "narHash": "sha256-tJPVXs8OgyEB4upIzpzY3TLC2eP+PpVvUXd9ohgVRqQ=",
+        "lastModified": 1783378184,
+        "narHash": "sha256-z0Y6pj/3LXHqLt68uOmKvw3Fy3F+3lg7Sp+dUMqMLqc=",
         "owner": "LiGoldragon",
         "repo": "agent",
-        "rev": "682d00b16f66099c521c37d5d5927f46bcd3d743",
+        "rev": "16144c977e922f5b7da2004c2e32eb5b28cdbe45",
         "type": "github"
       },
       "original": {
@@ -125,11 +125,11 @@
     "meta-signal-agent-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783244821,
-        "narHash": "sha256-CB5pWuzrhaT1t9n5UC0Yjia15k1xDLzlTkLP6OhWDqI=",
+        "lastModified": 1783377743,
+        "narHash": "sha256-ODJSI9Anr2bXyJa+iNiUShuVuIum123bec4Y82WvsOY=",
         "owner": "LiGoldragon",
         "repo": "meta-signal-agent",
-        "rev": "622cfeff909afa32b1d903386b65129b648e825f",
+        "rev": "ccde20811312915fc57ca3147ccd7577f2d8f991",
         "type": "github"
       },
       "original": {
@@ -465,11 +465,11 @@
     "signal-agent-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783244886,
-        "narHash": "sha256-t8R6ZnGp5J4FceZdzTvLP3UxjONqOMvUfWLjFfLKN/E=",
+        "lastModified": 1783377736,
+        "narHash": "sha256-i0/IsLD8BZ9XKfdJLqv9K1keiAZZVznHQJPqPHRknyE=",
         "owner": "LiGoldragon",
         "repo": "signal-agent",
-        "rev": "525c0ac7abe673d9b93888340a4486112aea8195",
+        "rev": "f6e761cf02cbf125177d3374cb653204afb89f35",
         "type": "github"
       },
       "original": {

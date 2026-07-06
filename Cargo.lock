@@ -15,13 +15,13 @@ dependencies = [
 [[package]]
 name = "agent"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/agent.git?branch=main#682d00b16f66099c521c37d5d5927f46bcd3d743"
+source = "git+https://github.com/LiGoldragon/agent.git?branch=main#16144c977e922f5b7da2004c2e32eb5b28cdbe45"
 dependencies = [
  "meta-signal-agent",
  "nota",
  "reqwest",
  "rkyv",
- "schema-rust 0.5.3",
+ "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
  "serde",
  "serde_json",
  "signal-agent",
@@ -805,11 +805,11 @@ checksum = "88904434abc2901f197fe8cc55f0445e7ded921dba5911dad2e2b39b48e663c4"
 [[package]]
 name = "meta-signal-agent"
 version = "0.2.1"
-source = "git+https://github.com/LiGoldragon/meta-signal-agent.git?branch=main#622cfeff909afa32b1d903386b65129b648e825f"
+source = "git+https://github.com/LiGoldragon/meta-signal-agent.git?branch=main#ccde20811312915fc57ca3147ccd7577f2d8f991"
 dependencies = [
  "nota",
  "rkyv",
- "schema-rust 0.5.3",
+ "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
  "signal-frame",
  "thiserror",
 ]
@@ -820,7 +820,7 @@ version = "0.5.0"
 source = "git+https://github.com/LiGoldragon/meta-signal-criome.git?branch=main#8050a22bd9c9c022c00c8678587e47a16b9c9abb"
 dependencies = [
  "rkyv",
- "schema-rust 0.5.3",
+ "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
  "signal-criome",
  "signal-frame",
  "thiserror",
@@ -833,7 +833,7 @@ source = "git+https://github.com/LiGoldragon/meta-signal-mirror.git?branch=main#
 dependencies = [
  "nota",
  "rkyv",
- "schema-rust 0.5.3",
+ "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
  "signal-frame",
  "thiserror",
 ]
@@ -844,7 +844,7 @@ version = "0.3.0"
 source = "git+https://github.com/LiGoldragon/meta-signal-router.git?branch=main#c3848b39228834f2e28014f346dbed4821e54df8"
 dependencies = [
  "rkyv",
- "schema-rust 0.5.3",
+ "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
  "signal-frame",
 ]
 
@@ -855,7 +855,7 @@ source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?rev=2c765101
 dependencies = [
  "nota",
  "rkyv",
- "schema-rust 0.6.0",
+ "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?rev=a4b46ffffe5307eca3e1537539d0a70884955b4c)",
  "signal-domain",
  "signal-frame",
  "signal-spirit",
@@ -881,7 +881,7 @@ dependencies = [
  "meta-signal-mirror",
  "nota",
  "rkyv",
- "schema-rust 0.5.3",
+ "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
  "sema-engine 0.6.3",
  "signal-frame",
  "signal-mirror",
@@ -1271,7 +1271,7 @@ dependencies = [
  "nota",
  "rand_core 0.6.4",
  "rkyv",
- "schema-rust 0.5.3",
+ "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
  "sema-engine 0.6.3",
  "signal-criome",
  "signal-frame",
@@ -1366,37 +1366,12 @@ checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 [[package]]
 name = "schema"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/schema.git?branch=main#f351f90d3b8898205cf3057f3c253a5e451180a9"
-dependencies = [
- "blake3",
- "nota",
- "rkyv",
- "schema-cc 0.1.0 (git+https://github.com/LiGoldragon/schema.git?branch=main)",
- "thiserror",
-]
-
-[[package]]
-name = "schema"
-version = "0.2.0"
 source = "git+https://github.com/LiGoldragon/schema.git?rev=92bed64ad644ce4caa2827398ada5b7b79221165#92bed64ad644ce4caa2827398ada5b7b79221165"
 dependencies = [
  "blake3",
  "nota",
  "rkyv",
- "schema-cc 0.1.0 (git+https://github.com/LiGoldragon/schema.git?rev=92bed64ad644ce4caa2827398ada5b7b79221165)",
- "thiserror",
-]
-
-[[package]]
-name = "schema-cc"
-version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/schema.git?branch=main#f351f90d3b8898205cf3057f3c253a5e451180a9"
-dependencies = [
- "nota",
- "prettyplease",
- "proc-macro2",
- "quote",
- "syn",
+ "schema-cc",
  "thiserror",
 ]
 
@@ -1415,14 +1390,14 @@ dependencies = [
 
 [[package]]
 name = "schema-rust"
-version = "0.5.3"
-source = "git+https://github.com/LiGoldragon/schema-rust.git?branch=main#0f306826f64622b375ad232f0a59d32904487b9d"
+version = "0.6.0"
+source = "git+https://github.com/LiGoldragon/schema-rust.git?branch=main#a4b46ffffe5307eca3e1537539d0a70884955b4c"
 dependencies = [
  "nota",
  "prettyplease",
  "proc-macro2",
  "quote",
- "schema 0.2.0 (git+https://github.com/LiGoldragon/schema.git?branch=main)",
+ "schema",
  "syn",
  "thiserror",
  "triad-runtime",
@@ -1437,7 +1412,7 @@ dependencies = [
  "prettyplease",
  "proc-macro2",
  "quote",
- "schema 0.2.0 (git+https://github.com/LiGoldragon/schema.git?rev=92bed64ad644ce4caa2827398ada5b7b79221165)",
+ "schema",
  "syn",
  "thiserror",
  "triad-runtime",
@@ -1561,11 +1536,11 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 [[package]]
 name = "signal-agent"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/signal-agent.git?branch=main#525c0ac7abe673d9b93888340a4486112aea8195"
+source = "git+https://github.com/LiGoldragon/signal-agent.git?branch=main#f6e761cf02cbf125177d3374cb653204afb89f35"
 dependencies = [
  "nota",
  "rkyv",
- "schema-rust 0.5.3",
+ "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
  "signal-frame",
  "thiserror",
 ]
@@ -1578,7 +1553,7 @@ dependencies = [
  "blake3",
  "blst",
  "rkyv",
- "schema-rust 0.5.3",
+ "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
  "signal-frame",
  "thiserror",
 ]
@@ -1590,8 +1565,8 @@ source = "git+https://github.com/LiGoldragon/signal-domain.git?branch=main#a6c72
 dependencies = [
  "nota",
  "rkyv",
- "schema 0.2.0 (git+https://github.com/LiGoldragon/schema.git?rev=92bed64ad644ce4caa2827398ada5b7b79221165)",
- "schema-rust 0.6.0",
+ "schema",
+ "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?rev=a4b46ffffe5307eca3e1537539d0a70884955b4c)",
 ]
 
 [[package]]
@@ -1659,7 +1634,7 @@ source = "git+https://github.com/LiGoldragon/signal-message.git?branch=main#0e92
 dependencies = [
  "nota",
  "rkyv",
- "schema-rust 0.5.3",
+ "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
  "signal-frame",
  "thiserror",
 ]
@@ -1683,7 +1658,7 @@ source = "git+https://github.com/LiGoldragon/signal-mirror.git?branch=main#582bf
 dependencies = [
  "nota",
  "rkyv",
- "schema-rust 0.5.3",
+ "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
  "signal-frame",
 ]
 
@@ -1694,7 +1669,7 @@ source = "git+https://github.com/LiGoldragon/signal-persona.git?branch=main#2bab
 dependencies = [
  "nota",
  "rkyv",
- "schema-rust 0.5.3",
+ "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
  "signal-frame",
 ]
 
@@ -1704,7 +1679,7 @@ version = "0.4.1"
 source = "git+https://github.com/LiGoldragon/signal-router.git?branch=main#7109422fae53adf5f1b82337ddc38195ccec96da"
 dependencies = [
  "rkyv",
- "schema-rust 0.5.3",
+ "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
  "signal-frame",
  "thiserror",
 ]
@@ -1725,8 +1700,8 @@ source = "git+https://github.com/LiGoldragon/signal-spirit.git?rev=d06e8efffa0ad
 dependencies = [
  "nota",
  "rkyv",
- "schema 0.2.0 (git+https://github.com/LiGoldragon/schema.git?rev=92bed64ad644ce4caa2827398ada5b7b79221165)",
- "schema-rust 0.6.0",
+ "schema",
+ "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?rev=a4b46ffffe5307eca3e1537539d0a70884955b4c)",
  "signal-domain",
  "signal-frame",
  "thiserror",
@@ -1739,7 +1714,7 @@ version = "0.1.0"
 source = "git+https://github.com/LiGoldragon/signal-standard.git?branch=main#a2fcdb9db2101853f8ffac8cdb34692540deeb62"
 dependencies = [
  "rkyv",
- "schema-rust 0.5.3",
+ "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
  "thiserror",
 ]
 
@@ -1788,8 +1763,8 @@ dependencies = [
  "nota-text-query",
  "rkyv",
  "router",
- "schema 0.2.0 (git+https://github.com/LiGoldragon/schema.git?rev=92bed64ad644ce4caa2827398ada5b7b79221165)",
- "schema-rust 0.6.0",
+ "schema",
+ "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?rev=a4b46ffffe5307eca3e1537539d0a70884955b4c)",
  "sema-engine 0.2.3",
  "sema-engine 0.4.0",
  "sema-engine 0.6.3",
