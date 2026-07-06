@@ -53,7 +53,7 @@ required-features = ["nota-text"]
 
 [features]
 default = []
-nota-text = ["dep:nota", "signal-spirit/nota-text", "meta-signal-spirit/nota-text", "signal-introspect?/nota-text"]
+nota-text = ["dep:nota", "signal-domain/nota-text", "signal-spirit/nota-text", "meta-signal-spirit/nota-text", "signal-introspect?/nota-text"]
 agent-guardian = ["nota-text", "dep:signal-agent"]
 production-migration = ["nota-text", "dep:sema-engine-layout3", "dep:sema-engine-previous"]
 testing-trace = ["dep:signal-introspect", "dep:signal-persona"]
@@ -132,7 +132,7 @@ path = "tests/cluster_authorization_over_router.rs"
 required-features = ["cluster-authorization-e2e"]
 
 [dependencies]
-nota = { package = "nota", git = "https://github.com/LiGoldragon/nota.git", branch = "main", optional = true }
+nota = { package = "nota", git = "https://github.com/LiGoldragon/nota-next.git", branch = "main", optional = true }
 rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
 blake3 = "1"
 getrandom = "0.3"
@@ -199,6 +199,7 @@ signal-introspect = { git = "https://github.com/LiGoldragon/signal-introspect.gi
 # instance directly to construct it; Cargo unifies it with signal-introspect's.
 # Optional and pulled in only by `testing-trace`, for the same no-NOTA reason.
 signal-persona = { git = "https://github.com/LiGoldragon/signal-persona.git", branch = "main", optional = true }
+signal-domain = { git = "https://github.com/LiGoldragon/signal-domain.git", branch = "main", default-features = false }
 signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", branch = "main" }
 meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", branch = "main" }
 thiserror = "2"
@@ -206,7 +207,7 @@ tokio = { version = "1.47", features = ["io-util", "net", "rt-multi-thread", "sy
 triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }
 
 [build-dependencies]
-schema-rust = { package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust.git", branch = "main" }
+schema-rust = { package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust-next.git", branch = "main" }
 
 [dev-dependencies]
 agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", features = ["live-provider"] }
@@ -214,7 +215,7 @@ agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", fea
 # gated-shipper test ships to and restores from. Same branches mirror pins, so
 # Cargo unifies them with the `mirror` crate's own dependency instances.
 meta-signal-mirror = { git = "https://github.com/LiGoldragon/meta-signal-mirror.git", branch = "main" }
-schema = { package = "schema", git = "https://github.com/LiGoldragon/schema.git", branch = "main" }
+schema = { package = "schema", git = "https://github.com/LiGoldragon/schema-next.git", branch = "main" }
 # Typed `SemaOperation` labels for versioned-log shape witnesses.
 signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main" }
 tempfile = "3"

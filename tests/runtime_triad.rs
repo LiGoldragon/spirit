@@ -1,3 +1,6 @@
+mod support;
+
+use support::domain_fixtures;
 #[cfg(feature = "nota-text")]
 use spirit::schema::signal::{Export, Import, NotaEncode};
 use spirit::{
@@ -406,11 +409,11 @@ fn record_identifier(code: &str) -> RecordIdentifier {
 }
 
 fn domains_from_slice(domains: &[&str]) -> Domains {
-    Domains::from_strings(domains.iter().map(|domain| String::from(*domain)).collect())
+    domain_fixtures::domains(domains)
 }
 
 fn domain_scopes_from_slice(domains: &[&str]) -> DomainScopes {
-    DomainScopes::from_strings(domains.iter().map(|domain| String::from(*domain)).collect())
+    domain_fixtures::scopes(domains)
 }
 
 fn software_scope() -> DomainScope {
@@ -2821,7 +2824,7 @@ fn signal_admission_rejects_invalid_input_with_schema_emitted_rejection_before_m
     let sema = SemaFile::new();
     let mut engine = sema.engine();
     let mut bad = entry("missing domain");
-    bad.domains = Domains::from_strings(vec![String::new()]);
+    bad.domains = domain_fixtures::domains(&[""]);
 
     let output = engine.handle(input_record(bad));
 
@@ -2959,9 +2962,7 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
     assert_eq!(engine.processed_message_count(), 1);
 
     let observed = engine.handle(input_observe(Query {
-        domain_match: DomainMatch::full(DomainScopes::from_strings(vec![String::from(
-            "runtime-triad",
-        )])),
+        domain_match: DomainMatch::full(domain_fixtures::scopes(&["runtime-triad"])),
         keyword_match: KeywordMatch::Any,
         text_match: TextMatch::Any,
         referent_selection: spirit::schema::signal::ReferentSelection::Any,

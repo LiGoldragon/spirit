@@ -31,9 +31,13 @@ impl SchemaBuild {
         println!("cargo:rerun-if-changed=schema/sema.schema");
         println!("cargo:rerun-if-changed=src/schema/sema.rs");
         println!("cargo:rerun-if-changed=src/schema/daemon.rs");
+        println!("cargo:rerun-if-env-changed=DEP_SIGNAL_DOMAIN_SCHEMA_DIR");
         println!("cargo:rerun-if-env-changed=DEP_SIGNAL_SPIRIT_SCHEMA_DIR");
         println!("cargo:rerun-if-env-changed=DEP_META_SIGNAL_SPIRIT_SCHEMA_DIR");
 
+        let signal_domain =
+            DependencySchema::from_cargo_metadata("signal-domain", "signal-domain", "0.1.0")
+                .expect("read signal-domain schema metadata");
         let Some(signal_spirit) =
             DependencySchema::from_cargo_metadata("signal-spirit", "signal-spirit", "0.6.0")
                 .expect("read signal-spirit schema metadata")
@@ -51,6 +55,7 @@ impl SchemaBuild {
         };
 
         let plan = GenerationPlan::new(&self.crate_root, "spirit", "0.3.0")
+            .with_optional_dependency_schema(signal_domain)
             .with_dependency_schema(signal_spirit)
             .with_dependency_schema(meta_signal_spirit)
             .with_module(ModuleEmission::nexus_runtime())

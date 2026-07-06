@@ -1,5 +1,9 @@
 #![cfg(feature = "agent-guardian")]
 
+mod support;
+
+use support::domain_fixtures;
+
 use std::{
     io::Write,
     os::unix::net::{UnixListener, UnixStream},
@@ -417,7 +421,7 @@ fn entry_with_magnitudes(
     privacy: Magnitude,
 ) -> Entry {
     Entry {
-        domains: Domains::from_strings(domains.iter().map(|domain| (*domain).to_owned()).collect()),
+        domains: domain_fixtures::domains(domains),
         kind: Kind::Decision,
         description: Description::new(description),
         certainty: certainty.into(),
@@ -579,7 +583,7 @@ fn eval_entry(
     description: &str,
 ) -> Entry {
     Entry {
-        domains: Domains::from_strings(domains.iter().map(|domain| (*domain).to_owned()).collect()),
+        domains: domain_fixtures::domains(domains),
         kind,
         description: Description::new(description),
         certainty: certainty.into(),

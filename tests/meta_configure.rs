@@ -9,6 +9,9 @@
 //! A daemon configuration without the required meta socket is rejected before
 //! serving.
 
+mod support;
+
+use support::domain_fixtures;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::thread;
@@ -73,7 +76,7 @@ fn configure_request(archive_database_target: ArchiveDatabaseTarget) -> Configur
 
 fn decision_entry(description: &str) -> Entry {
     Entry {
-        domains: Domains::from_strings(vec![String::from("meta-configure")]),
+        domains: domain_fixtures::domains(&["meta-configure"]),
         kind: Kind::Decision,
         description: Description::new(description),
         certainty: Magnitude::Maximum.into(),
@@ -100,9 +103,7 @@ fn record_request(description: &str) -> RecordRequest {
 
 fn observe_query() -> Query {
     Query {
-        domain_match: DomainMatch::full(DomainScopes::from_strings(vec![String::from(
-            "meta-configure",
-        )])),
+        domain_match: DomainMatch::full(domain_fixtures::scopes(&["meta-configure"])),
         keyword_match: spirit::schema::signal::KeywordMatch::Any,
         text_match: spirit::schema::signal::TextMatch::Any,
         referent_selection: spirit::schema::signal::ReferentSelection::Any,

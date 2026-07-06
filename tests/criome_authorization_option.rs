@@ -20,6 +20,9 @@
 //! would mark the outbox `ServerCommitted`; if the Enabled drain shipped on
 //! an unreachable criome, the outbox would drain without a grant.
 
+mod support;
+
+use support::domain_fixtures;
 use std::net::SocketAddr;
 
 use mirror::{Engine as MirrorEngine, Service, ServiceLink};
@@ -50,7 +53,7 @@ fn runtime() -> tokio::runtime::Runtime {
 fn record_request(description: &str) -> RecordRequest {
     RecordRequest {
         entry: Entry {
-            domains: Domains::from_strings(vec![String::from("Information/Documentation")]),
+            domains: domain_fixtures::domains(&["Information/Documentation"]),
             kind: Kind::Decision,
             description: Description::new(description),
             certainty: Certainty::new(Magnitude::High),

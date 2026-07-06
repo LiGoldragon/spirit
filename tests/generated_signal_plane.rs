@@ -1,10 +1,13 @@
+mod support;
+
+use support::domain_fixtures;
 use signal_frame::{
     ExchangeLane, LaneSequence, SessionEpoch, StreamEventIdentifier, StreamingFrameBody,
     SubscriptionTokenInner,
 };
 use spirit::schema::signal::{
     Certainty, CertaintyChange, CertaintyChangeReceipt, DatabaseMarker, Description, DomainMatch,
-    DomainScopes, Domains, Entry, Input, InputRoute, IntentEvent, IntentRecorded, Justification,
+    Entry, Input, InputRoute, IntentEvent, IntentRecorded, Justification,
     Kind, Magnitude, Output, OutputRoute, Privacy, QuoteText, Reasoning, Record, RecordChange,
     RecordChangeReceipt, RecordIdentifier, RecordRequest, RecordSelection, Rejected, SearchText,
     SelectedKind, SignalFrameError, SignalRejection, Statement, StatementText, Testimony,
@@ -45,7 +48,7 @@ fn justification(statement: &str) -> Justification {
 #[test]
 fn generated_input_surface_owns_route_header_and_rkyv_frame() {
     let entry = Entry {
-        domains: Domains::from_strings(vec![String::from("schema")]),
+        domains: domain_fixtures::domains(&["schema"]),
         kind: Kind::Constraint,
         description: Description::new("schema creates the signal plane"),
         certainty: Magnitude::Maximum.into(),
@@ -139,13 +142,11 @@ fn generated_state_input_surface_owns_route_header_and_rkyv_frame() {
 #[test]
 fn generated_public_private_record_shortcut_roots_own_route_header_and_rkyv_frame() {
     let public_input = Input::public_records(RecordSelection {
-        domain_match: DomainMatch::full(DomainScopes::from_strings(vec![String::from("schema")])),
+        domain_match: DomainMatch::full(domain_fixtures::scopes(&["schema"])),
         selected_kind: SelectedKind::new(Some(Kind::Decision)),
     });
     let private_input = Input::private_records(RecordSelection {
-        domain_match: DomainMatch::partial(DomainScopes::from_strings(vec![String::from(
-            "schema",
-        )])),
+        domain_match: DomainMatch::partial(domain_fixtures::scopes(&["schema"])),
         selected_kind: SelectedKind::new(None),
     });
 
@@ -213,7 +214,7 @@ fn generated_certainty_changed_output_owns_route_header_and_rkyv_frame() {
 #[test]
 fn generated_record_change_surface_owns_route_header_and_rkyv_frame() {
     let replacement = Entry {
-        domains: Domains::from_strings(vec![String::from("schema"), String::from("mutation")]),
+        domains: domain_fixtures::domains(&["schema", "mutation"]),
         kind: Kind::Correction,
         description: Description::new("record mutation is a schema-visible operation"),
         certainty: Magnitude::High.into(),
@@ -255,7 +256,7 @@ fn generated_record_changed_output_owns_route_header_and_rkyv_frame() {
 fn generated_streaming_surface_owns_subscription_event_frames() {
     let event = IntentEvent::intent_recorded(IntentRecorded {
         entry: Entry {
-            domains: Domains::from_strings(vec![String::from("stream")]),
+            domains: domain_fixtures::domains(&["stream"]),
             kind: Kind::Decision,
             description: Description::new("schema emits streaming frames"),
             certainty: Magnitude::High.into(),
@@ -360,7 +361,7 @@ fn generated_change_record_round_trips_the_canonical_shape() {
         Input::change_record(RecordChange {
             record_identifier: RecordIdentifier::new("003g"),
             entry: Entry {
-                domains: Domains::from_strings(vec![String::from("schema mutation")]),
+                domains: domain_fixtures::domains(&["schema mutation"]),
                 kind: Kind::Correction,
                 description: Description::new("replacement"),
                 certainty: Magnitude::High.into(),
@@ -408,18 +409,14 @@ fn generated_public_private_record_shortcuts_round_trip_nota() {
     assert_eq!(
         public_input,
         Input::public_records(RecordSelection {
-            domain_match: DomainMatch::full(DomainScopes::from_strings(vec![String::from(
-                "schema"
-            )])),
+            domain_match: DomainMatch::full(domain_fixtures::scopes(&["schema"])),
             selected_kind: SelectedKind::new(Some(Kind::Decision)),
         })
     );
     assert_eq!(
         private_input,
         Input::private_records(RecordSelection {
-            domain_match: DomainMatch::partial(DomainScopes::from_strings(vec![String::from(
-                "schema"
-            )])),
+            domain_match: DomainMatch::partial(domain_fixtures::scopes(&["schema"])),
             selected_kind: SelectedKind::new(None),
         })
     );
@@ -473,7 +470,7 @@ fn generated_domain_scope_is_a_recursive_enum_text_surface() {
 fn generated_record_input_renders_bracket_bearing_strings_losslessly() {
     let description = String::from("text contains [brackets] and the pipe close marker |]");
     let entry = Entry {
-        domains: Domains::from_strings(vec![String::from("schema replay")]),
+        domains: domain_fixtures::domains(&["schema replay"]),
         kind: Kind::Correction,
         description: Description::new(description.clone()),
         certainty: Magnitude::High.into(),
@@ -514,7 +511,7 @@ fn generated_rejection_output_is_a_signal_schema_variant() {
 #[test]
 fn bare_schema_bindings_are_explicit_payload_wrappers() {
     let entry = Entry {
-        domains: Domains::from_strings(vec![String::from("schema")]),
+        domains: domain_fixtures::domains(&["schema"]),
         kind: Kind::Constraint,
         description: Description::new("alias bindings carry direct payloads"),
         certainty: Magnitude::Maximum.into(),
@@ -563,7 +560,7 @@ fn generated_validation_error_round_trips_through_nota() {
 #[test]
 fn generated_signal_surface_rejects_unknown_header_before_body_decode() {
     let entry = Entry {
-        domains: Domains::from_strings(vec![String::from("schema")]),
+        domains: domain_fixtures::domains(&["schema"]),
         kind: Kind::Constraint,
         description: Description::new("schema rejects unknown routes"),
         certainty: Magnitude::Maximum.into(),
@@ -592,7 +589,7 @@ fn generated_signal_surface_rejects_unknown_header_before_body_decode() {
 #[test]
 fn signal_admission_emits_mail_sent_event() {
     let entry = Entry {
-        domains: Domains::from_strings(vec![String::from("schema")]),
+        domains: domain_fixtures::domains(&["schema"]),
         kind: Kind::Constraint,
         description: Description::new("signal admission emits mail events"),
         certainty: Magnitude::Maximum.into(),

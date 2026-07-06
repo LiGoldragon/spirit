@@ -13,6 +13,9 @@
 //!     drain is a no-op, the store stays `QueuedForMirror`, and the daemon
 //!     behaves exactly as one built before mirroring existed.
 
+mod support;
+
+use support::domain_fixtures;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
@@ -44,7 +47,7 @@ fn runtime() -> tokio::runtime::Runtime {
 
 fn entry(description: &str) -> Entry {
     Entry {
-        domains: Domains::from_strings(vec![String::from("Information/Documentation")]),
+        domains: domain_fixtures::domains(&["Information/Documentation"]),
         kind: Kind::Decision,
         description: Description::new(description),
         certainty: Certainty::new(Magnitude::High),

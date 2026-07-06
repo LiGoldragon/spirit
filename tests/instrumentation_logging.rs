@@ -1,3 +1,6 @@
+mod support;
+
+use support::domain_fixtures;
 use spirit::{
     AuthorizationObjectName, Engine, ObjectName, SignalObjectName, Store, TraceEvent, TraceLog,
     schema::{
@@ -33,7 +36,7 @@ impl SemaFile {
 
 fn entry(description: &str) -> Entry {
     Entry {
-        domains: Domains::from_strings(vec![String::from("trace")]),
+        domains: domain_fixtures::domains(&["trace"]),
         kind: Kind::Decision,
         description: Description::new(description),
         certainty: Magnitude::Maximum.into(),
@@ -72,7 +75,7 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
     };
 
     let observed = engine.handle(Input::observe(Query {
-        domain_match: DomainMatch::full(DomainScopes::from_strings(vec![String::from("trace")])),
+        domain_match: DomainMatch::full(domain_fixtures::scopes(&["trace"])),
         keyword_match: spirit::schema::signal::KeywordMatch::Any,
         text_match: spirit::schema::signal::TextMatch::Any,
         referent_selection: spirit::schema::signal::ReferentSelection::Any,
@@ -246,7 +249,7 @@ fn testing_trace_records_signal_rejection_without_nexus_or_sema_activations() {
     let mut engine = sema.engine_with_trace(trace_log.clone());
 
     let mut invalid_entry = entry("invalid trace witness");
-    invalid_entry.domains = Domains::from_strings(vec![]);
+    invalid_entry.domains = Domains::new(vec![]);
 
     let output = engine.handle(Input::record(record_request(invalid_entry)));
 

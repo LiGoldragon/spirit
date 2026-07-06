@@ -11,6 +11,9 @@
 //! `SubscribeIntent` already covers old `Watch` (records subscription), so the
 //! un-covered half — token-based cancellation — is what `Untap` restores.
 
+mod support;
+
+use support::domain_fixtures;
 use spirit::schema::signal::{
     CertaintySelection, Description, DomainMatch, DomainScopes, Domains, Entry,
     ImportanceSelection, Input, Justification, Kind, Magnitude, ObserverFilter, OperationKind,
@@ -22,7 +25,7 @@ use tempfile::TempDir;
 
 fn entry(description: &str) -> Entry {
     Entry {
-        domains: Domains::from_strings(vec![String::from("observer-tap")]),
+        domains: domain_fixtures::domains(&["observer-tap"]),
         kind: Kind::Decision,
         description: Description::new(description),
         certainty: Magnitude::Maximum.into(),
@@ -49,9 +52,7 @@ fn record_request(description: &str) -> RecordRequest {
 
 fn observe_query() -> Query {
     Query {
-        domain_match: DomainMatch::full(DomainScopes::from_strings(vec![String::from(
-            "observer-tap",
-        )])),
+        domain_match: DomainMatch::full(domain_fixtures::scopes(&["observer-tap"])),
         keyword_match: spirit::schema::signal::KeywordMatch::Any,
         text_match: spirit::schema::signal::TextMatch::Any,
         referent_selection: spirit::schema::signal::ReferentSelection::Any,

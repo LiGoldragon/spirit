@@ -36,6 +36,9 @@
 //! would ship (see tests/cluster_gate_session.rs); if the catch-up rule were
 //! missing, step 4 would self-refuse with QuorumConflict and never grant.
 
+mod support;
+
+use support::domain_fixtures;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -434,7 +437,7 @@ async fn start_router(
 fn record_request(description: &str) -> RecordRequest {
     RecordRequest {
         entry: Entry {
-            domains: Domains::from_strings(vec![String::from("Information/Documentation")]),
+            domains: domain_fixtures::domains(&["Information/Documentation"]),
             kind: Kind::Decision,
             description: Description::new(description),
             certainty: Certainty::new(Magnitude::High),

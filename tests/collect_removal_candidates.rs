@@ -11,6 +11,9 @@
 //! the live log; the archive database is a distinct `*.sema` file from the live
 //! intent log. There is no working-socket physical-deletion path.
 
+mod support;
+
+use support::domain_fixtures;
 use std::path::Path;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -28,7 +31,7 @@ use spirit::{Configuration, Daemon, Engine, MetaSignalTransport, SignalTransport
 use tempfile::TempDir;
 
 fn domains(label: &str) -> Domains {
-    Domains::from_strings(vec![String::from(label)])
+    domain_fixtures::domains(&[label])
 }
 
 fn configure_request(archive_database_target: ArchiveDatabaseTarget) -> ConfigureRequest {
@@ -36,7 +39,7 @@ fn configure_request(archive_database_target: ArchiveDatabaseTarget) -> Configur
 }
 
 fn domain_scopes(label: &str) -> DomainScopes {
-    DomainScopes::from_strings(vec![String::from(label)])
+    domain_fixtures::scopes(&[label])
 }
 
 fn entry(domain: &str, description: &str) -> Entry {

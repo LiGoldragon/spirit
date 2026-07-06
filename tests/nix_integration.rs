@@ -87,6 +87,9 @@
 //!   schema-emitted `Output::FromStr`, proving the NOTA form and the
 //!   FromStr surface stay in sync.
 
+mod support;
+
+use support::domain_fixtures;
 use std::{
     env,
     io::Read,
@@ -452,7 +455,7 @@ fn run_meta_cli_for_output(
 
 fn entry(description: &str) -> Entry {
     Entry {
-        domains: Domains::from_strings(vec![String::from("nix-integration")]),
+        domains: domain_fixtures::domains(&["nix-integration"]),
         kind: Kind::Decision,
         description: Description::new(description),
         certainty: Magnitude::Maximum.into(),
