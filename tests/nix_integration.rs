@@ -89,7 +89,6 @@
 
 mod support;
 
-use support::domain_fixtures;
 use std::{
     env,
     io::Read,
@@ -100,6 +99,7 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+use support::domain_fixtures;
 
 use spirit::Configuration;
 use spirit::schema::meta_signal::{

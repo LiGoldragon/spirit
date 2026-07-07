@@ -669,8 +669,8 @@
             cargoExtraArgs = "--features cluster-authorization-e2e";
           }
         );
-        # THE CLUSTER-AUTHORIZATION LOOPCHECK (§3.7):
-        # spirit-cluster-authorizes-head-advance-over-router-test.
+        # THE EVERYWHERE-GATE LOOPCHECK (§3.9):
+        # spirit-cluster-gates-acceptance-over-router-test.
         #
         # STATEFUL, not a pure check — the same posture as the founding proof
         # (`router-two-hosts-found-root-over-router-test`): the harness spawns
@@ -679,16 +679,17 @@
         # temp directory, an in-process mirror service, and a real spirit
         # engine, synchronizing with wall-clock waits. So it is a named,
         # explicitly-run output
-        # (`nix build .#spirit-cluster-authorizes-head-advance-over-router-test`),
+        # (`nix build .#spirit-cluster-gates-acceptance-over-router-test`),
         # not a `checks.*` entry auto-swept by `nix flake check`. It witnesses
-        # the batched authorized advance, the fail-closed refusal when the
-        # quorum cannot complete, and the catch-up retry after refusal.
+        # disabled-era residue covered by one grant, acceptance gated on the
+        # cluster grant, the fail-closed refused advance (head did NOT
+        # advance), and the dead-round supersession retry.
         clusterAuthorizationLoopcheck = craneLib.cargoTest (
           commonArguments
           // {
             cargoArtifacts = clusterAuthorizationCargoArtifacts;
             cargoExtraArgs = "--features cluster-authorization-e2e";
-            cargoTestExtraArgs = "--test cluster_authorization_over_router spirit_cluster_authorizes_head_advance_over_the_router -- --exact";
+            cargoTestExtraArgs = "--test cluster_authorization_over_router spirit_cluster_gates_acceptance_over_the_router -- --exact";
           }
         );
         daemonPackage = craneLib.buildPackage (
@@ -784,7 +785,7 @@
         packages.trace = traceCombinedPackage;
         packages."trace-cli" = traceCliPackage;
         packages."trace-daemon" = traceDaemonPackage;
-        packages."spirit-cluster-authorizes-head-advance-over-router-test" =
+        packages."spirit-cluster-gates-acceptance-over-router-test" =
           clusterAuthorizationLoopcheck;
         apps.nix-integration-tests = {
           type = "app";

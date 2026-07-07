@@ -216,8 +216,8 @@ dependencies = [
 
 [[package]]
 name = "criome"
-version = "0.7.0"
-source = "git+https://github.com/LiGoldragon/criome.git?branch=main#8732104ab0584c84f55ab654ff42385720a3a0d7"
+version = "0.8.1"
+source = "git+https://github.com/LiGoldragon/criome.git?branch=main#cc622682ad8c2fa2d47d31e7098b224e9596ec32"
 dependencies = [
  "blake3",
  "blst",
@@ -225,7 +225,7 @@ dependencies = [
  "meta-signal-criome",
  "rkyv",
  "rustix",
- "sema-engine 0.6.3",
+ "sema-engine 0.7.0",
  "signal-criome",
  "signal-frame",
  "signal-router",
@@ -307,7 +307,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -816,11 +816,11 @@ dependencies = [
 
 [[package]]
 name = "meta-signal-criome"
-version = "0.5.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-criome.git?branch=main#8050a22bd9c9c022c00c8678587e47a16b9c9abb"
+version = "0.6.0"
+source = "git+https://github.com/LiGoldragon/meta-signal-criome.git?branch=main#3157b5ab1754df7ac4b9b35f14b86555d037ef8e"
 dependencies = [
  "rkyv",
- "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
+ "schema-rust 0.7.0",
  "signal-criome",
  "signal-frame",
  "thiserror",
@@ -841,7 +841,6 @@ dependencies = [
 [[package]]
 name = "meta-signal-router"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-router.git?branch=main#c3848b39228834f2e28014f346dbed4821e54df8"
 dependencies = [
  "rkyv",
  "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
@@ -850,12 +849,12 @@ dependencies = [
 
 [[package]]
 name = "meta-signal-spirit"
-version = "0.7.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?rev=2c765101f3cb39a8439289e6116b7998450039bf#2c765101f3cb39a8439289e6116b7998450039bf"
+version = "0.7.1"
+source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?rev=ad4a4ecbe6897eafd6dac1b8f23f87c91eb4f7e5#ad4a4ecbe6897eafd6dac1b8f23f87c91eb4f7e5"
 dependencies = [
  "nota",
  "rkyv",
- "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?rev=a4b46ffffe5307eca3e1537539d0a70884955b4c)",
+ "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?rev=3278fbc6e6593c044437b3ee5ca1fe71cac344c1)",
  "signal-domain",
  "signal-frame",
  "signal-spirit",
@@ -876,13 +875,12 @@ dependencies = [
 [[package]]
 name = "mirror"
 version = "0.2.0"
-source = "git+https://github.com/LiGoldragon/mirror.git?branch=main#f906dd531a467e793f7f374aec1e96efe2917cd6"
 dependencies = [
  "meta-signal-mirror",
  "nota",
  "rkyv",
  "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
- "sema-engine 0.6.3",
+ "sema-engine 0.7.0",
  "signal-frame",
  "signal-mirror",
  "thiserror",
@@ -1091,7 +1089,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1272,7 +1270,7 @@ dependencies = [
  "rand_core 0.6.4",
  "rkyv",
  "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
- "sema-engine 0.6.3",
+ "sema-engine 0.7.0",
  "signal-criome",
  "signal-frame",
  "signal-harness",
@@ -1313,7 +1311,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1389,6 +1387,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "schema-language"
+version = "0.2.0"
+source = "git+https://github.com/LiGoldragon/schema-language.git?rev=6aae825d668e3f607a2754afa6b7d94e9f246c41#6aae825d668e3f607a2754afa6b7d94e9f246c41"
+dependencies = [
+ "blake3",
+ "nota",
+ "rkyv",
+ "schema-language-cc",
+ "thiserror",
+]
+
+[[package]]
+name = "schema-language-cc"
+version = "0.1.0"
+source = "git+https://github.com/LiGoldragon/schema-language.git?rev=6aae825d668e3f607a2754afa6b7d94e9f246c41#6aae825d668e3f607a2754afa6b7d94e9f246c41"
+dependencies = [
+ "nota",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "thiserror",
+]
+
+[[package]]
 name = "schema-rust"
 version = "0.6.0"
 source = "git+https://github.com/LiGoldragon/schema-rust.git?branch=main#a4b46ffffe5307eca3e1537539d0a70884955b4c"
@@ -1406,13 +1429,28 @@ dependencies = [
 [[package]]
 name = "schema-rust"
 version = "0.6.0"
-source = "git+https://github.com/LiGoldragon/schema-rust.git?rev=a4b46ffffe5307eca3e1537539d0a70884955b4c#a4b46ffffe5307eca3e1537539d0a70884955b4c"
+source = "git+https://github.com/LiGoldragon/schema-rust.git?rev=3278fbc6e6593c044437b3ee5ca1fe71cac344c1#3278fbc6e6593c044437b3ee5ca1fe71cac344c1"
 dependencies = [
  "nota",
  "prettyplease",
  "proc-macro2",
  "quote",
- "schema",
+ "schema-language",
+ "syn",
+ "thiserror",
+ "triad-runtime",
+]
+
+[[package]]
+name = "schema-rust"
+version = "0.7.0"
+source = "git+https://github.com/LiGoldragon/schema-rust.git?rev=255823ab3d0d6c5cab26e26a8b1d60c63c52c7b4#255823ab3d0d6c5cab26e26a8b1d60c63c52c7b4"
+dependencies = [
+ "nota",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "schema-language",
  "syn",
  "thiserror",
  "triad-runtime",
@@ -1455,8 +1493,8 @@ dependencies = [
 
 [[package]]
 name = "sema-engine"
-version = "0.6.3"
-source = "git+https://github.com/LiGoldragon/sema-engine.git?branch=main#594802575f02bc2e295f2c092ad98bb2d317a058"
+version = "0.7.0"
+source = "git+https://github.com/LiGoldragon/sema-engine.git?branch=main#7cfcece5c6625ee500bfa9853e8f4f6a47944c01"
 dependencies = [
  "blake3",
  "rkyv",
@@ -1547,13 +1585,13 @@ dependencies = [
 
 [[package]]
 name = "signal-criome"
-version = "0.10.0"
-source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=main#e3c9ad3eb74b7cb2e5add952bad2643e89b487a8"
+version = "0.11.0"
+source = "git+https://github.com/LiGoldragon/signal-criome.git?branch=main#5998cf27e6fd10b37f58bd7fba1d2e1bd9d4eaff"
 dependencies = [
  "blake3",
  "blst",
  "rkyv",
- "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
+ "schema-rust 0.7.0",
  "signal-frame",
  "thiserror",
 ]
@@ -1561,12 +1599,12 @@ dependencies = [
 [[package]]
 name = "signal-domain"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/signal-domain.git?branch=main#a6c726eccb529cde1fb429e3181326a4d28225b7"
+source = "git+https://github.com/LiGoldragon/signal-domain.git?rev=801e1c5bcc824c9760e246205826e3c8e962d005#801e1c5bcc824c9760e246205826e3c8e962d005"
 dependencies = [
  "nota",
  "rkyv",
- "schema",
- "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?rev=a4b46ffffe5307eca3e1537539d0a70884955b4c)",
+ "schema-language",
+ "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?rev=3278fbc6e6593c044437b3ee5ca1fe71cac344c1)",
 ]
 
 [[package]]
@@ -1675,11 +1713,11 @@ dependencies = [
 
 [[package]]
 name = "signal-router"
-version = "0.4.1"
-source = "git+https://github.com/LiGoldragon/signal-router.git?branch=main#7109422fae53adf5f1b82337ddc38195ccec96da"
+version = "0.5.0"
+source = "git+https://github.com/LiGoldragon/signal-router.git?branch=main#74909bd92a9d4e0a87f6e4da097ead67116e2e43"
 dependencies = [
  "rkyv",
- "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
+ "schema-rust 0.7.0",
  "signal-frame",
  "thiserror",
 ]
@@ -1695,13 +1733,13 @@ dependencies = [
 
 [[package]]
 name = "signal-spirit"
-version = "0.12.0"
-source = "git+https://github.com/LiGoldragon/signal-spirit.git?rev=d06e8efffa0ad9cc5305c53977f9833dec3c6038#d06e8efffa0ad9cc5305c53977f9833dec3c6038"
+version = "0.13.0"
+source = "git+https://github.com/LiGoldragon/signal-spirit.git?rev=eba2afe88e03939fba9c01e4f2c82b0166a46cd6#eba2afe88e03939fba9c01e4f2c82b0166a46cd6"
 dependencies = [
  "nota",
  "rkyv",
- "schema",
- "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?rev=a4b46ffffe5307eca3e1537539d0a70884955b4c)",
+ "schema-language",
+ "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?rev=3278fbc6e6593c044437b3ee5ca1fe71cac344c1)",
  "signal-domain",
  "signal-frame",
  "thiserror",
@@ -1748,7 +1786,7 @@ dependencies = [
 
 [[package]]
 name = "spirit"
-version = "0.23.1"
+version = "0.24.0"
 dependencies = [
  "agent",
  "blake3",
@@ -1764,10 +1802,10 @@ dependencies = [
  "rkyv",
  "router",
  "schema",
- "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?rev=a4b46ffffe5307eca3e1537539d0a70884955b4c)",
+ "schema-rust 0.7.0",
  "sema-engine 0.2.3",
  "sema-engine 0.4.0",
- "sema-engine 0.6.3",
+ "sema-engine 0.7.0",
  "signal-agent",
  "signal-criome",
  "signal-domain",
@@ -1838,7 +1876,7 @@ dependencies = [
  "getrandom 0.3.4",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2422,3 +2460,8 @@ name = "zmij"
 version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8848ee67ecc8aedbaf3e4122217aff892639231befc6a1b58d29fff4c2cabaa"
+
+[[patch.unused]]
+name = "schema-rust"
+version = "0.6.0"
+source = "git+https://github.com/LiGoldragon/schema-rust.git?rev=a4b46ffffe5307eca3e1537539d0a70884955b4c#a4b46ffffe5307eca3e1537539d0a70884955b4c"

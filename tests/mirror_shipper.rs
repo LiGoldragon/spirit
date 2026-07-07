@@ -15,9 +15,9 @@
 
 mod support;
 
-use support::domain_fixtures;
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use support::domain_fixtures;
 
 use mirror::{Engine as MirrorEngine, MirrorTailnetClient as TailnetClient, Service, ServiceLink};
 use sema_engine::{Durability, EntryDigest};

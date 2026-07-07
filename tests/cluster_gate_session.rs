@@ -1,9 +1,9 @@
 //! THE SESSION-PARSE MATRIX WITNESSES (§3.2): spirit's side of the criome
 //! authorization observation session is a CLOSED binding matrix with no
 //! default-open branch. Every rule violation is a `CriomeGateError` and every
-//! fault holds the head; terminal refusals are typed outcomes; only a Granted
-//! state whose grant binds the session slot AND the submitted digest
-//! authorizes.
+//! fault refuses the operation on the intake path (and withholds the ship on
+//! the drain); terminal refusals are typed outcomes; only a Granted state
+//! whose grant binds the session slot AND the submitted digest authorizes.
 //!
 //! Pure negatives run the matrix directly over crafted state records; the
 //! socket-level negatives run a stub criome socket writing crafted frames:
@@ -32,9 +32,9 @@ fn slot(name: &str) -> AuthorizationRequestSlot {
 
 fn submitted_head() -> AuthorizedObjectReference {
     AuthorizedObjectReference {
-        component: ComponentKind::Spirit,
-        digest: ObjectDigest::from_bytes(b"the submitted batch head"),
-        kind: AuthorizedObjectKind::Head,
+        component_kind: ComponentKind::Spirit,
+        object_digest: ObjectDigest::from_bytes(b"the submitted batch head"),
+        authorized_object_kind: AuthorizedObjectKind::Head,
     }
 }
 
@@ -42,13 +42,13 @@ fn binding() -> HeadSessionBinding {
     HeadSessionBinding::new(slot("session-slot"), submitted_head())
 }
 
-fn grant_for(request_slot: AuthorizationRequestSlot, digest: ObjectDigest) -> AuthorizationGrant {
+fn grant_for(request_slot: AuthorizationRequestSlot, object_digest: ObjectDigest) -> AuthorizationGrant {
     AuthorizationGrant::new(
         request_slot,
         AuthorizedObjectReference {
-            component: ComponentKind::Spirit,
-            digest,
-            kind: AuthorizedObjectKind::Head,
+            component_kind: ComponentKind::Spirit,
+            object_digest,
+            authorized_object_kind: AuthorizedObjectKind::Head,
         },
         AuthorizationPolicySatisfaction::new(
             AuthorizationPolicyClass::ComplexQuorum,
@@ -65,11 +65,11 @@ fn grant_for(request_slot: AuthorizationRequestSlot, digest: ObjectDigest) -> Au
 
 fn state(
     request_slot: AuthorizationRequestSlot,
-    digest: ObjectDigest,
+    object_digest: ObjectDigest,
     status: AuthorizationStatus,
     grant: Option<AuthorizationGrant>,
 ) -> AuthorizationStateRecord {
-    AuthorizationStateRecord::new(request_slot, digest, status, Vec::new(), grant, None)
+    AuthorizationStateRecord::new(request_slot, object_digest, status, Vec::new(), grant, None)
 }
 
 /// The repaired positive: a terminal Granted state whose grant binds the
@@ -80,9 +80,9 @@ fn granted_with_binding_grant_authorizes() {
     let binding = binding();
     let granted = state(
         slot("session-slot"),
-        submitted_head().digest,
+        submitted_head().object_digest,
         AuthorizationStatus::Granted,
-        Some(grant_for(slot("session-slot"), submitted_head().digest)),
+        Some(grant_for(slot("session-slot"), submitted_head().object_digest)),
     );
     let decision = binding
         .decide(&granted)
@@ -100,7 +100,7 @@ fn granted_with_binding_grant_authorizes() {
 fn granted_without_grant_is_held_as_a_fault() {
     let verdict = binding().decide(&state(
         slot("session-slot"),
-        submitted_head().digest,
+        submitted_head().object_digest,
         AuthorizationStatus::Granted,
         None,
     ));
@@ -116,7 +116,7 @@ fn granted_without_grant_is_held_as_a_fault() {
 fn grant_digest_mismatch_is_held_as_a_fault() {
     let verdict = binding().decide(&state(
         slot("session-slot"),
-        submitted_head().digest,
+        submitted_head().object_digest,
         AuthorizationStatus::Granted,
         Some(grant_for(
             slot("session-slot"),
@@ -135,9 +135,12 @@ fn grant_digest_mismatch_is_held_as_a_fault() {
 fn grant_slot_mismatch_is_held_as_a_fault() {
     let verdict = binding().decide(&state(
         slot("session-slot"),
-        submitted_head().digest,
+        submitted_head().object_digest,
         AuthorizationStatus::Granted,
-        Some(grant_for(slot("someone-elses-slot"), submitted_head().digest)),
+        Some(grant_for(
+            slot("someone-elses-slot"),
+            submitted_head().object_digest,
+        )),
     ));
     assert!(
         matches!(verdict, Err(CriomeGateError::HeadBindingViolation { .. })),
@@ -153,7 +156,7 @@ fn request_digest_mismatch_is_held_as_a_fault() {
         slot("session-slot"),
         ObjectDigest::from_bytes(b"not the submitted head"),
         AuthorizationStatus::Granted,
-        Some(grant_for(slot("session-slot"), submitted_head().digest)),
+        Some(grant_for(slot("session-slot"), submitted_head().object_digest)),
     ));
     assert!(
         matches!(verdict, Err(CriomeGateError::HeadBindingViolation { .. })),
@@ -168,12 +171,18 @@ fn foreign_slot_records_are_ignored() {
     let verdict = binding()
         .decide(&state(
             slot("someone-elses-slot"),
-            submitted_head().digest,
+            submitted_head().object_digest,
             AuthorizationStatus::Granted,
-            Some(grant_for(slot("someone-elses-slot"), submitted_head().digest)),
+            Some(grant_for(
+                slot("someone-elses-slot"),
+                submitted_head().object_digest,
+            )),
         ))
         .expect("a foreign record is ignored, not a fault");
-    assert_eq!(verdict, None, "a foreign grant never authorizes this session");
+    assert_eq!(
+        verdict, None,
+        "a foreign grant never authorizes this session"
+    );
 }
 
 /// Rule 4: terminal non-Granted states are typed refusals — outcomes, not
@@ -183,7 +192,7 @@ fn terminal_refusals_map_to_typed_refusal_decisions() {
     let binding = binding();
     let denied = state(
         slot("session-slot"),
-        submitted_head().digest,
+        submitted_head().object_digest,
         AuthorizationStatus::Denied,
         None,
     )
@@ -193,7 +202,7 @@ fn terminal_refusals_map_to_typed_refusal_decisions() {
         (
             state(
                 slot("session-slot"),
-                submitted_head().digest,
+                submitted_head().object_digest,
                 AuthorizationStatus::Expired,
                 None,
             ),
@@ -202,7 +211,7 @@ fn terminal_refusals_map_to_typed_refusal_decisions() {
         (
             state(
                 slot("session-slot"),
-                submitted_head().digest,
+                submitted_head().object_digest,
                 AuthorizationStatus::Unavailable,
                 None,
             ),
@@ -215,7 +224,7 @@ fn terminal_refusals_map_to_typed_refusal_decisions() {
             decision,
             Some(GateDecision::Refused(refusal)),
             "terminal {:?} maps to the typed refusal",
-            record.status
+            record.authorization_status
         );
     }
 }
@@ -232,7 +241,7 @@ fn non_terminal_states_keep_draining() {
         let verdict = binding
             .decide(&state(
                 slot("session-slot"),
-                submitted_head().digest,
+                submitted_head().object_digest,
                 status,
                 None,
             ))
@@ -249,9 +258,9 @@ trait WithDenialMarker {
 
 impl WithDenialMarker for AuthorizationStateRecord {
     fn with_denial_marker(mut self) -> Self {
-        self.denial = Some(AuthorizationDenial {
-            source: AuthorizationDenialSource::Policy,
-            reason: AuthorizationDenialReason::PolicyRefused,
+        self.optional_authorization_denial = Some(AuthorizationDenial {
+            authorization_denial_source: AuthorizationDenialSource::Policy,
+            authorization_denial_reason: AuthorizationDenialReason::PolicyRefused,
         });
         self
     }
@@ -301,12 +310,12 @@ impl StubCriomeSocket {
             let reply = match script {
                 StubScript::BareGrantedReply => CriomeReply::AuthorizationGranted(grant_for(
                     slot("stub-slot"),
-                    authorization.object.digest.clone(),
+                    authorization.authorized_object_reference.object_digest.clone(),
                 )),
                 StubScript::SnapshotThenSilence => CriomeReply::AuthorizationObservationSnapshot(
                     AuthorizationObservationSnapshot::from_states(vec![state(
                         slot("stub-slot"),
-                        authorization.object.digest.clone(),
+                        authorization.authorized_object_reference.object_digest.clone(),
                         AuthorizationStatus::Pending,
                         None,
                     )]),
@@ -378,7 +387,7 @@ fn session_deadline_expiry_is_held_unreachable() {
     assert_eq!(
         verdict,
         GateDecision::Unreachable,
-        "deadline expiry holds the head Unreachable"
+        "deadline expiry is judged Unreachable — a typed refusal, fail-closed"
     );
     stub.join();
 }
@@ -407,7 +416,7 @@ fn hung_but_accepting_criome_is_held_unreachable_within_the_deadline() {
     assert_eq!(
         verdict,
         GateDecision::Unreachable,
-        "the bounded submission read holds the head Unreachable"
+        "the bounded submission read judges Unreachable — a typed refusal"
     );
     assert!(
         started.elapsed() < Duration::from_secs(10),

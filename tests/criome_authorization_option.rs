@@ -1,29 +1,30 @@
-//! The spirit-side criome authorization option witness (Spirit `xhwa`).
+//! The spirit-side criome authorization option witness (Spirit `xhwa`,
+//! corrected to the everywhere-gate).
 //!
-//! The `CriomeAuthorization` option decides what happens at the
-//! authorize-and-ship seam (`Engine::drain_propagation_once`,
-//! `MirrorShipper`):
+//! The `CriomeAuthorization` option decides whether acceptance itself is
+//! cluster-gated:
 //!
 //!   (a) `Disabled` — the operative default. Spirit is fully local: heads
-//!       advance freely, and the propagation drain is dormant — no
-//!       authorization request, no mirror ship, even with an armed mirror
-//!       target. Nothing propagates.
+//!       advance freely, and the ship seam is dormant — no authorization
+//!       request, no mirror ship, even with an armed mirror target. Nothing
+//!       propagates.
 //!
-//!   (b) `Enabled(authorizer)` — cluster authorization. The LOCAL commit
-//!       stands (working inputs are never refused at ingress); only
-//!       propagation waits on the cluster verdict. With no reachable criome
-//!       behind the configured socket the drain decides `Unreachable` and
-//!       holds every head back fail-closed: nothing ships, the suffix waits
-//!       in the outbox.
+//!   (b) `Enabled(authorizer)` — the everywhere-gate. A head-advancing
+//!       working operation is STAGED and accepted only on the cluster
+//!       grant. With no reachable criome behind the configured socket the
+//!       verdict is `Unreachable` and the OPERATION is refused to the
+//!       caller (`AdvanceRefused`): the head does not advance, not even
+//!       locally, and nothing exists to propagate. Fail-closed. Reads are
+//!       unaffected.
 //!
 //! Falsification: if the dormant seam still propagated, the Disabled drain
-//! would mark the outbox `ServerCommitted`; if the Enabled drain shipped on
-//! an unreachable criome, the outbox would drain without a grant.
+//! would mark the outbox `ServerCommitted`; if the Enabled intake accepted
+//! on an unreachable criome, the head would advance without a grant.
 
 mod support;
 
-use support::domain_fixtures;
 use std::net::SocketAddr;
+use support::domain_fixtures;
 
 use mirror::{Engine as MirrorEngine, Service, ServiceLink};
 use sema_engine::Durability;
@@ -37,7 +38,7 @@ use spirit::schema::signal::{
     Output, Privacy, QuoteText, Reasoning, RecordRequest, Referent, Referents, Testimony,
     VerbatimQuote,
 };
-use spirit::{ClusterAuthorizer, CriomeAuthorization, Engine, GateDecision, Store};
+use spirit::{ClusterAuthorizer, CriomeAuthorization, Engine, Store};
 use tempfile::TempDir;
 use triad_runtime::kameo::actor::Spawn;
 
@@ -189,8 +190,13 @@ fn disabled_default_advances_heads_freely_and_keeps_the_ship_seam_dormant() {
     });
 }
 
+/// THE CORRECTED OUTCOME: an enabled gate with an unreachable criome
+/// REFUSES the operation to the caller — the head does NOT advance, not
+/// even locally, and there is nothing to ship. Previously this leg asserted
+/// "the local commit stands, only propagation waits"; that premise is
+/// overridden by the everywhere-gate.
 #[test]
-fn enabled_authorization_holds_heads_back_when_criome_is_unreachable() {
+fn enabled_authorization_refuses_head_advances_when_criome_is_unreachable() {
     let runtime = runtime();
     let mirror_directory = tempfile::tempdir().expect("mirror temp dir");
     let component_directory = tempfile::tempdir().expect("component temp dir");
@@ -200,60 +206,63 @@ fn enabled_authorization_holds_heads_back_when_criome_is_unreachable() {
         let mut engine = armed_spirit_engine(&component_directory, "source.sema", mirror_address);
 
         // Enable cluster authorization against a socket no criome serves —
-        // the enabled gate always has a socket; reachability is the drain's
-        // problem, never ingress policy.
+        // the enabled gate always has a socket; an unreachable criome is a
+        // typed refusal to the caller, never a default-open branch.
         let missing_socket = component_directory.path().join("no-criome.sock");
-        engine.set_criome_authorization(CriomeAuthorization::Enabled(ClusterAuthorizer::new(
-            &missing_socket,
-        )));
+        engine.set_criome_authorization(CriomeAuthorization::Enabled(
+            ClusterAuthorizer::new(&missing_socket)
+                .with_session_deadline(std::time::Duration::from_secs(1)),
+        ));
         assert!(matches!(
             engine.criome_authorization(),
             CriomeAuthorization::Enabled(_)
         ));
 
-        // The LOCAL commit stands: working inputs are admitted and the head
-        // advances freely — only propagation waits on the cluster verdict.
-        record(&mut engine, "a local head advance under an enabled gate").await;
-        let local_head = engine
-            .versioned_log_head()
-            .expect("versioned head reads")
-            .expect("the local commit advanced the head");
-
-        // The drain asks the (absent) criome and decides Unreachable: the
-        // head is held, nothing ships, the suffix waits in the outbox.
-        let decision = engine
-            .drain_propagation_once()
-            .await
-            .expect("the drain completes without machinery fault")
-            .expect("a head exists to authorize");
+        // The staged intake parks the operation, the round decides
+        // Unreachable, and the OPERATION is refused: nothing recorded.
+        let staged = engine
+            .stage_working_input(Input::record(record_request(
+                "an operation refused by the everywhere-gate",
+            )))
+            .await;
+        let spirit::StagedIntake::Parked(mut advance) = staged else {
+            panic!("a head advance under an enabled gate parks, got {staged:?}");
+        };
+        advance.resolve().await;
+        let reply = engine.conclude_staged_advance(advance).await;
         assert!(
-            matches!(decision, GateDecision::Unreachable),
-            "an unreachable criome holds the head back, got {decision:?}"
+            matches!(&reply, Output::AdvanceRefused(refused)
+                if refused.payload().payload()
+                    == &spirit::schema::signal::AdvanceRefusalReason::Unreachable),
+            "an unreachable criome refuses the operation, got {reply:?}"
         );
+
+        // The head did NOT advance — not even locally — and no trace exists
+        // in the store or outbox.
+        assert!(
+            engine
+                .versioned_log_head()
+                .expect("versioned head reads")
+                .is_none(),
+            "a refused operation never advances the head"
+        );
+        assert_eq!(engine.record_count(), 0, "nothing was recorded anywhere");
         let handle = engine.store().engine_handle();
+        assert!(
+            handle.unshipped_outbox().expect("outbox reads").is_empty(),
+            "a refused operation leaves no outbox trace"
+        );
         assert_eq!(
             handle.store_durability().expect("durability reads"),
-            Durability::QueuedForMirror,
-            "an unauthorized head must not ship"
-        );
-        assert!(
-            !handle.unshipped_outbox().expect("outbox reads").is_empty(),
-            "the held-back history stays unshipped in the outbox"
+            Durability::ServerCommitted,
+            "an empty log has nothing queued for the mirror"
         );
 
-        // Reads stay served, and the local head is untouched by the refusal.
+        // Reads stay served throughout.
         let version = engine.handle_async(Input::Version).await.into_root();
         assert!(
             matches!(version, Output::VersionReported(_)),
             "reads stay admitted while authorization is enabled, got {version:?}"
-        );
-        assert_eq!(
-            engine
-                .versioned_log_head()
-                .expect("versioned head reads")
-                .expect("the local head remains"),
-            local_head,
-            "holding propagation back never rolls the local commit back"
         );
     });
 }

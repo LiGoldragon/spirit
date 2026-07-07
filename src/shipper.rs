@@ -197,11 +197,12 @@ impl MirrorShipper {
             CommitSequence::new(*receipt.head_mark.commit_sequence.payload()),
             EntryDigest::new(*receipt.head_mark.entry_digest.payload().payload()),
         );
-        shipper.engine().acknowledge_mirror(head).map_err(|source| {
-            MirrorShipperError::AuthorizedSuffix {
+        shipper
+            .engine()
+            .acknowledge_mirror(head)
+            .map_err(|source| MirrorShipperError::AuthorizedSuffix {
                 detail: source.to_string(),
-            }
-        })?;
+            })?;
         Ok(Some(ShipOutcome::Shipped { head }))
     }
 

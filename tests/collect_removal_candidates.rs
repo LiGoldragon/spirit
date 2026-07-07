@@ -13,10 +13,10 @@
 
 mod support;
 
-use support::domain_fixtures;
 use std::path::Path;
 use std::thread;
 use std::time::{Duration, Instant};
+use support::domain_fixtures;
 
 use spirit::schema::meta_signal::{
     ArchiveDatabaseTarget, CollectRemovalCandidatesRequest, ConfigureRequest, Output as MetaOutput,

@@ -2351,7 +2351,7 @@ fn sema_engine_expands_symmetric_domain_equivalence_without_chaining() {
         &store,
         sema_read_message(
             sema_observe(query_with_domain_scopes(domain_scopes_from_scopes(&[
-                DomainScope::Information(Information::Database),
+                DomainScope::Information(signal_domain::InformationScope::Database),
             ]))),
             4,
         ),

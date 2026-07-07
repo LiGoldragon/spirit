@@ -5,7 +5,7 @@ use sema_engine::{
     SchemaHash, SchemaVersion, TableDescriptor, TableName, TableReference,
 };
 
-#[cfg(feature = "mirror-shipper")]
+#[cfg(feature = "criome-gate")]
 use crate::schema::signal::Input;
 use crate::{
     schema::{
@@ -138,21 +138,21 @@ impl GuardianOperation {
         }
     }
 
-    #[cfg(feature = "mirror-shipper")]
+    #[cfg(feature = "criome-gate")]
     pub(crate) fn authorization_context(
         &self,
         target_key: signal_criome::SpiritProcessKey,
     ) -> signal_criome::SpiritAuthorizationContext {
         signal_criome::SpiritAuthorizationContext {
-            operation_name: signal_criome::SpiritOperationName::new(self.name()),
-            raw_payload: signal_criome::RawSpiritOperationPayload::new(nota::NotaEncode::to_nota(
-                &self.as_signal_input(),
-            )),
-            target_key,
+            spirit_operation_name: signal_criome::SpiritOperationName::new(self.name()),
+            raw_spirit_operation_payload: signal_criome::RawSpiritOperationPayload::new(
+                nota::NotaEncode::to_nota(&self.as_signal_input()),
+            ),
+            spirit_process_key: target_key,
         }
     }
 
-    #[cfg(feature = "mirror-shipper")]
+    #[cfg(feature = "criome-gate")]
     fn as_signal_input(&self) -> Input {
         match self {
             Self::Record(request) => Input::record(request.clone()),

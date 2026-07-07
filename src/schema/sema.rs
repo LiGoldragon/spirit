@@ -22,7 +22,7 @@ pub use signal_spirit::schema::signal::Referents as Referents;
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::Aliases as Aliases;
 #[rustfmt::skip]
-pub use signal_spirit::schema::signal::DomainScopes as DomainScopes;
+pub use signal_domain::schema::domain::DomainScopes as DomainScopes;
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::SearchText as SearchText;
 #[rustfmt::skip]

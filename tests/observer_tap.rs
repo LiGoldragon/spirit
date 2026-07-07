@@ -13,7 +13,6 @@
 
 mod support;
 
-use support::domain_fixtures;
 use spirit::schema::signal::{
     CertaintySelection, Description, DomainMatch, DomainScopes, Domains, Entry,
     ImportanceSelection, Input, Justification, Kind, Magnitude, ObserverFilter, OperationKind,
@@ -21,6 +20,7 @@ use spirit::schema::signal::{
     Testimony, VerbatimQuote,
 };
 use spirit::{Engine, Store};
+use support::domain_fixtures;
 use tempfile::TempDir;
 
 fn entry(description: &str) -> Entry {

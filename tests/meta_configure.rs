@@ -11,11 +11,11 @@
 
 mod support;
 
-use support::domain_fixtures;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::thread;
 use std::time::{Duration, Instant};
+use support::domain_fixtures;
 
 use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest, Output as MetaOutput};
 #[cfg(feature = "agent-guardian")]

@@ -1,5 +1,5 @@
-//! THE CLUSTER-AUTHORIZATION LOOPCHECK (§3.7):
-//! `spirit-cluster-authorizes-head-advance-over-router-test`.
+//! THE EVERYWHERE-GATE LOOPCHECK (§3.9):
+//! `spirit-cluster-gates-acceptance-over-router-test`.
 //!
 //! Real throughout, following the founding proof's node shape
 //! (`router-two-hosts-found-root-over-router-test`): two node directories,
@@ -9,54 +9,50 @@
 //! cluster authorizer over the working socket) and an in-process mirror as
 //! the ship target, plus a SHORT quorum window (seconds).
 //!
-//! Sequence and witnessed claims (batch, refusal, catch-up):
+//! Sequence and witnessed claims (residue, acceptance, refusal, supersession):
 //!
 //!   1. Found the 2-of-2 root over the router (the founding drive: initiate
 //!      on A, explicit accepts on both meta sockets, Founded on both).
-//!   2. BATCHED AUTHORIZED ADVANCE: record TWO entries on spirit A → drive
-//!      the drain → ONE quorum round authorizes the batch head → the gate
-//!      decision is Authorized with the authorized digest equal to the
-//!      SECOND entry's digest, both entries ship (cursor at the head), and
-//!      criome B holds the committed round for that ONE object — its ledger
-//!      witnessed one round, not two.
-//!   3. REFUSED ADVANCE (quorum can't complete): stop node B's router,
-//!      record a third entry → drive the drain → the round stays Gathering,
-//!      the window expires, Expired is pushed → the decision is a typed
-//!      refusal, nothing ships, spirit A's LOCAL head still advanced (the
-//!      local commit stands), and the outbox still holds the suffix.
-//!   4. CATCH-UP RETRY AFTER REFUSAL: record a FOURTH entry (the head moves
-//!      past the refused proposal), restore node B, drive the drain →
-//!      criome A first completes the recorded round for the refused batch
-//!      head, then authorizes the new head; the grant binds the fourth
-//!      entry's digest; the whole suffix ships. (§3.4's no-wedge property,
-//!      end to end.)
-//!   5. THE REAL DAEMON MAIL PATH (audit F1): `notify_head_advanced` /
-//!      `drain_serialized` — the exact path the daemon fires after EVERY
-//!      working input, which the direct `drain_propagation_once` drives
-//!      above bypass. An idle mail lands right after the granted ship (the
-//!      Observe-after-grant re-ask, nothing unshipped), then a FIFTH entry
-//!      ships through the mail-driven drain.
-//!   6. A coalesced TWO-COMMIT BURST through the mail path: the coalescing
-//!      re-pass runs against a just-granted head — pre-fix, that re-pass
-//!      durably poisoned criome's ledger with the self-loop veto row.
-//!   7. A post-burst EIGHTH entry still grants and ships via mail — the
-//!      standing-head re-asks left no poison anywhere.
+//!   2. DISABLED-ERA RESIDUE: with the gate Disabled, record TWO entries on
+//!      spirit A — accepted immediately, nothing propagates. Enable the gate.
+//!   3. ACCEPTED ADVANCE COVERING RESIDUE: stage a THIRD entry through the
+//!      intake gate → the round proposes its PROSPECTIVE head; the caller's
+//!      reply arrives only after the grant; the head advances to the third
+//!      entry's digest, ONE round covered the residue transitively (criome
+//!      B's ledger holds the committed round for the third head and NO round
+//!      for the residue digests), and all three entries ship.
+//!   4. REFUSED ADVANCE — THE CORRECTED OUTCOME: stop node B's router, stage
+//!      a FOURTH entry → the round stays Gathering, the window expires,
+//!      Expired is pushed → the caller receives `AdvanceRefused(Expired)`,
+//!      the head did NOT advance (still the third entry's digest), the
+//!      record count is unchanged, no store or outbox trace of the fourth
+//!      operation exists, and reads served normally throughout the round.
+//!   5. SUPERSESSION RETRY: restore B; stage a FIFTH entry (a different
+//!      operation, hence a different prospective digest from the same head)
+//!      → criome A supersedes the dead round's row and originates fresh →
+//!      granted → the head advances to the fifth entry's digest and it
+//!      ships. (§3.3's dead-round supersession, end to end.)
+//!   6. THE SHIP MAIL PATH: materialization fires "head advanced" mail; the
+//!      drain re-asks at ship time and short-circuits to the immediate
+//!      re-grant of the standing committed head — witnessed by a coalesced
+//!      two-advance burst and a post-burst advance all shipping with no
+//!      ledger poison anywhere.
 //!
-//! Falsification: if spirit bypassed criome, step 3 would ship; if the parse
-//! trusted status without the grant, a crafted Granted-without-grant criome
-//! would ship (see tests/cluster_gate_session.rs); if the catch-up rule were
-//! missing, step 4 would self-refuse with QuorumConflict and never grant; if
-//! a standing-head re-ask recorded the self-loop row `(contract, D) → D`,
-//! steps 5 and 7 would never ship (every successor would expire forever).
+//! Falsification: if spirit bypassed criome, step 4 would accept and advance
+//! the head; if the parse trusted status without the grant, a crafted
+//! Granted-without-grant criome would accept (see
+//! tests/cluster_gate_session.rs); if dead-round supersession were missing,
+//! step 5 would refuse forever with a conflict; if staging leaked, step 4
+//! would leave an observable trace.
 
 mod support;
 
-use support::domain_fixtures;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use support::domain_fixtures;
 
 use criome::conveyance::{PeerActorRoute, RouterSubmission};
 use criome::daemon::CriomeDaemon;
@@ -91,11 +87,10 @@ use spirit::schema::meta_signal::{
 };
 use spirit::schema::sema::RecordFamily;
 use spirit::schema::signal::{
-    Certainty, Description, Entry, Importance, Input, Justification, Kind, Magnitude,
-    Output, Privacy, QuoteText, Reasoning, RecordRequest, Referent, Referents, Testimony,
-    VerbatimQuote,
+    Certainty, Description, Entry, Importance, Input, Justification, Kind, Magnitude, Output,
+    Privacy, QuoteText, Reasoning, RecordRequest, Referent, Referents, Testimony, VerbatimQuote,
 };
-use spirit::{ClusterAuthorizer, CriomeAuthorization, Engine, GateDecision, GateRefusal, Store};
+use spirit::{ClusterAuthorizer, CriomeAuthorization, Engine, Store};
 use tokio::io::AsyncWriteExt;
 use tokio::net::UnixListener;
 use triad_runtime::kameo::actor::{ActorRef, Spawn};
@@ -490,6 +485,24 @@ async fn record(engine: &mut Engine, description: &str) {
     );
 }
 
+/// One head advance through the STAGED intake (§3.5): stage, run the cluster
+/// round, conclude — the reply is accepted only after the grant. The engine
+/// borrow is free while the round runs, exactly like the daemon's mailbox.
+async fn gated_record(engine: &mut Engine, description: &str) {
+    let staged = engine
+        .stage_working_input(Input::record(record_request(description)))
+        .await;
+    let spirit::StagedIntake::Parked(mut advance) = staged else {
+        panic!("a head advance under the enabled gate parks, got {staged:?}");
+    };
+    advance.resolve().await;
+    let reply = engine.conclude_staged_advance(advance).await;
+    assert!(
+        matches!(reply, Output::RecordAccepted(_)),
+        "the grant releases the held accepted reply, got {reply:?}"
+    );
+}
+
 async fn running_mirror(directory: &Path) -> (ServiceLink, SocketAddr) {
     let store = mirror::Store::open(&directory.join("mirror.sema")).expect("mirror store opens");
     let service = Service::spawn(Service::new(
@@ -529,7 +542,10 @@ fn head_object_digest(engine: &Engine) -> ObjectDigest {
     ObjectDigest::from_bytes(head.bytes())
 }
 
-fn observed_round_status(socket: &Path, round: &QuorumRoundIdentifier) -> Option<QuorumRoundStatus> {
+fn observed_round_status(
+    socket: &Path,
+    round: &QuorumRoundIdentifier,
+) -> Option<QuorumRoundStatus> {
     match CriomeClient::new(socket)
         .send(CriomeRequest::observe_quorum_round(round.clone()))
         .expect("observe quorum round")
@@ -650,205 +666,197 @@ async fn spirit_cluster_authorizes_head_advance_over_the_router() {
         None,
     ));
     assert!(matches!(configured, SpiritMetaOutput::Configured(_)));
+
+    // ── Step 2: disabled-era residue. ──────────────────────────────────────
+    // The gate is Disabled (the operative default): both records are
+    // accepted immediately, the head advances freely, and nothing
+    // propagates — the residue waits in the outbox.
+    assert_eq!(
+        engine.criome_authorization(),
+        &CriomeAuthorization::Disabled
+    );
+    record(&mut engine, "residue entry one").await;
+    record(&mut engine, "residue entry two").await;
+    let residue_first_digest = {
+        let log = engine.store().versioned_log().expect("versioned log reads");
+        assert!(log.len() >= 2, "both residue records committed locally");
+        ObjectDigest::from_bytes(log[0].entry_digest().bytes())
+    };
+    let residue_head = head_object_digest(&engine);
+    let handle = engine.store().engine_handle();
+    assert_eq!(
+        handle.store_durability().expect("durability reads"),
+        Durability::QueuedForMirror,
+        "disabled-era residue waits unshipped"
+    );
+
+    // Enable the everywhere-gate against criome A.
     engine.set_criome_authorization(CriomeAuthorization::Enabled(
         ClusterAuthorizer::new(&paths_a.working).with_session_deadline(Duration::from_secs(60)),
     ));
 
-    // ── Step 2: the batched authorized advance. ────────────────────────────
-    record(&mut engine, "batched entry one").await;
-    record(&mut engine, "batched entry two").await;
-    let first_entry_digest = {
-        // The FIRST suffix entry's digest, for the one-round-not-two ledger
-        // claim. (A record may commit auxiliary entries — referent
-        // registrations — so the suffix holds AT LEAST the two records; the
-        // batch head is the last entry either way.)
-        let log = engine.store().versioned_log().expect("versioned log reads");
-        assert!(log.len() >= 2, "both records committed locally");
-        ObjectDigest::from_bytes(log[0].entry_digest().bytes())
+    // ── Step 3: the accepted advance covering the residue. ─────────────────
+    // The intake gate stages the third entry, proposes its PROSPECTIVE head,
+    // and the caller's reply arrives only after the grant. ONE round covers
+    // the disabled-era residue transitively (the hash chain fixes every
+    // entry beneath the granted head).
+    let staged = engine
+        .stage_working_input(Input::record(record_request("the first gated entry")))
+        .await;
+    let spirit::StagedIntake::Parked(mut advance) = staged else {
+        panic!("a head advance under the enabled gate parks, got {staged:?}");
     };
-    let batch_head = head_object_digest(&engine);
-    let decision = engine
-        .drain_propagation_once()
-        .await
-        .expect("the drain completes without machinery fault")
-        .expect("a head exists to authorize");
-    match &decision {
-        GateDecision::Authorized(reference) => {
-            assert_eq!(
-                reference.digest, batch_head,
-                "the grant binds the batch head — the SECOND entry's digest"
-            );
-            assert_eq!(reference.component, ComponentKind::Spirit);
-        }
-        other => panic!("the founded 2-of-2 cluster authorizes the batch, got {other:?}"),
-    }
-    let handle = engine.store().engine_handle();
+    let third_prospective = advance.prospective_head().clone();
     assert_eq!(
-        handle.store_durability().expect("durability reads"),
-        Durability::ServerCommitted,
-        "both entries shipped — the cursor is at the authorized batch head"
+        head_object_digest(&engine),
+        residue_head,
+        "nothing is committed while the round runs — the reply is HELD"
     );
-    // Criome B's ledger witnessed ONE committed round, for the batch head —
-    // and NO round for the first entry: one authorization covered the suffix.
+    advance.resolve().await;
+    let reply = engine.conclude_staged_advance(advance).await;
+    assert!(
+        matches!(reply, Output::RecordAccepted(_)),
+        "the grant is the acceptance event, got {reply:?}"
+    );
+    let third_head = head_object_digest(&engine);
+    assert_eq!(
+        third_head,
+        ObjectDigest::from_bytes(third_prospective.bytes()),
+        "the materialized head equals the granted prospective digest"
+    );
+    // Materialization fired the ship mail; everything (residue included)
+    // ships under the one grant, fetched at ship time as the standing
+    // re-grant.
+    wait_until_settled("the residue and the gated entry to ship", || {
+        handle.store_durability().expect("durability reads") == Durability::ServerCommitted
+            && handle.unshipped_outbox().expect("outbox reads").is_empty()
+    })
+    .await;
+    // Criome B's ledger witnessed ONE committed round — for the granted
+    // head — and NO round for the residue digests.
     {
         let working_b = paths_b.working.clone();
-        let batch_head = batch_head.clone();
-        let first_entry_digest = first_entry_digest.clone();
+        let third_head = third_head.clone();
+        let residue_first_digest = residue_first_digest.clone();
+        let residue_head = residue_head.clone();
         tokio::task::spawn_blocking(move || {
-            let commit_round =
-                QuorumRoundIdentifier::for_phase(&batch_head, RoundPhase::Commit);
-            wait_until("criome B to hold the committed batch round", || {
-                observed_round_status(&working_b, &commit_round)
-                    == Some(QuorumRoundStatus::Authorized)
-            });
-            let first_entry_round =
-                QuorumRoundIdentifier::for_phase(&first_entry_digest, RoundPhase::Request);
-            assert_eq!(
-                observed_round_status(&working_b, &first_entry_round),
-                None,
-                "criome B never saw a round for the first entry — one round covered the batch"
+            let commit_round = QuorumRoundIdentifier::for_phase(&third_head, RoundPhase::Commit);
+            wait_until(
+                "criome B to hold the committed round for the granted head",
+                || {
+                    observed_round_status(&working_b, &commit_round)
+                        == Some(QuorumRoundStatus::Authorized)
+                },
             );
+            for residue_digest in [&residue_first_digest, &residue_head] {
+                let residue_round =
+                    QuorumRoundIdentifier::for_phase(residue_digest, RoundPhase::Request);
+                assert_eq!(
+                    observed_round_status(&working_b, &residue_round),
+                    None,
+                    "criome B never saw a round for a residue digest — one round covered all"
+                );
+            }
         })
         .await
         .expect("criome B ledger assertions complete");
     }
+    let record_count_after_acceptance = engine.record_count();
 
-    // ── Step 3: the refused advance — quorum can't complete. ──────────────
+    // ── Step 4: the refused advance — the corrected outcome. ───────────────
     let _ = router_b.stop_gracefully().await;
     router_b.wait_for_shutdown().await;
     drop(front_b);
-    record(&mut engine, "an entry the dark cluster must refuse").await;
-    let held_head = engine
-        .versioned_log_head()
-        .expect("versioned head reads")
-        .expect("the local commit advanced the head");
-    let refused = engine
-        .drain_propagation_once()
-        .await
-        .expect("the drain completes without machinery fault")
-        .expect("a head exists to authorize");
-    assert_eq!(
-        refused,
-        GateDecision::Refused(GateRefusal::Expired),
-        "the window expires fail-closed when the quorum cannot complete"
-    );
-    assert_eq!(
-        engine
-            .versioned_log_head()
-            .expect("versioned head reads")
-            .expect("the local head remains"),
-        held_head,
-        "the LOCAL commit stands — refusal holds propagation, never the store"
-    );
-    assert_eq!(
-        handle.store_durability().expect("durability reads"),
-        Durability::QueuedForMirror,
-        "nothing shipped under the refusal"
+    let staged = engine
+        .stage_working_input(Input::record(record_request(
+            "an entry the dark cluster must refuse",
+        )))
+        .await;
+    let spirit::StagedIntake::Parked(mut advance) = staged else {
+        panic!("the fourth advance parks awaiting the round, got {staged:?}");
+    };
+    // Reads are served normally throughout the round: the engine borrow is
+    // free while the round runs (the daemon's mailbox split, §3.5.3).
+    let (_, mid_round_reads) = tokio::join!(advance.resolve(), async {
+        let version = engine.handle_async(Input::Version).await.into_root();
+        let observed = engine
+            .handle_async(Input::public_text_search(
+                spirit::schema::signal::SearchText::new("residue"),
+            ))
+            .await
+            .into_root();
+        (version, observed)
+    });
+    assert!(
+        matches!(mid_round_reads.0, Output::VersionReported(_)),
+        "reads flow mid-round, got {:?}",
+        mid_round_reads.0
     );
     assert!(
-        !handle.unshipped_outbox().expect("outbox reads").is_empty(),
-        "the refused suffix stays in the outbox"
+        matches!(mid_round_reads.1, Output::RecordsObserved(_)),
+        "observation reads flow mid-round, got {:?}",
+        mid_round_reads.1
+    );
+    let reply = engine.conclude_staged_advance(advance).await;
+    assert!(
+        matches!(&reply, Output::AdvanceRefused(refused)
+            if refused.payload().payload()
+                == &spirit::schema::signal::AdvanceRefusalReason::Expired),
+        "the caller receives AdvanceRefused(Expired), got {reply:?}"
+    );
+    // The head did NOT advance — the operation exists nowhere.
+    assert_eq!(
+        head_object_digest(&engine),
+        third_head,
+        "the head did NOT advance under the refusal"
+    );
+    assert_eq!(
+        engine.record_count(),
+        record_count_after_acceptance,
+        "the record count is unchanged under the refusal"
+    );
+    assert!(
+        handle.unshipped_outbox().expect("outbox reads").is_empty(),
+        "no outbox trace of the refused operation exists"
+    );
+    assert!(
+        handle.staged_group().expect("slot reads").is_none(),
+        "the staging slot never survives a refusal"
     );
 
-    // ── Step 4: catch-up retry after refusal. ─────────────────────────────
-    record(&mut engine, "a fourth entry past the refused proposal").await;
-    let fourth_head = head_object_digest(&engine);
+    // ── Step 5: the supersession retry. ────────────────────────────────────
+    // A DIFFERENT operation from the SAME head: criome A supersedes the
+    // window-dead, never-committed row and originates fresh (§3.3).
     let (router_b, new_address_b, _front_b) = start_router(&paths_b, &host_id_b).await;
     home_local_criome(&router_b, &criome_beta, &paths_b.working, &criome_alpha).await;
     seed_peer_route(&router_b, &criome_alpha, &host_id_a, &address_a).await;
     seed_peer_route(&router_a, &criome_beta, &host_id_b, &new_address_b).await;
 
-    let retried = engine
-        .drain_propagation_once()
-        .await
-        .expect("the drain completes without machinery fault")
-        .expect("a head exists to authorize");
-    if !matches!(&retried, GateDecision::Authorized(_)) {
-        // Post-mortem probes: what does each node hold for the third
-        // (catch-up) and fourth heads' rounds?
-        let third_head = ObjectDigest::from_bytes(held_head.bytes());
-        for (label, socket) in [("A", &paths_a.working), ("B", &paths_b.working)] {
-            for phase in [RoundPhase::Request, RoundPhase::Commit] {
-                let round = QuorumRoundIdentifier::for_phase(&third_head, phase);
-                let socket_clone = socket.clone();
-                let round_clone = round.clone();
-                let status = tokio::task::spawn_blocking(move || {
-                    observed_round_status(&socket_clone, &round_clone)
-                })
-                .await
-                .expect("probe joins");
-                eprintln!("probe: node {label} {phase:?} round for THIRD head: {status:?}");
-            }
-        }
-        for (label, socket) in [("A", &paths_a.working), ("B", &paths_b.working)] {
-            for phase in [RoundPhase::Request, RoundPhase::Commit] {
-                let round = QuorumRoundIdentifier::for_phase(&fourth_head, phase);
-                let socket = socket.clone();
-                let round_clone = round.clone();
-                let status = tokio::task::spawn_blocking(move || {
-                    observed_round_status(&socket, &round_clone)
-                })
-                .await
-                .expect("probe joins");
-                eprintln!("probe: node {label} {phase:?} round for fourth head: {status:?}");
-            }
-        }
-    }
-    match &retried {
-        GateDecision::Authorized(reference) => {
-            assert_eq!(
-                reference.digest, fourth_head,
-                "after catch-up the grant binds the FOURTH entry's digest"
-            );
-        }
-        other => panic!(
-            "the catch-up rule completes the recorded round then authorizes the new head, \
-             got {other:?}"
-        ),
-    }
-    assert_eq!(
-        handle.store_durability().expect("durability reads"),
-        Durability::ServerCommitted,
-        "the whole suffix shipped after the catch-up grant"
+    gated_record(&mut engine, "a fifth entry superseding the dead round").await;
+    let fifth_head = head_object_digest(&engine);
+    assert_ne!(
+        fifth_head, third_head,
+        "the head advanced to the fifth entry's digest"
     );
-    assert!(
-        handle.unshipped_outbox().expect("outbox reads").is_empty(),
-        "the outbox drained to the authorized head"
-    );
-
-    // ── Step 5: the REAL daemon mail path — the idle re-ask after a grant. ─
-    // The daemon fires `notify_head_advanced` after EVERY working input,
-    // reads included, so this mail lands with NOTHING unshipped — exactly
-    // the Observe-after-grant re-ask of the standing committed head where
-    // audit F1's poison was minted. The pass must leave criome's ledger
-    // clean, witnessed by the NEXT advance shipping through the same mail
-    // path.
-    engine.notify_head_advanced();
-    record(&mut engine, "a fifth entry after the idle mail").await;
-    engine.notify_head_advanced();
-    wait_until_settled("the fifth entry to ship over the mail-driven drain", || {
+    wait_until_settled("the superseding entry to ship", || {
         handle.store_durability().expect("durability reads") == Durability::ServerCommitted
             && handle.unshipped_outbox().expect("outbox reads").is_empty()
     })
     .await;
 
-    // ── Step 6: a coalesced two-commit burst through the mail path. ────────
-    // Two commits land back to back, each pushing mail; the drain coalesces
-    // them, and its re-pass runs against a just-granted head — pre-fix, THAT
-    // re-pass durably poisoned the ledger.
-    record(&mut engine, "burst entry six").await;
-    engine.notify_head_advanced();
-    record(&mut engine, "burst entry seven").await;
-    engine.notify_head_advanced();
-    wait_until_settled("the two-commit burst to ship over the coalesced drain", || {
-        handle.store_durability().expect("durability reads") == Durability::ServerCommitted
-            && handle.unshipped_outbox().expect("outbox reads").is_empty()
-    })
+    // ── Step 6: the ship mail path — a coalesced burst and a post-burst
+    // advance, every ship a standing-head re-grant with no ledger poison. ───
+    gated_record(&mut engine, "burst entry six").await;
+    gated_record(&mut engine, "burst entry seven").await;
+    wait_until_settled(
+        "the two-advance burst to ship over the coalesced drain",
+        || {
+            handle.store_durability().expect("durability reads") == Durability::ServerCommitted
+                && handle.unshipped_outbox().expect("outbox reads").is_empty()
+        },
+    )
     .await;
-
-    // ── Step 7: the post-burst advance still grants — no poison anywhere. ──
-    record(&mut engine, "an eighth entry after the burst").await;
-    engine.notify_head_advanced();
+    gated_record(&mut engine, "an eighth entry after the burst").await;
     wait_until_settled(
         "the post-burst entry to ship — the standing-head re-asks left no poison",
         || {

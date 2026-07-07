@@ -195,9 +195,9 @@ pub struct Nexus {
     guardian: Option<crate::guardian::AgentGuardian>,
     #[cfg(feature = "agent-guardian")]
     guardian_required: bool,
-    #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+    #[cfg(all(feature = "agent-guardian", feature = "criome-gate"))]
     operation_authorizer: crate::criome_gate::SpiritOperationAuthorizer,
-    #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+    #[cfg(all(feature = "agent-guardian", feature = "criome-gate"))]
     operation_authorization_mode: signal_spirit::AuthorizationMode,
     subscription_token_issuer: SubscriptionTokenIssuer,
     #[cfg(feature = "testing-trace")]
@@ -277,9 +277,9 @@ impl Nexus {
                 guardian: None,
                 #[cfg(feature = "agent-guardian")]
                 guardian_required: false,
-                #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+                #[cfg(all(feature = "agent-guardian", feature = "criome-gate"))]
                 operation_authorizer: crate::criome_gate::SpiritOperationAuthorizer::new(),
-                #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+                #[cfg(all(feature = "agent-guardian", feature = "criome-gate"))]
                 operation_authorization_mode: signal_spirit::AuthorizationMode::Gating,
                 subscription_token_issuer: SubscriptionTokenIssuer::default(),
             }
@@ -298,9 +298,9 @@ impl Nexus {
             guardian: None,
             #[cfg(feature = "agent-guardian")]
             guardian_required: false,
-            #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+            #[cfg(all(feature = "agent-guardian", feature = "criome-gate"))]
             operation_authorizer: crate::criome_gate::SpiritOperationAuthorizer::new(),
-            #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+            #[cfg(all(feature = "agent-guardian", feature = "criome-gate"))]
             operation_authorization_mode: signal_spirit::AuthorizationMode::Gating,
             subscription_token_issuer: SubscriptionTokenIssuer::default(),
             trace_log,
@@ -382,7 +382,7 @@ impl Nexus {
             .map(|guardian| guardian.intent_guardian_system_prompt())
     }
 
-    #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+    #[cfg(all(feature = "agent-guardian", feature = "criome-gate"))]
     pub fn set_operation_authorization_mode(
         &mut self,
         authorization_mode: signal_spirit::AuthorizationMode,
@@ -390,12 +390,12 @@ impl Nexus {
         self.operation_authorization_mode = authorization_mode;
     }
 
-    #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+    #[cfg(all(feature = "agent-guardian", feature = "criome-gate"))]
     pub fn configure_operation_authorizer(&mut self, socket: impl Into<std::path::PathBuf>) {
         self.operation_authorizer.configure_socket(socket);
     }
 
-    #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+    #[cfg(all(feature = "agent-guardian", feature = "criome-gate"))]
     pub fn clear_operation_authorizer(&mut self) {
         self.operation_authorizer.clear();
     }
@@ -987,7 +987,7 @@ impl Nexus {
         NexusEffectResult::operation_failed(ErrorReport::new(ErrorMessage::new(message.into())))
     }
 
-    #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+    #[cfg(all(feature = "agent-guardian", feature = "criome-gate"))]
     async fn authorize_guardian_operation(
         &self,
         operation: &GuardianOperation,
@@ -1006,7 +1006,7 @@ impl Nexus {
         }
     }
 
-    #[cfg(all(feature = "agent-guardian", not(feature = "mirror-shipper")))]
+    #[cfg(all(feature = "agent-guardian", not(feature = "criome-gate")))]
     async fn authorize_guardian_operation(
         &self,
         _operation: &GuardianOperation,
@@ -1299,14 +1299,14 @@ impl Nexus {
             Input::Marker => {
                 NexusAction::reply_to_signal(Output::marker_reported(self.database_marker()))
             }
-            // The authorized-apply ingress is retired together with the
-            // spirit-side quorum (primary-6kz1), and the 1-of-1 LOCAL criome
-            // authorization path is deleted with it: head authorization now
-            // waits on the criome-cluster authorization flow behind the
-            // dormant criome_gate seam, and Spirit never accepts a foreign
-            // authorized-record apply on the working socket. The contract
-            // retains the variant, so the daemon answers it fail-closed — no
-            // criome round-trip, no store write.
+            // The authorized-apply ingress stays parked until the §4
+            // propagation slice reactivates it in batch form
+            // (acceptance-by-verification at the receiving criome — it is
+            // NOT intake-gated: the carried authorization already happened).
+            // Until then Spirit never accepts a foreign authorized-record
+            // apply on the working socket; the contract retains the variant,
+            // so the daemon answers it fail-closed — no criome round-trip,
+            // no store write.
             Input::ApplyAuthorizedRecord(_) => NexusAction::reply_to_signal(Output::apply_refused(
                 ApplyRefusal::new(ApplyRefusalReason::AuthorizationUnavailable),
             )),

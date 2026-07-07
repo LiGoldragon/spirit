@@ -5,7 +5,7 @@
   Referent signal-spirit:signal:Referent
   Referents signal-spirit:signal:Referents
   Aliases signal-spirit:signal:Aliases
-  DomainScopes signal-spirit:signal:DomainScopes
+  DomainScopes signal-domain:domain:DomainScopes
   SearchText signal-spirit:signal:SearchText
   CertaintyChange signal-spirit:signal:CertaintyChange
   ImportanceBump signal-spirit:signal:ImportanceBump

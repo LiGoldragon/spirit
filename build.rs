@@ -39,7 +39,7 @@ impl SchemaBuild {
             DependencySchema::from_cargo_metadata("signal-domain", "signal-domain", "0.1.0")
                 .expect("read signal-domain schema metadata");
         let Some(signal_spirit) =
-            DependencySchema::from_cargo_metadata("signal-spirit", "signal-spirit", "0.12.0")
+            DependencySchema::from_cargo_metadata("signal-spirit", "signal-spirit", "0.13.0")
                 .expect("read signal-spirit schema metadata")
         else {
             return;
@@ -54,7 +54,7 @@ impl SchemaBuild {
             return;
         };
 
-        let plan = GenerationPlan::new(&self.crate_root, "spirit", "0.5.0")
+        let plan = GenerationPlan::new(&self.crate_root, "spirit", "0.6.0")
             .with_optional_dependency_schema(signal_domain)
             .with_dependency_schema(signal_spirit)
             .with_dependency_schema(meta_signal_spirit)

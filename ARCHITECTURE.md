@@ -252,8 +252,8 @@ authorization is governed by the spirit-side `CriomeAuthorization` option
 instead (see the mirroring section below). The earlier 1-of-1 local head
 authorization — a co-resident criome daemon authorizing the content-addressed
 head with a single local signature — is DELETED, not kept as a mode;
-criome-cluster authorization is the coming step that will drive the dormant
-head seam. Production alignment and orchestration rely on Spirit and do not
+criome-cluster authorization is LIVE as the everywhere-gate on the intake
+path (see the mirroring section below). Production alignment and orchestration rely on Spirit and do not
 depend on Mind; Mind stays future/non-production until the psyche marks it
 production-ready. It also carries the daemon's meta slot as `meta_socket_path`.
 The field is optional in the data type because the shared
@@ -282,28 +282,44 @@ accessor) and replies with the now-active target plus the live database marker.
 `ConfigureRequest` also carries the optional mirror, criome-gate, and
 guardian-prompt targets the same operation applies in one owner round-trip;
 each is runtime policy applied to the live engine, not a SEMA log write, and
-echoed in the `Configured` receipt. The criome-gate target no longer arms a
-head authorizer — it configures only the guardian operation authorizer.
+echoed in the `Configured` receipt. The criome-gate target arms BOTH the
+cluster acceptance gate (`CriomeAuthorization::Enabled` with the cluster
+authorizer at the given socket) and, under the guardian, the operation-level
+authorizer at the same socket; `Default` or absence disarms both. Enabling
+the gate also resolves any crash-parked staged group (§3.8 recovery) and
+fires one residue-reconcile ship mail.
 
 Mirroring is not a separate component: it is how Spirit operates over criome and
 the sema mirror. Spirit knows NOTHING about quorums (primary-6kz1): it constructs
-no proposal, holds no round state, and names no threshold. Whether heads are
-subject to criome authorization at all is the spirit-side `CriomeAuthorization`
-option, a closed typed enum on the `CriomeGate` seam. `Disabled` is the
-operative default until criome-cluster authorization is ready: Spirit runs
-fully local — heads advance freely, nothing propagates, and the whole
-authorize-and-ship seam (`Engine::gate_and_ship_head` →
-`CriomeGate::authorize_head` → `MirrorShipper::ship_unshipped`) stays in
-place, dormant. This lets spirit development continue on main with no spirit
-branch. `Enabled` demands criome authorization for every head advance: no
-cluster authorizer exists yet, so a head-advancing working input is refused
-fail-closed BEFORE any pipeline write, and a pre-existing head is held back
-`Unconfigured` — never last-writer-wins. The earlier 1-of-1 LOCAL criome
-authorization path (co-resident criome Unix socket + deploy-config attestor,
-socket-only bootstrap included) is DELETED, not kept as a mode; the coming
-criome-cluster authorization flow owns the seam and will wire a real cluster
-authorizer behind `CriomeGate::authorize_head`, whose `Authorized` decision is
-the only one that releases the mirror ship. There is NO spirit-side apply ingress: Spirit
+no proposal, holds no round state, and names no threshold. Whether acceptance
+itself is subject to criome authorization is the spirit-side
+`CriomeAuthorization` option, a closed typed enum on the `CriomeGate` seam
+(its own `criome-gate` feature — acceptance gating is never compiled out with
+shipping). `Disabled` is the operative default: Spirit runs fully local —
+heads advance freely, nothing propagates. `Enabled` is THE EVERYWHERE-GATE
+(the 2026-07-07 psyche correction): the quorum gates acceptance everywhere,
+including locally. A head-advancing working input runs stage → authorize →
+materialize: the nexus pipeline builds its operation group over the
+sema-engine staging session (reads against committed state plus the in-group
+overlay, nothing committed), the group durably parks with its PROSPECTIVE
+head digest, the connection task drains the criome authorization session
+outside the engine mailbox (reads keep flowing; head advances serialize
+first-in first-out through the shared advance gate), and only the pushed
+cluster grant materializes the group — one atomic transaction — and releases
+the held accepted reply. Every other terminal verdict (`Denied`, `Expired`,
+`Unavailable`, `Unreachable`, or a gate machinery fault) refuses the
+OPERATION to the caller as `Output::AdvanceRefused` with its closed reason,
+and the staged group is discarded: nothing is recorded anywhere, fail-closed,
+no default-open branch. The durable staging slot exists for crash windows
+only (§3.8): an occupied slot at daemon start refuses head advances until an
+owner `Configure` re-enables the gate and recovery re-asks with the parked
+digest — a recovery grant MUST materialize (the cluster already accepted the
+operation), a refusal discards. Shipping is pure DISTRIBUTION of accepted
+state: on each materialization the ship drain receives "head advanced" mail
+and ships the unshipped suffix, re-fetching the standing committed head's
+immediate re-grant at ship time (no new cluster round); the ONE genuinely new
+drain round is disabled-era residue, covered transitively by a single batch
+grant. There is NO spirit-side apply ingress: Spirit
 does not accept a foreign authorized-record apply on its working socket. The
 `signal-spirit` contract retains the working-tier `ApplyAuthorizedRecord` variant
 for wire compatibility, but the daemon answers it fail-closed with

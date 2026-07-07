@@ -27,7 +27,7 @@
 #![forbid(unsafe_code)]
 
 pub mod config;
-#[cfg(feature = "mirror-shipper")]
+#[cfg(feature = "criome-gate")]
 pub mod criome_gate;
 pub mod daemon;
 pub mod engine;
@@ -40,10 +40,10 @@ mod guardian_prompt;
 pub mod meta_transport;
 pub mod nexus;
 mod plane;
-#[cfg(feature = "mirror-shipper")]
-pub mod propagation;
 #[cfg(feature = "production-migration")]
 pub mod production_migration;
+#[cfg(feature = "mirror-shipper")]
+pub mod propagation;
 #[cfg(feature = "nota-text")]
 pub mod render;
 #[cfg(feature = "mirror-shipper")]
@@ -81,14 +81,16 @@ pub mod schema {
 }
 
 pub use config::{Configuration, ConfigurationError};
-#[cfg(feature = "mirror-shipper")]
+#[cfg(feature = "criome-gate")]
 pub use criome_gate::{
     ClusterAuthorizer, CriomeAuthorization, CriomeGate, CriomeGateError, GateDecision, GateRefusal,
-    HeadSessionBinding, LocalHeadCapture,
+    HeadSessionBinding, LocalHeadCapture, StagedHeadAdvance,
 };
 pub use daemon::{Daemon, SpiritDaemon, SpiritDaemonError};
 #[cfg(feature = "mirror-shipper")]
 pub use engine::GateAndShipError;
+#[cfg(feature = "criome-gate")]
+pub use engine::StagedIntake;
 pub use engine::{
     Engine, MailIdentifier, MailLedger, MailLedgerEvent, MailLedgerHook, MessageIdentifier,
     MessageProcessed, MessageProcessedHook, MessageSent, MessageSentHook, OriginRoute,

@@ -62,6 +62,7 @@ const PUBLIC_TEXT_SEARCH_LIMIT: usize = 25;
 
 #[cfg(feature = "agent-guardian")]
 use crate::schema::signal::{RegisteredReferent, RegisteredReferents, SelectedKind};
+use signal_spirit::SpiritDomainScopes;
 
 #[cfg(feature = "testing-trace")]
 use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
@@ -1603,12 +1604,9 @@ impl PublicIntentQuery {
     }
 
     fn matches_requested_scope(&self, entry: &Entry, requested_scope: &DomainScope) -> bool {
-        let Some(requested_domain) = requested_scope.to_domain() else {
-            return true;
-        };
         entry.domains.payload().iter().any(|record_domain| {
-            requested_scope.matches_spirit_domain(record_domain)
-                || DomainScope::from(record_domain.clone()).matches_spirit_domain(&requested_domain)
+            requested_scope.expand().matches_domain(record_domain)
+                || DomainScope::from(record_domain.clone()).matches_scope(requested_scope)
         })
     }
 }
@@ -1712,56 +1710,11 @@ impl DomainStoreExt for Domain {
     }
 }
 
-pub trait DomainScopeStoreExt {
-    fn to_domain(&self) -> Option<Domain>;
-    fn matches_spirit_domain(&self, domain: &Domain) -> bool;
-}
-
-impl DomainScopeStoreExt for DomainScope {
-    fn to_domain(&self) -> Option<Domain> {
-        match self {
-            DomainScope::All => None,
-            DomainScope::Health(payload) => Some(Domain::Health(*payload)),
-            DomainScope::Food(payload) => Some(Domain::Food(*payload)),
-            DomainScope::Home(payload) => Some(Domain::Home(*payload)),
-            DomainScope::Finance(payload) => Some(Domain::Finance(*payload)),
-            DomainScope::Work(payload) => Some(Domain::Work(*payload)),
-            DomainScope::Craft(payload) => Some(Domain::Craft(*payload)),
-            DomainScope::Knowledge(payload) => Some(Domain::Knowledge(*payload)),
-            DomainScope::Education(payload) => Some(Domain::Education(*payload)),
-            DomainScope::Language(payload) => Some(Domain::Language(*payload)),
-            DomainScope::Art(payload) => Some(Domain::Art(*payload)),
-            DomainScope::Kinship(payload) => Some(Domain::Kinship(*payload)),
-            DomainScope::Selfhood(payload) => Some(Domain::Selfhood(*payload)),
-            DomainScope::Spirituality(payload) => Some(Domain::Spirituality(*payload)),
-            DomainScope::Governance(payload) => Some(Domain::Governance(*payload)),
-            DomainScope::Law(payload) => Some(Domain::Law(*payload)),
-            DomainScope::Community(payload) => Some(Domain::Community(*payload)),
-            DomainScope::Nature(payload) => Some(Domain::Nature(*payload)),
-            DomainScope::Travel(payload) => Some(Domain::Travel(*payload)),
-            DomainScope::Commerce(payload) => Some(Domain::Commerce(*payload)),
-            DomainScope::Leisure(payload) => Some(Domain::Leisure(*payload)),
-            DomainScope::Appearance(payload) => Some(Domain::Appearance(*payload)),
-            DomainScope::Safety(payload) => Some(Domain::Safety(*payload)),
-            DomainScope::Information(payload) => Some(Domain::Information(*payload)),
-            DomainScope::Technology(payload) => Some(Domain::Technology(payload.clone())),
-        }
-    }
-
-    fn matches_spirit_domain(&self, domain: &Domain) -> bool {
-        let Some(scope) = self
-            .to_domain()
-            .and_then(|domain| domain.to_signal_domain())
-            .map(signal_domain::DomainScope::from)
-        else {
-            return true;
-        };
-        let Some(domain) = domain.to_signal_domain() else {
-            return true;
-        };
-        scope.expand().matches_domain(&domain)
-    }
-}
+// The old `DomainScopeStoreExt` (scope→domain round-trip plus a hand-rolled
+// prefix match) is retired: the shared `signal-domain` contract owns the
+// scope-matching surface (`DomainScope::matches_domain` / `matches_scope`,
+// equivalence expansion through `DomainScope::expand`, and
+// `DomainScopes::matches_any_domain`), and spirit consumes it directly.
 
 pub trait EntryStoreExt {
     fn matches(&self, query: &Query) -> bool;
@@ -1797,17 +1750,15 @@ impl EntryStoreExt for Entry {
         }
         match domain_match {
             DomainMatch::Any => true,
-            DomainMatch::Partial(scopes) => scopes.payload().iter().any(|scope| {
-                self.domains
-                    .payload()
-                    .iter()
-                    .any(|domain| scope.matches_spirit_domain(domain))
-            }),
+            DomainMatch::Partial(scopes) => {
+                scopes.payload().matches_any_domain(self.domains.payload())
+            }
             DomainMatch::Full(scopes) => scopes.payload().iter().all(|scope| {
+                let expanded = scope.expand();
                 self.domains
                     .payload()
                     .iter()
-                    .any(|domain| scope.matches_spirit_domain(domain))
+                    .any(|domain| expanded.matches_domain(domain))
             }),
         }
     }

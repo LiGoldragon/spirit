@@ -1,11 +1,15 @@
-//! The criome head-authorization seam (Spirit `xhwa`) — LIVE.
+//! The criome acceptance gate (Spirit `xhwa`, corrected 2026-07-07 to the
+//! everywhere-gate) — LIVE.
 //!
-//! A spirit working commit lands LOCALLY first (the durable SEMA log write in
-//! `Engine::handle_async`). Before that committed head fans out, the
-//! propagation drain asks this gate to authorize the content-addressed head
-//! `D` — the head of the WHOLE unshipped suffix (one authorization covers the
-//! hash-chained batch) — and ships only on an explicit
-//! [`GateDecision::Authorized`].
+//! **The quorum gates acceptance everywhere, including locally.** With the
+//! gate `Enabled`, a head-advancing working operation is STAGED — its
+//! would-be log entries are built and durably parked WITHOUT committing —
+//! and this gate asks the local criome to authorize the PROSPECTIVE head
+//! digest `D` the staged group would produce. Only the pushed cluster grant
+//! materializes the group and releases the held accepted reply; every other
+//! terminal verdict refuses the operation to the caller and the staged group
+//! is discarded — the head does not advance, not even locally, and nothing
+//! propagates because nothing exists. The grant is the acceptance event.
 //!
 //! The authorizer is the CLUSTER authorizer: spirit submits one typed
 //! question over its local criome working socket ("authorize this head
@@ -17,26 +21,31 @@
 //! never verifies BLS locally — the socket is the trust boundary, and the
 //! full cryptographic re-judgment happens where the authorization crosses a
 //! real boundary (the receiving node's criome). Spirit's own checks are the
-//! closed binding matrix in [`HeadSessionBinding::verdict`]: slot binding,
+//! closed binding matrix in [`HeadSessionBinding::decide`]: slot binding,
 //! digest binding, grant presence and grant binding. Every violation is a
-//! [`CriomeGateError`] and every fault holds the head — there is no
+//! [`CriomeGateError`] and every fault refuses the operation — there is no
 //! default-open branch anywhere in this parse.
 //!
 //! Whether the seam runs at all is the gate's [`CriomeAuthorization`] policy:
-//! `Disabled` (the operative default) keeps the whole authorize-and-ship seam
-//! dormant — heads advance freely and nothing propagates; `Enabled` carries
-//! the [`ClusterAuthorizer`] (the criome socket) and demands cluster
-//! authorization for every head advance. An enabled gate whose criome is
-//! unreachable holds every head back — the local commit stands, the outbox
-//! waits, fail-closed.
+//! `Disabled` (the operative default) keeps the whole seam dormant — spirit
+//! fully local, heads advance freely, nothing propagates; `Enabled` carries
+//! the [`ClusterAuthorizer`] (the criome socket) and demands the cluster
+//! grant BEFORE any head-advancing operation is accepted. An enabled gate
+//! whose criome is unreachable refuses every advance — fail-closed. Reads
+//! are unaffected. The ship drain reuses the same authorizer at ship time,
+//! where the ask short-circuits to criome's immediate re-grant of the
+//! standing committed head (distribution, never a second acceptance
+//! judgment).
 
 #[cfg(feature = "agent-guardian")]
 use criome::transport::CriomeClient;
 use sema_engine::EntryDigest;
+
+use crate::schema::signal::{AdvanceRefusalReason, Output};
 use signal_criome::{
-    AuthorizationRequestSlot, AuthorizationStateRecord, AuthorizationStatus,
-    AuthorizedObjectKind, AuthorizedObjectReference, ComponentKind, Identity, ObjectDigest,
-    ReplayNonce, SignalCallAuthorization,
+    AuthorizationRequestSlot, AuthorizationStateRecord, AuthorizationStatus, AuthorizedObjectKind,
+    AuthorizedObjectReference, ComponentKind, Identity, ObjectDigest, ReplayNonce,
+    SignalCallAuthorization,
 };
 
 #[cfg(feature = "agent-guardian")]
@@ -49,14 +58,15 @@ use thiserror::Error;
 const OPERATION_AUTHORIZATION_SESSION_DEADLINE: std::time::Duration =
     std::time::Duration::from_secs(300);
 
-/// The post-commit local head the gate authorizes BEFORE fan-out — the
-/// content-addressed identity `D` of the latest versioned-log entry, captured
-/// from the LOCAL log (never from `ShipOutcome.head`, which exists only after a
-/// ship). Because the log is hash-chained (each entry's digest folds in its
-/// predecessor's), this one head transitively fixes the whole unshipped
-/// suffix beneath it — one capture, one authorization, one batch. It carries
-/// the owning component so ONE capture feeds both the criome request `object`
-/// and the emitted reference: authorized head == fanned head by construction.
+/// The head digest the gate authorizes — on the intake path the PROSPECTIVE
+/// head the staged group would produce (nothing committed yet); on the ship
+/// drain the committed head of the unshipped suffix (already accepted; the
+/// re-ask short-circuits to the standing re-grant). Because the log is
+/// hash-chained (each entry's digest folds in its predecessor's), this one
+/// digest transitively fixes the whole ordered group beneath it — one
+/// capture, one authorization, one batch. It carries the owning component so
+/// ONE capture feeds both the criome request `object` and the emitted
+/// reference: authorized head == materialized/fanned head by construction.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LocalHeadCapture {
     component: ComponentKind,
@@ -64,7 +74,7 @@ pub struct LocalHeadCapture {
 }
 
 impl LocalHeadCapture {
-    /// Capture spirit's post-commit head `D`. The component is always
+    /// Capture spirit's head `D`. The component is always
     /// [`ComponentKind::Spirit`] for a spirit daemon; it is a field rather than
     /// a constant so the [`From`] projection reuses it instead of re-deciding
     /// the component at the wire boundary.
@@ -95,9 +105,9 @@ impl LocalHeadCapture {
 impl From<&LocalHeadCapture> for AuthorizedObjectReference {
     fn from(capture: &LocalHeadCapture) -> Self {
         AuthorizedObjectReference {
-            component: capture.component,
-            digest: ObjectDigest::from_bytes(capture.head_digest.bytes()),
-            kind: AuthorizedObjectKind::Head,
+            component_kind: capture.component,
+            object_digest: ObjectDigest::from_bytes(capture.head_digest.bytes()),
+            authorized_object_kind: AuthorizedObjectKind::Head,
         }
     }
 }
@@ -110,14 +120,17 @@ impl From<&LocalHeadCapture> for AuthorizedObjectReference {
 /// spirit runs fully local, heads advance freely, and nothing propagates —
 /// the authorize-and-ship seam stays dormant.
 ///
-/// [`Enabled`](CriomeAuthorization::Enabled) demands cluster authorization for
-/// every head advance and carries the [`ClusterAuthorizer`] — an enabled gate
-/// always has a socket; a disabled gate never runs. Working inputs are NOT
-/// refused at ingress: the local commit stands, and only propagation waits on
-/// the cluster verdict.
+/// [`Enabled`](CriomeAuthorization::Enabled) demands the cluster grant BEFORE
+/// any head-advancing working operation is accepted, and carries the
+/// [`ClusterAuthorizer`] — an enabled gate always has a socket; a disabled
+/// gate never runs. A refused, expired, unavailable, or unreachable verdict
+/// refuses the OPERATION to the caller ([`Output::AdvanceRefused`]) and the
+/// staged group is discarded: nothing is recorded anywhere, fail-closed.
+/// Reads are unaffected.
 ///
 /// The owner-only meta plane (`Import`, `CollectRemovalCandidates`) stays
-/// owner-trust and is not policed by this option.
+/// owner-trust and is not policed by this option; `Import` is the privileged
+/// escape hatch that writes locally without a round.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum CriomeAuthorization {
     /// Spirit is fully local: heads advance freely, nothing propagates.
@@ -140,11 +153,13 @@ pub struct ClusterAuthorizer {
 }
 
 impl ClusterAuthorizer {
-    /// The default session read deadline: sized beyond the authorization
-    /// window's catch-up case (which chains two commit rounds), so a live
-    /// criome always answers first and only a dead criome process trips it.
-    pub const DEFAULT_SESSION_DEADLINE: std::time::Duration =
-        std::time::Duration::from_secs(120);
+    /// The default session read deadline — spirit's BACKSTOP for a silently
+    /// dead criome process, sized beyond the authorization window so a live
+    /// criome always answers first (its own window timer pushes `Expired`)
+    /// and only a dead socket trips it. Deadline expiry refuses the
+    /// operation as `Unreachable` — the bound on how long a recording caller
+    /// can wait before a definite verdict (§3.5.4).
+    pub const DEFAULT_SESSION_DEADLINE: std::time::Duration = std::time::Duration::from_secs(120);
 
     pub fn new(socket: impl Into<std::path::PathBuf>) -> Self {
         Self {
@@ -183,8 +198,9 @@ impl ClusterAuthorizer {
     /// The blocking session drive: submit the typed ask, then consume the
     /// snapshot and pushed updates until a terminal verdict, the binding
     /// matrix judging every state record. A transport failure or deadline
-    /// expiry is [`GateDecision::Unreachable`] (head held); an off-contract
-    /// frame is a [`CriomeGateError`] machinery fault (head held).
+    /// expiry is [`GateDecision::Unreachable`]; an off-contract frame is a
+    /// [`CriomeGateError`] machinery fault. On the intake path either
+    /// refuses the operation; on the ship drain either holds the ship.
     fn authorize_head_blocking(
         &self,
         capture: &LocalHeadCapture,
@@ -267,8 +283,9 @@ impl ClusterAuthorizer {
 ///   3. Terminal `Granted` requires the grant, and the grant must bind the
 ///      slot and the submitted digest — status alone is never proof.
 ///   4. Terminal `Denied` / `Expired` / `Unavailable` are typed refusals
-///      (outcomes, not errors): head held, outbox waits, the next drain
-///      re-asks.
+///      (outcomes, not errors): on the intake path the OPERATION is refused
+///      to the caller and the staged group discarded; on the ship drain the
+///      ship is withheld.
 ///   5. Non-terminal `Pending` / `Signing` / `Parked` keep the session
 ///      draining pushed updates.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -287,31 +304,31 @@ impl HeadSessionBinding {
 
     /// Judge one observed state record: `Ok(Some(decision))` is a terminal
     /// gate decision, `Ok(None)` keeps draining (a foreign or non-terminal
-    /// record), and `Err` is a machinery fault that holds the head.
+    /// record), and `Err` is a machinery fault that refuses the operation.
     pub fn decide(
         &self,
         state: &AuthorizationStateRecord,
     ) -> Result<Option<GateDecision>, CriomeGateError> {
         // Rule 1 — slot binding. Foreign records are ignored, never judged.
-        if state.request_slot != self.token_slot {
+        if state.authorization_request_slot != self.token_slot {
             return Ok(None);
         }
         // Rule 2 — digest binding.
-        if state.request_digest != self.submitted.digest {
+        if state.object_digest != self.submitted.object_digest {
             return Err(CriomeGateError::HeadBindingViolation {
                 detail: format!(
                     "state record for slot {} carries digest {} instead of the submitted {}",
                     self.token_slot.as_str(),
-                    state.request_digest.as_str(),
-                    self.submitted.digest.as_str()
+                    state.object_digest.as_str(),
+                    self.submitted.object_digest.as_str()
                 ),
             });
         }
-        match (state.status, state.grant()) {
+        match (state.authorization_status, state.optional_authorization_grant()) {
             // Rule 3 — Granted requires the binding grant.
             (AuthorizationStatus::Granted, Some(grant))
-                if grant.request_slot == self.token_slot
-                    && grant.authorized_object_digest() == &self.submitted.digest =>
+                if grant.authorization_request_slot == self.token_slot
+                    && grant.authorized_object_digest() == &self.submitted.object_digest =>
             {
                 Ok(Some(GateDecision::Authorized(self.submitted.clone())))
             }
@@ -321,7 +338,7 @@ impl HeadSessionBinding {
                         "a Granted state for slot {} carries no grant binding the submitted \
                          digest {} — status alone is never proof",
                         self.token_slot.as_str(),
-                        self.submitted.digest.as_str()
+                        self.submitted.object_digest.as_str()
                     ),
                 })
             }
@@ -346,27 +363,30 @@ impl HeadSessionBinding {
     }
 }
 
-/// The decision the gate returns to the propagation drain. Only
-/// [`GateDecision::Authorized`] releases the ship; every other decision holds
-/// the head back — the local commit stands and the suffix waits for the next
-/// drain.
+/// The terminal decision one authorization session produces. On the INTAKE
+/// path (§3.5) only [`GateDecision::Authorized`] materializes the staged
+/// group and releases the held accepted reply; every other decision refuses
+/// the operation to the caller and the staged group is discarded — nothing
+/// recorded anywhere. On the SHIP drain (§3.6) only `Authorized` releases the
+/// ship; every other decision leaves the (already accepted) suffix waiting.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum GateDecision {
     /// criome's cluster authorized head `D`. Carries the projected reference
-    /// so the drain ships exactly the suffix it authorized.
+    /// so the caller materializes or ships exactly what was authorized.
     Authorized(AuthorizedObjectReference),
-    /// criome reached a terminal verdict but did not authorize. Do not ship;
-    /// the outbox waits and the next drain re-asks with the then-current head
-    /// (the criome-side catch-up rule makes that safe even when the head
-    /// moved).
+    /// criome reached a terminal verdict but did not authorize. Intake:
+    /// the operation is refused ([`Output::AdvanceRefused`]) and the staged
+    /// group discarded — its digest names entries that will never exist, and
+    /// criome's dead-round supersession admits a later differing successor.
+    /// Ship drain: the suffix waits for the next mail.
     Refused(GateRefusal),
     /// criome was not reachable (no socket, dead process, session deadline).
-    /// Do not ship; the local commit stands and the suffix waits.
+    /// Intake: the operation is refused. Ship drain: the suffix waits.
     Unreachable,
 }
 
-/// The typed refusal a terminal non-Granted state maps to — an outcome the
-/// drain handles by holding the head, never an error.
+/// The typed refusal a terminal non-Granted state maps to — an outcome, never
+/// an error.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GateRefusal {
     /// criome denied the head advance.
@@ -383,6 +403,96 @@ impl GateDecision {
     /// Whether this decision releases the fan-out.
     pub fn ships(&self) -> bool {
         matches!(self, GateDecision::Authorized(_))
+    }
+
+    /// The closed [`GateDecision`] → [`AdvanceRefusalReason`] contact point
+    /// (§3.5.2): the reason the caller receives when this decision refuses
+    /// the operation. `None` exactly when the decision is the grant.
+    pub fn refusal_reason(&self) -> Option<AdvanceRefusalReason> {
+        match self {
+            GateDecision::Authorized(_reference) => None,
+            GateDecision::Refused(refusal) => Some(AdvanceRefusalReason::from(*refusal)),
+            GateDecision::Unreachable => Some(AdvanceRefusalReason::Unreachable),
+        }
+    }
+}
+
+/// The wire projection of a [`GateRefusal`]: the two contact points keep
+/// their own closed types, mapped once here.
+impl From<GateRefusal> for AdvanceRefusalReason {
+    fn from(refusal: GateRefusal) -> Self {
+        match refusal {
+            GateRefusal::Denied => AdvanceRefusalReason::Denied,
+            GateRefusal::Expired => AdvanceRefusalReason::Expired,
+            GateRefusal::Unavailable => AdvanceRefusalReason::Unavailable,
+        }
+    }
+}
+
+/// One staged head advance in flight (§3.5): the parked group's prospective
+/// head digest, the authorizer to run the cluster round against, the held
+/// accepted reply, and — after [`StagedHeadAdvance::resolve`] — the terminal
+/// verdict. It crosses the daemon spine as the emitted `StagedAdvance`
+/// object: `resolve` runs on the connection task with no engine borrow (the
+/// quorum wait), and the engine's concluding turn materializes on the grant
+/// or discards on any other verdict.
+#[derive(Debug)]
+pub struct StagedHeadAdvance {
+    authorizer: ClusterAuthorizer,
+    prospective_head: EntryDigest,
+    held_reply: Output,
+    verdict: Option<GateDecision>,
+}
+
+impl StagedHeadAdvance {
+    pub fn new(
+        authorizer: ClusterAuthorizer,
+        prospective_head: EntryDigest,
+        held_reply: Output,
+    ) -> Self {
+        Self {
+            authorizer,
+            prospective_head,
+            held_reply,
+            verdict: None,
+        }
+    }
+
+    /// The quorum wait: authorize the prospective head through the cluster
+    /// session and store the terminal verdict. A [`CriomeGateError`]
+    /// machinery fault also refuses the operation — the caller cannot
+    /// distinguish machinery from refusal and should not; the fault is
+    /// logged loudly on the daemon side and judged `Unreachable`.
+    pub async fn resolve(&mut self) {
+        let capture = LocalHeadCapture::spirit_head(self.prospective_head.clone());
+        let verdict = match self.authorizer.authorize_head(&capture).await {
+            Ok(decision) => decision,
+            Err(machinery_fault) => {
+                eprintln!(
+                    "spirit staged advance {} refused on gate machinery fault: {machinery_fault}",
+                    self.prospective_head
+                );
+                GateDecision::Unreachable
+            }
+        };
+        self.verdict = Some(verdict);
+    }
+
+    /// The stored terminal verdict — `None` until [`Self::resolve`] ran
+    /// (an unresolved advance concludes as `Unreachable`, fail-closed).
+    pub fn verdict(&self) -> Option<&GateDecision> {
+        self.verdict.as_ref()
+    }
+
+    /// The prospective head digest the parked group would produce.
+    pub fn prospective_head(&self) -> &EntryDigest {
+        &self.prospective_head
+    }
+
+    /// Release the held accepted reply (the grant arrived and the group
+    /// materialized — acceptance happened at the grant).
+    pub fn into_held_reply(self) -> Output {
+        self.held_reply
     }
 }
 
@@ -463,13 +573,11 @@ impl SpiritOperationAuthorizer {
             return Ok(SpiritOperationAuthorization::Allowed);
         };
         let authorizer = self.clone();
-        tokio::task::spawn_blocking(move || {
-            authorizer.authorize_blocking(socket, context, mode)
-        })
-        .await
-        .map_err(|source| CriomeGateError::AuthorizationTask {
-            message: source.to_string(),
-        })?
+        tokio::task::spawn_blocking(move || authorizer.authorize_blocking(socket, context, mode))
+            .await
+            .map_err(|source| CriomeGateError::AuthorizationTask {
+                message: source.to_string(),
+            })?
     }
 
     fn authorize_blocking(
@@ -478,11 +586,12 @@ impl SpiritOperationAuthorizer {
         context: SpiritAuthorizationContext,
         mode: signal_spirit::AuthorizationMode,
     ) -> Result<SpiritOperationAuthorization, CriomeGateError> {
-        let request_digest = ObjectDigest::from_bytes(context.raw_payload.payload().as_bytes());
+        let request_digest =
+            ObjectDigest::from_bytes(context.raw_spirit_operation_payload.payload().as_bytes());
         let submitted = AuthorizedObjectReference {
-            component: ComponentKind::Spirit,
-            digest: request_digest,
-            kind: AuthorizedObjectKind::Operation,
+            component_kind: ComponentKind::Spirit,
+            object_digest: request_digest,
+            authorized_object_kind: AuthorizedObjectKind::Operation,
         };
         let authorization = self.signal_call_authorization(context, submitted.clone());
         // The IO deadline bounds the SUBMISSION legs too (connect-adjacent
@@ -503,8 +612,7 @@ impl SpiritOperationAuthorizer {
                 ));
             }
         };
-        let binding =
-            HeadSessionBinding::new(session.token().payload().clone(), submitted.clone());
+        let binding = HeadSessionBinding::new(session.token().payload().clone(), submitted.clone());
         if mode == signal_spirit::AuthorizationMode::Observing {
             // Observing never gates: the submission itself (an on-contract
             // session with a digest-bound state) is the whole check.

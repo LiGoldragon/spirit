@@ -311,24 +311,96 @@ pub struct Engine {
     // mirroring existed.
     #[cfg(feature = "mirror-shipper")]
     mirror_shipper: MirrorShipper,
-    // The criome head-authorization seam (Spirit `xhwa`), LIVE. Present only
-    // under the `mirror-shipper` feature alongside the shipper it gates. It
-    // carries the spirit-side `CriomeAuthorization` policy: `Disabled` (the
-    // operative default) keeps the whole authorize-and-ship seam dormant —
-    // heads advance freely, nothing propagates; `Enabled` carries the cluster
-    // authorizer and demands cluster authorization for every head advance
-    // before it ships.
-    #[cfg(feature = "mirror-shipper")]
+    // The criome acceptance gate (Spirit `xhwa`, the everywhere-gate), LIVE.
+    // Its own `criome-gate` feature — acceptance gating must never be
+    // compiled out together with shipping. It carries the spirit-side
+    // `CriomeAuthorization` policy: `Disabled` (the operative default) keeps
+    // the whole seam dormant — heads advance freely, nothing propagates;
+    // `Enabled` STAGES every head-advancing working operation and appends it
+    // only on the cluster grant; every other terminal verdict refuses the
+    // operation to the caller, fail-closed, nothing recorded anywhere.
+    #[cfg(feature = "criome-gate")]
     criome_gate: crate::criome_gate::CriomeGate,
-    // The propagation drain (§3.5): present exactly when the gate is Enabled.
-    // The daemon's post-commit hook sends it "head advanced" mail
-    // (`notify_head_advanced`) instead of awaiting the cluster round inline,
-    // so the working reply never waits on propagation; tests drive it
-    // directly through `drain_propagation_once`.
+    // The first-in first-out advance gate (§3.5.3): staged working turns
+    // serialize among THEMSELVES across stage, authorize, and materialize —
+    // one outstanding staged group, one outstanding round — while reads flow
+    // through the actor mailbox between the fast turns. Shared with the
+    // emitted daemon spine (`SpiritDaemon::shared_advance_gate`) and with the
+    // ship drain's residue reconcile pass.
+    #[cfg(feature = "criome-gate")]
+    advance_gate: std::sync::Arc<tokio::sync::Mutex<()>>,
+    // The ship drain (§3.6): present exactly when the gate is Enabled and the
+    // shipper is built in. Each materialization sends it "head advanced" mail
+    // (`notify_head_advanced`) — distribution of already-accepted state,
+    // never a second acceptance judgment; tests drive it directly through
+    // `drain_propagation_once`.
     #[cfg(feature = "mirror-shipper")]
     propagation: Option<std::sync::Arc<crate::propagation::PropagationDrain>>,
     #[cfg(feature = "testing-trace")]
     trace_log: TraceLog,
+}
+
+/// The stage turn's verdict (§3.5.1): the input either completed outright —
+/// a read, a refusal, a Disabled-mode direct write, or an accepting operation
+/// that appended nothing — or its operation group is durably parked awaiting
+/// the cluster round.
+#[cfg(feature = "criome-gate")]
+#[derive(Debug)]
+pub enum StagedIntake {
+    Completed(Output),
+    Parked(crate::criome_gate::StagedHeadAdvance),
+}
+
+/// The closed Output → staged-group-fate contact point (§3.5.1): an ACCEPTING
+/// reply is the held acceptance of a head-advancing operation, so its staged
+/// group opens a round and materializes on the grant; every other reply
+/// refuses or answers without appending, so its staged buffer is abandoned —
+/// nothing recorded anywhere. The match is exhaustive on purpose: a new
+/// Output variant must choose its fate here before spirit compiles.
+#[cfg(feature = "criome-gate")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ReplyFate {
+    Accepting,
+    NonAccepting,
+}
+
+#[cfg(feature = "criome-gate")]
+impl ReplyFate {
+    fn of(output: &Output) -> Self {
+        match output {
+            Output::RecordAccepted(_)
+            | Output::Proposed(_)
+            | Output::Clarified(_)
+            | Output::ClarificationResolved(_)
+            | Output::Superseded(_)
+            | Output::Retired(_)
+            | Output::CertaintyChanged(_)
+            | Output::ImportanceBumped(_)
+            | Output::RecordChanged(_)
+            | Output::ReferentRegistered(_) => Self::Accepting,
+            // `RecordApplied` is the §4 acceptance-by-verification reply: the
+            // carried authorization already gated that state cluster-wide, so
+            // an apply never opens an intake round (and today's nexus answers
+            // the apply ingress fail-closed, never producing it).
+            Output::Error(_)
+            | Output::Rejected(_)
+            | Output::GuardianRejected(_)
+            | Output::ReferentGuardianRejected(_)
+            | Output::ApplyRefused(_)
+            | Output::AdvanceRefused(_)
+            | Output::RecordApplied(_)
+            | Output::RecordsObserved(_)
+            | Output::RecordsStashed(_)
+            | Output::RecordFound(_)
+            | Output::RecordsCounted(_)
+            | Output::SubscriptionStarted(_)
+            | Output::ObservationTapped(_)
+            | Output::ObservationUntapped(_)
+            | Output::Event(_)
+            | Output::VersionReported(_)
+            | Output::MarkerReported(_) => Self::NonAccepting,
+        }
+    }
 }
 
 /// The Signal admission gate: the request-admission plane that mints the
@@ -386,8 +458,10 @@ impl Engine {
                 authorization_mode: signal_spirit::AuthorizationMode::Gating,
                 #[cfg(feature = "mirror-shipper")]
                 mirror_shipper: MirrorShipper::new(),
-                #[cfg(feature = "mirror-shipper")]
+                #[cfg(feature = "criome-gate")]
                 criome_gate: crate::criome_gate::CriomeGate::new(),
+                #[cfg(feature = "criome-gate")]
+                advance_gate: std::sync::Arc::new(tokio::sync::Mutex::new(())),
                 #[cfg(feature = "mirror-shipper")]
                 propagation: None,
             }
@@ -412,8 +486,10 @@ impl Engine {
             authorization_mode: signal_spirit::AuthorizationMode::Gating,
             #[cfg(feature = "mirror-shipper")]
             mirror_shipper: MirrorShipper::new(),
-            #[cfg(feature = "mirror-shipper")]
+            #[cfg(feature = "criome-gate")]
             criome_gate: crate::criome_gate::CriomeGate::new(),
+            #[cfg(feature = "criome-gate")]
+            advance_gate: std::sync::Arc::new(tokio::sync::Mutex::new(())),
             #[cfg(feature = "mirror-shipper")]
             propagation: None,
             trace_log,
@@ -439,7 +515,7 @@ impl Engine {
 
     pub fn set_authorization_mode(&mut self, authorization_mode: signal_spirit::AuthorizationMode) {
         self.authorization_mode = authorization_mode;
-        #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+        #[cfg(all(feature = "agent-guardian", feature = "criome-gate"))]
         self.nexus
             .set_operation_authorization_mode(authorization_mode);
     }
@@ -491,12 +567,12 @@ impl Engine {
     }
 
     /// The current versioned-log head `EntryDigest` after the latest local
-    /// commit — the content-addressed head `D` the criome gate authorizes
-    /// BEFORE fan-out. Read from the local log, never from `ShipOutcome.head`
-    /// (which exists only after a ship). `None` when nothing has been
-    /// committed to the versioned log yet (an empty store cannot be authorized
-    /// and is not shipped).
-    #[cfg(feature = "mirror-shipper")]
+    /// commit. Under the everywhere-gate this only ever names ACCEPTED state:
+    /// with the gate Enabled, a head-advancing operation materializes only
+    /// after the cluster grant, so the local head never runs ahead of
+    /// acceptance. `None` when nothing has been committed to the versioned
+    /// log yet.
+    #[cfg(feature = "criome-gate")]
     pub fn versioned_log_head(&self) -> Result<Option<sema_engine::EntryDigest>, StoreError> {
         self.nexus.store().versioned_log_head()
     }
@@ -606,7 +682,7 @@ impl Engine {
         // has a socket) and, under the guardian, the operation-level
         // authorizer at the same socket; `Default` or an absent target
         // disarms both (`Disabled`, spirit fully local).
-        #[cfg(feature = "mirror-shipper")]
+        #[cfg(feature = "criome-gate")]
         {
             match &criome_gate_target {
                 Some(crate::schema::meta_signal::CriomeGateTarget::Socket(socket_path)) => {
@@ -626,6 +702,7 @@ impl Engine {
                     self.nexus.clear_operation_authorizer();
                 }
             }
+            #[cfg(feature = "mirror-shipper")]
             self.rebuild_propagation();
         }
         MetaOutput::configured(ConfigureReceipt::new(
@@ -659,27 +736,35 @@ impl Engine {
 
     /// Set the spirit-side [`crate::criome_gate::CriomeAuthorization`] policy.
     /// `Disabled` (the operative default) keeps spirit fully local; `Enabled`
-    /// carries the cluster authorizer and demands cluster authorization for
-    /// every head advance before it ships.
-    #[cfg(feature = "mirror-shipper")]
+    /// demands the cluster grant BEFORE any head-advancing working operation
+    /// is accepted (§3.5) — refusal means nothing is recorded anywhere.
+    #[cfg(feature = "criome-gate")]
     pub fn set_criome_authorization(
         &mut self,
         authorization: crate::criome_gate::CriomeAuthorization,
     ) {
         self.criome_gate.set_authorization(authorization);
+        #[cfg(feature = "mirror-shipper")]
         self.rebuild_propagation();
     }
 
     /// The spirit-side criome authorization policy.
-    #[cfg(feature = "mirror-shipper")]
+    #[cfg(feature = "criome-gate")]
     pub fn criome_authorization(&self) -> &crate::criome_gate::CriomeAuthorization {
         self.criome_gate.authorization()
     }
 
-    /// Rebuild the propagation drain from the current gate policy and mirror
+    /// The first-in first-out advance gate the emitted daemon spine and the
+    /// ship drain share with the intake path (§3.5.3).
+    #[cfg(feature = "criome-gate")]
+    pub fn advance_gate(&self) -> std::sync::Arc<tokio::sync::Mutex<()>> {
+        std::sync::Arc::clone(&self.advance_gate)
+    }
+
+    /// Rebuild the ship drain from the current gate policy and mirror
     /// address: present exactly when the gate is Enabled, carrying its own
     /// shipper over the shared store engine (armed only when a mirror target
-    /// is configured).
+    /// is configured) and the shared advance gate.
     #[cfg(feature = "mirror-shipper")]
     fn rebuild_propagation(&mut self) {
         self.propagation = match self.criome_gate.authorization() {
@@ -696,21 +781,22 @@ impl Engine {
                         authorizer.clone(),
                         self.nexus.store().engine_handle(),
                         shipper,
+                        std::sync::Arc::clone(&self.advance_gate),
                     ),
                 ))
             }
         };
     }
 
-    /// THE DRAIN, driven directly (tests and deterministic callers). Capture
-    /// the post-commit local head `D` — the head of the whole unshipped
-    /// suffix — apply the cluster authorization policy, and on Authorized
-    /// ship the suffix up to exactly that head.
+    /// THE SHIP DRAIN, driven directly (tests and deterministic callers).
+    /// Capture the head of the unshipped suffix, fetch its grant (the
+    /// standing re-grant in the steady state; ONE genuinely new batch round
+    /// for disabled-era residue), and on Authorized ship the suffix up to
+    /// exactly that head (§3.6). Never a second acceptance judgment.
     ///
-    /// `Disabled` (the operative default) keeps the whole authorize-and-ship
-    /// seam dormant: no head capture, no authorization request, no ship — it
-    /// returns `None`, spirit fully local. An empty versioned log (nothing to
-    /// authorize) is also a `None` no-op.
+    /// `Disabled` (the operative default) keeps the whole seam dormant: no
+    /// head capture, no ask, no ship — it returns `None`, spirit fully
+    /// local. An empty outbox (nothing to ship) is also a `None` no-op.
     #[cfg(feature = "mirror-shipper")]
     pub async fn drain_propagation_once(
         &self,
@@ -721,10 +807,13 @@ impl Engine {
         }
     }
 
-    /// The daemon's post-commit hook: send the propagation drain one "head
-    /// advanced" mail and return immediately — the working reply never waits
-    /// on a cluster round. A dormant seam (Disabled) has no drain and pays
-    /// nothing. Must be called from within a tokio runtime.
+    /// THE SHIP TRIGGER: send the ship drain one "head advanced" mail and
+    /// return immediately. Under the everywhere-gate this runs after a
+    /// staged group MATERIALIZES (acceptance already happened at the grant)
+    /// and once when enabling the gate owes a residue reconcile — it is
+    /// distribution only, never part of acceptance. A dormant seam
+    /// (Disabled) has no drain and pays nothing. Must be called from within
+    /// a tokio runtime.
     #[cfg(feature = "mirror-shipper")]
     pub fn notify_head_advanced(&self) {
         if let Some(drain) = &self.propagation {
@@ -741,8 +830,199 @@ impl Engine {
         self.mirror_shipper.publish_checkpoint().await
     }
 
+    /// THE INTAKE GATE'S STAGE PHASE (§3.5.1): run one working input in
+    /// build mode — the ordinary Signal → Nexus → SEMA pipeline over the
+    /// engaged staging session, reads against committed state plus the
+    /// in-group overlay, nothing committed — and either complete the input
+    /// outright or durably park its operation group for the cluster round.
+    ///
+    /// `Disabled` (the operative default) is today's direct path,
+    /// byte-for-byte. Under `Enabled`: an ACCEPTING reply whose staged group
+    /// is non-empty parks and awaits the grant (the reply is HELD — the
+    /// caller hears nothing until the verdict); an accepting reply that
+    /// appended nothing completes immediately (nothing to authorize); every
+    /// other reply abandons the buffer — a guardian rejection or validation
+    /// failure never opens a round and never leaves a trace. An occupied
+    /// durable staging slot is an unresolved crash window (§3.8): head
+    /// advances refuse `Unavailable` until an owner `Configure` re-enables
+    /// the gate and recovery resolves the slot. Fail-closed at every fork.
+    #[cfg(feature = "criome-gate")]
+    pub async fn stage_working_input(&mut self, input: Input) -> StagedIntake {
+        let authorizer = match self.criome_gate.authorization() {
+            crate::criome_gate::CriomeAuthorization::Disabled => {
+                return StagedIntake::Completed(self.handle_async(input).await.into_root());
+            }
+            crate::criome_gate::CriomeAuthorization::Enabled(authorizer) => authorizer.clone(),
+        };
+        let database = self.nexus.store().engine_handle();
+        if let Err(occupied_or_engaged) = database.begin_staged_group() {
+            eprintln!(
+                "spirit intake refused a head advance (staging unavailable): \
+                 {occupied_or_engaged}"
+            );
+            return StagedIntake::Completed(Output::advance_refused(
+                signal_schema::AdvanceRefusal::new(
+                    signal_schema::AdvanceRefusalReason::Unavailable,
+                ),
+            ));
+        }
+        let reply = self.handle_async(input).await.into_root();
+        match ReplyFate::of(&reply) {
+            ReplyFate::NonAccepting => {
+                if let Err(fault) = database.abandon_staged_group() {
+                    eprintln!("spirit staging abandon failed: {fault}");
+                }
+                StagedIntake::Completed(reply)
+            }
+            ReplyFate::Accepting => match database.park_staged_group() {
+                Ok(None) => StagedIntake::Completed(reply),
+                Ok(Some(receipt)) => {
+                    StagedIntake::Parked(crate::criome_gate::StagedHeadAdvance::new(
+                        authorizer,
+                        receipt.prospective_head(),
+                        reply,
+                    ))
+                }
+                Err(fault) => {
+                    // The group could not be durably parked: refuse the
+                    // operation — nothing was committed, nothing survives.
+                    eprintln!("spirit intake refused a head advance (park failed): {fault}");
+                    if let Err(abandon_fault) = database.abandon_staged_group() {
+                        eprintln!("spirit staging abandon failed: {abandon_fault}");
+                    }
+                    StagedIntake::Completed(Output::advance_refused(
+                        signal_schema::AdvanceRefusal::new(
+                            signal_schema::AdvanceRefusalReason::Unreachable,
+                        ),
+                    ))
+                }
+            },
+        }
+    }
+
+    /// THE INTAKE GATE'S CONCLUDING PHASE (§3.5.1 step 3): after the
+    /// connection task drained the authorization session, materialize the
+    /// parked group on the grant — one atomic transaction, asserting the
+    /// produced head equals the granted digest — and release the held
+    /// accepted reply; on every other terminal verdict discard the parked
+    /// group and refuse the operation with the typed reason. Acceptance
+    /// happened at the grant; materialization is local bookkeeping of an
+    /// already-accepted operation, so a materialization fault after the
+    /// grant keeps the slot parked for recovery (§3.8 case 3) and reports
+    /// `Unreachable` to the (now indeterminate) caller, loudly.
+    #[cfg(feature = "criome-gate")]
+    pub async fn conclude_staged_advance(
+        &mut self,
+        advance: crate::criome_gate::StagedHeadAdvance,
+    ) -> Output {
+        let database = self.nexus.store().engine_handle();
+        let verdict = advance.verdict().cloned();
+        let refusal_reason = match verdict {
+            Some(crate::criome_gate::GateDecision::Authorized(_reference)) => {
+                match database.materialize_staged_group(&self.nexus.store().family_directory()) {
+                    Ok(_receipt) => {
+                        #[cfg(feature = "mirror-shipper")]
+                        self.notify_head_advanced();
+                        return advance.into_held_reply();
+                    }
+                    Err(fault) => {
+                        eprintln!(
+                            "spirit could not materialize the GRANTED staged group {} — the \
+                             slot stays parked for recovery: {fault}",
+                            advance.prospective_head()
+                        );
+                        signal_schema::AdvanceRefusalReason::Unreachable
+                    }
+                }
+            }
+            Some(refused) => {
+                let reason = refused
+                    .refusal_reason()
+                    .unwrap_or(signal_schema::AdvanceRefusalReason::Unreachable);
+                if let Err(fault) = database.discard_staged_group() {
+                    eprintln!("spirit staging discard failed: {fault}");
+                }
+                reason
+            }
+            None => {
+                // Never resolved: fail-closed as unreachable machinery.
+                if let Err(fault) = database.discard_staged_group() {
+                    eprintln!("spirit staging discard failed: {fault}");
+                }
+                signal_schema::AdvanceRefusalReason::Unreachable
+            }
+        };
+        Output::advance_refused(signal_schema::AdvanceRefusal::new(refusal_reason))
+    }
+
+    /// §3.8 crash recovery: resolve an occupied durable staging slot by
+    /// re-asking the cluster with the parked prospective digest. From
+    /// criome's view this is a first ask, an identical re-proposal
+    /// re-opening the durable round, or the immediate re-grant of the
+    /// standing committed head (the crash-after-grant case) — grant
+    /// materializes, refusal discards, either way the slot resolves. Runs
+    /// when an owner `Configure` enables the gate; until then an occupied
+    /// slot refuses every head advance, fail-closed.
+    #[cfg(feature = "criome-gate")]
+    pub async fn resolve_parked_staged_group(&mut self) {
+        let database = self.nexus.store().engine_handle();
+        let parked = match database.staged_group() {
+            Ok(Some(summary)) => summary,
+            Ok(None) => return,
+            Err(fault) => {
+                eprintln!("spirit staging recovery could not read the slot: {fault}");
+                return;
+            }
+        };
+        let authorizer = match self.criome_gate.authorization() {
+            crate::criome_gate::CriomeAuthorization::Disabled => return,
+            crate::criome_gate::CriomeAuthorization::Enabled(authorizer) => authorizer.clone(),
+        };
+        let mut advance = crate::criome_gate::StagedHeadAdvance::new(
+            authorizer,
+            parked.prospective_head(),
+            // The original caller's connection is gone (§3.5.4); the held
+            // reply is unreachable bookkeeping and never delivered.
+            Output::advance_refused(signal_schema::AdvanceRefusal::new(
+                signal_schema::AdvanceRefusalReason::Unreachable,
+            )),
+        );
+        advance.resolve().await;
+        let digest = parked.prospective_head();
+        let _conclusion = self.conclude_staged_advance(advance).await;
+        match database.staged_group() {
+            Ok(None) => eprintln!("spirit staging recovery resolved parked group {digest}"),
+            Ok(Some(_still_parked)) => eprintln!(
+                "spirit staging recovery left group {digest} parked (verdict did not resolve \
+                 it); head advances stay refused"
+            ),
+            Err(fault) => eprintln!("spirit staging recovery could not re-read the slot: {fault}"),
+        }
+    }
+
     pub async fn configure_async(&mut self, request: ConfigureRequest) -> MetaOutput {
-        self.configure(request)
+        let output = self.configure(request);
+        #[cfg(feature = "criome-gate")]
+        {
+            // §3.8: an occupied durable staging slot resolves as soon as the
+            // owner enables the gate — inside this actor turn, BEFORE any new
+            // head advance can stage. Until resolved, staged intake refuses
+            // every head advance, fail-closed.
+            self.resolve_parked_staged_group().await;
+            // §3.6: enabling the gate owes one reconcile mail — disabled-era
+            // residue (an unshipped suffix the cluster has never granted) is
+            // proposed by the drain's next pass and covered transitively by
+            // one batch grant. Runs AFTER recovery so the residue round never
+            // races a parked group's resolution.
+            #[cfg(feature = "mirror-shipper")]
+            if matches!(
+                self.criome_gate.authorization(),
+                crate::criome_gate::CriomeAuthorization::Enabled(_)
+            ) {
+                self.notify_head_advanced();
+            }
+        }
+        output
     }
 
     /// Owner-only meta-socket `Import`: write pre-vetted records straight to the

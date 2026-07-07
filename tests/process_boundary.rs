@@ -1,6 +1,5 @@
 mod support;
 
-use support::domain_fixtures;
 use std::{
     fs,
     io::{BufRead, BufReader},
@@ -11,6 +10,7 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+use support::domain_fixtures;
 
 use nota::NotaEncode;
 #[cfg(feature = "testing-trace")]
@@ -1158,10 +1158,7 @@ fn cli_and_daemon_change_record_replaces_entry_under_same_identifier() {
     match found {
         Output::RecordFound(record) => {
             assert_eq!(record.record_identifier, record_identifier);
-            assert_eq!(
-                record.entry.domains,
-                domain_fixtures::domains(&["meaning"])
-            );
+            assert_eq!(record.entry.domains, domain_fixtures::domains(&["meaning"]));
             assert_eq!(record.entry.kind, Kind::Correction);
             assert_eq!(record.entry.description.payload(), "replacement record");
             assert_eq!(record.entry.certainty, Magnitude::High);

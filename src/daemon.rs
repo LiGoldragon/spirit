@@ -140,27 +140,103 @@ impl ComponentDaemon for SpiritDaemon {
         }
         engine.set_authorization_mode(configuration.authorization_mode());
         engine.start().map_err(Self::Error::from)?;
+        // §3.8: an occupied durable staging slot is a crash window awaiting
+        // resolution. The gate target is runtime owner policy (Configure),
+        // so resolution runs there; until then every head advance is
+        // refused, fail-closed, and the daemon says so loudly at start.
+        #[cfg(feature = "criome-gate")]
+        if let Ok(Some(parked)) = engine.store().engine_handle().staged_group() {
+            eprintln!(
+                "spirit daemon opened with an OCCUPIED staging slot {}: head advances are \
+                 refused until an owner Configure enables the criome gate and recovery \
+                 resolves the parked group",
+                parked.prospective_head()
+            );
+        }
         Ok(engine)
     }
 
+    /// The single-turn lane: reads and other non-advancing inputs (and, when
+    /// the `criome-gate` feature is out of the build, everything). Under the
+    /// everywhere-gate a head-advancing input never runs here with the gate
+    /// Enabled — it takes the staged lane (`working_input_lane`), where
+    /// acceptance waits on the cluster grant and the ship mail fires only
+    /// after materialization.
     async fn handle_working_input(
         engine: &mut Self::Engine,
         input: Input,
         _connection: &triad_runtime::ConnectionContext,
     ) -> Result<Output, Self::Error> {
-        let output = engine.handle_async(input).await.root().clone();
-        // THE CRIOME AUTHORIZE-AND-SHIP SEAM (Spirit `xhwa`), LIVE.
-        //
-        // The working write above already landed durably; propagation is the
-        // drain's business, never the working reply's. `Disabled` — the
-        // operative default — has no drain and this is a no-op; `Enabled`
-        // sends the drain one "head advanced" mail and returns immediately,
-        // so the recording caller never waits on a cluster round. The drain
-        // authorizes the head of the whole unshipped suffix and ships only on
-        // Granted; every refusal holds the head, fail-closed.
-        #[cfg(feature = "mirror-shipper")]
-        engine.notify_head_advanced();
-        Ok(output)
+        Ok(engine.handle_async(input).await.root().clone())
+    }
+
+    /// THE CLOSED INTAKE CLASSIFICATION (§3.5.5): effect commands and
+    /// sema-writes — everything whose processing appends to the log — are
+    /// head-advancing and take the staged lane; queries, observations,
+    /// lookups, counts, subscriptions, taps, `Version`, and `Marker` pass
+    /// ungated on the immediate lane and never wait on a round.
+    /// `ApplyAuthorizedRecord` is NOT intake-gated: it carries an
+    /// authorization that already happened (§4) and today answers
+    /// fail-closed without a write. The match is exhaustive on purpose: a
+    /// new Input variant must choose its lane here before spirit compiles.
+    #[cfg(feature = "criome-gate")]
+    fn working_input_lane(input: &Input) -> crate::schema::daemon::WorkingInputLane {
+        match input {
+            Input::State(_)
+            | Input::Record(_)
+            | Input::Propose(_)
+            | Input::Clarify(_)
+            | Input::ResolveClarification(_)
+            | Input::Supersede(_)
+            | Input::Retire(_)
+            | Input::ChangeCertainty(_)
+            | Input::BumpImportance(_)
+            | Input::ChangeRecord(_)
+            | Input::RegisterReferent(_) => crate::schema::daemon::WorkingInputLane::Staged,
+            Input::Observe(_)
+            | Input::PublicIntent(_)
+            | Input::PublicTextSearch(_)
+            | Input::PublicRecords(_)
+            | Input::PrivateRecords(_)
+            | Input::Lookup(_)
+            | Input::Count(_)
+            | Input::LookupStash(_)
+            | Input::Tap(_)
+            | Input::Untap(_)
+            | Input::SubscribeIntent(_)
+            | Input::Version
+            | Input::Marker
+            | Input::ApplyAuthorizedRecord(_) => crate::schema::daemon::WorkingInputLane::Immediate,
+        }
+    }
+
+    /// The staged lane's fast first engine turn: stage the operation group
+    /// (§3.5.1) and either complete outright or hand back the staged advance
+    /// whose `resolve` the connection task awaits outside this mailbox.
+    #[cfg(feature = "criome-gate")]
+    async fn stage_working_input(
+        engine: &mut Self::Engine,
+        input: Input,
+        _connection: &triad_runtime::ConnectionContext,
+    ) -> Result<crate::schema::daemon::StagedWorkingTurn<Self>, Self::Error> {
+        Ok(match engine.stage_working_input(input).await {
+            crate::engine::StagedIntake::Completed(output) => {
+                crate::schema::daemon::StagedWorkingTurn::Completed(output)
+            }
+            crate::engine::StagedIntake::Parked(advance) => {
+                crate::schema::daemon::StagedWorkingTurn::Awaiting(Box::new(advance))
+            }
+        })
+    }
+
+    /// Share the engine's first-in first-out advance gate with the emitted
+    /// spine, so staged working turns, the ship drain's passes, and any
+    /// residue reconcile round all serialize through ONE queue (§3.5.3).
+    #[cfg(feature = "criome-gate")]
+    fn shared_advance_gate(
+        engine: &Self::Engine,
+    ) -> Option<std::sync::Arc<tokio::sync::Mutex<()>>> {
+        Some(engine.advance_gate())
     }
 
     /// Serve one owner-only meta request: decode a `Configure` meta `Input`,
@@ -270,6 +346,28 @@ impl ComponentDaemon for SpiritDaemon {
 
     fn subscription_event_short_header() -> u64 {
         short_header::OUTPUT_EVENT
+    }
+}
+
+/// The staged advance crossing the emitted daemon spine (§3.5.3): `resolve`
+/// is the quorum wait, run on the connection task with NO engine borrow so
+/// the engine mailbox keeps serving reads; `conclude` is one fast engine
+/// turn that materializes on the grant or discards on any other verdict.
+#[cfg(feature = "criome-gate")]
+impl crate::schema::daemon::StagedAdvance<SpiritDaemon> for crate::criome_gate::StagedHeadAdvance {
+    fn resolve<'advance>(
+        &'advance mut self,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'advance>> {
+        Box::pin(crate::criome_gate::StagedHeadAdvance::resolve(self))
+    }
+
+    fn conclude<'engine>(
+        self: Box<Self>,
+        engine: &'engine mut Engine,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<Output, SpiritDaemonError>> + Send + 'engine>,
+    > {
+        Box::pin(async move { Ok(engine.conclude_staged_advance(*self).await) })
     }
 }
 

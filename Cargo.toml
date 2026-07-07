@@ -1,6 +1,6 @@
 [package]
 name         = "spirit"
-version      = "0.23.1"
+version      = "0.24.0"
 edition      = "2024"
 rust-version = "1.89"
 license      = "MIT OR Apache-2.0"
@@ -57,22 +57,26 @@ nota-text = ["dep:nota", "nota-text-query/nota-text", "signal-domain/nota-text",
 agent-guardian = ["nota-text", "dep:signal-agent"]
 production-migration = ["nota-text", "dep:sema-engine-layout3", "dep:sema-engine-previous"]
 testing-trace = ["dep:signal-introspect", "dep:signal-persona"]
-# The gated mirror shipper: ship the versioned log to a sema version-control
-# mirror. OFF by default and deploy-gated. Pulls the `mirror` crate (and its
-# signal-mirror/nota transitive surface), so it is excluded from the
-# binary-only daemon dependency tree unless explicitly enabled. It also pulls
-# the LIVE criome head-authorization seam (Spirit `xhwa`): the spirit-side
-# `CriomeAuthorization` option keeps the authorize-and-ship seam idle
-# (`Disabled`, the operative default — spirit fully local) or cluster-gated
-# (`Enabled(authorizer)` — every head advance is authorized by the local
-# criome's cluster before it ships; the local commit always stands). criome
-# brings the `CriomeClient` socket transport and observation session both
-# authorizers consume; signal-criome brings the typed authorized-object
-# reference and decision vocabulary the seam speaks.
-# Gating both behind the same feature keeps nota and the whole criome/mirror
-# surface out of the binary-only daemon dependency tree unless an operator
-# builds the shipper in.
-mirror-shipper = ["dep:mirror", "dep:signal-mirror", "dep:criome", "dep:signal-criome"]
+# The LIVE criome acceptance gate (the everywhere-gate, Spirit `xhwa` as
+# corrected 2026-07-07): the spirit-side `CriomeAuthorization` option keeps
+# the intake gate dormant (`Disabled`, the operative default — spirit fully
+# local, heads advance freely) or cluster-gated (`Enabled(authorizer)` —
+# every head-advancing working input is STAGED, authorized by the local
+# criome's cluster, and appended only on the grant; every other terminal
+# verdict refuses the operation to the caller and discards the staged group,
+# fail-closed, nothing recorded anywhere). criome brings the `CriomeClient`
+# socket transport and observation session both authorizers consume;
+# signal-criome brings the typed authorized-object reference and decision
+# vocabulary the seam speaks. Acceptance gating is deliberately its OWN
+# feature: it must never be compiled out together with shipping.
+criome-gate = ["dep:criome", "dep:signal-criome"]
+# The gated mirror shipper: ship the (by construction cluster-authorized)
+# versioned log to a sema version-control mirror. OFF by default and
+# deploy-gated. Pulls the `mirror` crate (and its signal-mirror/nota
+# transitive surface), so it is excluded from the binary-only daemon
+# dependency tree unless explicitly enabled. Shipping is pure distribution
+# of accepted state; the acceptance gate itself lives under `criome-gate`.
+mirror-shipper = ["criome-gate", "dep:mirror", "dep:signal-mirror"]
 # The OFFLINE full-chain e2e's router leg. Router fans the authorized typed
 # object reference to subscribers. Gated as its own opt-in feature so the
 # default `cargo test --features mirror-shipper` does not have to compile the
@@ -99,11 +103,19 @@ required-features = ["mirror-shipper"]
 # The spirit-side criome authorization option witness: `Disabled` (the
 # operative default) keeps heads advancing freely with the authorize-and-ship
 # seam dormant (nothing propagates); `Enabled` carries the cluster authorizer
-# and holds heads back until the cluster grants.
+# and refuses head advances until the cluster grants.
 [[test]]
 name = "criome_authorization_option"
 path = "tests/criome_authorization_option.rs"
 required-features = ["mirror-shipper"]
+
+# The everywhere-gate intake witnesses (§3.5/§3.8/§3.9): staged acceptance,
+# typed refusal to the caller with no observable trace, byte-for-byte grant
+# materialization against the Disabled twin, and crash-window recovery.
+[[test]]
+name = "staged_intake"
+path = "tests/staged_intake.rs"
+required-features = ["criome-gate"]
 
 # The §3.2 session-parse matrix witnesses: the closed binding rules spirit
 # applies to criome's authorization observation session, every negative held
@@ -111,7 +123,7 @@ required-features = ["mirror-shipper"]
 [[test]]
 name = "cluster_gate_session"
 path = "tests/cluster_gate_session.rs"
-required-features = ["mirror-shipper"]
+required-features = ["criome-gate"]
 
 # The OFFLINE full-chain e2e: spirit source engine records → ships to mirror A
 # → criome authorizes the shipped head → router fans the typed head reference
@@ -199,16 +211,16 @@ signal-introspect = { git = "https://github.com/LiGoldragon/signal-introspect.gi
 # instance directly to construct it; Cargo unifies it with signal-introspect's.
 # Optional and pulled in only by `testing-trace`, for the same no-NOTA reason.
 signal-persona = { git = "https://github.com/LiGoldragon/signal-persona.git", branch = "main", optional = true }
-signal-domain = { git = "https://github.com/LiGoldragon/signal-domain.git", branch = "main", default-features = false }
-signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", rev = "d06e8efffa0ad9cc5305c53977f9833dec3c6038" }
-meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", rev = "2c765101f3cb39a8439289e6116b7998450039bf" }
+signal-domain = { git = "https://github.com/LiGoldragon/signal-domain.git", rev = "801e1c5bcc824c9760e246205826e3c8e962d005", default-features = false }
+signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", rev = "eba2afe88e03939fba9c01e4f2c82b0166a46cd6" }
+meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", rev = "ad4a4ecbe6897eafd6dac1b8f23f87c91eb4f7e5" }
 nota-text-query = { git = "https://github.com/LiGoldragon/nota-text-query.git", rev = "6140a3e9afe3f81c18a39cb0a11dec4eab68b561", default-features = false }
 thiserror = "2"
 tokio = { version = "1.47", features = ["io-util", "net", "rt-multi-thread", "sync"] }
 triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }
 
 [build-dependencies]
-schema-rust = { package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust.git", rev = "a4b46ffffe5307eca3e1537539d0a70884955b4c" }
+schema-rust = { package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust.git", rev = "255823ab3d0d6c5cab26e26a8b1d60c63c52c7b4" }
 
 [dev-dependencies]
 agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", features = ["live-provider"] }
@@ -239,7 +251,23 @@ nota-derive = { package = "nota-derive", git = "https://github.com/LiGoldragon/n
 schema = { package = "schema", git = "https://github.com/LiGoldragon/schema.git", rev = "92bed64ad644ce4caa2827398ada5b7b79221165" }
 schema-cc = { package = "schema-cc", git = "https://github.com/LiGoldragon/schema.git", rev = "92bed64ad644ce4caa2827398ada5b7b79221165" }
 
+# TRANSIENT TYPE-CHECK INSTRUMENTATION — never commit: a scratchpad copy of
+# mirror with its schema names migrated, so the mirror-shipper-gated spirit
+# surface can be type-checked despite the pre-existing mirror wedge.
+[patch."https://github.com/LiGoldragon/mirror.git"]
+mirror = { path = "/tmp/claude-1001/-home-li-primary/a2018f45-014c-45ef-9483-b9e5c9c0f086/scratchpad/mirror-typecheck" }
+
+# TRANSIENT TYPE-CHECK INSTRUMENTATION — never commit: a scratchpad copy of
+# meta-signal-router with its schema names migrated, so the e2e-gated spirit
+# surface can be type-checked despite the same schema-validator wedge.
+[patch."https://github.com/LiGoldragon/meta-signal-router.git"]
+meta-signal-router = { path = "/tmp/claude-1001/-home-li-primary/a2018f45-014c-45ef-9483-b9e5c9c0f086/scratchpad/meta-signal-router-typecheck" }
+
 [patch."https://github.com/LiGoldragon/schema-rust-next.git"]
+# Pinned BEHIND spirit's own schema-rust build dependency: the crates that
+# resolve through this patch (signal-criome and peers) authored their
+# checked-in schema artifacts against this older validator and fail the
+# newer schema-language freshness rules; they advance on their own schedule.
 schema-rust = { package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust.git", rev = "a4b46ffffe5307eca3e1537539d0a70884955b4c" }
 
 [lints.rust]

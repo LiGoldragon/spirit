@@ -1,6 +1,5 @@
 mod support;
 
-use support::domain_fixtures;
 use spirit::{
     AuthorizationObjectName, Engine, ObjectName, SignalObjectName, Store, TraceEvent, TraceLog,
     schema::{
@@ -14,6 +13,7 @@ use spirit::{
         },
     },
 };
+use support::domain_fixtures;
 use tempfile::TempDir;
 
 struct SemaFile {
