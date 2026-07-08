@@ -324,7 +324,10 @@ impl HeadSessionBinding {
                 ),
             });
         }
-        match (state.authorization_status, state.optional_authorization_grant()) {
+        match (
+            state.authorization_status,
+            state.optional_authorization_grant(),
+        ) {
             // Rule 3 — Granted requires the binding grant.
             (AuthorizationStatus::Granted, Some(grant))
                 if grant.authorization_request_slot == self.token_slot

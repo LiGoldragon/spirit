@@ -1548,7 +1548,14 @@ pub trait GuardianEntryExt {
 #[cfg(feature = "agent-guardian")]
 impl GuardianEntryExt for Entry {
     fn guardian_domain_scopes(&self) -> DomainScopes {
-        DomainScopes::from_domains(&self.domains)
+        DomainScopes::new(
+            self.domains
+                .payload()
+                .iter()
+                .cloned()
+                .map(DomainScope::from)
+                .collect(),
+        )
     }
 }
 

@@ -42,7 +42,10 @@ fn binding() -> HeadSessionBinding {
     HeadSessionBinding::new(slot("session-slot"), submitted_head())
 }
 
-fn grant_for(request_slot: AuthorizationRequestSlot, object_digest: ObjectDigest) -> AuthorizationGrant {
+fn grant_for(
+    request_slot: AuthorizationRequestSlot,
+    object_digest: ObjectDigest,
+) -> AuthorizationGrant {
     AuthorizationGrant::new(
         request_slot,
         AuthorizedObjectReference {
@@ -82,7 +85,10 @@ fn granted_with_binding_grant_authorizes() {
         slot("session-slot"),
         submitted_head().object_digest,
         AuthorizationStatus::Granted,
-        Some(grant_for(slot("session-slot"), submitted_head().object_digest)),
+        Some(grant_for(
+            slot("session-slot"),
+            submitted_head().object_digest,
+        )),
     );
     let decision = binding
         .decide(&granted)
@@ -156,7 +162,10 @@ fn request_digest_mismatch_is_held_as_a_fault() {
         slot("session-slot"),
         ObjectDigest::from_bytes(b"not the submitted head"),
         AuthorizationStatus::Granted,
-        Some(grant_for(slot("session-slot"), submitted_head().object_digest)),
+        Some(grant_for(
+            slot("session-slot"),
+            submitted_head().object_digest,
+        )),
     ));
     assert!(
         matches!(verdict, Err(CriomeGateError::HeadBindingViolation { .. })),
@@ -310,12 +319,18 @@ impl StubCriomeSocket {
             let reply = match script {
                 StubScript::BareGrantedReply => CriomeReply::AuthorizationGranted(grant_for(
                     slot("stub-slot"),
-                    authorization.authorized_object_reference.object_digest.clone(),
+                    authorization
+                        .authorized_object_reference
+                        .object_digest
+                        .clone(),
                 )),
                 StubScript::SnapshotThenSilence => CriomeReply::AuthorizationObservationSnapshot(
                     AuthorizationObservationSnapshot::from_states(vec![state(
                         slot("stub-slot"),
-                        authorization.authorized_object_reference.object_digest.clone(),
+                        authorization
+                            .authorized_object_reference
+                            .object_digest
+                            .clone(),
                         AuthorizationStatus::Pending,
                         None,
                     )]),
