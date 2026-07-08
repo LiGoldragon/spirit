@@ -251,12 +251,6 @@ nota-derive = { package = "nota-derive", git = "https://github.com/LiGoldragon/n
 schema = { package = "schema", git = "https://github.com/LiGoldragon/schema.git", rev = "92bed64ad644ce4caa2827398ada5b7b79221165" }
 schema-cc = { package = "schema-cc", git = "https://github.com/LiGoldragon/schema.git", rev = "92bed64ad644ce4caa2827398ada5b7b79221165" }
 
-[patch."https://github.com/LiGoldragon/schema-rust-next.git"]
-# Pinned BEHIND spirit's own schema-rust build dependency: the crates that
-# resolve through this patch (signal-criome and peers) authored their
-# checked-in schema artifacts against this older validator and fail the
-# newer schema-language freshness rules; they advance on their own schedule.
-schema-rust = { package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust.git", rev = "a4b46ffffe5307eca3e1537539d0a70884955b4c" }
 
 [lints.rust]
 unsafe_code = "forbid"

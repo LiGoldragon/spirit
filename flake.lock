@@ -3,11 +3,11 @@
     "agent-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783378184,
-        "narHash": "sha256-z0Y6pj/3LXHqLt68uOmKvw3Fy3F+3lg7Sp+dUMqMLqc=",
+        "lastModified": 1783527966,
+        "narHash": "sha256-w/HMRj9xHsUqJLIm70uBV1Ebqi14sJUJs3UeDB7wUvo=",
         "owner": "LiGoldragon",
         "repo": "agent",
-        "rev": "16144c977e922f5b7da2004c2e32eb5b28cdbe45",
+        "rev": "a0f0b24c2eed3fa61ec701fe0e617a464c78d1e7",
         "type": "github"
       },
       "original": {
@@ -516,13 +516,12 @@
     "signal-domain-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783353724,
-        "narHash": "sha256-Qz1VQUey2Bzw7Zf4NGlPUk3cRSVv/kadHwBXlfn97GY=",
-        "ref": "main",
-        "rev": "a6c726eccb529cde1fb429e3181326a4d28225b7",
-        "revCount": 1,
-        "type": "git",
-        "url": "https://github.com/LiGoldragon/signal-domain.git"
+        "lastModified": 1783420000,
+        "narHash": "sha256-7l9ShrNN9rYSvq8LOFdL776yez6UBEZea9SaXQKqMRg=",
+        "owner": "LiGoldragon",
+        "repo": "signal-domain",
+        "rev": "801e1c5bcc824c9760e246205826e3c8e962d005",
+        "type": "github"
       },
       "original": {
         "ref": "main",

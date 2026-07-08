@@ -355,6 +355,7 @@ fn configuration_writer_accepts_guardian_without_output_budget() {
     assert_eq!(guardian.maximum_output_tokens(), None);
 }
 
+#[cfg(feature = "agent-guardian")]
 #[test]
 fn configuration_writer_omitted_guardian_provider_resolves_to_local_openai_compatible_judge() {
     let directory = TempDir::new().expect("tempdir");
@@ -403,6 +404,7 @@ fn configuration_writer_omitted_guardian_provider_resolves_to_local_openai_compa
     );
 }
 
+#[cfg(feature = "agent-guardian")]
 #[test]
 fn configuration_writer_accepts_local_openai_compatible_guardian() {
     let directory = TempDir::new().expect("tempdir");
