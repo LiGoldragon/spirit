@@ -100,6 +100,7 @@ pub use engine::{
 #[cfg(feature = "agent-guardian")]
 pub use guardian::{
     AgentGuardian, AgentGuardianConfiguration, AgentGuardianError, AgentGuardianRejection,
+    AgentJudge, AgentJudgeConfiguration, AgentJudgeDecision, AgentJudgeError, AgentJudgeRejection,
 };
 #[cfg(feature = "agent-guardian")]
 pub use guardian_prompt::GuardianPromptSource;

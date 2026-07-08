@@ -392,6 +392,26 @@ fn scenarios() -> Vec<GuardianScenario> {
             "Centers rejected spellings instead of an affirmative canonical naming rule.",
             &[GuardianRejectionReason::NegativeGuideline],
         ),
+        GuardianScenario::rejects_with_justification(
+            "daemon protocol choice is matter",
+            medium_entry(
+                &["software", "spirit"],
+                "Spirit runtime control messages use the owner-only meta socket, while ordinary capture requests use the working socket.",
+            ),
+            "put runtime controls on the owner socket and leave captures on the working socket",
+            "This is a daemon protocol and component-boundary choice; it belongs in architecture and contract tests, not in durable psyche intent.",
+            &[GuardianRejectionReason::Matter],
+        ),
+        GuardianScenario::rejects_with_justification(
+            "spirit prompt workflow rule is matter",
+            medium_entry(
+                &["software", "spirit"],
+                "Spirit judge examples should be added to the compiled prompt guidance before live scenario coverage is expanded.",
+            ),
+            "put the new judge examples in the prompt guidance before expanding the live scenarios",
+            "This teaches how to operate Spirit's prompt/test workflow, so the correct home is repository guidance rather than the intent database.",
+            &[GuardianRejectionReason::Matter],
+        ),
     ]
 }
 

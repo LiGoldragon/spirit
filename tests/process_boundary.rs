@@ -17,8 +17,8 @@ use nota::NotaEncode;
 use nota::NotaSource;
 #[cfg(feature = "agent-guardian")]
 use signal_agent::{
-    Completion, CompletionText, Input as AgentInput, Output as AgentOutput, StopReasonText,
-    TokenUsage,
+    Completion, CompletionText, Input as AgentInput, Output as AgentOutput, ReasoningEffort,
+    StopReasonText, ThinkingMode, TokenUsage,
 };
 #[cfg(feature = "testing-trace")]
 use signal_introspect::ComponentTraceEvent;
@@ -30,9 +30,9 @@ use spirit::Configuration;
 #[cfg(feature = "agent-guardian")]
 use spirit::schema::nexus::GuardianVerdict;
 use spirit::schema::signal::{
-    Antecedent, ClarificationRecordIdentifier, ClarificationResolution, Description, Domains,
-    Input, IntentEvent, Justification, Kind, Magnitude, Output, QuoteText, Reasoning,
-    RecordIdentifier, TargetClarification, TargetClarifications, Testimony, VerbatimQuote,
+    Antecedent, ClarificationRecordIdentifier, ClarificationResolution, Description, Input,
+    IntentEvent, Justification, Kind, Magnitude, Output, QuoteText, Reasoning, RecordIdentifier,
+    TargetClarification, TargetClarifications, Testimony, VerbatimQuote,
 };
 #[cfg(feature = "agent-guardian")]
 use std::{
@@ -128,12 +128,27 @@ impl FakeGuardianAgent {
             .into_bytes();
         let (_route, input) =
             AgentInput::decode_signal_frame(&request).expect("decode fake guardian input");
-        let AgentInput::Call(_) = input else {
+        let AgentInput::Call(call) = input else {
             panic!("expected guardian Call input, got {input:?}");
         };
+        let options = call.payload().prompt_options();
+        assert_eq!(
+            options
+                .provider()
+                .map(|provider| provider.payload().as_str()),
+            Some(spirit::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_PROVIDER),
+            "omitted daemon guardian provider resolves through the agent-daemon call to local-openai"
+        );
+        assert_eq!(
+            options.model().map(|model| model.payload().as_str()),
+            Some(spirit::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_MODEL),
+            "omitted daemon guardian model resolves through the agent-daemon call to gpt-5.5"
+        );
+        assert_eq!(options.reasoning_effort(), Some(&ReasoningEffort::Medium));
+        assert_eq!(options.thinking_mode(), None::<&ThinkingMode>);
         let output = AgentOutput::completed(Completion {
             completion_text: CompletionText::new(GuardianVerdict::Accept.to_nota()),
-            stop_reason: StopReasonText::new("stop"),
+            stop_reason_text: StopReasonText::new("stop"),
             token_usage: TokenUsage::new(None, None),
         });
         codec
@@ -338,6 +353,54 @@ fn configuration_writer_accepts_guardian_without_output_budget() {
     assert_eq!(guardian.model_name(), Some("deepseek-v4-flash"));
     assert_eq!(guardian.timeout_milliseconds(), 120_000);
     assert_eq!(guardian.maximum_output_tokens(), None);
+}
+
+#[test]
+fn configuration_writer_omitted_guardian_provider_resolves_to_local_openai_compatible_judge() {
+    let directory = TempDir::new().expect("tempdir");
+    let socket_path = directory.path().join("spirit.sock");
+    let meta_socket_path = directory.path().join("meta.sock");
+    let database_path = directory.path().join("spirit.sema");
+    let agent_socket_path = directory.path().join("agent.sock");
+    let configuration_path = directory.path().join("spirit.config.rkyv");
+    let request = format!(
+        "(ConfigurationWriteRequest ({} (Some {}) {} None Gating (Some ({} None None 180000 None)) {}))",
+        nota_path(&socket_path),
+        nota_path(&meta_socket_path),
+        nota_path(&database_path),
+        nota_path(&agent_socket_path),
+        nota_path(&configuration_path)
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_spirit-write-configuration"))
+        .arg(request)
+        .output()
+        .expect("run configuration writer");
+
+    assert!(
+        output.status.success(),
+        "configuration writer stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let configuration =
+        Configuration::from_binary_path(&configuration_path).expect("decode binary config");
+    let raw_guardian = configuration
+        .raw()
+        .guardian_agent_configuration()
+        .expect("raw guardian configuration");
+    assert_eq!(raw_guardian.provider_name(), None);
+    assert_eq!(raw_guardian.model_name(), None);
+    let judge = configuration
+        .guardian_agent_configuration()
+        .expect("resolved judge configuration");
+    assert_eq!(
+        judge.provider_name(),
+        Some(spirit::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_PROVIDER)
+    );
+    assert_eq!(
+        judge.model_name(),
+        Some(spirit::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_MODEL)
+    );
 }
 
 #[test]

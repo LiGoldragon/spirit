@@ -93,8 +93,18 @@ impl AgentGuardianConfiguration {
     pub fn from_contract(configuration: &SpiritGuardianAgentConfiguration) -> Self {
         Self {
             socket_path: PathBuf::from(configuration.agent_socket_path()),
-            provider_name: configuration.provider_name().map(ToOwned::to_owned),
-            model_name: configuration.model_name().map(ToOwned::to_owned),
+            provider_name: Some(
+                configuration
+                    .provider_name()
+                    .unwrap_or(Self::LOCAL_OPENAI_COMPATIBLE_PROVIDER)
+                    .to_owned(),
+            ),
+            model_name: Some(
+                configuration
+                    .model_name()
+                    .unwrap_or(Self::LOCAL_OPENAI_COMPATIBLE_MODEL)
+                    .to_owned(),
+            ),
             timeout: Duration::from_millis(configuration.timeout_milliseconds()),
             maximum_output_tokens: configuration.maximum_output_tokens(),
             // The startup configuration archive carries no prompt field: a
@@ -115,8 +125,12 @@ impl AgentGuardianConfiguration {
     ) -> Self {
         Self {
             socket_path: socket_path.into(),
-            provider_name,
-            model_name,
+            provider_name: Some(
+                provider_name.unwrap_or_else(|| Self::LOCAL_OPENAI_COMPATIBLE_PROVIDER.to_owned()),
+            ),
+            model_name: Some(
+                model_name.unwrap_or_else(|| Self::LOCAL_OPENAI_COMPATIBLE_MODEL.to_owned()),
+            ),
             timeout,
             maximum_output_tokens,
             // No runtime override by default: callers that construct the
@@ -333,6 +347,14 @@ impl AgentGuardianConfiguration {
     fn socket_path(&self) -> &Path {
         &self.socket_path
     }
+
+    pub fn provider_name(&self) -> Option<&str> {
+        self.provider_name.as_deref()
+    }
+
+    pub fn model_name(&self) -> Option<&str> {
+        self.model_name.as_deref()
+    }
 }
 
 impl AgentGuardianError {
@@ -484,5 +506,79 @@ impl AgentGuardianRejection {
             record_set: self.records,
             explanation: self.explanation,
         }
+    }
+}
+
+pub type AgentJudge = AgentGuardian;
+pub type AgentJudgeConfiguration = AgentGuardianConfiguration;
+pub type AgentJudgeDecision = AgentGuardianDecision;
+pub type AgentJudgeError = AgentGuardianError;
+pub type AgentJudgeRejection = AgentGuardianRejection;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use signal_spirit::{ConfigurationPath, SpiritGuardianTimeoutMilliseconds};
+
+    #[test]
+    fn contract_configuration_defaults_to_local_openai_compatible_judge() {
+        let configuration = SpiritGuardianAgentConfiguration::new(
+            ConfigurationPath::new("/tmp/agent.sock"),
+            None,
+            None,
+            SpiritGuardianTimeoutMilliseconds::new(120_000),
+            None,
+        );
+
+        let judge = AgentGuardianConfiguration::from_contract(&configuration);
+
+        assert_eq!(
+            judge.provider_name(),
+            Some(AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_PROVIDER),
+            "omitted provider resolves to the local OpenAI-compatible judge provider"
+        );
+        assert_eq!(
+            judge.model_name(),
+            Some(AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_MODEL),
+            "omitted model resolves to gpt-5.5"
+        );
+    }
+
+    #[test]
+    fn direct_configuration_defaults_to_local_openai_compatible_judge() {
+        let judge = AgentGuardianConfiguration::new(
+            "/tmp/agent.sock",
+            None,
+            None,
+            Duration::from_secs(120),
+            None,
+        );
+
+        assert_eq!(
+            judge.provider_name(),
+            Some(AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_PROVIDER)
+        );
+        assert_eq!(
+            judge.model_name(),
+            Some(AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_MODEL)
+        );
+    }
+
+    #[test]
+    fn explicit_deepseek_configuration_stays_compatible() {
+        let configuration = SpiritGuardianAgentConfiguration::new(
+            ConfigurationPath::new("/tmp/agent.sock"),
+            Some(signal_spirit::SpiritGuardianProviderName::new("deepseek")),
+            Some(signal_spirit::SpiritGuardianModelName::new(
+                "deepseek-v4-flash",
+            )),
+            SpiritGuardianTimeoutMilliseconds::new(120_000),
+            None,
+        );
+
+        let judge = AgentGuardianConfiguration::from_contract(&configuration);
+
+        assert_eq!(judge.provider_name(), Some("deepseek"));
+        assert_eq!(judge.model_name(), Some("deepseek-v4-flash"));
     }
 }

@@ -177,13 +177,13 @@ impl FakeGuardianAgent {
         };
         assert!(
             call.payload().chat_transcript().payload()[0]
-                .text
+                .user_text
                 .payload()
                 .contains("Operation:")
         );
         captured_prompts.lock().expect("capture prompts").push(
             call.payload().chat_transcript().payload()[0]
-                .text
+                .user_text
                 .payload()
                 .clone(),
         );
@@ -193,7 +193,7 @@ impl FakeGuardianAgent {
         );
         let output = AgentOutput::completed(Completion {
             completion_text: CompletionText::new(reply),
-            stop_reason: StopReasonText::new("stop"),
+            stop_reason_text: StopReasonText::new("stop"),
             token_usage: TokenUsage::new(None, None),
         });
         codec

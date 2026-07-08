@@ -561,11 +561,15 @@ is not wired because the generated streaming `Frame` carries a single event type
 (`IntentEvent`); the operation history is the load-bearing observer content and
 is delivered request/reply.
 
-### Guardian admission and its prompts
+### Judge admission and its prompts
 
 Every working-socket write that changes the live intent corpus is gated by the
-LLM guardian (`AgentGuardian`, behind the `agent-guardian` feature): a clean-
-context judge that renders one strictly-binary `GuardianVerdict` per candidate.
+LLM judge (`AgentGuardian`, with public `AgentJudge` aliases, behind the
+`agent-guardian` feature): a clean-context judge that renders one strictly-binary
+`GuardianVerdict` per candidate. Storage, journal, and generated wire names keep
+the older `guardian` spelling for compatibility; new user-facing prose and
+source affordances should prefer judge terminology unless they name an existing
+schema/storage object.
 Two correctness properties are enforced in code, not by hope. (1) The closed
 rejection-reason set and the exact `Accept` / `(Reject (<Reason> [..]))` verdict
 grammar are **rendered from the `GuardianRejectionReason` enum and the
@@ -577,13 +581,18 @@ guard` short-circuits `MissingTestimony` before the model call when
 `GuardianOperation::testimony_is_empty()`) — the model judges only the semantic
 cases (fabrication, warrant, the certainty burden).
 
-**The guardian prompt prose lives in standalone files, never in the Rust.** Each
+**The judge prompt prose lives in standalone files, never in the Rust.** Each
 static section is a file under `src/guardian-prompts/` (`role.md`,
 `record-shape.md`, `justification-shape.md`, `burden-ladder.md`, `checklist.md`,
-`few-shot.md`, and the `referent.md` template). The active `role.md` is the
-psyche-acknowledged strict-bar role: a candidate is admitted only when it is a
-standing directive carried into work, with refusal as the resting state and any
-directive welded to matter refused whole. Every section is embedded at compile
+`few-shot.md`, and the `referent.md` template). New contrastive examples belong
+in these compiled prompt files first, normally `few-shot.md` for worked cases or
+`checklist.md` / `role.md` for general doctrine, before live model scenarios are
+expanded. `tests/guardian_live_scenarios.rs` then exercises live examples against
+the agent-daemon provider path, and `tests/process_boundary.rs` protects the
+process-boundary wiring. The active `role.md` is the psyche-acknowledged
+strict-bar role: a candidate is admitted only when it is a standing directive
+carried into work, with refusal as the resting state and any directive welded to
+matter refused whole. Every section is embedded at compile
 time with `include_str!` so the daemon carries a complete default prompt with no
 external dependency. `guardian_prompt.rs` only **assembles** these sections and
 splices in the two enum-rendered parts (the reason catalogue and the verdict
@@ -610,14 +619,15 @@ until the owner re-sends `Configure`; a blank override text resolves to
 `Compiled` so the live guardian is never left with an empty role. The override is
 scoped to the role section: the closed rejection-reason catalogue and the NOTA
 verdict grammar stay enum-rendered in code, so an override can never shift the
-verdict vocabulary the daemon parses. The DeepSeek judge path runs at
-temperature 0 with DeepSeek thinking enabled at high reasoning effort (threaded
-through the typed `ReasoningEffort` / `ThinkingMode` controls on the agent
-contract). The local OpenAI-compatible alternative uses provider `local-openai`,
-endpoint `http://127.0.0.1:18080/v1`, model `gpt-5.5`, and `NoSecret` unless
-the local server is started with its optional bearer gate; Spirit omits
-DeepSeek-specific reasoning extensions for that provider name. The guardian
-allows two format-correction retries before failing closed. The decision journal
+verdict vocabulary the daemon parses. Omitted provider/model settings resolve to
+the local OpenAI-compatible judge path: provider `local-openai`, endpoint
+`http://127.0.0.1:18080/v1`, model `gpt-5.5`, and `NoSecret` unless the local
+server is started with its optional bearer gate. That path requests temperature 0
+and medium `ReasoningEffort`, and omits DeepSeek-specific `ThinkingMode`. An
+explicit DeepSeek judge configuration remains supported and runs at temperature 0
+with DeepSeek thinking enabled at high reasoning effort (threaded through the
+typed `ReasoningEffort` / `ThinkingMode` controls on the agent contract). The
+judge allows two format-correction retries before failing closed. The decision journal
 is a separate, schema-versioned SEMA store
 (`spirit.guardian.v<N>.sema`).
 
@@ -630,15 +640,17 @@ substring filter.
 
 The prompt also includes a subject-matter boundary. A record captures what the
 psyche WANTS; it is not a place to store concrete matter. Content that describes
-what Spirit, the guardian, the system, or a process IS, or how to use or
-interpret it — code, an architecture, a manual entry, a specification, a
-mechanism, or a bead — is rejected at admission with the typed
-`GuardianRejectionReason::Matter`, and the remand names its proper home (a repo
-file, an `ARCHITECTURE` doc, a skill, or a bead). When a record mixes a thin
-directive with such matter, the aggressive lean treats the whole record as
-`Matter` so the directive can be re-captured cleanly on its own later. This is
-admission-boundary enforcement only — it governs what enters the intent log and
-does not touch records already stored.
+what Spirit, the judge, the guardian, the system, a daemon, an agent, or a
+process IS, or how to use or interpret it — code, an architecture, a manual
+entry, a specification, a mechanism, a daemon/runtime protocol, a component
+boundary, implementation doctrine, prompt/test workflow, or a bead — is rejected
+at admission with the typed `GuardianRejectionReason::Matter`, and the remand
+names its proper home (a repo file, an `ARCHITECTURE` doc, a skill, prompt
+guidance, or a bead). When a record mixes a thin directive with such matter, the
+aggressive lean treats the whole record as `Matter` so the directive can be
+re-captured cleanly on its own later. This is admission-boundary enforcement only
+— it governs what enters the intent log and does not touch records already
+stored.
 
 The guardian judges the whole submission as one case: operation, testimony,
 reasoning, magnitudes, domain, privacy, collision with active intent,

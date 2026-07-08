@@ -1,4 +1,4 @@
-//! The guardian prompt: how Spirit asks a specialized, clean-context LLM judge
+//! The judge prompt: how Spirit asks a specialized, clean-context LLM judge
 //! to render one binary admission verdict over a candidate intent write.
 //!
 //! The guardian is a court of law. The submitting agent is the advocate; the
@@ -14,7 +14,7 @@
 //! daemon parses (record `4jgt`); (2) the certainty gate reads modality off the
 //! verbatim quote, never the agent's prose (record `so3b`). The judge is
 //! over-trained on contrastive accept/reject pairs (record `88mw`) and asks the
-//! provider for thinking-enabled, high-effort reasoning.
+//! provider for at least medium-effort reasoning.
 
 use signal_agent::{
     ChatMessage, ChatTranscript, CompletionText, MaximumOutputTokens, ModelName, OutputMode,
@@ -335,13 +335,14 @@ impl<'configuration> GuardianPromptBuilder<'configuration> {
             Some(TemperatureMilli::new(0)),
             self.maximum_output_tokens.map(MaximumOutputTokens::new),
             OutputMode::Nota,
-            // A deliberate judge: thinking enabled at high effort. Higher
-            // reasoning effort also improves exact-format adherence.
-            if local_openai_compatible {
-                None
+            // A deliberate judge: local OpenAI-compatible ChatGPT uses medium
+            // reasoning effort, while DeepSeek-compatible providers keep the
+            // higher-effort setting used by the existing compatibility path.
+            Some(if local_openai_compatible {
+                ReasoningEffort::Medium
             } else {
-                Some(ReasoningEffort::High)
-            },
+                ReasoningEffort::High
+            }),
             if local_openai_compatible {
                 None
             } else {
@@ -586,7 +587,7 @@ mod tests {
         let source = GuardianPromptSource::compiled_in();
         let prompt = compiled_in_builder(&source).intent_guardian_system_prompt();
         for marker in [
-            "Guardian of Spirit",
+            "Judge of Spirit",
             "THE ONE TEST",
             "THE RECORD (Entry)",
             "TYPED JUSTIFICATION",
@@ -641,6 +642,25 @@ mod tests {
     }
 
     #[test]
+    fn assembled_system_prompt_makes_architecture_and_doctrine_matter() {
+        let source = GuardianPromptSource::compiled_in();
+        let prompt = compiled_in_builder(&source).intent_guardian_system_prompt();
+        for marker in [
+            "architecture, mechanism, daemon/runtime protocol",
+            "component boundary, storage choice, schema shape",
+            "implementation doctrine, agent instruction, skill, prompt rule",
+            "take the matter reading",
+            "what Spirit, the judge, the guardian, the system, a daemon, an agent, or a process IS",
+            "action performed on or with Spirit",
+        ] {
+            assert!(
+                prompt.contains(marker),
+                "assembled prompt is missing conservative Matter boundary marker {marker:?}"
+            );
+        }
+    }
+
+    #[test]
     fn role_override_swaps_the_role_section_without_rebuild() {
         let overridden_role = "OVERRIDE ROLE: the runtime guardian role prose for this test.";
         let source = GuardianPromptSource::role_override(overridden_role);
@@ -679,6 +699,40 @@ mod tests {
             prompt.contains("THE ONE TEST"),
             "the compiled-in source must render the baked strict-bar role"
         );
+    }
+
+    #[test]
+    fn local_openai_compatible_judge_uses_medium_reasoning_without_deepseek_thinking() {
+        let source = GuardianPromptSource::compiled_in();
+        let builder = GuardianPromptBuilder::new(
+            Some(crate::guardian::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_PROVIDER),
+            Some(crate::guardian::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_MODEL),
+            None,
+            &source,
+        );
+        let options = builder.prompt_options();
+
+        assert_eq!(
+            options.reasoning_effort(),
+            Some(&ReasoningEffort::Medium),
+            "the local OpenAI-compatible gpt-5.5 judge must request at least medium reasoning"
+        );
+        assert_eq!(
+            options.thinking_mode(),
+            None,
+            "DeepSeek-specific thinking extensions stay off for local-openai"
+        );
+    }
+
+    #[test]
+    fn explicit_deepseek_judge_keeps_high_reasoning_and_thinking() {
+        let source = GuardianPromptSource::compiled_in();
+        let builder =
+            GuardianPromptBuilder::new(Some("deepseek"), Some("deepseek-v4-flash"), None, &source);
+        let options = builder.prompt_options();
+
+        assert_eq!(options.reasoning_effort(), Some(&ReasoningEffort::High));
+        assert_eq!(options.thinking_mode(), Some(&ThinkingMode::Enabled));
     }
 
     #[test]
