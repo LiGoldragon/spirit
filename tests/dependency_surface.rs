@@ -4,6 +4,24 @@ struct WorkspaceManifest {
     path: PathBuf,
 }
 
+struct CargoTree<'tree> {
+    text: &'tree str,
+}
+
+impl<'tree> CargoTree<'tree> {
+    fn new(text: &'tree str) -> Self {
+        Self { text }
+    }
+
+    fn contains_package(&self, package: &str) -> bool {
+        let package_prefix = format!("{package} v");
+        self.text.lines().any(|line| {
+            line.trim_start_matches(|character| matches!(character, ' ' | '│' | '├' | '└' | '─'))
+                .starts_with(&package_prefix)
+        })
+    }
+}
+
 impl WorkspaceManifest {
     fn from_environment() -> Self {
         Self {
@@ -37,7 +55,7 @@ fn binary_only_surface_has_no_nota_runtime_dependency() {
     let tree = manifest.cargo_tree(&["--edges", "normal", "--no-default-features"]);
 
     assert!(
-        !tree.contains("nota") && !tree.contains("nota"),
+        !CargoTree::new(&tree).contains_package("nota"),
         "binary-only runtime dependency tree must not contain nota:\n{tree}"
     );
 }
@@ -64,7 +82,7 @@ fn text_client_surface_has_nota_runtime_dependency() {
     let tree = manifest.cargo_tree(&["--edges", "normal", "--features", "nota-text"]);
 
     assert!(
-        tree.contains("nota"),
+        CargoTree::new(&tree).contains_package("nota"),
         "nota-text runtime dependency tree must contain nota:\n{tree}"
     );
 }

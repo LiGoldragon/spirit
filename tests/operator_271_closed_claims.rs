@@ -10,7 +10,8 @@
 //!   self-tagged signatures (`(Record)`). The retired `Record@Entry`
 //!   short-suffix sugar is absent.
 //!   The authored schema source decodes into a typed `SchemaSource` value,
-//!   round-trips through rkyv, and the emitted Rust carries the alias shape.
+//!   lowers to semantic `TrueSchema`, round-trips through rkyv, and the emitted
+//!   Rust carries the alias shape.
 //!
 //! Spirit-next is the production-pilot consumer of schema-emitted nouns,
 //! so its source schema is the production witness for claim 4: the schema
@@ -24,7 +25,9 @@ const DOMAIN_SCHEMA: &str = signal_spirit::DOMAIN_SCHEMA_SOURCE;
 const NEXUS_SCHEMA: &str = include_str!("../schema/nexus.schema");
 const SEMA_SCHEMA: &str = include_str!("../schema/sema.schema");
 
-use schema::SchemaSourceArtifact;
+use schema_language::{
+    ImportResolver, SchemaEngine, SchemaIdentity, SchemaSourceArtifact, TrueSchema,
+};
 
 /// Helper noun for schema-source assertions. Owns the source string and
 /// the witness verbs.
@@ -67,6 +70,18 @@ impl<'source> SchemaSourceWitness<'source> {
             "{} must preserve the typed SchemaSource value through rkyv",
             self.name
         );
+    }
+
+    fn must_lower_to_true_schema(
+        &self,
+        identity: SchemaIdentity,
+        resolver: &ImportResolver,
+    ) -> TrueSchema {
+        let artifact = SchemaSourceArtifact::from_schema_text(self.source)
+            .unwrap_or_else(|error| panic!("{} must decode as SchemaSource: {error}", self.name));
+        SchemaEngine::default()
+            .lower_schema_source_with_resolver(artifact.source(), identity, resolver)
+            .unwrap_or_else(|error| panic!("{} must lower to TrueSchema: {error}", self.name))
     }
 }
 
@@ -171,7 +186,7 @@ fn signal_schema_output_uses_exported_object_variant_names() {
 
     // The active production Output enum body.
     witness.must_contain(
-        "[RecordAccepted Proposed Clarified Superseded Retired ClarificationResolved GuardianRejected ReferentGuardianRejected RecordsObserved RecordsStashed RecordFound RecordsCounted CertaintyChanged ImportanceBumped RecordChanged ReferentRegistered ObservationTapped ObservationUntapped SubscriptionStarted VersionReported MarkerReported RecordApplied ApplyRefused (Event IntentEvent) Error Rejected]",
+        "[RecordAccepted Proposed Clarified Superseded Retired ClarificationResolved GuardianRejected ReferentGuardianRejected RecordsObserved RecordsStashed RecordFound RecordsCounted CertaintyChanged ImportanceBumped RecordChanged ReferentRegistered ObservationTapped ObservationUntapped SubscriptionStarted VersionReported MarkerReported RecordApplied ApplyRefused (Event IntentEvent) Error Rejected AdvanceRefused]",
         "4",
     );
     witness.must_not_contain("RecordRemoved", "4");
@@ -200,6 +215,7 @@ fn signal_schema_output_uses_exported_object_variant_names() {
         "IntentEvent [(IntentRecorded IntentRecorded belongs IntentEventStream) (IntentClarified IntentClarified belongs IntentEventStream) (IntentSuperseded IntentSuperseded belongs IntentEventStream) (IntentRetired IntentRetired belongs IntentEventStream)]",
         "4",
     );
+    witness.must_contain("AdvanceRefused AdvanceRefusal", "4");
     witness.must_contain("Error ErrorReport", "4");
     witness.must_contain("Rejected SignalRejection", "4");
 }
@@ -265,6 +281,44 @@ fn split_schema_sources_decode_and_archive_as_typed_schema_values() {
     domain_witness.must_round_trip_as_schema_source();
     nexus_witness.must_round_trip_as_schema_source();
     sema_witness.must_round_trip_as_schema_source();
+
+    let dependency_resolver = ImportResolver::new()
+        .with_module_source("signal-domain", "domain", "0.1.0", DOMAIN_SCHEMA)
+        .with_module_source("signal-spirit", "signal", "0.13.0", SIGNAL_SCHEMA)
+        .with_module_source("spirit", "sema", "0.6.0", SEMA_SCHEMA);
+    let signal_true_schema = signal_witness.must_lower_to_true_schema(
+        SchemaIdentity::new("signal-spirit:signal", "0.13.0"),
+        &dependency_resolver,
+    );
+    let domain_true_schema = domain_witness.must_lower_to_true_schema(
+        SchemaIdentity::new("signal-domain:domain", "0.1.0"),
+        &dependency_resolver,
+    );
+    let sema_true_schema = sema_witness.must_lower_to_true_schema(
+        SchemaIdentity::new("spirit:sema", "0.6.0"),
+        &dependency_resolver,
+    );
+    let nexus_true_schema = nexus_witness.must_lower_to_true_schema(
+        SchemaIdentity::new("spirit:nexus", "0.6.0"),
+        &dependency_resolver,
+    );
+    assert!(
+        signal_true_schema.resolved_imports().len() >= 40,
+        "signal TrueSchema resolves shared domain imports rather than embedding the taxonomy"
+    );
+    assert!(
+        !domain_true_schema.namespace().is_empty(),
+        "domain TrueSchema keeps the taxonomy as semantic declarations"
+    );
+    assert_eq!(
+        sema_true_schema.families().len(),
+        3,
+        "sema TrueSchema keeps record families as schema-derived storage declarations"
+    );
+    assert!(
+        nexus_true_schema.resolved_imports().len() >= 40,
+        "nexus TrueSchema resolves its signal and sema nouns through dependency imports"
+    );
 
     signal_witness.must_contain(
         "[State Record Propose Clarify Supersede Retire ResolveClarification Observe PublicTextSearch PublicRecords PrivateRecords Lookup Count ChangeCertainty BumpImportance ChangeRecord RegisterReferent LookupStash Tap Untap ApplyAuthorizedRecord (SubscribeIntent SubscribeIntent opens IntentEventStream) Version Marker PublicIntent]",
@@ -427,6 +481,7 @@ fn schema_emitted_rust_modules_mirror_honest_enum_variants() {
     signal_witness.must_contain("ReferentGuardianRejected(ReferentGuardianRejected)", "4");
     signal_witness.must_contain("VersionReported(VersionReported)", "4");
     signal_witness.must_contain("MarkerReported(MarkerReported)", "4");
+    signal_witness.must_contain("AdvanceRefused(AdvanceRefused)", "4");
     signal_witness.must_contain("Error(Error)", "4");
     signal_witness.must_contain("Rejected(Rejected)", "4");
 

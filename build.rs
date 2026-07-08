@@ -48,7 +48,7 @@ impl SchemaBuild {
         let Some(meta_signal_spirit) = DependencySchema::from_cargo_metadata(
             "meta-signal-spirit",
             "meta-signal-spirit",
-            "0.7.0",
+            "0.7.1",
         )
         .expect("read meta-signal-spirit schema metadata") else {
             return;
