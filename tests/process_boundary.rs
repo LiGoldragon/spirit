@@ -142,7 +142,7 @@ impl FakeGuardianAgent {
         assert_eq!(
             options.model().map(|model| model.payload().as_str()),
             Some(spirit::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_MODEL),
-            "omitted daemon guardian model resolves through the agent-daemon call to gpt-5.5"
+            "omitted daemon guardian model resolves through the agent-daemon call to gpt-5.4-mini"
         );
         assert_eq!(options.reasoning_effort(), Some(&ReasoningEffort::Medium));
         assert_eq!(options.thinking_mode(), None::<&ThinkingMode>);

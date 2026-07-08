@@ -386,7 +386,7 @@ fn live_deepseek_guardian_accepts_and_rejects_realistic_scenarios() {
 }
 
 #[test]
-#[ignore = "uses a local OpenAI-compatible endpoint at http://127.0.0.1:18080/v1 with the Mind-verified gpt-5.5 model"]
+#[ignore = "uses a local OpenAI-compatible endpoint at http://127.0.0.1:18080/v1 with the Mind-verified gpt-5.4-mini model"]
 fn live_local_openai_compatible_guardian_accepts_and_rejects_realistic_scenarios() {
     if !LocalOpenAiCompatibleEndpoint::available() {
         eprintln!(
