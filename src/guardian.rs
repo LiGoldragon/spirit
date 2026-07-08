@@ -86,7 +86,7 @@ pub enum AgentGuardianError {
 
 impl AgentGuardianConfiguration {
     pub const LOCAL_OPENAI_COMPATIBLE_PROVIDER: &'static str = "local-openai";
-    pub const LOCAL_OPENAI_COMPATIBLE_MODEL: &'static str = "gpt-5.5";
+    pub const LOCAL_OPENAI_COMPATIBLE_MODEL: &'static str = "gpt-5.4-mini";
     pub const LOCAL_OPENAI_COMPATIBLE_ENDPOINT: &'static str = "http://127.0.0.1:18080/v1";
     pub const DEFAULT_TIMEOUT_MILLISECONDS: u64 = 180_000;
 
@@ -540,7 +540,7 @@ mod tests {
         assert_eq!(
             judge.model_name(),
             Some(AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_MODEL),
-            "omitted model resolves to gpt-5.5"
+            "omitted model resolves to gpt-5.4-mini"
         );
     }
 

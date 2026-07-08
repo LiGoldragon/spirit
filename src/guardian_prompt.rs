@@ -716,12 +716,12 @@ mod tests {
         assert_eq!(
             options.temperature_milli(),
             None,
-            "the local OpenAI-compatible gpt-5.5 judge follows Mind's working path and omits temperature"
+            "the local OpenAI-compatible gpt-5.4-mini judge follows Mind's working path and omits temperature"
         );
         assert_eq!(
             options.reasoning_effort(),
             None,
-            "the local OpenAI-compatible gpt-5.5 judge follows Mind's working path and omits reasoning-effort extensions"
+            "the local OpenAI-compatible gpt-5.4-mini judge follows Mind's working path and omits reasoning-effort extensions"
         );
         assert_eq!(
             options.thinking_mode(),
