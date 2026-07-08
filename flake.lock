@@ -190,11 +190,11 @@
     "meta-signal-spirit-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783369323,
-        "narHash": "sha256-CGPia6qERt5EK0ajIZsAuDW62pyeKiA83fyBbcZwlMU=",
+        "lastModified": 1783524994,
+        "narHash": "sha256-YdzKF3yRkCJX7OvR8e3nsIMVfSGrk4wryBIXEgarBbE=",
         "owner": "LiGoldragon",
         "repo": "meta-signal-spirit",
-        "rev": "2c765101f3cb39a8439289e6116b7998450039bf",
+        "rev": "0a7a2438c8e5d57cb1fd413452d0a7ddad4fb9b3",
         "type": "github"
       },
       "original": {
@@ -238,11 +238,11 @@
     "nota-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783224919,
-        "narHash": "sha256-0sYkfB1gE/RmWJX5ltxQmTkrFSx+2AhpWCPGCgacm/g=",
+        "lastModified": 1783443857,
+        "narHash": "sha256-ZvvGRnrQ639uSDkGUeS+UgbEbApec0MX9I2dZoA22Kk=",
         "owner": "LiGoldragon",
         "repo": "nota",
-        "rev": "ce7c564de0a0518eaa1938d55dccc460a67cadb4",
+        "rev": "d25c08a87b897f2eac28621fb6c3d25801cdccfc",
         "type": "github"
       },
       "original": {
@@ -284,6 +284,7 @@
         "nota-text-query-source": "nota-text-query-source",
         "router-source": "router-source",
         "rust-build": "rust-build",
+        "schema-language-source": "schema-language-source",
         "schema-rust-source": "schema-rust-source",
         "schema-source": "schema-source",
         "sema-engine-layout3-source": "sema-engine-layout3-source",
@@ -364,14 +365,31 @@
         "type": "github"
       }
     },
+    "schema-language-source": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1783411312,
+        "narHash": "sha256-VXHX8zjH10wqGqzCU/4gPzE74qNIckq8sFsPis16QII=",
+        "owner": "LiGoldragon",
+        "repo": "schema-language",
+        "rev": "6aae825d668e3f607a2754afa6b7d94e9f246c41",
+        "type": "github"
+      },
+      "original": {
+        "owner": "LiGoldragon",
+        "repo": "schema-language",
+        "rev": "6aae825d668e3f607a2754afa6b7d94e9f246c41",
+        "type": "github"
+      }
+    },
     "schema-rust-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783361655,
-        "narHash": "sha256-M6DF5Ngx6OXRw19yHNuvbs23Jc6OnYZ63F8pphKmDGA=",
+        "lastModified": 1783441348,
+        "narHash": "sha256-gm4TCLoMjwIrTAxP/2b1Y2M+YZVMn814hsbcvq0Kt5Y=",
         "owner": "LiGoldragon",
         "repo": "schema-rust",
-        "rev": "a4b46ffffe5307eca3e1537539d0a70884955b4c",
+        "rev": "f3b4563163dd11ba1cbbcca8081701ab7830b8f5",
         "type": "github"
       },
       "original": {
@@ -515,11 +533,11 @@
     "signal-frame-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783222439,
-        "narHash": "sha256-zENsOLXSrpZPvnhEaGPgCWT0AMBVekhdz+AHlWLm25k=",
+        "lastModified": 1783441628,
+        "narHash": "sha256-KaB9kjJigHhVPe3zGQWaliszkzgN4u8cv8xiCecIeBw=",
         "ref": "main",
-        "rev": "bb86bef67e478ff52690a4dcceec8f22d2b005ad",
-        "revCount": 73,
+        "rev": "fd7909d1497b7bb18751521387a1087cd9e7c91c",
+        "revCount": 74,
         "type": "git",
         "url": "https://github.com/LiGoldragon/signal-frame.git"
       },
@@ -660,11 +678,11 @@
     "signal-spirit-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783368789,
-        "narHash": "sha256-Ztcnss38WKFLhee/cS69cDhYtneAD+PqZ1DrN+iIBnw=",
+        "lastModified": 1783441350,
+        "narHash": "sha256-FgjDtNktIXSpXPBoMt1OatecHC8BurD60A35F06h4fI=",
         "owner": "LiGoldragon",
         "repo": "signal-spirit",
-        "rev": "d06e8efffa0ad9cc5305c53977f9833dec3c6038",
+        "rev": "1cf7c010029de46369b742687da4fa1ca6def9a9",
         "type": "github"
       },
       "original": {
@@ -722,11 +740,11 @@
     "triad-runtime-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783244946,
-        "narHash": "sha256-31uK2rblPycq2vR+V3bgthXl6YzMkycJElOEivfiT1U=",
+        "lastModified": 1783441007,
+        "narHash": "sha256-uZ0pLbFOV6S1sBjTLQcGYQ1PdZ0ufRM0vOlYHJi2/HQ=",
         "ref": "main",
-        "rev": "b34df30c56fcbc88266210167d2520d0996feca3",
-        "revCount": 51,
+        "rev": "895d2e6b9023b2d901fe1ab20e6f8f431c6113b7",
+        "revCount": 53,
         "type": "git",
         "url": "https://github.com/LiGoldragon/triad-runtime.git"
       },

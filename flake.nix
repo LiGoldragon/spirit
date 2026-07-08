@@ -20,6 +20,10 @@
       url = "github:LiGoldragon/schema";
       flake = false;
     };
+    schema-language-source = {
+      url = "github:LiGoldragon/schema-language/6aae825d668e3f607a2754afa6b7d94e9f246c41";
+      flake = false;
+    };
     schema-rust-source = {
       url = "github:LiGoldragon/schema-rust";
       flake = false;
@@ -159,6 +163,7 @@
       kameo-source,
       nota-source,
       schema-source,
+      schema-language-source,
       schema-rust-source,
       sema-source,
       sema-engine-source,
@@ -227,6 +232,7 @@
               kameoSource = kameo-source;
               notaNextSource = nota-source;
               schemaNextSource = schema-source;
+              schemaLanguageSource = schema-language-source;
               schemaRustNextSource = schema-rust-source;
               semaSource = sema-source;
               semaEngineSource = sema-engine-source;
@@ -266,6 +272,7 @@
               cp -R "$kameoSource" $out/vendor-sources/kameo
               cp -R "$notaNextSource" $out/vendor-sources/nota
               cp -R "$schemaNextSource" $out/vendor-sources/schema
+              cp -R "$schemaLanguageSource" $out/vendor-sources/schema-language
               cp -R "$schemaRustNextSource" $out/vendor-sources/schema-rust
               cp -R "$semaSource" $out/vendor-sources/sema
               cp -R "$semaEngineSource" $out/vendor-sources/sema-engine
@@ -331,14 +338,16 @@
                 --replace-fail 'signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main", optional = true }' 'signal-agent = { path = "vendor-sources/signal-agent", optional = true }' \
                 --replace-fail 'signal-introspect = { git = "https://github.com/LiGoldragon/signal-introspect.git", branch = "main", default-features = false, optional = true }' 'signal-introspect = { path = "vendor-sources/signal-introspect", default-features = false, optional = true }' \
                 --replace-fail 'signal-persona = { git = "https://github.com/LiGoldragon/signal-persona.git", branch = "main", optional = true }' 'signal-persona = { path = "vendor-sources/signal-persona", optional = true }' \
-                --replace-fail 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", rev = "d06e8efffa0ad9cc5305c53977f9833dec3c6038" }' 'signal-spirit = { path = "vendor-sources/signal-spirit" }' \
-                --replace-fail 'meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", rev = "2c765101f3cb39a8439289e6116b7998450039bf" }' 'meta-signal-spirit = { path = "vendor-sources/meta-signal-spirit" }' \
+                --replace-fail 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", rev = "1cf7c010029de46369b742687da4fa1ca6def9a9" }' 'signal-spirit = { path = "vendor-sources/signal-spirit" }' \
+                --replace-fail 'meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", rev = "0a7a2438c8e5d57cb1fd413452d0a7ddad4fb9b3" }' 'meta-signal-spirit = { path = "vendor-sources/meta-signal-spirit" }' \
                 --replace-fail 'nota-text-query = { git = "https://github.com/LiGoldragon/nota-text-query.git", rev = "6140a3e9afe3f81c18a39cb0a11dec4eab68b561", default-features = false }' 'nota-text-query = { path = "vendor-sources/nota-text-query", default-features = false }' \
                 --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "vendor-sources/triad-runtime" }' \
+                --replace-fail 'schema-rust = { package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust.git", rev = "f3b4563163dd11ba1cbbcca8081701ab7830b8f5" }' 'schema-rust = { path = "vendor-sources/schema-rust", package = "schema-rust" }' \
                 --replace-fail 'schema-rust = { package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust.git", rev = "a4b46ffffe5307eca3e1537539d0a70884955b4c" }' 'schema-rust = { path = "vendor-sources/schema-rust" }' \
                 --replace-fail 'agent = { git = "https://github.com/LiGoldragon/agent.git", branch = "main", features = ["live-provider"] }' 'agent = { path = "vendor-sources/agent", features = ["live-provider"] }' \
                 --replace-fail 'schema = { package = "schema", git = "https://github.com/LiGoldragon/schema.git", rev = "92bed64ad644ce4caa2827398ada5b7b79221165" }' 'schema = { path = "vendor-sources/schema" }' \
                 --replace-fail 'schema-cc = { package = "schema-cc", git = "https://github.com/LiGoldragon/schema.git", rev = "92bed64ad644ce4caa2827398ada5b7b79221165" }' 'schema-cc = { path = "vendor-sources/schema/schema-cc" }' \
+                --replace-fail 'schema-language = { git = "https://github.com/LiGoldragon/schema-language.git", rev = "6aae825d668e3f607a2754afa6b7d94e9f246c41" }' 'schema-language = { path = "vendor-sources/schema-language" }' \
                 --replace-fail 'signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main" }' 'signal-sema = { path = "vendor-sources/signal-sema" }'
 
               ${pkgs.python3}/bin/python3 - "$out/vendor-sources/schema-rust/Cargo.toml" <<'PYEOF'
@@ -426,6 +435,10 @@
 
               [patch."https://github.com/LiGoldragon/schema-rust.git"]
               schema-rust = { path = "vendor-sources/schema-rust" }
+
+              [patch."https://github.com/LiGoldragon/schema-language.git"]
+              schema-language = { path = "vendor-sources/schema-language" }
+              schema-language-cc = { path = "vendor-sources/schema-language/schema-language-cc" }
 
               [patch."https://github.com/LiGoldragon/sema.git"]
               sema = { path = "vendor-sources/sema" }
@@ -544,6 +557,8 @@
               "nota-derive",
               "schema",
               "schema-rust",
+              "schema-language",
+              "schema-language-cc",
               "agent",
               "sema",
               "signal-agent",

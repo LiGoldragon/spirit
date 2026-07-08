@@ -841,6 +841,7 @@ dependencies = [
 [[package]]
 name = "meta-signal-router"
 version = "0.3.0"
+source = "git+https://github.com/LiGoldragon/meta-signal-router.git?branch=main#3ad1727250afcf79e0c45df4b2e2d7c436ae4910"
 dependencies = [
  "rkyv",
  "schema-rust 0.6.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
@@ -875,6 +876,7 @@ dependencies = [
 [[package]]
 name = "mirror"
 version = "0.2.0"
+source = "git+https://github.com/LiGoldragon/mirror.git?branch=main#b1da05c31ec89ffc2e415d9902464a9f7a2361e4"
 dependencies = [
  "meta-signal-mirror",
  "nota",

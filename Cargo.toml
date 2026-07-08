@@ -251,18 +251,6 @@ nota-derive = { package = "nota-derive", git = "https://github.com/LiGoldragon/n
 schema = { package = "schema", git = "https://github.com/LiGoldragon/schema.git", rev = "92bed64ad644ce4caa2827398ada5b7b79221165" }
 schema-cc = { package = "schema-cc", git = "https://github.com/LiGoldragon/schema.git", rev = "92bed64ad644ce4caa2827398ada5b7b79221165" }
 
-# TRANSIENT TYPE-CHECK INSTRUMENTATION — never commit: a scratchpad copy of
-# mirror with its schema names migrated, so the mirror-shipper-gated spirit
-# surface can be type-checked despite the pre-existing mirror wedge.
-[patch."https://github.com/LiGoldragon/mirror.git"]
-mirror = { path = "/tmp/claude-1001/-home-li-primary/a2018f45-014c-45ef-9483-b9e5c9c0f086/scratchpad/mirror-typecheck" }
-
-# TRANSIENT TYPE-CHECK INSTRUMENTATION — never commit: a scratchpad copy of
-# meta-signal-router with its schema names migrated, so the e2e-gated spirit
-# surface can be type-checked despite the same schema-validator wedge.
-[patch."https://github.com/LiGoldragon/meta-signal-router.git"]
-meta-signal-router = { path = "/tmp/claude-1001/-home-li-primary/a2018f45-014c-45ef-9483-b9e5c9c0f086/scratchpad/meta-signal-router-typecheck" }
-
 [patch."https://github.com/LiGoldragon/schema-rust-next.git"]
 # Pinned BEHIND spirit's own schema-rust build dependency: the crates that
 # resolve through this patch (signal-criome and peers) authored their
