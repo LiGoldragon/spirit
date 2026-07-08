@@ -15,7 +15,7 @@ use crate::{
         sema::ErrorReport,
         signal::{
             self as signal_schema, DatabaseMarker, ErrorMessage, Input, Integer, IntentEvent,
-            Output, RecordCount, SemaReceipt, SupersessionReceipt, ValidationError,
+            Output, RecordCount, SupersessionReceipt, ValidationError,
         },
     },
     store::{Store, StoreError},
@@ -1429,70 +1429,6 @@ impl nexus_schema::nexus::Nexus<NexusAction> {
             ))),
         };
         SignalResponse::new(origin_route, root)
-    }
-}
-
-impl std::ops::Deref for crate::schema::sema::Recorded {
-    type Target = SemaReceipt;
-
-    fn deref(&self) -> &Self::Target {
-        self.payload()
-    }
-}
-
-impl std::ops::Deref for crate::schema::sema::CertaintyChanged {
-    type Target = signal_schema::CertaintyChangeReceipt;
-
-    fn deref(&self) -> &Self::Target {
-        self.payload()
-    }
-}
-
-impl std::ops::Deref for crate::schema::sema::RecordChanged {
-    type Target = signal_schema::RecordChangeReceipt;
-
-    fn deref(&self) -> &Self::Target {
-        self.payload()
-    }
-}
-
-impl std::ops::Deref for crate::schema::sema::Observed {
-    type Target = signal_schema::ObservedRecords;
-
-    fn deref(&self) -> &Self::Target {
-        self.payload()
-    }
-}
-
-impl std::ops::Deref for crate::schema::sema::Found {
-    type Target = signal_schema::FoundRecord;
-
-    fn deref(&self) -> &Self::Target {
-        self.payload()
-    }
-}
-
-impl std::ops::Deref for crate::schema::sema::Counted {
-    type Target = signal_schema::CountedRecords;
-
-    fn deref(&self) -> &Self::Target {
-        self.payload()
-    }
-}
-
-impl std::ops::Deref for nexus_schema::ChangeCertainty {
-    type Target = signal_schema::CertaintyChange;
-
-    fn deref(&self) -> &Self::Target {
-        self.payload()
-    }
-}
-
-impl std::ops::Deref for nexus_schema::ChangeRecord {
-    type Target = signal_schema::RecordChange;
-
-    fn deref(&self) -> &Self::Target {
-        self.payload()
     }
 }
 

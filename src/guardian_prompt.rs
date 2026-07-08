@@ -27,7 +27,7 @@ use nota::NotaEncode;
 use crate::{
     guardian_journal::GuardianOperation,
     schema::{
-        nexus::{GuardianVerdict, ReferentGuardianVerdict, Reject, RejectReferent},
+        nexus::{GuardianReject, GuardianVerdict, ReferentGuardianVerdict, ReferentReject},
         signal::{
             Explanation, GuardianRejectionReason, RecordSet, ReferentGuardianRejectionReason,
             ReferentRegistration, RegisteredReferents,
@@ -263,7 +263,7 @@ impl<'configuration> GuardianPromptBuilder<'configuration> {
 
     fn referent_guardian_system_prompt(&self) -> String {
         let accept = ReferentGuardianVerdict::Accept.to_nota();
-        let reject = ReferentGuardianVerdict::reject_referent(RejectReferent {
+        let reject = ReferentGuardianVerdict::reject_referent(ReferentReject {
             referent_guardian_rejection_reason: ReferentGuardianRejectionReason::NonReferent,
             explanation: Explanation::new("a verb or concept is not a nameable particular"),
         })
@@ -298,7 +298,7 @@ impl<'configuration> GuardianPromptBuilder<'configuration> {
     /// to values rendered from the actual `GuardianVerdict` type.
     fn nota_verdict_discipline() -> String {
         let accept = GuardianVerdict::Accept.to_nota();
-        let reject = GuardianVerdict::reject(Reject {
+        let reject = GuardianVerdict::reject(GuardianReject {
             guardian_rejection_reason: GuardianRejectionReason::Overstated,
             explanation: Explanation::new(
                 "could and maybe are hedged and cannot clear High; the honest rung is Low",
@@ -549,7 +549,7 @@ mod tests {
 
     #[test]
     fn reject_renders_double_nested_and_round_trips() {
-        let rendered = GuardianVerdict::reject(Reject {
+        let rendered = GuardianVerdict::reject(GuardianReject {
             guardian_rejection_reason: GuardianRejectionReason::Overstated,
             explanation: Explanation::new("could is hedged"),
         })

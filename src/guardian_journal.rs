@@ -9,7 +9,7 @@ use sema_engine::{
 use crate::schema::signal::Input;
 use crate::{
     schema::{
-        nexus::{GuardianVerdict, ReferentGuardianVerdict, Reject, RejectReferent},
+        nexus::{GuardianReject, GuardianVerdict, ReferentGuardianVerdict, ReferentReject},
         signal::{
             Clarification, ClarificationResolution, DatabaseMarker, Entry, Explanation,
             GuardianRejectionReason, Proposal, RecordChange, RecordRequest, RecordSet,
@@ -203,7 +203,7 @@ impl GuardianVerdict {
         reason: GuardianRejectionReason,
         explanation: Explanation,
     ) -> Self {
-        Self::reject(Reject {
+        Self::reject(GuardianReject {
             guardian_rejection_reason: reason,
             explanation,
         })
@@ -215,7 +215,7 @@ impl ReferentGuardianVerdict {
         reason: ReferentGuardianRejectionReason,
         explanation: Explanation,
     ) -> Self {
-        Self::reject_referent(RejectReferent {
+        Self::reject_referent(ReferentReject {
             referent_guardian_rejection_reason: reason,
             explanation,
         })

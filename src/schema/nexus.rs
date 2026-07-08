@@ -130,52 +130,12 @@ pub enum Action<Reply, Write, Read, Effect, Continuation> {
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum CommandSemaWrite {
-    Record(Record),
-    ChangeCertainty(ChangeCertainty),
-    BumpImportance(BumpImportance),
-    ChangeRecord(ChangeRecord),
-    RegisterReferent(RegisterReferent),
+    Record(Entry),
+    ChangeCertainty(CertaintyChange),
+    BumpImportance(ImportanceBump),
+    ChangeRecord(RecordChange),
+    RegisterReferent(ReferentRegistration),
 }
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Record(Entry);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ChangeCertainty(CertaintyChange);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct BumpImportance(ImportanceBump);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ChangeRecord(RecordChange);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct RegisterReferent(ReferentRegistration);
 
 #[rustfmt::skip]
 #[cfg_attr(
@@ -211,160 +171,24 @@ pub enum NexusAction {
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum NexusEffectCommand {
-    Stash(Stash),
-    ClassifyState(ClassifyState),
-    RecordWithImpliedReferents(RecordWithImpliedReferents),
-    GuardRecord(GuardRecord),
-    ProposeWithImpliedReferents(ProposeWithImpliedReferents),
-    Propose(Propose),
-    Clarify(Clarify),
-    SupersedeWithImpliedReferents(SupersedeWithImpliedReferents),
-    Supersede(Supersede),
-    Retire(Retire),
-    ResolveClarification(ResolveClarification),
-    ChangeRecordWithImpliedReferents(ChangeRecordWithImpliedReferents),
-    GuardChangeRecord(GuardChangeRecord),
-    GuardReferentRegistration(GuardReferentRegistration),
-    OpenIntentSubscription(OpenIntentSubscription),
-    OpenObserverTap(OpenObserverTap),
-    CloseObserverTap(CloseObserverTap),
+    Stash(StashRequest),
+    ClassifyState(Statement),
+    RecordWithImpliedReferents(RecordRequest),
+    GuardRecord(RecordRequest),
+    ProposeWithImpliedReferents(Proposal),
+    Propose(Proposal),
+    Clarify(Clarification),
+    SupersedeWithImpliedReferents(Supersession),
+    Supersede(Supersession),
+    Retire(Retirement),
+    ResolveClarification(ClarificationResolution),
+    ChangeRecordWithImpliedReferents(RecordChange),
+    GuardChangeRecord(RecordChange),
+    GuardReferentRegistration(ReferentRegistration),
+    OpenIntentSubscription(Query),
+    OpenObserverTap(ObserverFilter),
+    CloseObserverTap(SubscriptionToken),
 }
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Stash(StashRequest);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ClassifyState(Statement);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct RecordWithImpliedReferents(RecordRequest);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct GuardRecord(RecordRequest);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ProposeWithImpliedReferents(Proposal);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Propose(Proposal);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Clarify(Clarification);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct SupersedeWithImpliedReferents(Supersession);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Supersede(Supersession);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Retire(Retirement);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ResolveClarification(ClarificationResolution);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ChangeRecordWithImpliedReferents(RecordChange);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct GuardChangeRecord(RecordChange);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct GuardReferentRegistration(ReferentRegistration);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct OpenIntentSubscription(Query);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct OpenObserverTap(ObserverFilter);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct CloseObserverTap(SubscriptionToken);
 
 #[rustfmt::skip]
 #[cfg_attr(
@@ -373,187 +197,27 @@ pub struct CloseObserverTap(SubscriptionToken);
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum NexusEffectResult {
-    Stashed(Stashed),
-    StateClassified(StateClassified),
-    RecordReferentsSettled(RecordReferentsSettled),
-    ProposeReferentsSettled(ProposeReferentsSettled),
-    SupersedeReferentsSettled(SupersedeReferentsSettled),
-    ChangeRecordReferentsSettled(ChangeRecordReferentsSettled),
-    Recorded(Recorded),
-    Proposed(Proposed),
-    Clarified(Clarified),
-    Superseded(Superseded),
-    Retired(Retired),
-    ClarificationResolved(ClarificationResolved),
-    RecordChanged(RecordChanged),
-    GuardianRejected(GuardianRejected),
-    ReferentRegistered(ReferentRegistered),
-    ReferentGuardianRejected(ReferentGuardianRejected),
-    OperationFailed(OperationFailed),
-    IntentSubscriptionOpened(IntentSubscriptionOpened),
-    ObserverTapOpened(ObserverTapOpened),
-    ObserverTapClosed(ObserverTapClosed),
+    Stashed(StashResult),
+    StateClassified(RecordRequest),
+    RecordReferentsSettled(RecordRequest),
+    ProposeReferentsSettled(Proposal),
+    SupersedeReferentsSettled(Supersession),
+    ChangeRecordReferentsSettled(RecordChange),
+    Recorded(SemaReceipt),
+    Proposed(SemaReceipt),
+    Clarified(ClarificationReceipt),
+    Superseded(SupersessionReceipt),
+    Retired(RetirementReceipt),
+    ClarificationResolved(ClarificationResolutionReceipt),
+    RecordChanged(RecordChangeReceipt),
+    GuardianRejected(GuardianRejection),
+    ReferentRegistered(ReferentRegistrationReceipt),
+    ReferentGuardianRejected(ReferentGuardianRejection),
+    OperationFailed(ErrorReport),
+    IntentSubscriptionOpened(IntentSubscription),
+    ObserverTapOpened(ObserverSubscription),
+    ObserverTapClosed(ObserverRetraction),
 }
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Stashed(StashResult);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct StateClassified(RecordRequest);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct RecordReferentsSettled(RecordRequest);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ProposeReferentsSettled(Proposal);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct SupersedeReferentsSettled(Supersession);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ChangeRecordReferentsSettled(RecordChange);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Recorded(SemaReceipt);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Proposed(SemaReceipt);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Clarified(ClarificationReceipt);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Superseded(SupersessionReceipt);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Retired(RetirementReceipt);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ClarificationResolved(ClarificationResolutionReceipt);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct RecordChanged(RecordChangeReceipt);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct GuardianRejected(GuardianRejection);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ReferentRegistered(ReferentRegistrationReceipt);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ReferentGuardianRejected(ReferentGuardianRejection);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct OperationFailed(ErrorReport);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct IntentSubscriptionOpened(IntentSubscription);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ObserverTapOpened(ObserverSubscription);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ObserverTapClosed(ObserverRetraction);
 
 #[rustfmt::skip]
 #[cfg_attr(
@@ -587,7 +251,7 @@ pub struct StashResult {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum GuardianVerdict {
     Accept,
-    Reject(Reject),
+    Reject(GuardianReject),
 }
 
 #[rustfmt::skip]
@@ -596,7 +260,7 @@ pub enum GuardianVerdict {
     derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct Reject {
+pub struct GuardianReject {
     pub guardian_rejection_reason: GuardianRejectionReason,
     pub explanation: Explanation,
 }
@@ -609,7 +273,7 @@ pub struct Reject {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum ReferentGuardianVerdict {
     Accept,
-    RejectReferent(RejectReferent),
+    RejectReferent(ReferentReject),
 }
 
 #[rustfmt::skip]
@@ -618,7 +282,7 @@ pub enum ReferentGuardianVerdict {
     derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct RejectReferent {
+pub struct ReferentReject {
     pub referent_guardian_rejection_reason: ReferentGuardianRejectionReason,
     pub explanation: Explanation,
 }
@@ -651,819 +315,21 @@ pub enum Output {
 }
 
 #[rustfmt::skip]
-impl Record {
-    pub fn new(payload: Entry) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &Entry {
-        &self.0
-    }
-    pub fn into_payload(self) -> Entry {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<Entry> for Record {
-    fn from(payload: Entry) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl ChangeCertainty {
-    pub fn new(payload: CertaintyChange) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &CertaintyChange {
-        &self.0
-    }
-    pub fn into_payload(self) -> CertaintyChange {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<CertaintyChange> for ChangeCertainty {
-    fn from(payload: CertaintyChange) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl BumpImportance {
-    pub fn new(payload: ImportanceBump) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &ImportanceBump {
-        &self.0
-    }
-    pub fn into_payload(self) -> ImportanceBump {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<ImportanceBump> for BumpImportance {
-    fn from(payload: ImportanceBump) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl ChangeRecord {
-    pub fn new(payload: RecordChange) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &RecordChange {
-        &self.0
-    }
-    pub fn into_payload(self) -> RecordChange {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<RecordChange> for ChangeRecord {
-    fn from(payload: RecordChange) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl RegisterReferent {
-    pub fn new(payload: ReferentRegistration) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &ReferentRegistration {
-        &self.0
-    }
-    pub fn into_payload(self) -> ReferentRegistration {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<ReferentRegistration> for RegisterReferent {
-    fn from(payload: ReferentRegistration) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl Stash {
-    pub fn new(payload: StashRequest) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &StashRequest {
-        &self.0
-    }
-    pub fn into_payload(self) -> StashRequest {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<StashRequest> for Stash {
-    fn from(payload: StashRequest) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl ClassifyState {
-    pub fn new(payload: Statement) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &Statement {
-        &self.0
-    }
-    pub fn into_payload(self) -> Statement {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<Statement> for ClassifyState {
-    fn from(payload: Statement) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl RecordWithImpliedReferents {
-    pub fn new(payload: RecordRequest) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &RecordRequest {
-        &self.0
-    }
-    pub fn into_payload(self) -> RecordRequest {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<RecordRequest> for RecordWithImpliedReferents {
-    fn from(payload: RecordRequest) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl GuardRecord {
-    pub fn new(payload: RecordRequest) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &RecordRequest {
-        &self.0
-    }
-    pub fn into_payload(self) -> RecordRequest {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<RecordRequest> for GuardRecord {
-    fn from(payload: RecordRequest) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl ProposeWithImpliedReferents {
-    pub fn new(payload: Proposal) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &Proposal {
-        &self.0
-    }
-    pub fn into_payload(self) -> Proposal {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<Proposal> for ProposeWithImpliedReferents {
-    fn from(payload: Proposal) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl Propose {
-    pub fn new(payload: Proposal) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &Proposal {
-        &self.0
-    }
-    pub fn into_payload(self) -> Proposal {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<Proposal> for Propose {
-    fn from(payload: Proposal) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl Clarify {
-    pub fn new(payload: Clarification) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &Clarification {
-        &self.0
-    }
-    pub fn into_payload(self) -> Clarification {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<Clarification> for Clarify {
-    fn from(payload: Clarification) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl SupersedeWithImpliedReferents {
-    pub fn new(payload: Supersession) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &Supersession {
-        &self.0
-    }
-    pub fn into_payload(self) -> Supersession {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<Supersession> for SupersedeWithImpliedReferents {
-    fn from(payload: Supersession) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl Supersede {
-    pub fn new(payload: Supersession) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &Supersession {
-        &self.0
-    }
-    pub fn into_payload(self) -> Supersession {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<Supersession> for Supersede {
-    fn from(payload: Supersession) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl Retire {
-    pub fn new(payload: Retirement) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &Retirement {
-        &self.0
-    }
-    pub fn into_payload(self) -> Retirement {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<Retirement> for Retire {
-    fn from(payload: Retirement) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl ResolveClarification {
-    pub fn new(payload: ClarificationResolution) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &ClarificationResolution {
-        &self.0
-    }
-    pub fn into_payload(self) -> ClarificationResolution {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<ClarificationResolution> for ResolveClarification {
-    fn from(payload: ClarificationResolution) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl ChangeRecordWithImpliedReferents {
-    pub fn new(payload: RecordChange) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &RecordChange {
-        &self.0
-    }
-    pub fn into_payload(self) -> RecordChange {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<RecordChange> for ChangeRecordWithImpliedReferents {
-    fn from(payload: RecordChange) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl GuardChangeRecord {
-    pub fn new(payload: RecordChange) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &RecordChange {
-        &self.0
-    }
-    pub fn into_payload(self) -> RecordChange {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<RecordChange> for GuardChangeRecord {
-    fn from(payload: RecordChange) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl GuardReferentRegistration {
-    pub fn new(payload: ReferentRegistration) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &ReferentRegistration {
-        &self.0
-    }
-    pub fn into_payload(self) -> ReferentRegistration {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<ReferentRegistration> for GuardReferentRegistration {
-    fn from(payload: ReferentRegistration) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl OpenIntentSubscription {
-    pub fn new(payload: Query) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &Query {
-        &self.0
-    }
-    pub fn into_payload(self) -> Query {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<Query> for OpenIntentSubscription {
-    fn from(payload: Query) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl OpenObserverTap {
-    pub fn new(payload: ObserverFilter) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &ObserverFilter {
-        &self.0
-    }
-    pub fn into_payload(self) -> ObserverFilter {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<ObserverFilter> for OpenObserverTap {
-    fn from(payload: ObserverFilter) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl CloseObserverTap {
-    pub fn new(payload: SubscriptionToken) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &SubscriptionToken {
-        &self.0
-    }
-    pub fn into_payload(self) -> SubscriptionToken {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<SubscriptionToken> for CloseObserverTap {
-    fn from(payload: SubscriptionToken) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl Stashed {
-    pub fn new(payload: StashResult) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &StashResult {
-        &self.0
-    }
-    pub fn into_payload(self) -> StashResult {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<StashResult> for Stashed {
-    fn from(payload: StashResult) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl StateClassified {
-    pub fn new(payload: RecordRequest) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &RecordRequest {
-        &self.0
-    }
-    pub fn into_payload(self) -> RecordRequest {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<RecordRequest> for StateClassified {
-    fn from(payload: RecordRequest) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl RecordReferentsSettled {
-    pub fn new(payload: RecordRequest) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &RecordRequest {
-        &self.0
-    }
-    pub fn into_payload(self) -> RecordRequest {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<RecordRequest> for RecordReferentsSettled {
-    fn from(payload: RecordRequest) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl ProposeReferentsSettled {
-    pub fn new(payload: Proposal) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &Proposal {
-        &self.0
-    }
-    pub fn into_payload(self) -> Proposal {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<Proposal> for ProposeReferentsSettled {
-    fn from(payload: Proposal) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl SupersedeReferentsSettled {
-    pub fn new(payload: Supersession) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &Supersession {
-        &self.0
-    }
-    pub fn into_payload(self) -> Supersession {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<Supersession> for SupersedeReferentsSettled {
-    fn from(payload: Supersession) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl ChangeRecordReferentsSettled {
-    pub fn new(payload: RecordChange) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &RecordChange {
-        &self.0
-    }
-    pub fn into_payload(self) -> RecordChange {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<RecordChange> for ChangeRecordReferentsSettled {
-    fn from(payload: RecordChange) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl Recorded {
-    pub fn new(payload: SemaReceipt) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &SemaReceipt {
-        &self.0
-    }
-    pub fn into_payload(self) -> SemaReceipt {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<SemaReceipt> for Recorded {
-    fn from(payload: SemaReceipt) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl Proposed {
-    pub fn new(payload: SemaReceipt) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &SemaReceipt {
-        &self.0
-    }
-    pub fn into_payload(self) -> SemaReceipt {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<SemaReceipt> for Proposed {
-    fn from(payload: SemaReceipt) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl Clarified {
-    pub fn new(payload: ClarificationReceipt) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &ClarificationReceipt {
-        &self.0
-    }
-    pub fn into_payload(self) -> ClarificationReceipt {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<ClarificationReceipt> for Clarified {
-    fn from(payload: ClarificationReceipt) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl Superseded {
-    pub fn new(payload: SupersessionReceipt) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &SupersessionReceipt {
-        &self.0
-    }
-    pub fn into_payload(self) -> SupersessionReceipt {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<SupersessionReceipt> for Superseded {
-    fn from(payload: SupersessionReceipt) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl Retired {
-    pub fn new(payload: RetirementReceipt) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &RetirementReceipt {
-        &self.0
-    }
-    pub fn into_payload(self) -> RetirementReceipt {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<RetirementReceipt> for Retired {
-    fn from(payload: RetirementReceipt) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl ClarificationResolved {
-    pub fn new(payload: ClarificationResolutionReceipt) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &ClarificationResolutionReceipt {
-        &self.0
-    }
-    pub fn into_payload(self) -> ClarificationResolutionReceipt {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<ClarificationResolutionReceipt> for ClarificationResolved {
-    fn from(payload: ClarificationResolutionReceipt) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl RecordChanged {
-    pub fn new(payload: RecordChangeReceipt) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &RecordChangeReceipt {
-        &self.0
-    }
-    pub fn into_payload(self) -> RecordChangeReceipt {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<RecordChangeReceipt> for RecordChanged {
-    fn from(payload: RecordChangeReceipt) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl GuardianRejected {
-    pub fn new(payload: GuardianRejection) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &GuardianRejection {
-        &self.0
-    }
-    pub fn into_payload(self) -> GuardianRejection {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<GuardianRejection> for GuardianRejected {
-    fn from(payload: GuardianRejection) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl ReferentRegistered {
-    pub fn new(payload: ReferentRegistrationReceipt) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &ReferentRegistrationReceipt {
-        &self.0
-    }
-    pub fn into_payload(self) -> ReferentRegistrationReceipt {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<ReferentRegistrationReceipt> for ReferentRegistered {
-    fn from(payload: ReferentRegistrationReceipt) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl ReferentGuardianRejected {
-    pub fn new(payload: ReferentGuardianRejection) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &ReferentGuardianRejection {
-        &self.0
-    }
-    pub fn into_payload(self) -> ReferentGuardianRejection {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<ReferentGuardianRejection> for ReferentGuardianRejected {
-    fn from(payload: ReferentGuardianRejection) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl OperationFailed {
-    pub fn new(payload: ErrorReport) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &ErrorReport {
-        &self.0
-    }
-    pub fn into_payload(self) -> ErrorReport {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<ErrorReport> for OperationFailed {
-    fn from(payload: ErrorReport) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl IntentSubscriptionOpened {
-    pub fn new(payload: IntentSubscription) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &IntentSubscription {
-        &self.0
-    }
-    pub fn into_payload(self) -> IntentSubscription {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<IntentSubscription> for IntentSubscriptionOpened {
-    fn from(payload: IntentSubscription) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl ObserverTapOpened {
-    pub fn new(payload: ObserverSubscription) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &ObserverSubscription {
-        &self.0
-    }
-    pub fn into_payload(self) -> ObserverSubscription {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<ObserverSubscription> for ObserverTapOpened {
-    fn from(payload: ObserverSubscription) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl ObserverTapClosed {
-    pub fn new(payload: ObserverRetraction) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &ObserverRetraction {
-        &self.0
-    }
-    pub fn into_payload(self) -> ObserverRetraction {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<ObserverRetraction> for ObserverTapClosed {
-    fn from(payload: ObserverRetraction) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
 impl CommandSemaWrite {
     pub fn record(payload: Entry) -> Self {
-        Self::Record(Record::new(payload))
+        Self::Record(payload)
     }
     pub fn change_certainty(payload: CertaintyChange) -> Self {
-        Self::ChangeCertainty(ChangeCertainty::new(payload))
+        Self::ChangeCertainty(payload)
     }
     pub fn bump_importance(payload: ImportanceBump) -> Self {
-        Self::BumpImportance(BumpImportance::new(payload))
+        Self::BumpImportance(payload)
     }
     pub fn change_record(payload: RecordChange) -> Self {
-        Self::ChangeRecord(ChangeRecord::new(payload))
+        Self::ChangeRecord(payload)
     }
     pub fn register_referent(payload: ReferentRegistration) -> Self {
-        Self::RegisterReferent(RegisterReferent::new(payload))
+        Self::RegisterReferent(payload)
     }
 }
 
@@ -1505,134 +371,132 @@ impl NexusAction {
 #[rustfmt::skip]
 impl NexusEffectCommand {
     pub fn stash(payload: StashRequest) -> Self {
-        Self::Stash(Stash::new(payload))
+        Self::Stash(payload)
     }
     pub fn classify_state(payload: Statement) -> Self {
-        Self::ClassifyState(ClassifyState::new(payload))
+        Self::ClassifyState(payload)
     }
     pub fn record_with_implied_referents(payload: RecordRequest) -> Self {
-        Self::RecordWithImpliedReferents(RecordWithImpliedReferents::new(payload))
+        Self::RecordWithImpliedReferents(payload)
     }
     pub fn guard_record(payload: RecordRequest) -> Self {
-        Self::GuardRecord(GuardRecord::new(payload))
+        Self::GuardRecord(payload)
     }
     pub fn propose_with_implied_referents(payload: Proposal) -> Self {
-        Self::ProposeWithImpliedReferents(ProposeWithImpliedReferents::new(payload))
+        Self::ProposeWithImpliedReferents(payload)
     }
     pub fn propose(payload: Proposal) -> Self {
-        Self::Propose(Propose::new(payload))
+        Self::Propose(payload)
     }
     pub fn clarify(payload: Clarification) -> Self {
-        Self::Clarify(Clarify::new(payload))
+        Self::Clarify(payload)
     }
     pub fn supersede_with_implied_referents(payload: Supersession) -> Self {
-        Self::SupersedeWithImpliedReferents(SupersedeWithImpliedReferents::new(payload))
+        Self::SupersedeWithImpliedReferents(payload)
     }
     pub fn supersede(payload: Supersession) -> Self {
-        Self::Supersede(Supersede::new(payload))
+        Self::Supersede(payload)
     }
     pub fn retire(payload: Retirement) -> Self {
-        Self::Retire(Retire::new(payload))
+        Self::Retire(payload)
     }
     pub fn resolve_clarification(payload: ClarificationResolution) -> Self {
-        Self::ResolveClarification(ResolveClarification::new(payload))
+        Self::ResolveClarification(payload)
     }
     pub fn change_record_with_implied_referents(payload: RecordChange) -> Self {
-        Self::ChangeRecordWithImpliedReferents(
-            ChangeRecordWithImpliedReferents::new(payload),
-        )
+        Self::ChangeRecordWithImpliedReferents(payload)
     }
     pub fn guard_change_record(payload: RecordChange) -> Self {
-        Self::GuardChangeRecord(GuardChangeRecord::new(payload))
+        Self::GuardChangeRecord(payload)
     }
     pub fn guard_referent_registration(payload: ReferentRegistration) -> Self {
-        Self::GuardReferentRegistration(GuardReferentRegistration::new(payload))
+        Self::GuardReferentRegistration(payload)
     }
     pub fn open_intent_subscription(payload: Query) -> Self {
-        Self::OpenIntentSubscription(OpenIntentSubscription::new(payload))
+        Self::OpenIntentSubscription(payload)
     }
     pub fn open_observer_tap(payload: ObserverFilter) -> Self {
-        Self::OpenObserverTap(OpenObserverTap::new(payload))
+        Self::OpenObserverTap(payload)
     }
     pub fn close_observer_tap(payload: SubscriptionToken) -> Self {
-        Self::CloseObserverTap(CloseObserverTap::new(payload))
+        Self::CloseObserverTap(payload)
     }
 }
 
 #[rustfmt::skip]
 impl NexusEffectResult {
     pub fn stashed(payload: StashResult) -> Self {
-        Self::Stashed(Stashed::new(payload))
+        Self::Stashed(payload)
     }
     pub fn state_classified(payload: RecordRequest) -> Self {
-        Self::StateClassified(StateClassified::new(payload))
+        Self::StateClassified(payload)
     }
     pub fn record_referents_settled(payload: RecordRequest) -> Self {
-        Self::RecordReferentsSettled(RecordReferentsSettled::new(payload))
+        Self::RecordReferentsSettled(payload)
     }
     pub fn propose_referents_settled(payload: Proposal) -> Self {
-        Self::ProposeReferentsSettled(ProposeReferentsSettled::new(payload))
+        Self::ProposeReferentsSettled(payload)
     }
     pub fn supersede_referents_settled(payload: Supersession) -> Self {
-        Self::SupersedeReferentsSettled(SupersedeReferentsSettled::new(payload))
+        Self::SupersedeReferentsSettled(payload)
     }
     pub fn change_record_referents_settled(payload: RecordChange) -> Self {
-        Self::ChangeRecordReferentsSettled(ChangeRecordReferentsSettled::new(payload))
+        Self::ChangeRecordReferentsSettled(payload)
     }
     pub fn recorded(payload: SemaReceipt) -> Self {
-        Self::Recorded(Recorded::new(payload))
+        Self::Recorded(payload)
     }
     pub fn proposed(payload: SemaReceipt) -> Self {
-        Self::Proposed(Proposed::new(payload))
+        Self::Proposed(payload)
     }
     pub fn clarified(payload: ClarificationReceipt) -> Self {
-        Self::Clarified(Clarified::new(payload))
+        Self::Clarified(payload)
     }
     pub fn superseded(payload: SupersessionReceipt) -> Self {
-        Self::Superseded(Superseded::new(payload))
+        Self::Superseded(payload)
     }
     pub fn retired(payload: RetirementReceipt) -> Self {
-        Self::Retired(Retired::new(payload))
+        Self::Retired(payload)
     }
     pub fn clarification_resolved(payload: ClarificationResolutionReceipt) -> Self {
-        Self::ClarificationResolved(ClarificationResolved::new(payload))
+        Self::ClarificationResolved(payload)
     }
     pub fn record_changed(payload: RecordChangeReceipt) -> Self {
-        Self::RecordChanged(RecordChanged::new(payload))
+        Self::RecordChanged(payload)
     }
     pub fn guardian_rejected(payload: GuardianRejection) -> Self {
-        Self::GuardianRejected(GuardianRejected::new(payload))
+        Self::GuardianRejected(payload)
     }
     pub fn referent_registered(payload: ReferentRegistrationReceipt) -> Self {
-        Self::ReferentRegistered(ReferentRegistered::new(payload))
+        Self::ReferentRegistered(payload)
     }
     pub fn referent_guardian_rejected(payload: ReferentGuardianRejection) -> Self {
-        Self::ReferentGuardianRejected(ReferentGuardianRejected::new(payload))
+        Self::ReferentGuardianRejected(payload)
     }
     pub fn operation_failed(payload: ErrorReport) -> Self {
-        Self::OperationFailed(OperationFailed::new(payload))
+        Self::OperationFailed(payload)
     }
     pub fn intent_subscription_opened(payload: IntentSubscription) -> Self {
-        Self::IntentSubscriptionOpened(IntentSubscriptionOpened::new(payload))
+        Self::IntentSubscriptionOpened(payload)
     }
     pub fn observer_tap_opened(payload: ObserverSubscription) -> Self {
-        Self::ObserverTapOpened(ObserverTapOpened::new(payload))
+        Self::ObserverTapOpened(payload)
     }
     pub fn observer_tap_closed(payload: ObserverRetraction) -> Self {
-        Self::ObserverTapClosed(ObserverTapClosed::new(payload))
+        Self::ObserverTapClosed(payload)
     }
 }
 
 #[rustfmt::skip]
 impl GuardianVerdict {
-    pub fn reject(payload: Reject) -> Self {
+    pub fn reject(payload: GuardianReject) -> Self {
         Self::Reject(payload)
     }
 }
 
 #[rustfmt::skip]
 impl ReferentGuardianVerdict {
-    pub fn reject_referent(payload: RejectReferent) -> Self {
+    pub fn reject_referent(payload: ReferentReject) -> Self {
         Self::RejectReferent(payload)
     }
 }
@@ -1673,36 +537,36 @@ impl Output {
 }
 
 #[rustfmt::skip]
-impl From<Record> for CommandSemaWrite {
-    fn from(payload: Record) -> Self {
+impl From<Entry> for CommandSemaWrite {
+    fn from(payload: Entry) -> Self {
         Self::Record(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<ChangeCertainty> for CommandSemaWrite {
-    fn from(payload: ChangeCertainty) -> Self {
+impl From<CertaintyChange> for CommandSemaWrite {
+    fn from(payload: CertaintyChange) -> Self {
         Self::ChangeCertainty(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<BumpImportance> for CommandSemaWrite {
-    fn from(payload: BumpImportance) -> Self {
+impl From<ImportanceBump> for CommandSemaWrite {
+    fn from(payload: ImportanceBump) -> Self {
         Self::BumpImportance(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<ChangeRecord> for CommandSemaWrite {
-    fn from(payload: ChangeRecord) -> Self {
+impl From<RecordChange> for CommandSemaWrite {
+    fn from(payload: RecordChange) -> Self {
         Self::ChangeRecord(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<RegisterReferent> for CommandSemaWrite {
-    fn from(payload: RegisterReferent) -> Self {
+impl From<ReferentRegistration> for CommandSemaWrite {
+    fn from(payload: ReferentRegistration) -> Self {
         Self::RegisterReferent(payload)
     }
 }
@@ -1771,274 +635,190 @@ impl From<NexusWork> for NexusAction {
 }
 
 #[rustfmt::skip]
-impl From<Stash> for NexusEffectCommand {
-    fn from(payload: Stash) -> Self {
+impl From<StashRequest> for NexusEffectCommand {
+    fn from(payload: StashRequest) -> Self {
         Self::Stash(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<ClassifyState> for NexusEffectCommand {
-    fn from(payload: ClassifyState) -> Self {
+impl From<Statement> for NexusEffectCommand {
+    fn from(payload: Statement) -> Self {
         Self::ClassifyState(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<RecordWithImpliedReferents> for NexusEffectCommand {
-    fn from(payload: RecordWithImpliedReferents) -> Self {
-        Self::RecordWithImpliedReferents(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl From<GuardRecord> for NexusEffectCommand {
-    fn from(payload: GuardRecord) -> Self {
-        Self::GuardRecord(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl From<ProposeWithImpliedReferents> for NexusEffectCommand {
-    fn from(payload: ProposeWithImpliedReferents) -> Self {
-        Self::ProposeWithImpliedReferents(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl From<Propose> for NexusEffectCommand {
-    fn from(payload: Propose) -> Self {
-        Self::Propose(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl From<Clarify> for NexusEffectCommand {
-    fn from(payload: Clarify) -> Self {
+impl From<Clarification> for NexusEffectCommand {
+    fn from(payload: Clarification) -> Self {
         Self::Clarify(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<SupersedeWithImpliedReferents> for NexusEffectCommand {
-    fn from(payload: SupersedeWithImpliedReferents) -> Self {
-        Self::SupersedeWithImpliedReferents(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl From<Supersede> for NexusEffectCommand {
-    fn from(payload: Supersede) -> Self {
-        Self::Supersede(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl From<Retire> for NexusEffectCommand {
-    fn from(payload: Retire) -> Self {
+impl From<Retirement> for NexusEffectCommand {
+    fn from(payload: Retirement) -> Self {
         Self::Retire(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<ResolveClarification> for NexusEffectCommand {
-    fn from(payload: ResolveClarification) -> Self {
+impl From<ClarificationResolution> for NexusEffectCommand {
+    fn from(payload: ClarificationResolution) -> Self {
         Self::ResolveClarification(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<ChangeRecordWithImpliedReferents> for NexusEffectCommand {
-    fn from(payload: ChangeRecordWithImpliedReferents) -> Self {
-        Self::ChangeRecordWithImpliedReferents(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl From<GuardChangeRecord> for NexusEffectCommand {
-    fn from(payload: GuardChangeRecord) -> Self {
-        Self::GuardChangeRecord(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl From<GuardReferentRegistration> for NexusEffectCommand {
-    fn from(payload: GuardReferentRegistration) -> Self {
+impl From<ReferentRegistration> for NexusEffectCommand {
+    fn from(payload: ReferentRegistration) -> Self {
         Self::GuardReferentRegistration(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<OpenIntentSubscription> for NexusEffectCommand {
-    fn from(payload: OpenIntentSubscription) -> Self {
+impl From<Query> for NexusEffectCommand {
+    fn from(payload: Query) -> Self {
         Self::OpenIntentSubscription(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<OpenObserverTap> for NexusEffectCommand {
-    fn from(payload: OpenObserverTap) -> Self {
+impl From<ObserverFilter> for NexusEffectCommand {
+    fn from(payload: ObserverFilter) -> Self {
         Self::OpenObserverTap(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<CloseObserverTap> for NexusEffectCommand {
-    fn from(payload: CloseObserverTap) -> Self {
+impl From<SubscriptionToken> for NexusEffectCommand {
+    fn from(payload: SubscriptionToken) -> Self {
         Self::CloseObserverTap(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<Stashed> for NexusEffectResult {
-    fn from(payload: Stashed) -> Self {
+impl From<StashResult> for NexusEffectResult {
+    fn from(payload: StashResult) -> Self {
         Self::Stashed(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<StateClassified> for NexusEffectResult {
-    fn from(payload: StateClassified) -> Self {
-        Self::StateClassified(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl From<RecordReferentsSettled> for NexusEffectResult {
-    fn from(payload: RecordReferentsSettled) -> Self {
-        Self::RecordReferentsSettled(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl From<ProposeReferentsSettled> for NexusEffectResult {
-    fn from(payload: ProposeReferentsSettled) -> Self {
+impl From<Proposal> for NexusEffectResult {
+    fn from(payload: Proposal) -> Self {
         Self::ProposeReferentsSettled(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<SupersedeReferentsSettled> for NexusEffectResult {
-    fn from(payload: SupersedeReferentsSettled) -> Self {
+impl From<Supersession> for NexusEffectResult {
+    fn from(payload: Supersession) -> Self {
         Self::SupersedeReferentsSettled(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<ChangeRecordReferentsSettled> for NexusEffectResult {
-    fn from(payload: ChangeRecordReferentsSettled) -> Self {
+impl From<RecordChange> for NexusEffectResult {
+    fn from(payload: RecordChange) -> Self {
         Self::ChangeRecordReferentsSettled(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<Recorded> for NexusEffectResult {
-    fn from(payload: Recorded) -> Self {
-        Self::Recorded(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl From<Proposed> for NexusEffectResult {
-    fn from(payload: Proposed) -> Self {
-        Self::Proposed(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl From<Clarified> for NexusEffectResult {
-    fn from(payload: Clarified) -> Self {
+impl From<ClarificationReceipt> for NexusEffectResult {
+    fn from(payload: ClarificationReceipt) -> Self {
         Self::Clarified(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<Superseded> for NexusEffectResult {
-    fn from(payload: Superseded) -> Self {
+impl From<SupersessionReceipt> for NexusEffectResult {
+    fn from(payload: SupersessionReceipt) -> Self {
         Self::Superseded(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<Retired> for NexusEffectResult {
-    fn from(payload: Retired) -> Self {
+impl From<RetirementReceipt> for NexusEffectResult {
+    fn from(payload: RetirementReceipt) -> Self {
         Self::Retired(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<ClarificationResolved> for NexusEffectResult {
-    fn from(payload: ClarificationResolved) -> Self {
+impl From<ClarificationResolutionReceipt> for NexusEffectResult {
+    fn from(payload: ClarificationResolutionReceipt) -> Self {
         Self::ClarificationResolved(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<RecordChanged> for NexusEffectResult {
-    fn from(payload: RecordChanged) -> Self {
+impl From<RecordChangeReceipt> for NexusEffectResult {
+    fn from(payload: RecordChangeReceipt) -> Self {
         Self::RecordChanged(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<GuardianRejected> for NexusEffectResult {
-    fn from(payload: GuardianRejected) -> Self {
+impl From<GuardianRejection> for NexusEffectResult {
+    fn from(payload: GuardianRejection) -> Self {
         Self::GuardianRejected(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<ReferentRegistered> for NexusEffectResult {
-    fn from(payload: ReferentRegistered) -> Self {
+impl From<ReferentRegistrationReceipt> for NexusEffectResult {
+    fn from(payload: ReferentRegistrationReceipt) -> Self {
         Self::ReferentRegistered(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<ReferentGuardianRejected> for NexusEffectResult {
-    fn from(payload: ReferentGuardianRejected) -> Self {
+impl From<ReferentGuardianRejection> for NexusEffectResult {
+    fn from(payload: ReferentGuardianRejection) -> Self {
         Self::ReferentGuardianRejected(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<OperationFailed> for NexusEffectResult {
-    fn from(payload: OperationFailed) -> Self {
+impl From<ErrorReport> for NexusEffectResult {
+    fn from(payload: ErrorReport) -> Self {
         Self::OperationFailed(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<IntentSubscriptionOpened> for NexusEffectResult {
-    fn from(payload: IntentSubscriptionOpened) -> Self {
+impl From<IntentSubscription> for NexusEffectResult {
+    fn from(payload: IntentSubscription) -> Self {
         Self::IntentSubscriptionOpened(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<ObserverTapOpened> for NexusEffectResult {
-    fn from(payload: ObserverTapOpened) -> Self {
+impl From<ObserverSubscription> for NexusEffectResult {
+    fn from(payload: ObserverSubscription) -> Self {
         Self::ObserverTapOpened(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<ObserverTapClosed> for NexusEffectResult {
-    fn from(payload: ObserverTapClosed) -> Self {
+impl From<ObserverRetraction> for NexusEffectResult {
+    fn from(payload: ObserverRetraction) -> Self {
         Self::ObserverTapClosed(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<Reject> for GuardianVerdict {
-    fn from(payload: Reject) -> Self {
+impl From<GuardianReject> for GuardianVerdict {
+    fn from(payload: GuardianReject) -> Self {
         Self::Reject(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<RejectReferent> for ReferentGuardianVerdict {
-    fn from(payload: RejectReferent) -> Self {
+impl From<ReferentReject> for ReferentGuardianVerdict {
+    fn from(payload: ReferentReject) -> Self {
         Self::RejectReferent(payload)
     }
 }

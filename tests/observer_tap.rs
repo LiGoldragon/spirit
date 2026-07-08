@@ -14,10 +14,9 @@
 mod support;
 
 use spirit::schema::signal::{
-    CertaintySelection, Description, DomainMatch, DomainScopes, Domains, Entry,
-    ImportanceSelection, Input, Justification, Kind, Magnitude, ObserverFilter, OperationKind,
-    Output, Privacy, PrivacySelection, Query, QuoteText, Reasoning, RecordRequest, SelectedKind,
-    Testimony, VerbatimQuote,
+    CertaintySelection, Description, DomainMatch, Entry, ImportanceSelection, Input, Justification,
+    Kind, Magnitude, ObserverFilter, OperationKind, Output, Privacy, PrivacySelection, Query,
+    QuoteText, Reasoning, RecordRequest, SelectedKind, Testimony, VerbatimQuote,
 };
 use spirit::{Engine, Store};
 use support::domain_fixtures;

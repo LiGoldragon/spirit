@@ -23,9 +23,9 @@ use spirit::schema::meta_signal::{GuardianPromptTarget, GuardianPromptText};
 #[cfg(feature = "agent-guardian")]
 use spirit::schema::signal::GuardianRejectionReason;
 use spirit::schema::signal::{
-    Description, DomainMatch, DomainScopes, Domains, Entry, ImportanceSelection, Input,
-    Justification, Kind, Magnitude, Output, Privacy, Query, QuoteText, Reasoning, RecordRequest,
-    SelectedKind, Testimony, VerbatimQuote,
+    Description, DomainMatch, Entry, ImportanceSelection, Input, Justification, Kind, Magnitude,
+    Output, Privacy, Query, QuoteText, Reasoning, RecordRequest, SelectedKind, Testimony,
+    VerbatimQuote,
 };
 #[cfg(feature = "agent-guardian")]
 use spirit::{AgentGuardian, AgentGuardianConfiguration, Engine, Store};

@@ -1,7 +1,7 @@
 pub mod domain_fixtures {
     use spirit::schema::signal::{
-        DataLeaf, Domain, DomainScope, DomainScopes, Domains, Governance, Information, Knowledge,
-        ObservabilityLeaf, Software, Technology,
+        DataLeaf, Domain, DomainScope, DomainScopes, Domains, Governance, Information, Kinship,
+        Knowledge, ObservabilityLeaf, Software, Technology,
     };
 
     pub fn domains(labels: &[&str]) -> Domains {
@@ -14,6 +14,7 @@ pub mod domain_fixtures {
         )
     }
 
+    #[allow(dead_code)]
     pub fn scopes(labels: &[&str]) -> DomainScopes {
         DomainScopes::new(
             labels
@@ -44,8 +45,11 @@ pub mod domain_fixtures {
         if normalized.contains("govern") {
             return Domain::Governance(Governance::Government);
         }
-        if normalized.contains("meaning") || normalized.contains("relating") {
+        if normalized.contains("meaning") {
             return Domain::Knowledge(Knowledge::Philosophy);
+        }
+        if normalized.contains("relating") || normalized.contains("rapport") {
+            return Domain::Kinship(Kinship::Rapport);
         }
         Domain::Information(Information::Documentation)
     }

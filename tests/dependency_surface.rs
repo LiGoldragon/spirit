@@ -16,7 +16,7 @@ impl<'tree> CargoTree<'tree> {
     fn contains_package(&self, package: &str) -> bool {
         let package_prefix = format!("{package} v");
         self.text.lines().any(|line| {
-            line.trim_start_matches(|character| matches!(character, ' ' | '│' | '├' | '└' | '─'))
+            line.trim_start_matches([' ', '│', '├', '└', '─'])
                 .starts_with(&package_prefix)
         })
     }

@@ -6,10 +6,10 @@ use spirit::{
         nexus::NexusObjectName,
         sema::SemaObjectName,
         signal::{
-            CertaintySelection, Description, DomainMatch, DomainScopes, Domains, Entry,
-            ImportanceSelection, Input, Justification, Kind, Magnitude, Output, Privacy,
-            PrivacySelection, Query, QuoteText, Reasoning, RecordRequest, SelectedKind,
-            SignalRejection, Testimony, ValidationError, VerbatimQuote,
+            CertaintySelection, Description, DomainMatch, Domains, Entry, ImportanceSelection,
+            Input, Justification, Kind, Magnitude, Output, Privacy, PrivacySelection, Query,
+            QuoteText, Reasoning, RecordRequest, SelectedKind, SignalRejection, Testimony,
+            ValidationError, VerbatimQuote,
         },
     },
 };

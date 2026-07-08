@@ -6,11 +6,11 @@ use signal_frame::{
 };
 use spirit::schema::signal::{
     Certainty, CertaintyChange, CertaintyChangeReceipt, DatabaseMarker, Description, DomainMatch,
-    Entry, Input, InputRoute, IntentEvent, IntentRecorded, Justification, Kind, Magnitude, Output,
-    OutputRoute, Privacy, QuoteText, Reasoning, Record, RecordChange, RecordChangeReceipt,
-    RecordIdentifier, RecordRequest, RecordSelection, Rejected, SearchText, SelectedKind,
-    SignalFrameError, SignalRejection, Statement, StatementText, Testimony, ValidationError,
-    VerbatimQuote, VersionReport, VersionText,
+    Entry, Input, InputRoute, IntentEvent, IntentRecordedEvent, Justification, Kind, Magnitude,
+    Output, OutputRoute, Privacy, QuoteText, Reasoning, RecordChange, RecordChangeReceipt,
+    RecordIdentifier, RecordInput, RecordRequest, RecordSelection, RejectedOutput, SearchText,
+    SelectedKind, SignalFrameError, SignalRejection, Statement, StatementText, Testimony,
+    ValidationError, VerbatimQuote, VersionReport, VersionText,
 };
 use spirit::{OriginRoute, SignalAdmission};
 use support::domain_fixtures;
@@ -269,7 +269,7 @@ fn generated_record_changed_output_owns_route_header_and_rkyv_frame() {
 
 #[test]
 fn generated_streaming_surface_owns_subscription_event_frames() {
-    let event = IntentEvent::intent_recorded(IntentRecorded {
+    let event = IntentEvent::intent_recorded(IntentRecordedEvent {
         entry: Entry {
             domains: domain_fixtures::domains(&["stream"]),
             kind: Kind::Decision,
@@ -530,7 +530,7 @@ fn bare_schema_bindings_are_explicit_payload_wrappers() {
             spirit::schema::signal::Referent::new("spirit"),
         ]),
     };
-    let record: Record = record_request(entry, "alias bindings carry direct payloads").into();
+    let record: RecordInput = record_request(entry, "alias bindings carry direct payloads").into();
     let input = Input::Record(record);
     match input {
         Input::Record(record) => {
@@ -542,7 +542,7 @@ fn bare_schema_bindings_are_explicit_payload_wrappers() {
         other => panic!("expected Record wrapper payload, got {other:?}"),
     }
 
-    let rejected: Rejected = SignalRejection::new(ValidationError::EmptyDomain).into();
+    let rejected: RejectedOutput = SignalRejection::new(ValidationError::EmptyDomain).into();
     let output = Output::Rejected(rejected);
     match output {
         Output::Rejected(rejection) => {

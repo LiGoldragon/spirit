@@ -52,7 +52,7 @@ use {
     },
     spirit::{
         AgentGuardian, AgentGuardianConfiguration,
-        schema::nexus::{GuardianVerdict, ReferentGuardianVerdict, Reject, RejectReferent},
+        schema::nexus::{GuardianReject, GuardianVerdict, ReferentGuardianVerdict, ReferentReject},
         schema::signal::ReferentGuardianRejectionReason,
     },
     std::{
@@ -877,8 +877,8 @@ fn nexus_change_record_is_visible_as_schema_declared_write_command() {
             let NexusEffectCommand::ChangeRecordWithImpliedReferents(change) = effect else {
                 panic!("expected ChangeRecordWithImpliedReferents effect, got {effect:?}");
             };
-            assert_eq!(change.payload().record_identifier, identifier);
-            assert_eq!(change.payload().entry, replacement);
+            assert_eq!(change.record_identifier, identifier);
+            assert_eq!(change.entry, replacement);
         }
         other => {
             panic!(
@@ -901,7 +901,7 @@ fn nexus_bump_importance_is_visible_as_schema_declared_write_command() {
     assert_eq!(first_action.origin_route(), nexus_route(7));
     match first_action.root() {
         NexusAction::CommandSemaWrite(CommandSemaWrite::BumpImportance(change)) => {
-            assert_eq!(change.payload().payload(), &identifier);
+            assert_eq!(change.payload(), &identifier);
         }
         other => {
             panic!(
@@ -924,10 +924,7 @@ fn nexus_state_classification_is_visible_as_schema_declared_effect_command() {
     match first_action.root() {
         NexusAction::CommandEffect(effect) => match effect {
             NexusEffectCommand::ClassifyState(statement) => {
-                assert_eq!(
-                    statement.payload().payload().payload(),
-                    "visible classification"
-                );
+                assert_eq!(statement.payload().payload(), "visible classification");
             }
             other => panic!("expected State to become ClassifyState, got {other:?}"),
         },
@@ -1068,7 +1065,6 @@ fn sema_engine_bumps_record_importance_without_changing_record_identifier() {
     );
     match bumped.root() {
         SemaWriteOutput::ImportanceBumped(receipt) => {
-            let receipt = receipt.payload();
             assert_eq!(receipt.record_identifier, record_identifier);
             assert_eq!(receipt.importance.payload(), &Magnitude::VeryLow);
         }
@@ -1112,7 +1108,7 @@ fn sema_engine_changes_record_without_changing_record_identifier() {
     );
     match changed.root() {
         SemaWriteOutput::RecordChanged(receipt) => {
-            assert_eq!(receipt.payload().payload(), &record_identifier);
+            assert_eq!(receipt.payload(), &record_identifier);
         }
         other => panic!("expected RecordChanged receipt, got {other:?}"),
     }
@@ -1255,7 +1251,7 @@ fn agent_guardian_accept_verdict_admits_proposal() {
 #[test]
 fn agent_guardian_reject_verdict_blocks_proposal() {
     let sema = SemaFile::new();
-    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::reject(Reject {
+    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::reject(GuardianReject {
         guardian_rejection_reason: GuardianRejectionReason::NonIntent,
         explanation: spirit::schema::signal::Explanation::new("not settled intent"),
     }));
@@ -1285,7 +1281,7 @@ fn agent_guardian_reject_verdict_blocks_proposal() {
 #[test]
 fn guardian_rejection_does_not_contact_criome_operation_authorizer() {
     let sema = SemaFile::new();
-    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::reject(Reject {
+    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::reject(GuardianReject {
         guardian_rejection_reason: GuardianRejectionReason::NonIntent,
         explanation: spirit::schema::signal::Explanation::new("not settled intent"),
     }));
@@ -1374,7 +1370,7 @@ fn guardian_acceptance_sends_spirit_context_to_criome_before_write() {
 #[test]
 fn agent_guardian_reject_verdict_blocks_record() {
     let sema = SemaFile::new();
-    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::reject(Reject {
+    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::reject(GuardianReject {
         guardian_rejection_reason: GuardianRejectionReason::NonIntent,
         explanation: spirit::schema::signal::Explanation::new("not durable intent"),
     }));
@@ -1500,7 +1496,7 @@ fn agent_guardian_duplicate_rejection_bumps_importance() {
         other => panic!("expected setup Proposed, got {other:?}"),
     };
     drop(setup_engine);
-    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::reject(Reject {
+    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::reject(GuardianReject {
         guardian_rejection_reason: GuardianRejectionReason::Duplicate,
         explanation: spirit::schema::signal::Explanation::new("same arrow already exists"),
     }));
@@ -1716,15 +1712,15 @@ fn agent_guardian_reject_verdict_blocks_clarify_supersede_and_retire() {
     };
     drop(setup_engine);
     let fake_agent = FakeGuardianAgent::spawn_many(vec![
-        GuardianVerdict::reject(Reject {
+        GuardianVerdict::reject(GuardianReject {
             guardian_rejection_reason: GuardianRejectionReason::ClarifyTramples,
             explanation: spirit::schema::signal::Explanation::new("changes the arrow"),
         }),
-        GuardianVerdict::reject(Reject {
+        GuardianVerdict::reject(GuardianReject {
             guardian_rejection_reason: GuardianRejectionReason::Contradiction,
             explanation: spirit::schema::signal::Explanation::new("replacement conflicts"),
         }),
-        GuardianVerdict::reject(Reject {
+        GuardianVerdict::reject(GuardianReject {
             guardian_rejection_reason: GuardianRejectionReason::NonIntent,
             explanation: spirit::schema::signal::Explanation::new("retirement not justified"),
         }),
@@ -1782,7 +1778,7 @@ fn agent_guardian_accept_verdict_admits_referent_registration() {
 fn agent_guardian_reject_verdict_blocks_referent_registration() {
     let sema = SemaFile::new();
     let fake_agent = FakeGuardianAgent::spawn_referent(ReferentGuardianVerdict::reject_referent(
-        RejectReferent {
+        ReferentReject {
             referent_guardian_rejection_reason: ReferentGuardianRejectionReason::TooVague,
             explanation: spirit::schema::signal::Explanation::new("not a concrete referent"),
         },
@@ -1813,7 +1809,7 @@ fn agent_guardian_reject_verdict_blocks_referent_registration() {
 fn agent_guardian_reject_verdict_blocks_embedded_referent_registration() {
     let sema = SemaFile::new();
     let fake_agent = FakeGuardianAgent::spawn_referent(ReferentGuardianVerdict::reject_referent(
-        RejectReferent {
+        ReferentReject {
             referent_guardian_rejection_reason: ReferentGuardianRejectionReason::TooVague,
             explanation: spirit::schema::signal::Explanation::new("not a concrete referent"),
         },
@@ -1869,7 +1865,7 @@ fn agent_guardian_repairs_malformed_verdict_shape() {
     let sema = SemaFile::new();
     let fake_agent = FakeGuardianAgent::spawn_texts(vec![
         "(Reject NonIntent [flat rejection is not the generated verdict shape])".to_owned(),
-        GuardianVerdict::reject(Reject {
+        GuardianVerdict::reject(GuardianReject {
             guardian_rejection_reason: GuardianRejectionReason::NonIntent,
             explanation: spirit::schema::signal::Explanation::new("not settled intent"),
         })
@@ -1901,7 +1897,7 @@ fn agent_guardian_repairs_malformed_verdict_shape() {
 fn agent_guardian_preserves_large_rejection_explanation() {
     let sema = SemaFile::new();
     let explanation = vec!["This rejection explanation is intentionally long."; 300].join(" ");
-    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::reject(Reject {
+    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::reject(GuardianReject {
         guardian_rejection_reason: GuardianRejectionReason::Contradiction,
         explanation: spirit::schema::signal::Explanation::new(explanation.clone()),
     }));
@@ -2897,7 +2893,7 @@ fn sema_engine_lookup_and_count_are_read_plane_operations() {
     );
     match counted.root() {
         SemaReadOutput::Counted(records) => {
-            assert_eq!(*records.payload().payload().payload(), 2);
+            assert_eq!(*records.payload().payload(), 2);
         }
         other => panic!("expected SEMA count to return two records, got {other:?}"),
     }

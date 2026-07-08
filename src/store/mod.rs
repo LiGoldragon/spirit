@@ -205,7 +205,7 @@ impl SemaEngine for Store {
     ) -> sema_schema::sema::Sema<sema_schema::sema::WriteOutput> {
         let origin_route = command.origin_route();
         let output = match command.into_root() {
-            SemaWriteInput::Record(record) => match self.record(record.into_payload()) {
+            SemaWriteInput::Record(record) => match self.record(record) {
                 Ok(identifier) => SemaWriteOutput::recorded(SemaReceipt {
                     record_identifier: RecordIdentifier::new(identifier),
                     database_marker: self.database_marker(),
@@ -214,30 +214,25 @@ impl SemaEngine for Store {
                     SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(error.to_string())))
                 }
             },
-            SemaWriteInput::ChangeCertainty(change) => {
-                match self.change_certainty(change.into_payload()) {
-                    Ok(Some(receipt)) => SemaWriteOutput::certainty_changed(receipt),
-                    Ok(None) => SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(
-                        "record not found",
-                    ))),
-                    Err(error) => SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(
-                        error.to_string(),
-                    ))),
+            SemaWriteInput::ChangeCertainty(change) => match self.change_certainty(change) {
+                Ok(Some(receipt)) => SemaWriteOutput::certainty_changed(receipt),
+                Ok(None) => {
+                    SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new("record not found")))
                 }
-            }
-            SemaWriteInput::BumpImportance(change) => {
-                match self.bump_importance(change.into_payload()) {
-                    Ok(Some(receipt)) => SemaWriteOutput::importance_bumped(receipt),
-                    Ok(None) => SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(
-                        "record not found",
-                    ))),
-                    Err(error) => SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(
-                        error.to_string(),
-                    ))),
+                Err(error) => {
+                    SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(error.to_string())))
                 }
-            }
-            SemaWriteInput::ChangeRecord(change) => match self.change_record(change.into_payload())
-            {
+            },
+            SemaWriteInput::BumpImportance(change) => match self.bump_importance(change) {
+                Ok(Some(receipt)) => SemaWriteOutput::importance_bumped(receipt),
+                Ok(None) => {
+                    SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new("record not found")))
+                }
+                Err(error) => {
+                    SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(error.to_string())))
+                }
+            },
+            SemaWriteInput::ChangeRecord(change) => match self.change_record(change) {
                 Ok(Some(receipt)) => SemaWriteOutput::record_changed(receipt),
                 Ok(None) => {
                     SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new("record not found")))
@@ -246,14 +241,12 @@ impl SemaEngine for Store {
                     SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(error.to_string())))
                 }
             },
-            SemaWriteInput::RegisterReferent(register) => {
-                match self.register_referent(register.into_payload()) {
-                    Ok(receipt) => SemaWriteOutput::referent_registered(receipt),
-                    Err(error) => SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(
-                        error.to_string(),
-                    ))),
+            SemaWriteInput::RegisterReferent(register) => match self.register_referent(register) {
+                Ok(receipt) => SemaWriteOutput::referent_registered(receipt),
+                Err(error) => {
+                    SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(error.to_string())))
                 }
-            }
+            },
         };
         output.with_origin_route(origin_route)
     }
@@ -264,7 +257,7 @@ impl SemaEngine for Store {
     ) -> sema_schema::sema::Sema<sema_schema::sema::ReadOutput> {
         let origin_route = query.origin_route();
         let output = match query.into_root() {
-            SemaReadInput::Observe(observe) => match self.observe(observe.payload()) {
+            SemaReadInput::Observe(observe) => match self.observe(&observe) {
                 Ok(entries) if !entries.is_empty() => {
                     SemaReadOutput::observed(ObservedRecords::new(RecordSet::new(entries)))
                 }
@@ -276,7 +269,7 @@ impl SemaEngine for Store {
                 }
             },
             SemaReadInput::PublicIntent(public_intent) => {
-                match self.public_intent(public_intent.payload()) {
+                match self.public_intent(&public_intent) {
                     Ok(entries) if !entries.is_empty() => SemaReadOutput::public_intent_results(
                         ObservedRecords::new(RecordSet::new(entries)),
                     ),
@@ -288,9 +281,7 @@ impl SemaEngine for Store {
                     ))),
                 }
             }
-            SemaReadInput::PublicTextSearch(search) => match self
-                .public_text_search(search.payload())
-            {
+            SemaReadInput::PublicTextSearch(search) => match self.public_text_search(&search) {
                 Ok(entries) if !entries.is_empty() => SemaReadOutput::public_text_search_results(
                     ObservedRecords::new(RecordSet::new(entries)),
                 ),
@@ -302,7 +293,7 @@ impl SemaEngine for Store {
                 }
             },
             SemaReadInput::Lookup(lookup) => {
-                let record_identifier = lookup.into_payload();
+                let record_identifier = lookup;
                 match self.entry_by_identifier(record_identifier.payload()) {
                     Ok(Some(entry)) => SemaReadOutput::found(FoundRecord {
                         record_identifier,
@@ -316,7 +307,7 @@ impl SemaEngine for Store {
                     ))),
                 }
             }
-            SemaReadInput::Count(count) => match self.count(count.payload()) {
+            SemaReadInput::Count(count) => match self.count(&count) {
                 Ok(count) => SemaReadOutput::counted(CountedRecords::new(RecordCount::new(count))),
                 Err(error) => {
                     SemaReadOutput::missed(ErrorReport::new(ErrorMessage::new(error.to_string())))

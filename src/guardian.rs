@@ -15,7 +15,7 @@ use crate::{
     guardian_journal::{GuardianDecision, GuardianOperation},
     guardian_prompt::{GuardianPromptBuilder, GuardianPromptSource, GuardianRetry},
     schema::{
-        nexus::{GuardianVerdict, ReferentGuardianVerdict, Reject, RejectReferent},
+        nexus::{GuardianReject, GuardianVerdict, ReferentGuardianVerdict, ReferentReject},
         signal::{
             DatabaseMarker, Explanation, GuardianRejection, GuardianRejectionReason, RecordSet,
             ReferentGuardianRejection, ReferentGuardianRejectionReason, ReferentRegistration,
@@ -185,7 +185,7 @@ impl AgentGuardian {
         // skip the model call (the guardian prompt still teaches MissingTestimony
         // for the semantic bare-affirmation-without-antecedent case).
         if operation.testimony_is_empty() {
-            let verdict = GuardianVerdict::reject(Reject {
+            let verdict = GuardianVerdict::reject(GuardianReject {
                 guardian_rejection_reason: GuardianRejectionReason::MissingTestimony,
                 explanation: Explanation::new("the justification carries no verbatim testimony"),
             });
@@ -469,7 +469,7 @@ struct AgentReferentGuardianRejection {
 
 impl AgentReferentGuardianRejection {
     fn from_reject(
-        rejection: RejectReferent,
+        rejection: ReferentReject,
         registered_referents: RegisteredReferents,
         database_marker: DatabaseMarker,
     ) -> Self {
@@ -491,7 +491,11 @@ impl AgentReferentGuardianRejection {
 }
 
 impl AgentGuardianRejection {
-    fn from_reject(rejection: Reject, records: RecordSet, database_marker: DatabaseMarker) -> Self {
+    fn from_reject(
+        rejection: GuardianReject,
+        records: RecordSet,
+        database_marker: DatabaseMarker,
+    ) -> Self {
         Self {
             reason: rejection.guardian_rejection_reason,
             records,

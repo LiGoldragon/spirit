@@ -21,37 +21,28 @@
   CountedRecords signal-spirit:signal:CountedRecords
   ErrorReport signal-spirit:signal:ErrorReport
 }
-[WriteInput ReadInput]
-[WriteOutput ReadOutput]
 {
-  WriteInput [(Record) (ChangeCertainty) (BumpImportance) (ChangeRecord) (RegisterReferent)]
-  Record Entry
-  ChangeCertainty CertaintyChange
-  BumpImportance ImportanceBump
-  ChangeRecord RecordChange
-  RegisterReferent ReferentRegistration
+  Vector Vector
+  Optional Optional
+  ScopeOf ScopeOf
+  Map Map
+  Bytes FixedBytes
+}
+[(WriteInput WriteInputRoot) (ReadInput ReadInputRoot)]
+[(WriteOutput WriteOutputRoot) (ReadOutput ReadOutputRoot)]
+{
+  WriteInputRoot WriteInput
+  ReadInputRoot ReadInput
+  WriteOutputRoot WriteOutput
+  ReadOutputRoot ReadOutput
 
-  ReadInput [(Observe) (PublicIntent) (PublicTextSearch) (Lookup) (Count)]
-  Observe Query
-  PublicIntent DomainScopes
-  PublicTextSearch SearchText
-  Lookup RecordIdentifier
-  Count Query
+  WriteInput [(Record Entry) (ChangeCertainty CertaintyChange) (BumpImportance ImportanceBump) (ChangeRecord RecordChange) (RegisterReferent ReferentRegistration)]
 
-  WriteOutput [(Recorded) (CertaintyChanged) (ImportanceBumped) (RecordChanged) (ReferentRegistered) (Missed)]
-  Recorded SemaReceipt
-  CertaintyChanged CertaintyChangeReceipt
-  ImportanceBumped ImportanceBumpReceipt
-  RecordChanged RecordChangeReceipt
-  ReferentRegistered ReferentRegistrationReceipt
-  Missed ErrorReport
+  ReadInput [(Observe Query) (PublicIntent DomainScopes) (PublicTextSearch SearchText) (Lookup RecordIdentifier) (Count Query)]
 
-  ReadOutput [(Observed) (PublicIntentResults) (PublicTextSearchResults) (Found) (Counted) (Missed)]
-  Observed ObservedRecords
-  PublicIntentResults ObservedRecords
-  PublicTextSearchResults ObservedRecords
-  Found FoundRecord
-  Counted CountedRecords
+  WriteOutput [(Recorded SemaReceipt) (CertaintyChanged CertaintyChangeReceipt) (ImportanceBumped ImportanceBumpReceipt) (RecordChanged RecordChangeReceipt) (ReferentRegistered ReferentRegistrationReceipt) (Missed ErrorReport)]
+
+  ReadOutput [(Observed ObservedRecords) (PublicIntentResults ObservedRecords) (PublicTextSearchResults ObservedRecords) (Found FoundRecord) (Counted CountedRecords) (Missed ErrorReport)]
 
   StoredRecord { RecordIdentifier Entry }
   StoredReferent { Referent Aliases }

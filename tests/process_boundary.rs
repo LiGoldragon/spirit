@@ -1041,7 +1041,7 @@ fn cli_and_daemon_classify_state_into_provisional_record() {
         stashed.observed_records.payload().payload()[0]
             .entry
             .domains,
-        domain_fixtures::domains(&["meaning"])
+        domain_fixtures::domains(&["documentation"])
     );
     assert_eq!(
         stashed.observed_records.payload().payload()[0].entry.kind,
@@ -1076,7 +1076,7 @@ fn cli_and_daemon_classify_state_into_provisional_record() {
             assert_eq!(records.payload().payload().len(), 1);
             assert_eq!(
                 records.payload().payload()[0].entry.domains,
-                domain_fixtures::domains(&["meaning"])
+                domain_fixtures::domains(&["documentation"])
             );
             assert_eq!(
                 records.payload().payload()[0].entry.kind,
@@ -1223,7 +1223,10 @@ fn cli_and_daemon_change_record_replaces_entry_under_same_identifier() {
     match found {
         Output::RecordFound(record) => {
             assert_eq!(record.record_identifier, record_identifier);
-            assert_eq!(record.entry.domains, domain_fixtures::domains(&["meaning"]));
+            assert_eq!(
+                record.entry.domains,
+                domain_fixtures::domains(&["documentation"])
+            );
             assert_eq!(record.entry.kind, Kind::Correction);
             assert_eq!(record.entry.description.payload(), "replacement record");
             assert_eq!(record.entry.certainty, Magnitude::High);
