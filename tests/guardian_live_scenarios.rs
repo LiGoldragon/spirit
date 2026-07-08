@@ -20,12 +20,13 @@ use agent::{
     provider::OpenAiCompatibleProvider,
     registry::{ProviderEntry, ProviderRegistry, SecretSource},
 };
+use meta_signal_spirit::schema::meta_signal::{ImportRequest, ImportedRecord, ImportedRecords};
 use signal_agent::Input as AgentInput;
 use spirit::{
     AgentGuardian, AgentGuardianConfiguration, Engine, Store,
     schema::signal::{
-        Antecedent, Description, Domains, Entry, GuardianRejectionReason, Importance, Input, Kind,
-        Magnitude, Output, Privacy, Proposal, QuoteText, Reasoning, RecordRequest, Referent,
+        Antecedent, Description, Entry, GuardianRejectionReason, Importance, Input, Kind,
+        Magnitude, Output, Privacy, Proposal, QuoteText, Reasoning, RecordIdentifier, Referent,
         Referents, Testimony, VerbatimQuote,
     },
 };
@@ -36,6 +37,49 @@ const DEEPSEEK_PROVIDER: &str = "deepseek";
 const DEEPSEEK_ENDPOINT: &str = "https://api.deepseek.com/v1";
 const DEEPSEEK_MODEL: &str = "deepseek-v4-flash";
 const DEEPSEEK_GOPASS_PATH: &str = "platform.deepseek.com/api-key";
+const JUDGE_LIVE_EVAL_FIXTURE: &str = include_str!("fixtures/spirit_judge_live_eval.nota");
+
+#[derive(Clone)]
+enum LiveAgentProviderConfig {
+    DeepSeek,
+    LocalOpenAiCompatible,
+}
+
+impl LiveAgentProviderConfig {
+    fn provider_name(&self) -> &'static str {
+        match self {
+            Self::DeepSeek => DEEPSEEK_PROVIDER,
+            Self::LocalOpenAiCompatible => {
+                AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_PROVIDER
+            }
+        }
+    }
+
+    fn endpoint(&self) -> &'static str {
+        match self {
+            Self::DeepSeek => DEEPSEEK_ENDPOINT,
+            Self::LocalOpenAiCompatible => {
+                AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_ENDPOINT
+            }
+        }
+    }
+
+    fn model_name(&self) -> &'static str {
+        match self {
+            Self::DeepSeek => DEEPSEEK_MODEL,
+            Self::LocalOpenAiCompatible => {
+                AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_MODEL
+            }
+        }
+    }
+
+    fn secret_source(&self) -> SecretSource {
+        match self {
+            Self::DeepSeek => SecretSource::gopass(DEEPSEEK_GOPASS_PATH),
+            Self::LocalOpenAiCompatible => SecretSource::no_secret(),
+        }
+    }
+}
 
 struct LiveAgentServer {
     _directory: TempDir,
@@ -45,20 +89,187 @@ struct LiveAgentServer {
 }
 
 struct GuardianScenario {
-    name: &'static str,
+    name: String,
     proposal: Entry,
-    quote: &'static str,
-    reasoning: &'static str,
+    quote: String,
+    reasoning: String,
     expected: ExpectedVerdict,
 }
 
 enum ExpectedVerdict {
     Accept,
-    Reject(&'static [GuardianRejectionReason]),
+    Reject(Vec<GuardianRejectionReason>),
+}
+
+struct FixtureCorpus {
+    seeds: Vec<ImportedRecord>,
+    scenarios: Vec<GuardianScenario>,
+}
+
+struct FixtureLine<'fixture> {
+    line_number: usize,
+    text: &'fixture str,
+}
+
+impl FixtureCorpus {
+    fn parse(text: &'static str) -> Self {
+        let mut seeds = Vec::new();
+        let mut scenarios = Vec::new();
+        for (index, raw_line) in text.lines().enumerate() {
+            let line = raw_line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            let fixture_line = FixtureLine {
+                line_number: index + 1,
+                text: line,
+            };
+            if let Some(rest) = line.strip_prefix("seed ") {
+                seeds.push(fixture_line.seed_record(rest));
+            } else if let Some(rest) = line.strip_prefix("case ") {
+                scenarios.push(fixture_line.scenario(rest));
+            } else {
+                panic!("fixture line {} must start with seed or case", index + 1);
+            }
+        }
+        assert!(
+            seeds.len() >= 12,
+            "fixture should preload a large enough neighbor corpus"
+        );
+        assert!(
+            scenarios.len() >= 18,
+            "fixture should cover broad judge cases"
+        );
+        Self { seeds, scenarios }
+    }
+
+    fn prepopulate(&self, engine: &mut Engine) {
+        let output = engine.import(ImportRequest::new(ImportedRecords::new(self.seeds.clone())));
+        assert!(
+            matches!(
+                output,
+                meta_signal_spirit::schema::meta_signal::Output::Imported(_)
+            ),
+            "fixture import should bypass the judge through the owner-only typed Import path: {output:?}"
+        );
+    }
+}
+
+impl FixtureLine<'_> {
+    fn seed_record(&self, rest: &str) -> ImportedRecord {
+        let (identifier, input_text) =
+            self.split_once(rest, ' ', "seed identifier and Record input");
+        let input = self.input(input_text);
+        let Input::Record(record) = input else {
+            panic!(
+                "fixture line {} seed must contain Record input",
+                self.line_number
+            );
+        };
+        ImportedRecord {
+            record_identifier: RecordIdentifier::new(identifier),
+            entry: record.into_payload().entry,
+        }
+    }
+
+    fn scenario(&self, rest: &str) -> GuardianScenario {
+        let (name, after_name) = self.split_once(rest, ' ', "case name");
+        let (expected_text, input_text) = self.split_once(after_name, ' ', "case expected verdict");
+        let input = self.input(input_text);
+        let Input::Propose(propose) = input else {
+            panic!(
+                "fixture line {} case must contain Propose input",
+                self.line_number
+            );
+        };
+        let proposal = propose.into_payload();
+        let quote = proposal
+            .justification
+            .testimony
+            .payload()
+            .first()
+            .map(|quote| quote.quote_text.payload().as_str())
+            .unwrap_or("");
+        let reasoning = proposal.justification.reasoning.payload().as_str();
+        GuardianScenario {
+            name: name.to_owned(),
+            proposal: proposal.entry,
+            quote: quote.to_owned(),
+            reasoning: reasoning.to_owned(),
+            expected: self.expected(expected_text),
+        }
+    }
+
+    fn input(&self, input_text: &str) -> Input {
+        input_text.parse::<Input>().unwrap_or_else(|error| {
+            panic!(
+                "fixture line {} failed generated Input parse: {error}; text: {input_text}",
+                self.line_number
+            )
+        })
+    }
+
+    fn expected(&self, text: &str) -> ExpectedVerdict {
+        if text == "Accept" {
+            return ExpectedVerdict::Accept;
+        }
+        let Some(reasons) = text.strip_prefix("Reject:") else {
+            panic!(
+                "fixture line {} has invalid expected verdict {text}",
+                self.line_number
+            );
+        };
+        ExpectedVerdict::Reject(
+            reasons
+                .split(',')
+                .map(|reason| self.rejection_reason(reason))
+                .collect(),
+        )
+    }
+
+    fn rejection_reason(&self, reason: &str) -> GuardianRejectionReason {
+        match reason {
+            "MissingTestimony" => GuardianRejectionReason::MissingTestimony,
+            "TestimonyFabricated" => GuardianRejectionReason::TestimonyFabricated,
+            "InsufficientWarrant" => GuardianRejectionReason::InsufficientWarrant,
+            "Overstated" => GuardianRejectionReason::Overstated,
+            "ImportanceUnsupported" => GuardianRejectionReason::ImportanceUnsupported,
+            "NonIntent" => GuardianRejectionReason::NonIntent,
+            "NegativeGuideline" => GuardianRejectionReason::NegativeGuideline,
+            "Matter" => GuardianRejectionReason::Matter,
+            "Compound" => GuardianRejectionReason::Compound,
+            "UnclearDomain" => GuardianRejectionReason::UnclearDomain,
+            "UnclearPrivacy" => GuardianRejectionReason::UnclearPrivacy,
+            "Duplicate" => GuardianRejectionReason::Duplicate,
+            "Contradiction" => GuardianRejectionReason::Contradiction,
+            "ClarifyTramples" => GuardianRejectionReason::ClarifyTramples,
+            "ClarifyLosesMeaning" => GuardianRejectionReason::ClarifyLosesMeaning,
+            "SupersedeTargetMissing" => GuardianRejectionReason::SupersedeTargetMissing,
+            "RetrievalInsufficient" => GuardianRejectionReason::RetrievalInsufficient,
+            other => panic!(
+                "fixture line {} has unknown rejection reason {other}",
+                self.line_number
+            ),
+        }
+    }
+
+    fn split_once<'text>(
+        &self,
+        text: &'text str,
+        delimiter: char,
+        expectation: &str,
+    ) -> (&'text str, &'text str) {
+        text.split_once(delimiter).unwrap_or_else(|| {
+            panic!(
+                "fixture line {} missing {expectation}: {}",
+                self.line_number, self.text
+            )
+        })
+    }
 }
 
 impl LiveAgentServer {
-    fn spawn(call_count: usize) -> Self {
+    fn spawn(provider_config: LiveAgentProviderConfig, call_count: usize) -> Self {
         let directory = TempDir::new().expect("agent tempdir");
         let socket_path = directory.path().join("agent.sock");
         let listener = UnixListener::bind(&socket_path).expect("bind live agent socket");
@@ -70,10 +281,10 @@ impl LiveAgentServer {
         let thread = thread::spawn(move || {
             let mut registry = ProviderRegistry::new();
             registry.configure(ProviderEntry::new(
-                DEEPSEEK_PROVIDER,
-                DEEPSEEK_ENDPOINT,
-                DEEPSEEK_MODEL,
-                SecretSource::gopass(DEEPSEEK_GOPASS_PATH),
+                provider_config.provider_name(),
+                provider_config.endpoint(),
+                provider_config.model_name(),
+                provider_config.secret_source(),
             ));
             let mut engine =
                 AgentEngine::with_system_keys(registry, Box::new(OpenAiCompatibleProvider::new()));
@@ -121,11 +332,11 @@ impl LiveAgentServer {
         stream.flush().expect("flush agent output");
     }
 
-    fn guardian(&self) -> AgentGuardian {
+    fn guardian(&self, provider_config: LiveAgentProviderConfig) -> AgentGuardian {
         AgentGuardian::new(AgentGuardianConfiguration::new(
             self.socket_path.clone(),
-            Some(DEEPSEEK_PROVIDER.to_owned()),
-            Some(DEEPSEEK_MODEL.to_owned()),
+            Some(provider_config.provider_name().to_owned()),
+            Some(provider_config.model_name().to_owned()),
             Duration::from_secs(120),
             None,
         ))
@@ -137,81 +348,74 @@ impl LiveAgentServer {
     }
 }
 
-impl GuardianScenario {
-    fn accepts(
-        name: &'static str,
-        proposal: Entry,
-        quote: &'static str,
-        reasoning: &'static str,
-    ) -> Self {
-        Self {
-            name,
-            proposal,
-            quote,
-            reasoning,
-            expected: ExpectedVerdict::Accept,
-        }
-    }
-
-    fn accepts_with_justification(
-        name: &'static str,
-        proposal: Entry,
-        quote: &'static str,
-        reasoning: &'static str,
-    ) -> Self {
-        Self {
-            name,
-            proposal,
-            quote,
-            reasoning,
-            expected: ExpectedVerdict::Accept,
-        }
-    }
-
-    fn rejects_with_justification(
-        name: &'static str,
-        proposal: Entry,
-        quote: &'static str,
-        reasoning: &'static str,
-        allowed_reasons: &'static [GuardianRejectionReason],
-    ) -> Self {
-        Self {
-            name,
-            proposal,
-            quote,
-            reasoning,
-            expected: ExpectedVerdict::Reject(allowed_reasons),
-        }
+fn proposal(entry: Entry, quote: &str, reasoning: &str) -> Proposal {
+    Proposal {
+        entry,
+        justification: eval_justification(&[(quote, None)], reasoning),
     }
 }
 
 #[test]
-#[ignore = "uses live DeepSeek through gopass; run explicitly before guardian deployment"]
+fn judge_live_eval_fixture_loads_and_imports_seed_corpus() {
+    let corpus = FixtureCorpus::parse(JUDGE_LIVE_EVAL_FIXTURE);
+    let directory = TempDir::new().expect("spirit fixture tempdir");
+    let store = Store::open(directory.path().join("fixture-prepopulation.sema"))
+        .expect("open fixture store");
+    let mut engine = Engine::new(store);
+    corpus.prepopulate(&mut engine);
+    assert_eq!(
+        corpus.seeds.len(),
+        14,
+        "fixture seed count should stay intentional"
+    );
+    assert_eq!(
+        corpus.scenarios.len(),
+        21,
+        "fixture scenario count should stay intentional"
+    );
+}
+
+#[test]
+#[ignore = "uses live DeepSeek through gopass; run explicitly before judge deployment"]
 fn live_deepseek_guardian_accepts_and_rejects_realistic_scenarios() {
     if !DeepSeekKey::available() {
         eprintln!("skipping: DeepSeek gopass key unavailable");
         return;
     }
+    live_guardian_accepts_and_rejects_realistic_scenarios(LiveAgentProviderConfig::DeepSeek);
+}
 
+#[test]
+#[ignore = "uses a local OpenAI-compatible endpoint at http://127.0.0.1:18080/v1 with the Mind-verified gpt-5.5 model"]
+fn live_local_openai_compatible_guardian_accepts_and_rejects_realistic_scenarios() {
+    if !LocalOpenAiCompatibleEndpoint::available() {
+        eprintln!(
+            "skipping: local OpenAI-compatible endpoint unavailable at {} for model {}",
+            AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_ENDPOINT,
+            AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_MODEL
+        );
+        return;
+    }
+    live_guardian_accepts_and_rejects_realistic_scenarios(
+        LiveAgentProviderConfig::LocalOpenAiCompatible,
+    );
+}
+
+fn live_guardian_accepts_and_rejects_realistic_scenarios(provider_config: LiveAgentProviderConfig) {
+    let corpus = FixtureCorpus::parse(JUDGE_LIVE_EVAL_FIXTURE);
     let directory = TempDir::new().expect("spirit tempdir");
     let store = Store::open(directory.path().join("guardian-live.sema")).expect("open store");
     let mut engine = Engine::new(store);
-    for seed in seed_records() {
-        assert!(matches!(
-            engine.handle(Input::record(record_request(seed))).root(),
-            Output::RecordAccepted(_)
-        ));
-    }
+    corpus.prepopulate(&mut engine);
 
-    let scenarios = scenarios();
-    let live_agent = LiveAgentServer::spawn(scenarios.len() * 2);
-    engine.set_guardian(live_agent.guardian());
+    let live_agent = LiveAgentServer::spawn(provider_config.clone(), corpus.scenarios.len() * 2);
+    engine.set_guardian(live_agent.guardian(provider_config));
 
-    for scenario in scenarios {
+    for scenario in corpus.scenarios {
         let output = engine.handle(Input::propose(proposal(
             scenario.proposal,
-            scenario.quote,
-            scenario.reasoning,
+            &scenario.quote,
+            &scenario.reasoning,
         )));
         match scenario.expected {
             ExpectedVerdict::Accept => {
@@ -254,225 +458,15 @@ impl DeepSeekKey {
     }
 }
 
-fn seed_records() -> Vec<Entry> {
-    vec![
-        entry(
-            &["software", "nota"],
-            "NOTA strings are represented with bracket forms; quotation marks are not valid NOTA string syntax.",
-        ),
-        entry(
-            &["software", "spirit"],
-            "Spirit intent entries express one forward act, principle, constraint, or decision at a time.",
-        ),
-        entry(
-            &["software", "agent"],
-            "Agent provider secrets are resolved by the agent daemon from configured secret-source backends.",
-        ),
-        entry(
-            &["software", "spirit"],
-            "Referents must be registered before records may attach them to entries.",
-        ),
-    ]
-}
+struct LocalOpenAiCompatibleEndpoint;
 
-fn scenarios() -> Vec<GuardianScenario> {
-    vec![
-        GuardianScenario::accepts(
-            "clear guardian testing intent",
-            medium_entry(
-                &["software", "spirit"],
-                "Spirit guardian tests should use sandbox stores with realistic accept and reject proposals before deployment.",
-            ),
-            "we should use sandbox stores with realistic accept and reject proposals before deployment",
-            "The quote is a direct testing preference; Medium matches should.",
-        ),
-        GuardianScenario::accepts(
-            "clear agent provider test intent",
-            medium_entry(
-                &["software", "agent"],
-                "Agent live-provider tests should verify gopass-backed DeepSeek calls through the same signal protocol Spirit uses.",
-            ),
-            "the live provider tests should go through gopass-backed DeepSeek using the same signal protocol Spirit uses",
-            "The quote directly supports the live-provider test shape; Medium matches should.",
-        ),
-        GuardianScenario::accepts_with_justification(
-            "detailed justification is source evidence",
-            medium_entry(
-                &["software", "spirit"],
-                "Spirit guardian admission should judge the Entry as the candidate intent and use Justification only as source evidence.",
-            ),
-            "The guardian should judge the Entry itself; the justification is evidence for it, not a second intent.",
-            "The quote distinguishes candidate Entry from evidentiary justification; Medium matches should.",
-        ),
-        GuardianScenario::accepts_with_justification(
-            "direct declared metadata is evidence",
-            entry_with_magnitudes(
-                &["software", "spirit"],
-                "Spirit guardian prompt alignment treats direct psyche-declared metadata rungs as primary evidence for those rungs.",
-                Magnitude::Medium,
-                Magnitude::High,
-                Magnitude::Maximum,
-            ),
-            "the guardian prompt alignment rule is that direct psyche-declared metadata rungs are primary evidence for those rungs; this rule is Medium certainty, High importance, and Maximum privacy",
-            "The psyche states the durable arrow and directly names Medium certainty, High importance, and Maximum privacy, so the entry and metadata rungs are supported by testimony.",
-        ),
-        GuardianScenario::accepts_with_justification(
-            "argued centrality supports high importance",
-            entry_with_magnitudes(
-                &["software", "spirit"],
-                "Spirit guardian keeps verbatim psyche testimony separate from agent reasoning.",
-                Magnitude::Medium,
-                Magnitude::High,
-                Magnitude::Zero,
-            ),
-            "the guardian should keep testimony and reasoning separate",
-            "The quote supports the durable arrow. High importance is argued from architectural centrality: this split controls every guarded Spirit write, protects the intent layer from agent advocacy replacing psyche authority, and blocks the prompt-alignment work.",
-        ),
-        GuardianScenario::rejects_with_justification(
-            "duplicate provider secret policy",
-            entry(
-                &["software", "agent"],
-                "Agent provider secrets are resolved by the agent daemon from configured secret-source backends.",
-            ),
-            "agent secrets come from the configured backends, that is settled",
-            "Restates a settled seeded provider-secret policy.",
-            &[GuardianRejectionReason::Duplicate],
-        ),
-        GuardianScenario::rejects_with_justification(
-            "nota quotation conflict needs maintenance operation",
-            entry_with_certainty(
-                &["software", "nota"],
-                "NOTA strings should use quotation marks as the canonical representation.",
-                Magnitude::High,
-            ),
-            "let us make quotation marks the canonical NOTA string form",
-            "The quote authorizes replacing the seeded bracket-form rule, but this is submitted as a fresh Record that would leave the conflicting old arrow live. The repair shape is Supersede or ChangeRecord.",
-            &[GuardianRejectionReason::InsufficientWarrant],
-        ),
-        GuardianScenario::rejects_with_justification(
-            "compound agent and deployment intent",
-            medium_entry(
-                &["software", "agent"],
-                "Agent should resolve DeepSeek keys through gopass and Spirit should deploy the guardian immediately.",
-            ),
-            "resolve the keys through gopass and also deploy the guardian right away",
-            "Contains two separable arrows: key resolution and deployment.",
-            &[GuardianRejectionReason::Compound],
-        ),
-        GuardianScenario::rejects_with_justification(
-            "unsupported high importance",
-            entry_with_magnitudes(
-                &["software", "spirit"],
-                "Running two guardian models in parallel might be interesting.",
-                Magnitude::VeryLow,
-                Magnitude::High,
-                Magnitude::Zero,
-            ),
-            "maybe two guardian models could be interesting",
-            "This is high importance.",
-            &[GuardianRejectionReason::ImportanceUnsupported],
-        ),
-        GuardianScenario::rejects_with_justification(
-            "non-intent uncertainty",
-            entry(
-                &["software", "spirit"],
-                "I am unsure whether the guardian is ready.",
-            ),
-            "I am not sure whether the guardian is ready, let me look again",
-            "Momentary uncertainty is task state, not durable intent.",
-            &[GuardianRejectionReason::NonIntent],
-        ),
-        GuardianScenario::rejects_with_justification(
-            "negative spelling guideline",
-            medium_entry(
-                &["software", "spirit"],
-                "Canonical prose names are criome for the authentication component and criomos for the operating system name; creome and creomos are misspellings.",
-            ),
-            "its criome and criomos, not creome and creomos",
-            "Centers rejected spellings instead of an affirmative canonical naming rule.",
-            &[GuardianRejectionReason::NegativeGuideline],
-        ),
-        GuardianScenario::rejects_with_justification(
-            "daemon protocol choice is matter",
-            medium_entry(
-                &["software", "spirit"],
-                "Spirit runtime control messages use the owner-only meta socket, while ordinary capture requests use the working socket.",
-            ),
-            "put runtime controls on the owner socket and leave captures on the working socket",
-            "This is a daemon protocol and component-boundary choice; it belongs in architecture and contract tests, not in durable psyche intent.",
-            &[GuardianRejectionReason::Matter],
-        ),
-        GuardianScenario::rejects_with_justification(
-            "spirit prompt workflow rule is matter",
-            medium_entry(
-                &["software", "spirit"],
-                "Spirit judge examples should be added to the compiled prompt guidance before live scenario coverage is expanded.",
-            ),
-            "put the new judge examples in the prompt guidance before expanding the live scenarios",
-            "This teaches how to operate Spirit's prompt/test workflow, so the correct home is repository guidance rather than the intent database.",
-            &[GuardianRejectionReason::Matter],
-        ),
-    ]
-}
-
-fn entry(domains: &[&str], description: &str) -> Entry {
-    entry_with_certainty(domains, description, Magnitude::Maximum)
-}
-
-fn medium_entry(domains: &[&str], description: &str) -> Entry {
-    entry_with_certainty(domains, description, Magnitude::Medium)
-}
-
-fn entry_with_certainty(domains: &[&str], description: &str, certainty: Magnitude) -> Entry {
-    entry_with_magnitudes(
-        domains,
-        description,
-        certainty,
-        Magnitude::Minimum,
-        Magnitude::Zero,
-    )
-}
-
-fn entry_with_magnitudes(
-    domains: &[&str],
-    description: &str,
-    certainty: Magnitude,
-    importance: Magnitude,
-    privacy: Magnitude,
-) -> Entry {
-    Entry {
-        domains: domain_fixtures::domains(domains),
-        kind: Kind::Decision,
-        description: Description::new(description),
-        certainty: certainty.into(),
-        importance: Importance::new(importance),
-        privacy: Privacy::new(privacy),
-        referents: Referents::new(vec![Referent::new("spirit")]),
-    }
-}
-
-fn record_request(entry: Entry) -> RecordRequest {
-    let statement = entry.description.payload().clone();
-    RecordRequest {
-        entry,
-        justification: justification(&statement),
-    }
-}
-
-fn proposal(entry: Entry, quote: &str, reasoning: &str) -> Proposal {
-    Proposal {
-        entry,
-        justification: eval_justification(&[(quote, None)], reasoning),
-    }
-}
-
-fn justification(statement: &str) -> spirit::schema::signal::Justification {
-    spirit::schema::signal::Justification {
-        testimony: Testimony::new(vec![VerbatimQuote::new(
-            QuoteText::new(statement.to_owned()),
-            None,
-        )]),
-        reasoning: Reasoning::new(statement.to_owned()),
+impl LocalOpenAiCompatibleEndpoint {
+    fn available() -> bool {
+        std::net::TcpStream::connect_timeout(
+            &std::net::SocketAddr::from(([127, 0, 0, 1], 18080)),
+            Duration::from_millis(250),
+        )
+        .is_ok()
     }
 }
 
@@ -549,7 +543,11 @@ fn eval_flash_vs_pro_guardian() {
         return;
     }
     let cases = eval_cases();
-    let server = LiveAgentServer::spawn(cases.len() * EVAL_MODELS.len() * 2);
+    let corpus = FixtureCorpus::parse(JUDGE_LIVE_EVAL_FIXTURE);
+    let server = LiveAgentServer::spawn(
+        LiveAgentProviderConfig::DeepSeek,
+        cases.len() * EVAL_MODELS.len() * 2,
+    );
 
     for model in EVAL_MODELS {
         let mut verdict_hits = 0usize;
@@ -560,9 +558,7 @@ fn eval_flash_vs_pro_guardian() {
             let directory = TempDir::new().expect("eval tempdir");
             let store = Store::open(directory.path().join("eval.sema")).expect("open eval store");
             let mut engine = Engine::new(store);
-            for seed in seed_records() {
-                let _ = engine.handle(Input::record(record_request(seed)));
-            }
+            corpus.prepopulate(&mut engine);
             engine.set_guardian(server.guardian_with_model(model));
             let proposal = Proposal {
                 entry: case.entry.clone(),

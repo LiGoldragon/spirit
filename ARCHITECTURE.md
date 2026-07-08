@@ -622,12 +622,14 @@ verdict grammar stay enum-rendered in code, so an override can never shift the
 verdict vocabulary the daemon parses. Omitted provider/model settings resolve to
 the local OpenAI-compatible judge path: provider `local-openai`, endpoint
 `http://127.0.0.1:18080/v1`, model `gpt-5.5`, and `NoSecret` unless the local
-server is started with its optional bearer gate. That path requests temperature 0
-and medium `ReasoningEffort`, and omits DeepSeek-specific `ThinkingMode`. An
-explicit DeepSeek judge configuration remains supported and runs at temperature 0
-with DeepSeek thinking enabled at high reasoning effort (threaded through the
-typed `ReasoningEffort` / `ThinkingMode` controls on the agent contract). The
-judge allows two format-correction retries before failing closed. The decision journal
+server is started with its optional bearer gate. That path follows Mind's current
+working OpenAI-compatible test shape: it omits temperature, reasoning-effort, and
+DeepSeek-specific thinking extensions so the provider adapter sends only the
+common chat-completions fields. An explicit DeepSeek judge configuration remains
+supported and runs at temperature 0 with DeepSeek thinking enabled at high
+reasoning effort (threaded through the typed `ReasoningEffort` / `ThinkingMode`
+controls on the agent contract). The judge allows two format-correction retries
+before failing closed. The decision journal
 is a separate, schema-versioned SEMA store
 (`spirit.guardian.v<N>.sema`).
 

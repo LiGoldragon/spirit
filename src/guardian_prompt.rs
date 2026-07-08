@@ -330,19 +330,20 @@ impl<'configuration> GuardianPromptBuilder<'configuration> {
                 .map(|model| ModelName::new(model.to_owned())),
             self.provider_name
                 .map(|provider| ProviderName::new(provider.to_owned())),
-            // Temperature 0: the judge internalises the skeptic, hunting the
-            // competing reading of a quote and the hedge that caps the claim.
-            Some(TemperatureMilli::new(0)),
+            if local_openai_compatible {
+                None
+            } else {
+                // Temperature 0: the judge internalises the skeptic, hunting the
+                // competing reading of a quote and the hedge that caps the claim.
+                Some(TemperatureMilli::new(0))
+            },
             self.maximum_output_tokens.map(MaximumOutputTokens::new),
             OutputMode::Nota,
-            // A deliberate judge: local OpenAI-compatible ChatGPT uses medium
-            // reasoning effort, while DeepSeek-compatible providers keep the
-            // higher-effort setting used by the existing compatibility path.
-            Some(if local_openai_compatible {
-                ReasoningEffort::Medium
+            if local_openai_compatible {
+                None
             } else {
-                ReasoningEffort::High
-            }),
+                Some(ReasoningEffort::High)
+            },
             if local_openai_compatible {
                 None
             } else {
@@ -702,7 +703,7 @@ mod tests {
     }
 
     #[test]
-    fn local_openai_compatible_judge_uses_medium_reasoning_without_deepseek_thinking() {
+    fn local_openai_compatible_judge_omits_provider_specific_options() {
         let source = GuardianPromptSource::compiled_in();
         let builder = GuardianPromptBuilder::new(
             Some(crate::guardian::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_PROVIDER),
@@ -713,9 +714,14 @@ mod tests {
         let options = builder.prompt_options();
 
         assert_eq!(
+            options.temperature_milli(),
+            None,
+            "the local OpenAI-compatible gpt-5.5 judge follows Mind's working path and omits temperature"
+        );
+        assert_eq!(
             options.reasoning_effort(),
-            Some(&ReasoningEffort::Medium),
-            "the local OpenAI-compatible gpt-5.5 judge must request at least medium reasoning"
+            None,
+            "the local OpenAI-compatible gpt-5.5 judge follows Mind's working path and omits reasoning-effort extensions"
         );
         assert_eq!(
             options.thinking_mode(),
