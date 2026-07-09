@@ -14,6 +14,7 @@ pub mod domain_fixtures {
         )
     }
 
+    #[allow(dead_code)]
     pub fn scopes(labels: &[&str]) -> DomainScopes {
         DomainScopes::new(
             labels

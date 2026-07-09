@@ -106,7 +106,7 @@ use spirit::schema::meta_signal::{
     ImportedRecord, ImportedRecords, Input as MetaInput, Output as MetaOutput,
 };
 use spirit::schema::signal::{
-    Description, Domains, Entry, Kind, Magnitude, Output, OutputRoute, Privacy, RecordIdentifier,
+    Description, Entry, Kind, Magnitude, Output, OutputRoute, Privacy, RecordIdentifier,
     ReferentGuardianRejectionReason, SignalRejection, ValidationError,
 };
 use tempfile::TempDir;

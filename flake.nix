@@ -548,6 +548,7 @@
           preferred_version = {
               "nota": "0.5.1",
               "nota-derive": "0.3.0",
+              "schema-rust": "0.7.0",
           }
           path_dependency_names = (
               "kameo",
@@ -622,6 +623,7 @@
 
           stripped = []
           for entry in kept:
+              name = field(entry, "name")
               entry = "\n".join(
                   line for line in entry.split("\n")
                   if not line.startswith('source = "git+https://github.com/LiGoldragon/')
@@ -637,8 +639,15 @@
                       '"' + dependency_name + '",',
                       entry,
                   )
+              entry = entry.replace('"windows-sys 0.61.2",', '"windows-sys 0.52.0",')
+              if name in ("mio", "socket2", "tokio"):
+                  entry = entry.replace('"windows-sys 0.52.0",', '"windows-sys 0.61.2",')
               stripped.append(entry)
-          open(sys.argv[2], "w").write(header + "".join("[[package]]" + entry for entry in stripped))
+          patched_text = header + "".join("[[package]]" + entry for entry in stripped)
+          schema_unused_patch = '\n[[patch.unused]]\nname = "schema"\nversion = "0.2.0"\n'
+          while patched_text.count('[[patch.unused]]\nname = "schema"\nversion = "0.2.0"') < 2:
+              patched_text += schema_unused_patch
+          open(sys.argv[2], "w").write(patched_text)
           PYEOF
         '';
         cargoVendorDirectory = craneLib.vendorCargoDeps {
@@ -969,7 +978,7 @@
           clippy-nota-text = craneLib.cargoClippy (
             commonArguments
             // {
-              cargoArtifacts = notaTextCargoArtifacts;
+              cargoArtifacts = null;
               cargoClippyExtraArgs = "--features nota-text --all-targets -- -D warnings";
             }
           );
@@ -983,7 +992,7 @@
           doc = craneLib.cargoDoc (
             commonArguments
             // {
-              cargoArtifacts = binaryCargoArtifacts;
+              cargoArtifacts = null;
               RUSTDOCFLAGS = "-D warnings";
             }
           );
