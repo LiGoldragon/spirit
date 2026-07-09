@@ -137,13 +137,13 @@ Signal/Nexus/SEMA event sequence that returns over the trace socket.
 
 The current plane schemas intentionally keep braces strict as NOTA key-value
 maps. The Signal namespace contains pairs such as `Referent String`,
-`RecordSet (Vec ObservedRecord)`, and
+`RecordSet Vector.ObservedRecord`, and
 `Entry { Domains * Kind * Description * Certainty * Importance * Privacy * Referents * }`; it does not
 contain declarations that repeat their own name inside the value.
 Inside a struct map, `Domains *` derives the `domains` field from the existing
-`Domains` type, and explicit bindings such as `kind (Optional Kind)` stay only
-where the field name differs from the referenced type. Bare reference
-declarations (`Referent String`, `RecordSet (Vec ObservedRecord)`, `Record RecordRequest`) become
+`Domains` type, and explicit dotted bindings such as `kind.Optional.Kind` stay
+only where the field name differs from the referenced type. Bare reference
+declarations (`Referent String`, `RecordSet Vector.ObservedRecord`, `Record RecordRequest`) become
 exported aliases in the typed schema value and generated Rust, so enum variants
 carry direct payloads instead of wrapper structs. Explicit brace-body singleton
 declarations are the newtype form.
@@ -153,8 +153,9 @@ positions and by using one signature object per namespace enum variant.
 Namespace bindings such as `Record RecordRequest`, `RecordAccepted RecordIdentifier`, and
 `SignalArrived Input` define the payload shape for data-carrying root objects;
 names without payload bindings are unit variants. Inside namespace enums,
-same-named payload variants use the compact `(Record)` form, while explicit
-`(Variant Payload)` is reserved for different names. The vector does not
+data-carrying variants are written in dotted positional form (`Variant.Payload`).
+There is no same-named self-tag shortcut, so a variant whose payload type shares
+its name is written explicitly (`Record.Record`). The vector does not
 contain pseudo key-value pairs.
 
 The three runtime centers are concrete objects: `SignalAdmission` (admission),
@@ -811,8 +812,8 @@ typed table, durable counters, and commit log.
 The schema declares reusable import/export nouns for language planes:
 `Import { SourcePath * LocalPath * }` and
 `Export { LocalPath * PublicPath * }`.
-The paths are single-colon namespaces, mirroring Rust crate/module paths with
-`:` instead of `::`, for example `signal:sema:Magnitude`.
+The paths are dotted namespaces, a left-associative chain of lowercase segments
+ending in the capitalized target, for example `signal.sema.Magnitude`.
 
 The same root shape applies to the Spirit language planes in this pilot:
 Signal (`Input`/`Output`), Nexus (`NexusWork`/`NexusAction`), and split SEMA
@@ -824,19 +825,23 @@ exists.
 The current `schema/{signal,nexus,sema}.schema` spelling is the strict brace
 key-value syntax with compact enum signatures. The known root positions provide
 each plane's input and output enum names, so the root enum bodies are bare
-square-bracket values. Namespace declarations are key-value pairs: a brace
-value declares a struct map, a square-bracket value declares an enum variant
-list, and an atom or parenthesized reference declares an alias. Data-carrying
-enum payloads in namespace enum bodies use self-tagged entries such as
-`(Record)`, `(RecordAccepted)`, and `(CommandSemaWrite)` when the payload type
-has the same name; explicit `(Variant Payload)` remains available when the
-names differ. Namespace bindings such as `Record RecordRequest`,
-`RecordAccepted RecordIdentifier`, and `CommandSemaWrite [(Record) ...]` define the
-payload aliases and feature-specific commands those signatures reference.
-Parentheses remain the composite/reference and structural payload shape at
-reference positions. That authored syntax decodes to typed
-`SchemaSource`, lowers to semantic `Schema`, and emits one generated Rust
-module per plane.
+square-bracket values. Namespace declarations are dotted positional entries: a
+brace value declares a struct map, a square-bracket value declares an enum
+variant list, and an atom or dotted reference declares an alias. Data-carrying
+enum payloads in namespace enum bodies are dotted `Variant.Payload` entries.
+There is no same-named self-tag shortcut, so a variant whose payload type shares
+its name is written explicitly (`Record.Record`, `RecordAccepted.RecordAccepted`).
+Namespace bindings such as `Record.RecordRequest`,
+`RecordAccepted.RecordIdentifier`, and `CommandSemaWrite.[Record.Entry ...]`
+define the payload aliases and feature-specific commands those signatures
+reference. The dot carries every composite, reference, and structural payload at
+reference positions. The named-brace application form still present in
+`schema/sema.schema` (`RecordsFamily (Family { record.StoredRecord ... })` and
+the sibling `Family`/`Stream` applications) is non-conforming: generic
+application is positional dotted, parameter names live only in the definition,
+and these declarations must be rewritten to positional dotted application. That
+authored syntax decodes to typed `SchemaSource`, lowers to semantic `Schema`,
+and emits one generated Rust module per plane.
 
 The generated Rust exposes plane namespaces over those bootstrap backing names:
 `signal::Input`, `nexus::Work`, `sema::WriteInput`, and `sema::ReadInput`
