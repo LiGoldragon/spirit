@@ -561,132 +561,37 @@ is not wired because the generated streaming `Frame` carries a single event type
 (`IntentEvent`); the operation history is the load-bearing observer content and
 is delivered request/reply.
 
-### Judge admission and its prompts
+### Judge admission
 
 Every working-socket write that changes the live intent corpus is gated by the
-LLM judge (`AgentGuardian`, with public `AgentJudge` aliases, behind the
-`agent-guardian` feature): a clean-context judge that renders one strictly-binary
-`GuardianVerdict` per candidate. Storage, journal, and generated wire names keep
-the older `guardian` spelling for compatibility; new user-facing prose and
-source affordances should prefer judge terminology unless they name an existing
-schema/storage object.
-Two correctness properties are enforced in code, not by hope. (1) The closed
-rejection-reason set and the exact `Accept` / `(Reject (<Reason> [..]))` verdict
-grammar are **rendered from the `GuardianRejectionReason` enum and the
-`GuardianVerdict` type via `NotaEncode`**, so the prompt can never drift from the
-wire shape the daemon parses; `GuardianRejectionReason::admission_gloss` is an
-exhaustive match, so a new reason variant will not compile until it is glossed.
-(2) Empty testimony is a **deterministic structural reject** (`AgentGuardian::
-guard` short-circuits `MissingTestimony` before the model call when
-`GuardianOperation::testimony_is_empty()`) — the model judges only the semantic
-cases (fabrication, warrant, the certainty burden).
+Spirit judge adapter over the `signal-spirit-judge` typed rkyv socket. The daemon
+constructs `JudgeAdmission` and `JudgeReferentRegistration` packets from the
+existing Spirit-specific operation nouns, sends them over the judge socket, and
+applies only the typed `AdmissionJudged` / `ReferentRegistrationJudged` replies.
+The daemon no longer owns prompt prose, model/provider settings, provider JSON,
+NOTA verdict parsing, or format-correction mechanics; those belong to
+`spirit-judge`, `spirit-judge-config`, and the shared `judge` provider boundary.
 
-**The judge prompt prose lives in standalone files, never in the Rust.** Each
-static section is a file under `src/guardian-prompts/` (`role.md`,
-`record-shape.md`, `justification-shape.md`, `burden-ladder.md`, `checklist.md`,
-`few-shot.md`, and the `referent.md` template). New contrastive examples belong
-in these compiled prompt files first, normally `few-shot.md` for worked cases or
-`checklist.md` / `role.md` for general doctrine, before live model scenarios are
-expanded. `tests/guardian_live_scenarios.rs` then exercises live examples against
-the agent-daemon provider path, and `tests/process_boundary.rs` protects the
-process-boundary wiring. The active `role.md` is the psyche-acknowledged
-strict-bar role: a candidate is admitted only when it is a standing directive
-carried into work, with refusal as the resting state and any directive welded to
-matter refused whole. Every section is embedded at compile
-time with `include_str!` so the daemon carries a complete default prompt with no
-external dependency. `guardian_prompt.rs` only **assembles** these sections and
-splices in the two enum-rendered parts (the reason catalogue and the verdict
-grammar); the `referent.md` template carries `{accept}` / `{reject}` placeholders
-filled by `.replace`. A regression test
-(`assembled_system_prompt_includes_every_file_section`) fails if any prompt
-section is empty or mis-wired, and `assembled_system_prompt_carries_the_strict_bar_role`
-fails if the active role prose drifts from the acknowledged text.
+The persisted audit and wire names still say `Guardian` where compatibility
+requires it: `GuardianOperation`, `GuardianDecision`, `GuardianRejected`, the
+Guardian journal filename/family, and the old `SpiritGuardianAgentConfiguration`
+startup slot remain narrow compatibility aliases. New source prose and operator
+affordances should describe the external component as the judge. The old
+configuration slot's socket path is interpreted as the Spirit judge socket; its
+provider/model fields are ignored by the daemon because provider selection is an
+adapter concern. `GuardianPromptTarget` remains in the meta `Configure` receipt
+for wire compatibility, but the daemon only echoes it and does not compile or
+apply prompt text.
 
-**The role prompt is owner-swappable at runtime without a rebuild or a config
-redeploy, through the meta `Configure` path.** A `GuardianPromptSource` is either
-`Compiled` (every section renders from its `include_str!` default) or
-`RoleOverride(role)` (the `Role` section renders from owner-supplied text, every
-other section from its compiled-in default). A freshly built daemon always starts
-`Compiled`, so it runs the acknowledged strict-bar role with no external input.
-An owner swaps the live role by sending `Configure` with a
-`GuardianPromptTarget`: `Prompt(text)` installs the override on the running
-guardian (`Engine::configure` -> `Nexus::set_guardian_prompt_source` ->
-`AgentGuardian::set_prompt_source`), `Default` restores the compiled-in role.
-The next verdict renders the new role; no rebuild and no regenerated
-`*.config.rkyv` are involved. Like the other Configure targets this is runtime
-policy, not durable state, so a restarted daemon returns to the compiled-in role
-until the owner re-sends `Configure`; a blank override text resolves to
-`Compiled` so the live guardian is never left with an empty role. The override is
-scoped to the role section: the closed rejection-reason catalogue and the NOTA
-verdict grammar stay enum-rendered in code, so an override can never shift the
-verdict vocabulary the daemon parses. Omitted provider/model settings resolve to
-the local OpenAI-compatible judge path: provider `local-openai`, endpoint
-`http://127.0.0.1:18080/v1`, model `gpt-5.4-mini`, and `NoSecret` unless the local
-server is started with its optional bearer gate. That path follows Mind's current
-working OpenAI-compatible test shape: it omits temperature, reasoning-effort, and
-DeepSeek-specific thinking extensions so the provider adapter sends only the
-common chat-completions fields. The local endpoint also advertises `gpt-5.5` for
-explicit fallback runs. An explicit DeepSeek judge configuration remains
-supported and runs at temperature 0 with DeepSeek thinking enabled at high
-reasoning effort (threaded through the typed `ReasoningEffort` / `ThinkingMode`
-controls on the agent contract). The judge allows two format-correction retries
-before failing closed. The decision journal
-is a separate, schema-versioned SEMA store
-(`spirit.guardian.v<N>.sema`).
-
-The prompt includes an affirmative-guidance gate. A candidate whose operative
-rule is primarily an exclusion, prohibition, forbidden wording list, or
-definition by negation is rejected with the typed
-`GuardianRejectionReason::NegativeGuideline`; the agent then re-pleads the
-positive rule. This is a semantic guardian judgment, not a deterministic
-substring filter.
-
-The prompt also includes a subject-matter boundary. A record captures what the
-psyche WANTS; it is not a place to store concrete matter. Content that describes
-what Spirit, the judge, the guardian, the system, a daemon, an agent, or a
-process IS, or how to use or interpret it — code, an architecture, a manual
-entry, a specification, a mechanism, a daemon/runtime protocol, a component
-boundary, implementation doctrine, prompt/test workflow, or a bead — is rejected
-at admission with the typed `GuardianRejectionReason::Matter`, and the remand
-names its proper home (a repo file, an `ARCHITECTURE` doc, a skill, prompt
-guidance, or a bead). When a record mixes a thin directive with such matter, the
-aggressive lean treats the whole record as `Matter` so the directive can be
-re-captured cleanly on its own later. This is admission-boundary enforcement only
-— it governs what enters the intent log and does not touch records already
-stored.
-
-The guardian judges the whole submission as one case: operation, testimony,
-reasoning, magnitudes, domain, privacy, collision with active intent,
-affirmative framing, and operation fit. A fresh `Record` is admitted only when
-it is genuinely new. If the psyche statement instead refines, narrows, corrects,
-or explains an identifiable existing record, the guardian rejects the fresh
-record and remands the agent to the coherent repair operation —
-`Clarify`, `Supersede`, `ChangeRecord`, `ResolveClarification`, or `Retire` —
-rather than admitting a standalone sibling that leaves the conflict live.
-
-Guardian testimony and advocacy are distinct evidence classes. Explicit psyche
-declarations are primary evidence for a declared intent value or metadata rung,
-and a psyche-named certainty, importance, or privacy rung supports that named
-rung directly. Agent reasoning is advocacy: it may supply context, architectural
-centrality, recurrence, blast radius, blocking effect, and operation-fit
-analysis, and may support an elevated rung when the evidence genuinely warrants
-it. When a psyche declaration conflicts with active records, the guardian names
-the coherent repair shape instead of admitting a conflicting sibling.
-
-Referent registration is settled by the registry when it can be. A request that
-names a referent and aliases already resolving to one registered referent
-returns the existing canonical referent receipt without calling the referent
-guardian and without mutating the store; adding a new alias or new referent is a
-real registry change and stays guardian-gated while the guardian feature is
-active. Entry-bearing writes (`Record`, `Propose`, and the replacement entries
-of `ChangeRecord` and `Supersede`) treat each listed `Referent` as an embedded
-`ReferentRegistration` with no aliases and the write's own `Justification`. Nexus
-exposes that as generated `RecordWithImpliedReferents`,
-`ProposeWithImpliedReferents`, `SupersedeWithImpliedReferents`,
-`ChangeRecordWithImpliedReferents`, and the matching `*ReferentsSettled` results
-before the normal guard/write step, so the implied registration runs the same
-settled-state and referent-guardian path as explicit `RegisterReferent`; a
-rejected implied registration blocks the entry write.
+Judge requests carry an explicit `JudgmentScope`: public candidate entries are
+marked `Public`; private entries use `Private(HashesAndRedaction)` so adapter
+diagnostics must default to redaction and content hashes. Referent-registration
+judgment also uses the private diagnostic posture because referent evidence can
+carry private testimony. Any socket error, malformed frame, request rejection,
+wrong reply kind, unavailable adapter, or malformed provider response maps
+conservatively to the existing harness rejection reasons and fails closed before
+any SEMA write. Owner-only `Import` and `CollectRemovalCandidates` remain the
+only guardian/judge-bypassing mutation paths.
 
 ### SEMA
 

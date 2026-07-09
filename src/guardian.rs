@@ -1,45 +1,40 @@
 use std::{
-    io::Write,
+    io::{Read, Write},
     os::unix::net::UnixStream,
     path::{Path, PathBuf},
     time::Duration,
 };
 
-use nota::NotaSource;
-use signal_agent::{CompletionText, Input as AgentInput, Output as AgentOutput, Prompt};
+use signal_frame::{
+    ExchangeFrameBody, ExchangeIdentifier, ExchangeLane, LaneSequence, Reply, Request,
+    SessionEpoch, ShortHeader, SubReply,
+};
 use signal_spirit::SpiritGuardianAgentConfiguration;
+use signal_spirit_judge::{
+    AdmissionJudgeOperation, AdmissionJudgePacket, AdmissionJudgeResponse, AdmissionJudgeVerdict,
+    AdmissionRejectionReason, JudgeDiagnostic, JudgmentScope, ReferentRegistrationJudgePacket,
+    ReferentRegistrationJudgeResponse, ReferentRegistrationJudgeVerdict,
+    ReferentRegistrationRejectionReason, SpiritJudgeFrame, SpiritJudgeReply, SpiritJudgeRequest,
+    SpiritJudgeRequestRejection, SpiritJudgeRequestRejectionReason,
+};
 use thiserror::Error;
-use triad_runtime::{FrameBody, LengthPrefixedCodec};
 
 use crate::{
     guardian_journal::{GuardianDecision, GuardianOperation},
-    guardian_prompt::{GuardianPromptBuilder, GuardianPromptSource, GuardianRetry},
     schema::{
         nexus::{GuardianVerdict, ReferentGuardianVerdict, Reject, RejectReferent},
         signal::{
-            DatabaseMarker, Explanation, GuardianRejection, GuardianRejectionReason, RecordSet,
-            ReferentGuardianRejection, ReferentGuardianRejectionReason, ReferentRegistration,
-            RegisteredReferents,
+            DatabaseMarker, Entry, Explanation, GuardianRejection, GuardianRejectionReason,
+            Magnitude, RecordSet, ReferentGuardianRejection, ReferentGuardianRejectionReason,
+            ReferentRegistration, RegisteredReferents,
         },
     },
 };
 
-/// Format-correction retries after the initial guardian call. Even a strong
-/// thinking model slips the double-nested `(Reject ( <Reason> [..] ))` verdict
-/// shape occasionally; each retry feeds back the malformed text plus the parse
-/// error, so a transient format slip is corrected rather than fail-closed into a
-/// spurious reject. The agent daemon already does its own one-shot NOTA-parse
-/// retry underneath this, so these are verdict-TYPE corrections on top.
-const GUARDIAN_FORMAT_RETRIES: usize = 2;
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentGuardianConfiguration {
     socket_path: PathBuf,
-    provider_name: Option<String>,
-    model_name: Option<String>,
     timeout: Duration,
-    maximum_output_tokens: Option<u64>,
-    prompt_source: GuardianPromptSource,
 }
 
 #[derive(Clone, Debug)]
@@ -71,17 +66,14 @@ pub struct AgentReferentGuardianDecision {
 
 #[derive(Debug, Error)]
 pub enum AgentGuardianError {
-    #[error("guardian agent socket unavailable: {0}")]
+    #[error("spirit judge socket unavailable: {0}")]
     Socket(std::io::Error),
 
-    #[error("guardian agent frame failed: {0}")]
+    #[error("spirit judge frame failed: {0}")]
     Frame(String),
 
-    #[error("guardian agent rejected the call: {0}")]
-    AgentRejected(String),
-
-    #[error("guardian agent returned malformed verdict: {0}")]
-    Malformed(String),
+    #[error("spirit judge replied with the wrong operation: {0}")]
+    WrongReply(&'static str),
 }
 
 impl AgentGuardianConfiguration {
@@ -93,69 +85,47 @@ impl AgentGuardianConfiguration {
     pub fn from_contract(configuration: &SpiritGuardianAgentConfiguration) -> Self {
         Self {
             socket_path: PathBuf::from(configuration.agent_socket_path()),
-            provider_name: Some(
-                configuration
-                    .provider_name()
-                    .unwrap_or(Self::LOCAL_OPENAI_COMPATIBLE_PROVIDER)
-                    .to_owned(),
-            ),
-            model_name: Some(
-                configuration
-                    .model_name()
-                    .unwrap_or(Self::LOCAL_OPENAI_COMPATIBLE_MODEL)
-                    .to_owned(),
-            ),
             timeout: Duration::from_millis(configuration.timeout_milliseconds()),
-            maximum_output_tokens: configuration.maximum_output_tokens(),
-            // The startup configuration archive carries no prompt field: a
-            // freshly built guardian always starts on its compiled-in
-            // (acknowledged strict-bar) role. An owner swaps the role live
-            // through the meta `Configure` path, which calls `set_prompt_source`
-            // on the installed guardian — no rebuild, no config-archive redeploy.
-            prompt_source: GuardianPromptSource::compiled_in(),
         }
     }
 
     pub fn new(
         socket_path: impl Into<PathBuf>,
-        provider_name: Option<String>,
-        model_name: Option<String>,
+        _provider_name: Option<String>,
+        _model_name: Option<String>,
         timeout: Duration,
-        maximum_output_tokens: Option<u64>,
+        _maximum_output_tokens: Option<u64>,
     ) -> Self {
         Self {
             socket_path: socket_path.into(),
-            provider_name: Some(
-                provider_name.unwrap_or_else(|| Self::LOCAL_OPENAI_COMPATIBLE_PROVIDER.to_owned()),
-            ),
-            model_name: Some(
-                model_name.unwrap_or_else(|| Self::LOCAL_OPENAI_COMPATIBLE_MODEL.to_owned()),
-            ),
             timeout,
-            maximum_output_tokens,
-            // No runtime override by default: callers that construct the
-            // configuration directly get the compiled-in guardian prompt and
-            // opt into a runtime directory through `with_prompt_source`.
-            prompt_source: GuardianPromptSource::compiled_in(),
         }
     }
 
     pub fn local_openai_compatible(socket_path: impl Into<PathBuf>) -> Self {
         Self::new(
             socket_path,
-            Some(Self::LOCAL_OPENAI_COMPATIBLE_PROVIDER.to_owned()),
-            Some(Self::LOCAL_OPENAI_COMPATIBLE_MODEL.to_owned()),
+            None,
+            None,
             Duration::from_millis(Self::DEFAULT_TIMEOUT_MILLISECONDS),
             None,
         )
     }
 
-    /// Install a runtime prompt source, overlaying the guardian's prose from a
-    /// directory of section files while keeping the compiled-in default for any
-    /// absent section.
-    pub fn with_prompt_source(mut self, prompt_source: GuardianPromptSource) -> Self {
-        self.prompt_source = prompt_source;
-        self
+    pub fn socket_path(&self) -> &Path {
+        &self.socket_path
+    }
+
+    pub fn timeout(&self) -> Duration {
+        self.timeout
+    }
+
+    pub fn provider_name(&self) -> Option<&str> {
+        None
+    }
+
+    pub fn model_name(&self) -> Option<&str> {
+        None
     }
 }
 
@@ -164,41 +134,35 @@ impl AgentGuardian {
         Self { configuration }
     }
 
-    /// Swap the live guardian's prompt source. The engine calls this when an
-    /// owner `Configure` carries a `GuardianPromptTarget`, so the role section
-    /// the next verdict renders changes without a rebuild. The next
-    /// `prompt_builder` reads the new source; no in-flight verdict is affected.
-    pub fn set_prompt_source(&mut self, prompt_source: GuardianPromptSource) {
-        self.configuration.prompt_source = prompt_source;
-    }
-
     pub(crate) fn guard(
         &self,
         operation: &GuardianOperation,
         records: RecordSet,
         database_marker: DatabaseMarker,
     ) -> AgentGuardianDecision {
-        // Empty testimony is a structural fact, not a semantic judgement: a
-        // candidate with no verbatim quote at all has produced no evidence, and
-        // the flash-vs-pro eval showed even a strong model intermittently
-        // overlooks an empty testimony vector. Reject it deterministically and
-        // skip the model call (the guardian prompt still teaches MissingTestimony
-        // for the semantic bare-affirmation-without-antecedent case).
-        if operation.testimony_is_empty() {
-            let verdict = GuardianVerdict::reject(Reject {
-                guardian_rejection_reason: GuardianRejectionReason::MissingTestimony,
-                explanation: Explanation::new("the justification carries no verbatim testimony"),
-            });
-            return AgentGuardianDecision::new(verdict, records, database_marker);
-        }
-        let verdict = self
-            .call_guardian(operation, &records)
-            .unwrap_or_else(|error| {
-                GuardianVerdict::from_harness_rejection(
-                    error.guardian_rejection_reason(),
-                    Explanation::new(error.to_string()),
-                )
-            });
+        let packet = AdmissionJudgePacket::new(
+            JudgmentScopeProjection::new(operation).into_contract(),
+            AdmissionJudgeOperationProjection::new(operation).into_contract(),
+            records.clone(),
+            database_marker.clone(),
+        );
+        let verdict = match self.call_judge(SpiritJudgeRequest::JudgeAdmission(packet)) {
+            Ok(SpiritJudgeReply::AdmissionJudged(response)) => {
+                GuardianVerdict::from_admission_response(response)
+            }
+            Ok(SpiritJudgeReply::RequestRejected(rejection)) => {
+                GuardianVerdict::from_request_rejection(rejection)
+            }
+            Ok(SpiritJudgeReply::ReferentRegistrationJudged(_)) => {
+                GuardianVerdict::reject(Reject {
+                    guardian_rejection_reason: GuardianRejectionReason::HarnessMalformed,
+                    explanation: Explanation::new(
+                        "spirit judge returned a referent reply for an admission request",
+                    ),
+                })
+            }
+            Err(error) => GuardianVerdict::from_judge_error(error),
+        };
         AgentGuardianDecision::new(verdict, records, database_marker)
     }
 
@@ -208,152 +172,443 @@ impl AgentGuardian {
         registered_referents: RegisteredReferents,
         database_marker: DatabaseMarker,
     ) -> AgentReferentGuardianDecision {
-        let verdict = self
-            .call_referent_guardian(registration, &registered_referents)
-            .unwrap_or_else(|error| {
-                ReferentGuardianVerdict::from_harness_rejection(
-                    error.referent_guardian_rejection_reason(),
-                    Explanation::new(error.to_string()),
-                )
-            });
+        let packet = ReferentRegistrationJudgePacket::new(
+            JudgmentScope::private_hashes_and_redaction(),
+            registration.clone(),
+            registered_referents.clone(),
+            database_marker.clone(),
+        );
+        let verdict = match self.call_judge(SpiritJudgeRequest::JudgeReferentRegistration(packet)) {
+            Ok(SpiritJudgeReply::ReferentRegistrationJudged(response)) => {
+                ReferentGuardianVerdict::from_referent_response(response)
+            }
+            Ok(SpiritJudgeReply::RequestRejected(rejection)) => {
+                ReferentGuardianVerdict::from_request_rejection(rejection)
+            }
+            Ok(SpiritJudgeReply::AdmissionJudged(_)) => {
+                ReferentGuardianVerdict::reject_referent(RejectReferent {
+                    referent_guardian_rejection_reason:
+                        ReferentGuardianRejectionReason::HarnessMalformed,
+                    explanation: Explanation::new(
+                        "spirit judge returned an admission reply for a referent request",
+                    ),
+                })
+            }
+            Err(error) => ReferentGuardianVerdict::from_judge_error(error),
+        };
         AgentReferentGuardianDecision::new(verdict, registered_referents, database_marker)
     }
 
-    fn call_guardian(
+    fn call_judge(
         &self,
-        operation: &GuardianOperation,
-        records: &RecordSet,
-    ) -> Result<GuardianVerdict, AgentGuardianError> {
-        let prompts = self.prompt_builder();
-        let mut retry: Option<GuardianRetry> = None;
-        let mut last_error: Option<AgentGuardianError> = None;
-        for _ in 0..=GUARDIAN_FORMAT_RETRIES {
-            let output =
-                self.call_agent(prompts.guardian_prompt(operation, records, retry.as_ref()))?;
-            let AgentOutput::Completed(completion) = output else {
-                return Err(AgentGuardianError::AgentRejected(format!("{output:?}")));
-            };
-            match self.parse_verdict(&completion.completion_text) {
-                Ok(verdict) => return Ok(verdict),
-                Err(error) => {
-                    retry = Some(GuardianRetry::new(
-                        completion.completion_text,
-                        error.to_string(),
-                    ));
-                    last_error = Some(error);
-                }
-            }
-        }
-        Err(last_error.expect("at least one guardian attempt always runs"))
-    }
-
-    fn call_referent_guardian(
-        &self,
-        registration: &ReferentRegistration,
-        registered_referents: &RegisteredReferents,
-    ) -> Result<ReferentGuardianVerdict, AgentGuardianError> {
-        let prompts = self.prompt_builder();
-        let mut retry: Option<GuardianRetry> = None;
-        let mut last_error: Option<AgentGuardianError> = None;
-        for _ in 0..=GUARDIAN_FORMAT_RETRIES {
-            let output = self.call_agent(prompts.referent_prompt(
-                registration,
-                registered_referents,
-                retry.as_ref(),
-            ))?;
-            let AgentOutput::Completed(completion) = output else {
-                return Err(AgentGuardianError::AgentRejected(format!("{output:?}")));
-            };
-            match self.parse_referent_verdict(&completion.completion_text) {
-                Ok(verdict) => return Ok(verdict),
-                Err(error) => {
-                    retry = Some(GuardianRetry::new(
-                        completion.completion_text,
-                        error.to_string(),
-                    ));
-                    last_error = Some(error);
-                }
-            }
-        }
-        Err(last_error.expect("at least one referent guardian attempt always runs"))
-    }
-
-    fn call_agent(&self, prompt: Prompt) -> Result<AgentOutput, AgentGuardianError> {
+        request: SpiritJudgeRequest,
+    ) -> Result<SpiritJudgeReply, AgentGuardianError> {
         let mut stream = UnixStream::connect(self.configuration.socket_path())
             .map_err(AgentGuardianError::Socket)?;
         stream
-            .set_read_timeout(Some(self.configuration.timeout))
+            .set_read_timeout(Some(self.configuration.timeout()))
             .map_err(AgentGuardianError::Socket)?;
         stream
-            .set_write_timeout(Some(self.configuration.timeout))
+            .set_write_timeout(Some(self.configuration.timeout()))
             .map_err(AgentGuardianError::Socket)?;
-        let input = AgentInput::call(prompt);
-        let codec = LengthPrefixedCodec::default();
-        codec
-            .write_body(
-                &mut stream,
-                &FrameBody::new(
-                    input
-                        .encode_signal_frame()
-                        .map_err(|error| AgentGuardianError::Frame(error.to_string()))?,
-                ),
-            )
+        let frame = SpiritJudgeFrame::with_short_header(
+            ShortHeader::empty(),
+            ExchangeFrameBody::Request {
+                exchange: ClientExchange::first().identifier(),
+                request: Request::from_payload(request),
+            },
+        );
+        let bytes = frame
+            .encode_length_prefixed()
             .map_err(|error| AgentGuardianError::Frame(error.to_string()))?;
+        stream
+            .write_all(bytes.as_slice())
+            .map_err(AgentGuardianError::Socket)?;
         stream.flush().map_err(AgentGuardianError::Socket)?;
-        let reply = codec
-            .read_body(&mut stream)
-            .map_err(|error| AgentGuardianError::Frame(error.to_string()))?;
-        AgentOutput::decode_signal_frame(&reply.into_bytes())
-            .map(|(_route, output)| output)
-            .map_err(|error| AgentGuardianError::Frame(error.to_string()))
-    }
-
-    fn prompt_builder(&self) -> GuardianPromptBuilder<'_> {
-        GuardianPromptBuilder::new(
-            self.configuration.provider_name.as_deref(),
-            self.configuration.model_name.as_deref(),
-            self.configuration.maximum_output_tokens,
-            &self.configuration.prompt_source,
-        )
-    }
-
-    /// The intent-guardian system prompt this guardian will currently send. A
-    /// diagnostic affordance over the live prompt source, so the active role
-    /// after a `set_prompt_source` swap is observable without a live model call.
-    pub(crate) fn intent_guardian_system_prompt(&self) -> String {
-        self.prompt_builder().intent_guardian_system_prompt()
-    }
-
-    fn parse_verdict(
-        &self,
-        completion: &CompletionText,
-    ) -> Result<GuardianVerdict, AgentGuardianError> {
-        NotaSource::new(completion.payload())
-            .parse::<GuardianVerdict>()
-            .map_err(|error| AgentGuardianError::Malformed(error.to_string()))
-    }
-
-    fn parse_referent_verdict(
-        &self,
-        completion: &CompletionText,
-    ) -> Result<ReferentGuardianVerdict, AgentGuardianError> {
-        NotaSource::new(completion.payload())
-            .parse::<ReferentGuardianVerdict>()
-            .map_err(|error| AgentGuardianError::Malformed(error.to_string()))
+        let reply_frame = FrameReader::new(&mut stream).read_reply_frame()?;
+        ClientExchange::reply_from_frame(reply_frame)
     }
 }
 
-impl AgentGuardianConfiguration {
-    fn socket_path(&self) -> &Path {
-        &self.socket_path
+struct FrameReader<'stream> {
+    stream: &'stream mut UnixStream,
+}
+
+impl<'stream> FrameReader<'stream> {
+    fn new(stream: &'stream mut UnixStream) -> Self {
+        Self { stream }
     }
 
-    pub fn provider_name(&self) -> Option<&str> {
-        self.provider_name.as_deref()
+    fn read_reply_frame(&mut self) -> Result<SpiritJudgeFrame, AgentGuardianError> {
+        let mut prefix = [0_u8; 4];
+        self.stream
+            .read_exact(&mut prefix)
+            .map_err(AgentGuardianError::Socket)?;
+        let length = u32::from_be_bytes(prefix) as usize;
+        let mut bytes = Vec::with_capacity(4 + length);
+        bytes.extend_from_slice(&prefix);
+        bytes.resize(4 + length, 0);
+        self.stream
+            .read_exact(&mut bytes[4..])
+            .map_err(AgentGuardianError::Socket)?;
+        SpiritJudgeFrame::decode_length_prefixed(bytes.as_slice())
+            .map_err(|error| AgentGuardianError::Frame(error.to_string()))
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ClientExchange {
+    session_epoch: SessionEpoch,
+    sequence: LaneSequence,
+}
+
+impl ClientExchange {
+    fn first() -> Self {
+        Self {
+            session_epoch: SessionEpoch::new(1),
+            sequence: LaneSequence::first(),
+        }
     }
 
-    pub fn model_name(&self) -> Option<&str> {
-        self.model_name.as_deref()
+    fn identifier(&self) -> ExchangeIdentifier {
+        ExchangeIdentifier::new(self.session_epoch, ExchangeLane::Connector, self.sequence)
+    }
+
+    fn reply_from_frame(frame: SpiritJudgeFrame) -> Result<SpiritJudgeReply, AgentGuardianError> {
+        match frame.into_body() {
+            ExchangeFrameBody::Reply { reply, .. } => match reply {
+                Reply::Accepted { per_operation, .. } => {
+                    Ok(per_operation.into_head().representative_reply())
+                }
+                Reply::Rejected { reason } => Err(AgentGuardianError::Frame(reason.to_string())),
+            },
+            ExchangeFrameBody::HandshakeRequest(_) => {
+                Err(AgentGuardianError::WrongReply("handshake request"))
+            }
+            ExchangeFrameBody::HandshakeReply(_) => {
+                Err(AgentGuardianError::WrongReply("handshake reply"))
+            }
+            ExchangeFrameBody::Request { .. } => Err(AgentGuardianError::WrongReply("request")),
+        }
+    }
+}
+
+trait RepresentativeReply {
+    fn representative_reply(self) -> SpiritJudgeReply;
+}
+
+impl RepresentativeReply for SubReply<SpiritJudgeReply> {
+    fn representative_reply(self) -> SpiritJudgeReply {
+        match self {
+            Self::Ok(reply) => reply,
+            Self::Failed { detail, .. } => detail.unwrap_or_else(|| {
+                SpiritJudgeReply::RequestRejected(SpiritJudgeRequestRejection::new(
+                    SpiritJudgeRequestRejectionReason::InvalidRequest,
+                    JudgeDiagnostic::redacted(
+                        signal_spirit_judge::RedactedText::new(
+                            "spirit judge frame operation failed",
+                        )
+                        .expect("static diagnostic is non-empty"),
+                    ),
+                ))
+            }),
+            Self::Invalidated | Self::Skipped => {
+                SpiritJudgeReply::RequestRejected(SpiritJudgeRequestRejection::new(
+                    SpiritJudgeRequestRejectionReason::InvalidRequest,
+                    JudgeDiagnostic::redacted(
+                        signal_spirit_judge::RedactedText::new(
+                            "spirit judge frame operation produced no reply",
+                        )
+                        .expect("static diagnostic is non-empty"),
+                    ),
+                ))
+            }
+        }
+    }
+}
+
+struct AdmissionJudgeOperationProjection<'operation> {
+    operation: &'operation GuardianOperation,
+}
+
+impl<'operation> AdmissionJudgeOperationProjection<'operation> {
+    fn new(operation: &'operation GuardianOperation) -> Self {
+        Self { operation }
+    }
+
+    fn into_contract(self) -> AdmissionJudgeOperation {
+        match self.operation {
+            GuardianOperation::Record(request) => AdmissionJudgeOperation::Record(request.clone()),
+            GuardianOperation::Propose(proposal) => {
+                AdmissionJudgeOperation::Propose(proposal.clone())
+            }
+            GuardianOperation::Clarify(clarification) => {
+                AdmissionJudgeOperation::Clarify(clarification.clone())
+            }
+            GuardianOperation::ResolveClarification(resolution) => {
+                AdmissionJudgeOperation::ResolveClarification(resolution.clone())
+            }
+            GuardianOperation::Supersede(supersession) => {
+                AdmissionJudgeOperation::Supersede(supersession.clone())
+            }
+            GuardianOperation::Retire(retirement) => {
+                AdmissionJudgeOperation::Retire(retirement.clone())
+            }
+            GuardianOperation::ChangeRecord(change) => {
+                AdmissionJudgeOperation::ChangeRecord(change.clone())
+            }
+        }
+    }
+}
+
+struct JudgmentScopeProjection<'operation> {
+    operation: &'operation GuardianOperation,
+}
+
+impl<'operation> JudgmentScopeProjection<'operation> {
+    fn new(operation: &'operation GuardianOperation) -> Self {
+        Self { operation }
+    }
+
+    fn into_contract(self) -> JudgmentScope {
+        if self
+            .operation
+            .candidate_entries()
+            .iter()
+            .any(|entry| entry.is_private())
+        {
+            JudgmentScope::private_hashes_and_redaction()
+        } else {
+            JudgmentScope::public()
+        }
+    }
+}
+
+trait EntryPrivacy {
+    fn is_private(&self) -> bool;
+}
+
+impl EntryPrivacy for &Entry {
+    fn is_private(&self) -> bool {
+        self.privacy.payload() != &Magnitude::Zero
+    }
+}
+
+impl GuardianVerdict {
+    fn from_admission_response(response: AdmissionJudgeResponse) -> Self {
+        match response.verdict {
+            AdmissionJudgeVerdict::Accept => Self::Accept,
+            AdmissionJudgeVerdict::Reject(reason) => Self::reject(Reject {
+                guardian_rejection_reason: AdmissionRejectionProjection::new(reason).into_signal(),
+                explanation: JudgeDiagnosticProjection::new(response.diagnostic).into_explanation(),
+            }),
+        }
+    }
+
+    fn from_request_rejection(rejection: SpiritJudgeRequestRejection) -> Self {
+        Self::reject(Reject {
+            guardian_rejection_reason: RequestRejectionProjection::new(rejection.reason)
+                .to_guardian_reason(),
+            explanation: JudgeDiagnosticProjection::new(rejection.diagnostic).into_explanation(),
+        })
+    }
+
+    fn from_judge_error(error: AgentGuardianError) -> Self {
+        Self::reject(Reject {
+            guardian_rejection_reason: error.guardian_rejection_reason(),
+            explanation: Explanation::new(error.to_string()),
+        })
+    }
+}
+
+impl ReferentGuardianVerdict {
+    fn from_referent_response(response: ReferentRegistrationJudgeResponse) -> Self {
+        match response.verdict {
+            ReferentRegistrationJudgeVerdict::Accept => Self::Accept,
+            ReferentRegistrationJudgeVerdict::RejectReferent(reason) => {
+                Self::reject_referent(RejectReferent {
+                    referent_guardian_rejection_reason: ReferentRejectionProjection::new(reason)
+                        .into_signal(),
+                    explanation: JudgeDiagnosticProjection::new(response.diagnostic)
+                        .into_explanation(),
+                })
+            }
+        }
+    }
+
+    fn from_request_rejection(rejection: SpiritJudgeRequestRejection) -> Self {
+        Self::reject_referent(RejectReferent {
+            referent_guardian_rejection_reason: RequestRejectionProjection::new(rejection.reason)
+                .to_referent_reason(),
+            explanation: JudgeDiagnosticProjection::new(rejection.diagnostic).into_explanation(),
+        })
+    }
+
+    fn from_judge_error(error: AgentGuardianError) -> Self {
+        Self::reject_referent(RejectReferent {
+            referent_guardian_rejection_reason: error.referent_guardian_rejection_reason(),
+            explanation: Explanation::new(error.to_string()),
+        })
+    }
+}
+
+struct JudgeDiagnosticProjection {
+    diagnostic: JudgeDiagnostic,
+}
+
+impl JudgeDiagnosticProjection {
+    fn new(diagnostic: JudgeDiagnostic) -> Self {
+        Self { diagnostic }
+    }
+
+    fn into_explanation(self) -> Explanation {
+        if self.diagnostic.content_hashes.is_empty() {
+            Explanation::new(self.diagnostic.redacted_text.as_str())
+        } else {
+            let hashes = self
+                .diagnostic
+                .content_hashes
+                .iter()
+                .map(|hash| hash.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            Explanation::new(format!(
+                "{} [{}]",
+                self.diagnostic.redacted_text.as_str(),
+                hashes
+            ))
+        }
+    }
+}
+
+struct AdmissionRejectionProjection {
+    reason: AdmissionRejectionReason,
+}
+
+impl AdmissionRejectionProjection {
+    fn new(reason: AdmissionRejectionReason) -> Self {
+        Self { reason }
+    }
+
+    fn into_signal(self) -> GuardianRejectionReason {
+        match self.reason {
+            AdmissionRejectionReason::Duplicate => GuardianRejectionReason::Duplicate,
+            AdmissionRejectionReason::Contradiction => GuardianRejectionReason::Contradiction,
+            AdmissionRejectionReason::Compound => GuardianRejectionReason::Compound,
+            AdmissionRejectionReason::NonIntent => GuardianRejectionReason::NonIntent,
+            AdmissionRejectionReason::NegativeGuideline => {
+                GuardianRejectionReason::NegativeGuideline
+            }
+            AdmissionRejectionReason::Matter => GuardianRejectionReason::Matter,
+            AdmissionRejectionReason::UnclearPrivacy => GuardianRejectionReason::UnclearPrivacy,
+            AdmissionRejectionReason::UnclearDomain => GuardianRejectionReason::UnclearDomain,
+            AdmissionRejectionReason::ClarifyTramples => GuardianRejectionReason::ClarifyTramples,
+            AdmissionRejectionReason::ClarifyLosesMeaning => {
+                GuardianRejectionReason::ClarifyLosesMeaning
+            }
+            AdmissionRejectionReason::SupersedeTargetMissing => {
+                GuardianRejectionReason::SupersedeTargetMissing
+            }
+            AdmissionRejectionReason::RetrievalInsufficient => {
+                GuardianRejectionReason::RetrievalInsufficient
+            }
+            AdmissionRejectionReason::MissingTestimony => GuardianRejectionReason::MissingTestimony,
+            AdmissionRejectionReason::TestimonyFabricated => {
+                GuardianRejectionReason::TestimonyFabricated
+            }
+            AdmissionRejectionReason::InsufficientWarrant => {
+                GuardianRejectionReason::InsufficientWarrant
+            }
+            AdmissionRejectionReason::Overstated => GuardianRejectionReason::Overstated,
+            AdmissionRejectionReason::ImportanceUnsupported => {
+                GuardianRejectionReason::ImportanceUnsupported
+            }
+            AdmissionRejectionReason::JudgeUnavailable => {
+                GuardianRejectionReason::HarnessUnavailable
+            }
+            AdmissionRejectionReason::JudgeMalformed => GuardianRejectionReason::HarnessMalformed,
+            AdmissionRejectionReason::JudgeTimedOut => GuardianRejectionReason::HarnessTimedOut,
+        }
+    }
+}
+
+struct RequestRejectionProjection {
+    reason: SpiritJudgeRequestRejectionReason,
+}
+
+impl RequestRejectionProjection {
+    fn new(reason: SpiritJudgeRequestRejectionReason) -> Self {
+        Self { reason }
+    }
+
+    fn to_guardian_reason(&self) -> GuardianRejectionReason {
+        match self.reason {
+            SpiritJudgeRequestRejectionReason::InvalidRequest
+            | SpiritJudgeRequestRejectionReason::ConfigurationUnavailable
+            | SpiritJudgeRequestRejectionReason::ResponseFormatFailure => {
+                GuardianRejectionReason::HarnessMalformed
+            }
+            SpiritJudgeRequestRejectionReason::ProviderUnavailable
+            | SpiritJudgeRequestRejectionReason::ProviderRejected => {
+                GuardianRejectionReason::HarnessUnavailable
+            }
+        }
+    }
+
+    fn to_referent_reason(&self) -> ReferentGuardianRejectionReason {
+        match self.reason {
+            SpiritJudgeRequestRejectionReason::InvalidRequest
+            | SpiritJudgeRequestRejectionReason::ConfigurationUnavailable
+            | SpiritJudgeRequestRejectionReason::ResponseFormatFailure => {
+                ReferentGuardianRejectionReason::HarnessMalformed
+            }
+            SpiritJudgeRequestRejectionReason::ProviderUnavailable
+            | SpiritJudgeRequestRejectionReason::ProviderRejected => {
+                ReferentGuardianRejectionReason::HarnessUnavailable
+            }
+        }
+    }
+}
+
+struct ReferentRejectionProjection {
+    reason: ReferentRegistrationRejectionReason,
+}
+
+impl ReferentRejectionProjection {
+    fn new(reason: ReferentRegistrationRejectionReason) -> Self {
+        Self { reason }
+    }
+
+    fn into_signal(self) -> ReferentGuardianRejectionReason {
+        match self.reason {
+            ReferentRegistrationRejectionReason::Duplicate => {
+                ReferentGuardianRejectionReason::Duplicate
+            }
+            ReferentRegistrationRejectionReason::Ambiguous => {
+                ReferentGuardianRejectionReason::Ambiguous
+            }
+            ReferentRegistrationRejectionReason::TooVague => {
+                ReferentGuardianRejectionReason::TooVague
+            }
+            ReferentRegistrationRejectionReason::AliasCollision => {
+                ReferentGuardianRejectionReason::AliasCollision
+            }
+            ReferentRegistrationRejectionReason::NonReferent => {
+                ReferentGuardianRejectionReason::NonReferent
+            }
+            ReferentRegistrationRejectionReason::UnclearJustification => {
+                ReferentGuardianRejectionReason::UnclearJustification
+            }
+            ReferentRegistrationRejectionReason::JudgeUnavailable => {
+                ReferentGuardianRejectionReason::HarnessUnavailable
+            }
+            ReferentRegistrationRejectionReason::JudgeMalformed => {
+                ReferentGuardianRejectionReason::HarnessMalformed
+            }
+            ReferentRegistrationRejectionReason::JudgeTimedOut => {
+                ReferentGuardianRejectionReason::HarnessTimedOut
+            }
+        }
     }
 }
 
@@ -368,9 +623,8 @@ impl AgentGuardianError {
             {
                 GuardianRejectionReason::HarnessTimedOut
             }
-            Self::Socket(_) | Self::Frame(_) => GuardianRejectionReason::HarnessUnavailable,
-            Self::AgentRejected(_) | Self::Malformed(_) => {
-                GuardianRejectionReason::HarnessMalformed
+            Self::Socket(_) | Self::Frame(_) | Self::WrongReply(_) => {
+                GuardianRejectionReason::HarnessUnavailable
             }
         }
     }
@@ -385,9 +639,8 @@ impl AgentGuardianError {
             {
                 ReferentGuardianRejectionReason::HarnessTimedOut
             }
-            Self::Socket(_) | Self::Frame(_) => ReferentGuardianRejectionReason::HarnessUnavailable,
-            Self::AgentRejected(_) | Self::Malformed(_) => {
-                ReferentGuardianRejectionReason::HarnessMalformed
+            Self::Socket(_) | Self::Frame(_) | Self::WrongReply(_) => {
+                ReferentGuardianRejectionReason::HarnessUnavailable
             }
         }
     }
@@ -514,71 +767,3 @@ pub type AgentJudgeConfiguration = AgentGuardianConfiguration;
 pub type AgentJudgeDecision = AgentGuardianDecision;
 pub type AgentJudgeError = AgentGuardianError;
 pub type AgentJudgeRejection = AgentGuardianRejection;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use signal_spirit::{ConfigurationPath, SpiritGuardianTimeoutMilliseconds};
-
-    #[test]
-    fn contract_configuration_defaults_to_local_openai_compatible_judge() {
-        let configuration = SpiritGuardianAgentConfiguration::new(
-            ConfigurationPath::new("/tmp/agent.sock"),
-            None,
-            None,
-            SpiritGuardianTimeoutMilliseconds::new(120_000),
-            None,
-        );
-
-        let judge = AgentGuardianConfiguration::from_contract(&configuration);
-
-        assert_eq!(
-            judge.provider_name(),
-            Some(AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_PROVIDER),
-            "omitted provider resolves to the local OpenAI-compatible judge provider"
-        );
-        assert_eq!(
-            judge.model_name(),
-            Some(AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_MODEL),
-            "omitted model resolves to gpt-5.4-mini"
-        );
-    }
-
-    #[test]
-    fn direct_configuration_defaults_to_local_openai_compatible_judge() {
-        let judge = AgentGuardianConfiguration::new(
-            "/tmp/agent.sock",
-            None,
-            None,
-            Duration::from_secs(120),
-            None,
-        );
-
-        assert_eq!(
-            judge.provider_name(),
-            Some(AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_PROVIDER)
-        );
-        assert_eq!(
-            judge.model_name(),
-            Some(AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_MODEL)
-        );
-    }
-
-    #[test]
-    fn explicit_deepseek_configuration_stays_compatible() {
-        let configuration = SpiritGuardianAgentConfiguration::new(
-            ConfigurationPath::new("/tmp/agent.sock"),
-            Some(signal_spirit::SpiritGuardianProviderName::new("deepseek")),
-            Some(signal_spirit::SpiritGuardianModelName::new(
-                "deepseek-v4-flash",
-            )),
-            SpiritGuardianTimeoutMilliseconds::new(120_000),
-            None,
-        );
-
-        let judge = AgentGuardianConfiguration::from_contract(&configuration);
-
-        assert_eq!(judge.provider_name(), Some("deepseek"));
-        assert_eq!(judge.model_name(), Some("deepseek-v4-flash"));
-    }
-}

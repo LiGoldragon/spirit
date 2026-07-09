@@ -35,8 +35,6 @@ pub mod engine;
 pub mod guardian;
 #[cfg(feature = "agent-guardian")]
 mod guardian_journal;
-#[cfg(feature = "agent-guardian")]
-mod guardian_prompt;
 pub mod meta_transport;
 pub mod nexus;
 mod plane;
@@ -102,8 +100,6 @@ pub use guardian::{
     AgentGuardian, AgentGuardianConfiguration, AgentGuardianError, AgentGuardianRejection,
     AgentJudge, AgentJudgeConfiguration, AgentJudgeDecision, AgentJudgeError, AgentJudgeRejection,
 };
-#[cfg(feature = "agent-guardian")]
-pub use guardian_prompt::GuardianPromptSource;
 pub use meta_transport::{
     MetaFrameError, MetaInputRoute, MetaOutputRoute, MetaSignalTransport, MetaTransportError,
 };

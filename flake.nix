@@ -76,6 +76,10 @@
       url = "github:LiGoldragon/signal-spirit";
       flake = false;
     };
+    signal-spirit-judge-source = {
+      url = "github:LiGoldragon/signal-spirit-judge/49bec17c5978";
+      flake = false;
+    };
     nota-text-query-source = {
       url = "github:LiGoldragon/nota-text-query";
       flake = false;
@@ -176,6 +180,7 @@
       signal-criome-source,
       meta-signal-criome-source,
       signal-spirit-source,
+      signal-spirit-judge-source,
       nota-text-query-source,
       meta-signal-spirit-source,
       signal-agent-source,
@@ -210,20 +215,11 @@
         scriptFilter =
           path: type:
           (type == "regular" || type == "directory") && (builtins.match ".*/scripts(/.*)?" path != null);
-        # The guardian prompt prose lives in src/guardian-prompts/*.md and is
-        # pulled into the daemon with include_str!; the crane cargo-source filter
-        # drops .md, so pull the directory and its files in by name match or the
-        # build fails to read them.
-        promptFilter =
-          path: type:
-          (type == "regular" || type == "directory")
-          && (builtins.match ".*/guardian-prompts(/.*)?" path != null);
         cleanSource = rust.cleanSource {
           root = ./.;
           extraFilters = [
             schemaFilter
             scriptFilter
-            promptFilter
           ];
         };
         src =
@@ -245,6 +241,7 @@
               signalCriomeSource = signal-criome-source;
               metaSignalCriomeSource = meta-signal-criome-source;
               signalSpiritSource = signal-spirit-source;
+              signalSpiritJudgeSource = signal-spirit-judge-source;
               notaTextQuerySource = nota-text-query-source;
               metaSignalSpiritSource = meta-signal-spirit-source;
               signalAgentSource = signal-agent-source;
@@ -285,6 +282,7 @@
               cp -R "$signalCriomeSource" $out/vendor-sources/signal-criome
               cp -R "$metaSignalCriomeSource" $out/vendor-sources/meta-signal-criome
               cp -R "$signalSpiritSource" $out/vendor-sources/signal-spirit
+              cp -R "$signalSpiritJudgeSource" $out/vendor-sources/signal-spirit-judge
               cp -R "$notaTextQuerySource" $out/vendor-sources/nota-text-query
               cp -R "$metaSignalSpiritSource" $out/vendor-sources/meta-signal-spirit
               cp -R "$signalAgentSource" $out/vendor-sources/signal-agent
@@ -339,6 +337,7 @@
                 --replace-fail 'signal-introspect = { git = "https://github.com/LiGoldragon/signal-introspect.git", branch = "main", default-features = false, optional = true }' 'signal-introspect = { path = "vendor-sources/signal-introspect", default-features = false, optional = true }' \
                 --replace-fail 'signal-persona = { git = "https://github.com/LiGoldragon/signal-persona.git", branch = "main", optional = true }' 'signal-persona = { path = "vendor-sources/signal-persona", optional = true }' \
                 --replace-fail 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", rev = "1cf7c010029de46369b742687da4fa1ca6def9a9" }' 'signal-spirit = { path = "vendor-sources/signal-spirit" }' \
+                --replace-fail 'signal-spirit-judge = { git = "https://github.com/LiGoldragon/signal-spirit-judge.git", rev = "49bec17c5978", optional = true }' 'signal-spirit-judge = { path = "vendor-sources/signal-spirit-judge", optional = true }' \
                 --replace-fail 'meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", rev = "0a7a2438c8e5d57cb1fd413452d0a7ddad4fb9b3" }' 'meta-signal-spirit = { path = "vendor-sources/meta-signal-spirit" }' \
                 --replace-fail 'nota-text-query = { git = "https://github.com/LiGoldragon/nota-text-query.git", rev = "6140a3e9afe3f81c18a39cb0a11dec4eab68b561", default-features = false }' 'nota-text-query = { path = "vendor-sources/nota-text-query", default-features = false }' \
                 --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "vendor-sources/triad-runtime" }' \
@@ -463,6 +462,9 @@
               [patch."https://github.com/LiGoldragon/signal-spirit.git"]
               signal-spirit = { path = "vendor-sources/signal-spirit" }
 
+              [patch."https://github.com/LiGoldragon/signal-spirit-judge.git"]
+              signal-spirit-judge = { path = "vendor-sources/signal-spirit-judge" }
+
               [patch."https://github.com/LiGoldragon/meta-signal-spirit.git"]
               meta-signal-spirit = { path = "vendor-sources/meta-signal-spirit" }
 
@@ -565,6 +567,7 @@
               "signal-frame-macros",
               "signal-sema",
               "signal-spirit",
+              "signal-spirit-judge",
               "nota-text-query",
               "triad-runtime",
               "version-projection",

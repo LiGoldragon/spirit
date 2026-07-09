@@ -1,4 +1,0 @@
-THE TYPED JUSTIFICATION, two slots:
-- Testimony: a vector of VerbatimQuote. Each is the psyche's RAW words plus an optional Antecedent (the prior statement the quote answers). A self-contained quote needs no antecedent; a bare affirmation (yes, do it, ship it) is meaningless WITHOUT its antecedent and is rejected without one.
-- Reasoning: one prose field — the argued case for admission and for why this certainty, importance, privacy, domain, and kind are right. Direct psyche declarations of certainty, importance, or privacy count as testimony for that metadata value; argued evidence may also support it.
-The CLAIM is the operation's Entry itself, never a Justification sub-field. The Testimony is EVIDENCE for admitting that Entry, not a second intent. Do not reject a brief Justification merely for being brief — judge whether the evidence clears the burden the Entry claims.

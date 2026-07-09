@@ -303,6 +303,7 @@
         "signal-persona-source": "signal-persona-source",
         "signal-router-source": "signal-router-source",
         "signal-sema-source": "signal-sema-source",
+        "signal-spirit-judge-source": "signal-spirit-judge-source",
         "signal-spirit-source": "signal-spirit-source",
         "signal-standard-source": "signal-standard-source",
         "triad-runtime-source": "triad-runtime-source",
@@ -671,6 +672,23 @@
       "original": {
         "owner": "LiGoldragon",
         "repo": "signal-sema",
+        "type": "github"
+      }
+    },
+    "signal-spirit-judge-source": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1783594229,
+        "narHash": "sha256-5sf+P7Wr4MnT/+kbaljZ0wZlraCjk1gi+iRRZNr4+dk=",
+        "owner": "LiGoldragon",
+        "repo": "signal-spirit-judge",
+        "rev": "49bec17c5978a70d608b4bd31889fbeff63d7926",
+        "type": "github"
+      },
+      "original": {
+        "owner": "LiGoldragon",
+        "ref": "49bec17c5978",
+        "repo": "signal-spirit-judge",
         "type": "github"
       }
     },

@@ -54,7 +54,7 @@ required-features = ["nota-text"]
 [features]
 default = []
 nota-text = ["dep:nota", "nota-text-query/nota-text", "signal-domain/nota-text", "signal-spirit/nota-text", "meta-signal-spirit/nota-text", "signal-introspect?/nota-text"]
-agent-guardian = ["nota-text", "dep:signal-agent"]
+agent-guardian = ["dep:signal-spirit-judge"]
 production-migration = ["nota-text", "dep:sema-engine-layout3", "dep:sema-engine-previous"]
 testing-trace = ["dep:signal-introspect", "dep:signal-persona"]
 # The LIVE criome acceptance gate (the everywhere-gate, Spirit `xhwa` as
@@ -191,6 +191,7 @@ meta-signal-router = { git = "https://github.com/LiGoldragon/meta-signal-router.
 meta-signal-criome = { git = "https://github.com/LiGoldragon/meta-signal-criome.git", branch = "main", default-features = false, optional = true }
 signal-standard = { git = "https://github.com/LiGoldragon/signal-standard.git", branch = "main", default-features = false, optional = true }
 signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main", optional = true }
+signal-spirit-judge = { git = "https://github.com/LiGoldragon/signal-spirit-judge.git", rev = "49bec17c5978", optional = true }
 # The shared wire contract for the tracing -> introspect slice (report 716):
 # spirit projects its own `TraceEvent` onto `signal_introspect::ComponentTraceEvent`
 # and pushes that contract type over the testing-trace socket, so introspect
@@ -250,6 +251,7 @@ nota-derive = { package = "nota-derive", git = "https://github.com/LiGoldragon/n
 [patch."https://github.com/LiGoldragon/schema-next.git"]
 schema = { package = "schema", git = "https://github.com/LiGoldragon/schema.git", rev = "92bed64ad644ce4caa2827398ada5b7b79221165" }
 schema-cc = { package = "schema-cc", git = "https://github.com/LiGoldragon/schema.git", rev = "92bed64ad644ce4caa2827398ada5b7b79221165" }
+
 
 
 [lints.rust]

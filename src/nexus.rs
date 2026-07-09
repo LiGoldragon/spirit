@@ -357,31 +357,6 @@ impl Nexus {
         self.guardian_required = true;
     }
 
-    /// Apply an owner-supplied guardian prompt source to the live guardian. A
-    /// no-op when no guardian is installed (an owner can still configure a
-    /// prompt for a daemon whose guardian is wired in later — the installed
-    /// guardian always starts on the compiled-in default, and the next
-    /// `Configure` re-applies the override). Used by the meta `Configure` path.
-    #[cfg(feature = "agent-guardian")]
-    pub fn set_guardian_prompt_source(
-        &mut self,
-        prompt_source: crate::guardian_prompt::GuardianPromptSource,
-    ) {
-        if let Some(guardian) = self.guardian.as_mut() {
-            guardian.set_prompt_source(prompt_source);
-        }
-    }
-
-    /// The intent-guardian system prompt the installed guardian will currently
-    /// send, or `None` when no guardian is installed. Diagnostic over the live
-    /// prompt source.
-    #[cfg(feature = "agent-guardian")]
-    pub fn guardian_intent_system_prompt(&self) -> Option<String> {
-        self.guardian
-            .as_ref()
-            .map(|guardian| guardian.intent_guardian_system_prompt())
-    }
-
     #[cfg(all(feature = "agent-guardian", feature = "criome-gate"))]
     pub fn set_operation_authorization_mode(
         &mut self,

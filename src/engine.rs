@@ -582,12 +582,11 @@ impl Engine {
         self.nexus.store().guardian_decision_count().unwrap_or(0)
     }
 
-    /// The intent-guardian system prompt the installed guardian will currently
-    /// send, or `None` when no guardian is installed. Reflects the live prompt
-    /// source after any owner `Configure` swap.
+    /// Prompt prose belongs to the external Spirit judge adapter. The daemon
+    /// keeps this legacy diagnostic method only as a compatibility affordance.
     #[cfg(feature = "agent-guardian")]
     pub fn guardian_intent_system_prompt(&self) -> Option<String> {
-        self.nexus.guardian_intent_system_prompt()
+        None
     }
 
     pub fn sent_message_count(&self) -> usize {
@@ -638,28 +637,10 @@ impl Engine {
         let guardian_prompt_target = selected_guardian_prompt_target.into_payload();
         self.nexus
             .set_archive_target(archive_database_target.clone());
-        // Swap the live guardian's role prompt when the owner supplies a target.
-        // `Default` restores the compiled-in (acknowledged strict-bar) role;
-        // `Prompt` installs an owner-supplied role override. An absent target
-        // leaves the live guardian's current prompt unchanged. Like the other
-        // Configure targets this is runtime policy, not durable state: a
-        // restarted daemon starts on the compiled-in role until the owner
-        // re-sends `Configure`. Only present under `agent-guardian`; the default
-        // build echoes the target in the receipt with no guardian to apply it.
-        #[cfg(feature = "agent-guardian")]
-        if let Some(guardian_prompt_target) = guardian_prompt_target.as_ref() {
-            let prompt_source = match guardian_prompt_target {
-                crate::schema::meta_signal::GuardianPromptTarget::Default => {
-                    crate::guardian_prompt::GuardianPromptSource::compiled_in()
-                }
-                crate::schema::meta_signal::GuardianPromptTarget::Prompt(prompt) => {
-                    crate::guardian_prompt::GuardianPromptSource::role_override(
-                        prompt.payload().payload().clone(),
-                    )
-                }
-            };
-            self.nexus.set_guardian_prompt_source(prompt_source);
-        }
+        // GuardianPromptTarget remains in the owner-only meta contract for
+        // compatibility, but prompt text now belongs to the external Spirit
+        // judge adapter/config. The daemon echoes the selected target and does
+        // not compile, render, or apply prompt prose.
         // Arm (or disarm) the mirror shipper against the live engine handle.
         // A bad mirror address is an owner-config error, not a SEMA fault, so
         // it rejects the Configure rather than silently leaving mirroring off.

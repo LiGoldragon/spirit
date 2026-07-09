@@ -1764,6 +1764,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "signal-spirit-judge"
+version = "0.1.0"
+source = "git+https://github.com/LiGoldragon/signal-spirit-judge.git?rev=49bec17c5978#49bec17c5978a70d608b4bd31889fbeff63d7926"
+dependencies = [
+ "rkyv",
+ "signal-frame",
+ "signal-spirit",
+ "thiserror",
+]
+
+[[package]]
 name = "signal-standard"
 version = "0.1.0"
 source = "git+https://github.com/LiGoldragon/signal-standard.git?branch=main#a2fcdb9db2101853f8ffac8cdb34692540deeb62"
@@ -1833,6 +1844,7 @@ dependencies = [
  "signal-router",
  "signal-sema",
  "signal-spirit",
+ "signal-spirit-judge",
  "signal-standard",
  "tempfile",
  "thiserror",

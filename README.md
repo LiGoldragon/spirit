@@ -69,7 +69,11 @@ owner archives-then-removes matching exact-Zero-certainty records by issuing
 `Configure`/`Import`); there is no working hard-delete path.
 
 The CLI accepts NOTA. The daemon socket carries length-prefixed rkyv bytes
-with an 8-byte short header.
+with an 8-byte short header. When the admission feature is enabled, Spirit
+uses the legacy `SpiritGuardianAgentConfiguration` socket field as a
+compatibility alias for the external `signal-spirit-judge` socket; prompts,
+provider JSON, model selection, and NOTA verdict parsing live in `spirit-judge`,
+not inside the daemon.
 
 Entries carry a vector of domains. Queries use generated `DomainMatch` values:
 `(Partial [(Software (Data SchemaEvolution)) (Information Documentation)])` matches any requested
