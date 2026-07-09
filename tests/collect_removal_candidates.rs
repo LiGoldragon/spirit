@@ -19,13 +19,14 @@ use std::time::{Duration, Instant};
 use support::domain_fixtures;
 
 use spirit::schema::meta_signal::{
-    ArchiveDatabaseTarget, CollectRemovalCandidatesRequest, ConfigureRequest, Output as MetaOutput,
+    ArchiveDatabaseTarget, CollectRemovalCandidatesRequest, ConfigureRequest, ImportedRecord,
+    ImportedRecords, Input as MetaInput, Output as MetaOutput,
 };
 use spirit::schema::signal::{
     CertaintySelection, Description, DomainMatch, DomainScopes, Domains, Entry,
     ImportanceSelection, Input, Justification, Kind, Magnitude, Output, Privacy, PrivacySelection,
-    Query, QuoteText, Reasoning, RecordRequest, RemovalCandidateCollection, SelectedKind,
-    Testimony, VerbatimQuote,
+    Query, QuoteText, Reasoning, RecordIdentifier, RecordRequest, RemovalCandidateCollection,
+    SelectedKind, Testimony, VerbatimQuote,
 };
 use spirit::{Configuration, Daemon, Engine, MetaSignalTransport, SignalTransport, Store};
 use tempfile::TempDir;
@@ -378,15 +379,25 @@ fn wait_for_socket(path: &Path) {
     panic!("socket did not appear at {}", path.display());
 }
 
-fn record_over_socket(working_socket: &Path, entry: Entry) {
-    let mut transport = SignalTransport::connect(working_socket).expect("connect working socket");
-    let (_route, output) = transport
-        .exchange(&Input::record(record_request(entry)))
-        .expect("exchange record");
-    assert!(
-        matches!(output, Output::RecordAccepted(_)),
-        "record accepted over the working socket, got {output:?}"
+fn import_over_meta_socket(meta_socket: &Path, records: Vec<ImportedRecord>) {
+    let mut transport = MetaSignalTransport::connect(meta_socket).expect("connect meta socket");
+    let input = MetaInput::import(ImportedRecords::new(records).into());
+    let (_route, output) = transport.exchange(&input).expect("exchange import");
+    let MetaOutput::Imported(receipt) = output else {
+        panic!("owner import accepted over the meta socket, got {output:?}")
+    };
+    assert_eq!(
+        *receipt.payload().record_count.payload(),
+        2,
+        "exactly the two setup records were imported through the owner-only meta socket"
     );
+}
+
+fn imported_record(identifier: &str, entry: Entry) -> ImportedRecord {
+    ImportedRecord {
+        record_identifier: RecordIdentifier::new(identifier.to_owned()),
+        entry,
+    }
 }
 
 #[test]
@@ -417,15 +428,22 @@ fn collect_removal_candidates_archives_and_removes_over_the_meta_socket() {
         "owner configure accepted over the meta socket, got {configure_reply:?}"
     );
 
-    // Two live records over the WORKING socket: one zero-certainty removal
-    // candidate (`governing`), one that must remain (`meaning`).
-    record_over_socket(
-        &working_socket,
-        entry_with_certainty("governing", "obsolete intent to retire", Magnitude::Zero),
-    );
-    record_over_socket(
-        &working_socket,
-        entry("meaning", "intent that must remain live"),
+    // Two live records are seeded over the OWNER-ONLY meta socket. Under the
+    // guardian feature, working writes must fail closed unless a typed judge is
+    // configured, so setup uses the same owner import boundary as migration
+    // rather than restoring unconfigured working-write acceptance.
+    import_over_meta_socket(
+        &meta_socket,
+        vec![
+            imported_record(
+                "removal-candidate-governing",
+                entry_with_certainty("governing", "obsolete intent to retire", Magnitude::Zero),
+            ),
+            imported_record(
+                "record-to-keep-meaning",
+                entry("meaning", "intent that must remain live"),
+            ),
+        ],
     );
 
     // OWNER collects the removal candidates over the meta socket — the single
