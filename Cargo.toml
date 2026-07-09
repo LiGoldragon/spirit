@@ -237,7 +237,7 @@ tempfile = "3"
 [[test]]
 name = "guardian_live_scenarios"
 path = "tests/guardian_live_scenarios.rs"
-required-features = ["agent-guardian"]
+required-features = ["agent-guardian", "signal-agent"]
 
 [[test]]
 name = "guardian_journal_upgrade"

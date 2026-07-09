@@ -20,18 +20,18 @@ use support::domain_fixtures;
 use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest, Output as MetaOutput};
 #[cfg(feature = "agent-guardian")]
 use spirit::schema::meta_signal::{GuardianPromptTarget, GuardianPromptText};
-#[cfg(feature = "agent-guardian")]
-use spirit::schema::signal::GuardianRejectionReason;
 use spirit::schema::signal::{
-    Description, DomainMatch, DomainScopes, Domains, Entry, ImportanceSelection, Input,
-    Justification, Kind, Magnitude, Output, Privacy, Query, QuoteText, Reasoning, RecordRequest,
-    SelectedKind, Testimony, VerbatimQuote,
+    Description, DomainMatch, Entry, ImportanceSelection, Input, Justification, Kind, Magnitude,
+    Output, Privacy, Query, QuoteText, Reasoning, RecordRequest, SelectedKind, Testimony,
+    VerbatimQuote,
 };
 #[cfg(feature = "agent-guardian")]
-use spirit::{AgentGuardian, AgentGuardianConfiguration, Engine, Store};
+use spirit::schema::signal::{GuardianRejectionReason, ReferentGuardianRejectionReason};
 use spirit::{
     Configuration, Daemon, DaemonError, MetaSignalTransport, SignalTransport, SpiritDaemon,
 };
+#[cfg(feature = "agent-guardian")]
+use spirit::{Engine, Store};
 use tempfile::TempDir;
 
 struct DaemonThread {
@@ -191,7 +191,13 @@ fn configure_sets_archive_target_and_leaves_live_database_unchanged() {
                 GuardianRejectionReason::HarnessUnavailable
             );
         }
-        other => panic!("working write should fail closed without guardian, got {other:?}"),
+        Output::ReferentGuardianRejected(rejection) => {
+            assert_eq!(
+                rejection.payload().referent_guardian_rejection_reason,
+                ReferentGuardianRejectionReason::HarnessUnavailable
+            );
+        }
+        other => panic!("working write should fail closed without judge, got {other:?}"),
     }
 
     assert!(
@@ -297,35 +303,24 @@ fn daemon_rejects_missing_meta_socket_before_serving() {
     );
 }
 
-/// The owner `Configure` path swaps the live guardian's role section without a
-/// rebuild, and `Default` restores the compiled-in acknowledged role. No model
-/// call is made — the override changes which role the next verdict would render.
+/// `GuardianPromptTarget` remains in the owner-only meta contract as a
+/// compatibility echo. Prompt prose is owned by the external Spirit judge, so
+/// daemon Configure must not install or render prompt text.
 #[cfg(feature = "agent-guardian")]
 #[test]
-fn meta_configure_guardian_prompt_target_swaps_and_restores_the_live_role() {
+fn meta_configure_guardian_prompt_target_is_compatibility_echo_only() {
     let temp = TempDir::new().expect("tempdir");
     let store = Store::open(temp.path().join("intent.sema")).expect("open spirit store");
     let mut engine = Engine::new(store);
-    engine.set_guardian(AgentGuardian::new(AgentGuardianConfiguration::new(
-        temp.path().join("guardian-agent.sock"),
-        None,
-        None,
-        Duration::from_secs(120),
-        None,
-    )));
     engine.start().expect("engine starts");
 
-    // A fresh guardian starts on the compiled-in acknowledged strict-bar role.
-    let baked = engine
-        .guardian_intent_system_prompt()
-        .expect("guardian installed");
-    assert!(
-        baked.contains("THE ONE TEST"),
-        "the installed guardian starts on the compiled-in strict-bar role"
+    assert_eq!(
+        engine.guardian_intent_system_prompt(),
+        None,
+        "prompt prose is not a daemon-owned live surface"
     );
 
-    // An owner Configure carrying a Prompt target swaps the live role section.
-    let overridden_role = "OVERRIDE ROLE: an owner-supplied guardian role for this run.";
+    let overridden_role = "OVERRIDE ROLE: compatibility echo only.";
     let prompt_configure = ConfigureRequest::new(
         ArchiveDatabaseTarget::Default,
         None,
@@ -334,43 +329,35 @@ fn meta_configure_guardian_prompt_target_swaps_and_restores_the_live_role() {
             overridden_role,
         ))),
     );
-    assert!(matches!(
-        engine.configure(prompt_configure),
-        MetaOutput::Configured(_)
-    ));
-    let swapped = engine
-        .guardian_intent_system_prompt()
-        .expect("guardian installed");
-    assert!(
-        swapped.contains(overridden_role),
-        "the owner role override is the live guardian's role after Configure"
-    );
-    assert!(
-        !swapped.contains("THE ONE TEST"),
-        "the override replaces the compiled-in role prose"
-    );
-    // The wire-coupled sections stay code-rendered regardless of the override.
-    assert!(
-        swapped.contains("NOTA OUTPUT") && swapped.contains("THE CHECKLIST"),
-        "the verdict grammar and non-role sections survive a role override"
+    match engine.configure(prompt_configure) {
+        MetaOutput::Configured(receipt) => {
+            assert!(matches!(
+                receipt.payload().selected_guardian_prompt_target.payload(),
+                Some(GuardianPromptTarget::Prompt(_))
+            ));
+        }
+        other => panic!("expected Configured prompt-target echo, got {other:?}"),
+    }
+    assert_eq!(
+        engine.guardian_intent_system_prompt(),
+        None,
+        "Configure must not make prompt text live in the daemon"
     );
 
-    // A Default target restores the compiled-in acknowledged role.
     let default_configure = ConfigureRequest::new(
         ArchiveDatabaseTarget::Default,
         None,
         None,
         Some(GuardianPromptTarget::Default),
     );
-    assert!(matches!(
-        engine.configure(default_configure),
-        MetaOutput::Configured(_)
-    ));
-    let restored = engine
-        .guardian_intent_system_prompt()
-        .expect("guardian installed");
-    assert!(
-        restored.contains("THE ONE TEST") && !restored.contains(overridden_role),
-        "a Default guardian-prompt target restores the compiled-in strict-bar role"
-    );
+    match engine.configure(default_configure) {
+        MetaOutput::Configured(receipt) => {
+            assert!(matches!(
+                receipt.payload().selected_guardian_prompt_target.payload(),
+                Some(GuardianPromptTarget::Default)
+            ));
+        }
+        other => panic!("expected Configured default prompt-target echo, got {other:?}"),
+    }
+    assert_eq!(engine.guardian_intent_system_prompt(), None);
 }

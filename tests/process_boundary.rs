@@ -16,27 +16,29 @@ use nota::NotaEncode;
 #[cfg(feature = "testing-trace")]
 use nota::NotaSource;
 #[cfg(feature = "agent-guardian")]
-use signal_agent::{
-    Completion, CompletionText, Input as AgentInput, Output as AgentOutput, ReasoningEffort,
-    StopReasonText, ThinkingMode, TokenUsage,
-};
+use signal_frame::{ExchangeFrameBody, NonEmpty, Reply, ShortHeader, SubReply};
 #[cfg(feature = "testing-trace")]
 use signal_introspect::ComponentTraceEvent;
 #[cfg(feature = "agent-guardian")]
 use signal_spirit::{
     ConfigurationPath, SpiritGuardianAgentConfiguration, SpiritGuardianTimeoutMilliseconds,
 };
-use spirit::Configuration;
 #[cfg(feature = "agent-guardian")]
-use spirit::schema::nexus::GuardianVerdict;
+use signal_spirit_judge::{
+    AdmissionJudgeResponse, AdmissionJudgeVerdict, JudgeDiagnostic, RedactedText,
+    ReferentRegistrationJudgeResponse, ReferentRegistrationJudgeVerdict, SpiritJudgeFrame,
+    SpiritJudgeReply, SpiritJudgeRequest,
+};
+use spirit::Configuration;
 use spirit::schema::signal::{
-    Antecedent, ClarificationRecordIdentifier, ClarificationResolution, Description, Input,
-    IntentEvent, Justification, Kind, Magnitude, Output, QuoteText, Reasoning, RecordIdentifier,
-    TargetClarification, TargetClarifications, Testimony, VerbatimQuote,
+    Antecedent, ClarificationRecordIdentifier, ClarificationResolution, Description, Domain,
+    Domains, Input, IntentEvent, Justification, Kind, Kinship, Magnitude, Output, QuoteText,
+    Reasoning, RecordIdentifier, TargetClarification, TargetClarifications, Testimony,
+    VerbatimQuote,
 };
 #[cfg(feature = "agent-guardian")]
 use std::{
-    io::Write,
+    io::{Read, Write},
     os::unix::net::{UnixListener, UnixStream},
     sync::{
         Arc,
@@ -44,17 +46,15 @@ use std::{
     },
 };
 use tempfile::TempDir;
-#[cfg(feature = "agent-guardian")]
-use triad_runtime::{FrameBody, LengthPrefixedCodec};
 
 struct DaemonProcess {
     child: Child,
     #[cfg(feature = "agent-guardian")]
-    _guardian_agent: FakeGuardianAgent,
+    _spirit_judge: FakeSpiritJudge,
 }
 
 #[cfg(feature = "agent-guardian")]
-struct FakeGuardianAgent {
+struct FakeSpiritJudge {
     socket_path: std::path::PathBuf,
     stop: Arc<AtomicBool>,
     thread: Option<thread::JoinHandle<()>>,
@@ -74,7 +74,7 @@ impl Drop for DaemonProcess {
 }
 
 #[cfg(feature = "agent-guardian")]
-impl Drop for FakeGuardianAgent {
+impl Drop for FakeSpiritJudge {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Relaxed);
         if let Some(thread) = self.thread.take() {
@@ -94,22 +94,22 @@ impl Drop for SubscriberProcess {
 }
 
 #[cfg(feature = "agent-guardian")]
-impl FakeGuardianAgent {
+impl FakeSpiritJudge {
     fn spawn(socket_path: std::path::PathBuf) -> Self {
-        let listener = UnixListener::bind(&socket_path).expect("bind fake guardian socket");
+        let listener = UnixListener::bind(&socket_path).expect("bind fake spirit judge socket");
         listener
             .set_nonblocking(true)
-            .expect("fake guardian listener nonblocking");
+            .expect("fake spirit judge listener nonblocking");
         let stop = Arc::new(AtomicBool::new(false));
         let thread_stop = Arc::clone(&stop);
         let thread = thread::spawn(move || {
             while !thread_stop.load(Ordering::Relaxed) {
                 match listener.accept() {
-                    Ok((stream, _)) => Self::answer(stream),
+                    Ok((mut stream, _)) => Self::answer(&mut stream),
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
                         thread::sleep(Duration::from_millis(10));
                     }
-                    Err(error) => panic!("accept fake guardian call: {error}"),
+                    Err(error) => panic!("accept fake spirit judge call: {error}"),
                 }
             }
         });
@@ -120,52 +120,85 @@ impl FakeGuardianAgent {
         }
     }
 
-    fn answer(mut stream: UnixStream) {
-        let codec = LengthPrefixedCodec::default();
-        let request = codec
-            .read_body(&mut stream)
-            .expect("read fake guardian request")
-            .into_bytes();
-        let (_route, input) =
-            AgentInput::decode_signal_frame(&request).expect("decode fake guardian input");
-        let AgentInput::Call(call) = input else {
-            panic!("expected guardian Call input, got {input:?}");
+    fn answer(stream: &mut UnixStream) {
+        let request_frame = FrameIo::new(stream).read_frame();
+        let ExchangeFrameBody::Request { exchange, request } = request_frame.into_body() else {
+            panic!("expected typed spirit judge request frame");
         };
-        let options = call.payload().prompt_options();
-        assert_eq!(
-            options
-                .provider()
-                .map(|provider| provider.payload().as_str()),
-            Some(spirit::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_PROVIDER),
-            "omitted daemon guardian provider resolves through the agent-daemon call to local-openai"
-        );
-        assert_eq!(
-            options.model().map(|model| model.payload().as_str()),
-            Some(spirit::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_MODEL),
-            "omitted daemon guardian model resolves through the agent-daemon call to gpt-5.4-mini"
-        );
-        assert_eq!(options.reasoning_effort(), Some(&ReasoningEffort::Medium));
-        assert_eq!(options.thinking_mode(), None::<&ThinkingMode>);
-        let output = AgentOutput::completed(Completion {
-            completion_text: CompletionText::new(GuardianVerdict::Accept.to_nota()),
-            stop_reason_text: StopReasonText::new("stop"),
-            token_usage: TokenUsage::new(None, None),
-        });
-        codec
-            .write_body(
-                &mut stream,
-                &FrameBody::new(
-                    output
-                        .encode_signal_frame()
-                        .expect("encode fake guardian output"),
+        let request_payload = request.payloads().head().clone();
+        let reply = match request_payload {
+            SpiritJudgeRequest::JudgeAdmission(_) => {
+                SpiritJudgeReply::AdmissionJudged(AdmissionJudgeResponse::new(
+                    AdmissionJudgeVerdict::Accept,
+                    Self::diagnostic("accepted by process-boundary fake judge"),
+                ))
+            }
+            SpiritJudgeRequest::JudgeReferentRegistration(_) => {
+                SpiritJudgeReply::ReferentRegistrationJudged(
+                    ReferentRegistrationJudgeResponse::new(
+                        ReferentRegistrationJudgeVerdict::Accept,
+                        Self::diagnostic("accepted by process-boundary fake judge"),
+                    ),
+                )
+            }
+        };
+        let reply_frame = SpiritJudgeFrame::with_short_header(
+            ShortHeader::empty(),
+            ExchangeFrameBody::Reply {
+                exchange,
+                reply: Reply::committed(
+                    NonEmpty::try_from_vec(vec![SubReply::Ok(reply)])
+                        .expect("reply list is non-empty"),
                 ),
-            )
-            .expect("write fake guardian output");
-        stream.flush().expect("flush fake guardian output");
+            },
+        );
+        FrameIo::new(stream).write_frame(&reply_frame);
+    }
+
+    fn diagnostic(text: &str) -> JudgeDiagnostic {
+        JudgeDiagnostic::redacted(RedactedText::new(text).expect("diagnostic is non-empty"))
     }
 
     fn socket_path(&self) -> &Path {
         &self.socket_path
+    }
+}
+
+#[cfg(feature = "agent-guardian")]
+struct FrameIo<'stream> {
+    stream: &'stream mut UnixStream,
+}
+
+#[cfg(feature = "agent-guardian")]
+impl<'stream> FrameIo<'stream> {
+    fn new(stream: &'stream mut UnixStream) -> Self {
+        Self { stream }
+    }
+
+    fn read_frame(&mut self) -> SpiritJudgeFrame {
+        let mut prefix = [0_u8; 4];
+        self.stream
+            .read_exact(&mut prefix)
+            .expect("read spirit judge frame prefix");
+        let length = u32::from_be_bytes(prefix) as usize;
+        let mut bytes = Vec::with_capacity(4 + length);
+        bytes.extend_from_slice(&prefix);
+        bytes.resize(4 + length, 0);
+        self.stream
+            .read_exact(&mut bytes[4..])
+            .expect("read spirit judge frame body");
+        SpiritJudgeFrame::decode_length_prefixed(bytes.as_slice())
+            .expect("decode spirit judge frame")
+    }
+
+    fn write_frame(&mut self, frame: &SpiritJudgeFrame) {
+        let bytes = frame
+            .encode_length_prefixed()
+            .expect("encode spirit judge frame");
+        self.stream
+            .write_all(bytes.as_slice())
+            .expect("write spirit judge frame");
+        self.stream.flush().expect("flush spirit judge frame");
     }
 }
 
@@ -175,14 +208,14 @@ impl DaemonProcess {
     }
 
     #[cfg(feature = "agent-guardian")]
-    fn guardian_agent(socket_path: &Path) -> FakeGuardianAgent {
-        FakeGuardianAgent::spawn(socket_path.with_extension("agent.sock"))
+    fn spirit_judge(socket_path: &Path) -> FakeSpiritJudge {
+        FakeSpiritJudge::spawn(socket_path.with_extension("spirit-judge.sock"))
     }
 
     #[cfg(feature = "agent-guardian")]
     fn configuration_with_guardian(
         configuration: Configuration,
-        guardian_agent: &FakeGuardianAgent,
+        spirit_judge: &FakeSpiritJudge,
     ) -> Configuration {
         Configuration::from_raw(
             configuration
@@ -190,7 +223,7 @@ impl DaemonProcess {
                 .clone()
                 .with_guardian_agent_configuration(SpiritGuardianAgentConfiguration::new(
                     ConfigurationPath::new(
-                        guardian_agent.socket_path().to_string_lossy().into_owned(),
+                        spirit_judge.socket_path().to_string_lossy().into_owned(),
                     ),
                     None,
                     None,
@@ -204,11 +237,11 @@ impl DaemonProcess {
         let configuration_path = socket_path.with_extension("config.rkyv");
         let meta_socket_path = Self::meta_socket_path(socket_path);
         #[cfg(feature = "agent-guardian")]
-        let guardian_agent = Self::guardian_agent(socket_path);
+        let spirit_judge = Self::spirit_judge(socket_path);
         let configuration =
             Configuration::new(socket_path, database_path).with_meta_socket_path(&meta_socket_path);
         #[cfg(feature = "agent-guardian")]
-        let configuration = Self::configuration_with_guardian(configuration, &guardian_agent);
+        let configuration = Self::configuration_with_guardian(configuration, &spirit_judge);
         configuration
             .write_binary_file(&configuration_path)
             .expect("write binary daemon configuration");
@@ -219,7 +252,7 @@ impl DaemonProcess {
         let process = Self {
             child,
             #[cfg(feature = "agent-guardian")]
-            _guardian_agent: guardian_agent,
+            _spirit_judge: spirit_judge,
         };
         wait_for_socket(socket_path);
         wait_for_socket(&meta_socket_path);
@@ -230,7 +263,7 @@ impl DaemonProcess {
         let configuration_path = socket_path.with_extension("config.rkyv");
         let meta_socket_path = Self::meta_socket_path(socket_path);
         #[cfg(feature = "agent-guardian")]
-        let guardian_agent = Self::guardian_agent(socket_path);
+        let spirit_judge = Self::spirit_judge(socket_path);
         #[cfg(not(feature = "agent-guardian"))]
         let request = format!(
             "(ConfigurationWriteRequest ({} (Some {}) {} None Gating None {}))",
@@ -245,7 +278,7 @@ impl DaemonProcess {
             nota_path(socket_path),
             nota_path(&meta_socket_path),
             nota_path(database_path),
-            nota_path(guardian_agent.socket_path()),
+            nota_path(spirit_judge.socket_path()),
             nota_path(&configuration_path)
         );
         let output = Command::new(env!("CARGO_BIN_EXE_spirit-write-configuration"))
@@ -270,7 +303,7 @@ impl DaemonProcess {
         let process = Self {
             child,
             #[cfg(feature = "agent-guardian")]
-            _guardian_agent: guardian_agent,
+            _spirit_judge: spirit_judge,
         };
         wait_for_socket(socket_path);
         wait_for_socket(&meta_socket_path);
@@ -286,12 +319,12 @@ impl DaemonProcess {
         let configuration_path = socket_path.with_extension("config.rkyv");
         let meta_socket_path = Self::meta_socket_path(socket_path);
         #[cfg(feature = "agent-guardian")]
-        let guardian_agent = Self::guardian_agent(socket_path);
+        let spirit_judge = Self::spirit_judge(socket_path);
         let configuration =
             Configuration::new_with_trace(socket_path, database_path, trace_socket_path)
                 .with_meta_socket_path(&meta_socket_path);
         #[cfg(feature = "agent-guardian")]
-        let configuration = Self::configuration_with_guardian(configuration, &guardian_agent);
+        let configuration = Self::configuration_with_guardian(configuration, &spirit_judge);
         configuration
             .write_binary_file(&configuration_path)
             .expect("write binary daemon configuration with trace socket");
@@ -302,7 +335,7 @@ impl DaemonProcess {
         let process = Self {
             child,
             #[cfg(feature = "agent-guardian")]
-            _guardian_agent: guardian_agent,
+            _spirit_judge: spirit_judge,
         };
         wait_for_socket(socket_path);
         wait_for_socket(&meta_socket_path);
@@ -311,21 +344,19 @@ impl DaemonProcess {
 }
 
 #[test]
-fn configuration_writer_accepts_guardian_without_output_budget() {
+fn configuration_writer_accepts_judge_socket_without_output_budget() {
     let directory = TempDir::new().expect("tempdir");
     let socket_path = directory.path().join("spirit.sock");
     let meta_socket_path = directory.path().join("meta.sock");
     let database_path = directory.path().join("spirit.sema");
-    let agent_socket_path = directory.path().join("agent.sock");
+    let judge_socket_path = directory.path().join("spirit-judge.sock");
     let configuration_path = directory.path().join("spirit.config.rkyv");
     let request = format!(
-        "(ConfigurationWriteRequest ({} (Some {}) {} None Gating (Some ({} (Some {}) (Some {}) 120000 None)) {}))",
+        "(ConfigurationWriteRequest ({} (Some {}) {} None Gating (Some ({} None None 120000 None)) {}))",
         nota_path(&socket_path),
         nota_path(&meta_socket_path),
         nota_path(&database_path),
-        nota_path(&agent_socket_path),
-        String::from("deepseek").to_nota(),
-        String::from("deepseek-v4-flash").to_nota(),
+        nota_path(&judge_socket_path),
         nota_path(&configuration_path)
     );
 
@@ -344,32 +375,30 @@ fn configuration_writer_accepts_guardian_without_output_budget() {
     let guardian = configuration
         .raw()
         .guardian_agent_configuration()
-        .expect("guardian configuration");
+        .expect("legacy guardian configuration carries judge socket");
     assert_eq!(
         guardian.agent_socket_path(),
-        agent_socket_path.to_string_lossy()
+        judge_socket_path.to_string_lossy()
     );
-    assert_eq!(guardian.provider_name(), Some("deepseek"));
-    assert_eq!(guardian.model_name(), Some("deepseek-v4-flash"));
     assert_eq!(guardian.timeout_milliseconds(), 120_000);
     assert_eq!(guardian.maximum_output_tokens(), None);
 }
 
 #[cfg(feature = "agent-guardian")]
 #[test]
-fn configuration_writer_omitted_guardian_provider_resolves_to_local_openai_compatible_judge() {
+fn configuration_writer_omitted_legacy_provider_stays_unowned_by_daemon_judge() {
     let directory = TempDir::new().expect("tempdir");
     let socket_path = directory.path().join("spirit.sock");
     let meta_socket_path = directory.path().join("meta.sock");
     let database_path = directory.path().join("spirit.sema");
-    let agent_socket_path = directory.path().join("agent.sock");
+    let judge_socket_path = directory.path().join("spirit-judge.sock");
     let configuration_path = directory.path().join("spirit.config.rkyv");
     let request = format!(
         "(ConfigurationWriteRequest ({} (Some {}) {} None Gating (Some ({} None None 180000 None)) {}))",
         nota_path(&socket_path),
         nota_path(&meta_socket_path),
         nota_path(&database_path),
-        nota_path(&agent_socket_path),
+        nota_path(&judge_socket_path),
         nota_path(&configuration_path)
     );
 
@@ -388,40 +417,34 @@ fn configuration_writer_omitted_guardian_provider_resolves_to_local_openai_compa
     let raw_guardian = configuration
         .raw()
         .guardian_agent_configuration()
-        .expect("raw guardian configuration");
+        .expect("raw compatibility configuration");
     assert_eq!(raw_guardian.provider_name(), None);
     assert_eq!(raw_guardian.model_name(), None);
     let judge = configuration
         .guardian_agent_configuration()
-        .expect("resolved judge configuration");
-    assert_eq!(
-        judge.provider_name(),
-        Some(spirit::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_PROVIDER)
-    );
-    assert_eq!(
-        judge.model_name(),
-        Some(spirit::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_MODEL)
-    );
+        .expect("daemon judge configuration");
+    assert_eq!(judge.socket_path(), judge_socket_path.as_path());
+    assert_eq!(judge.provider_name(), None);
+    assert_eq!(judge.model_name(), None);
 }
 
 #[cfg(feature = "agent-guardian")]
 #[test]
-fn configuration_writer_accepts_local_openai_compatible_guardian() {
+fn legacy_provider_model_fields_are_ignored_by_daemon_judge_configuration() {
     let directory = TempDir::new().expect("tempdir");
     let socket_path = directory.path().join("spirit.sock");
     let meta_socket_path = directory.path().join("meta.sock");
     let database_path = directory.path().join("spirit.sema");
-    let agent_socket_path = directory.path().join("agent.sock");
+    let judge_socket_path = directory.path().join("spirit-judge.sock");
     let configuration_path = directory.path().join("spirit.config.rkyv");
     let request = format!(
         "(ConfigurationWriteRequest ({} (Some {}) {} None Gating (Some ({} (Some {}) (Some {}) 180000 None)) {}))",
         nota_path(&socket_path),
         nota_path(&meta_socket_path),
         nota_path(&database_path),
-        nota_path(&agent_socket_path),
-        String::from(spirit::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_PROVIDER)
-            .to_nota(),
-        String::from(spirit::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_MODEL).to_nota(),
+        nota_path(&judge_socket_path),
+        String::from("legacy-provider").to_nota(),
+        String::from("legacy-model").to_nota(),
         nota_path(&configuration_path)
     );
 
@@ -437,24 +460,19 @@ fn configuration_writer_accepts_local_openai_compatible_guardian() {
     );
     let configuration =
         Configuration::from_binary_path(&configuration_path).expect("decode binary config");
-    let guardian = configuration
+    let raw_guardian = configuration
         .raw()
         .guardian_agent_configuration()
-        .expect("guardian configuration");
-    assert_eq!(
-        guardian.agent_socket_path(),
-        agent_socket_path.to_string_lossy()
-    );
-    assert_eq!(
-        guardian.provider_name(),
-        Some(spirit::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_PROVIDER)
-    );
-    assert_eq!(
-        guardian.model_name(),
-        Some(spirit::AgentGuardianConfiguration::LOCAL_OPENAI_COMPATIBLE_MODEL)
-    );
-    assert_eq!(guardian.timeout_milliseconds(), 180_000);
-    assert_eq!(guardian.maximum_output_tokens(), None);
+        .expect("raw compatibility configuration");
+    assert_eq!(raw_guardian.provider_name(), Some("legacy-provider"));
+    assert_eq!(raw_guardian.model_name(), Some("legacy-model"));
+    let judge = configuration
+        .guardian_agent_configuration()
+        .expect("daemon judge configuration");
+    assert_eq!(judge.socket_path(), judge_socket_path.as_path());
+    assert_eq!(judge.provider_name(), None);
+    assert_eq!(judge.model_name(), None);
+    assert_eq!(judge.timeout().as_millis(), 180_000);
 }
 
 #[test]
@@ -999,7 +1017,7 @@ fn cli_subscription_receives_matching_intent_events_without_blocking_daemon() {
         Output::Event(IntentEvent::IntentRecorded(recorded)) => {
             assert_eq!(
                 recorded.entry.domains,
-                domain_fixtures::domains(&["relating"])
+                Domains::new(vec![Domain::Kinship(Kinship::Rapport)])
             );
             assert_eq!(recorded.entry.kind, Kind::Decision);
             assert_eq!(
@@ -1041,7 +1059,7 @@ fn cli_and_daemon_classify_state_into_provisional_record() {
         stashed.observed_records.payload().payload()[0]
             .entry
             .domains,
-        domain_fixtures::domains(&["meaning"])
+        domain_fixtures::domains(&["documentation"])
     );
     assert_eq!(
         stashed.observed_records.payload().payload()[0].entry.kind,
@@ -1076,7 +1094,7 @@ fn cli_and_daemon_classify_state_into_provisional_record() {
             assert_eq!(records.payload().payload().len(), 1);
             assert_eq!(
                 records.payload().payload()[0].entry.domains,
-                domain_fixtures::domains(&["meaning"])
+                domain_fixtures::domains(&["documentation"])
             );
             assert_eq!(
                 records.payload().payload()[0].entry.kind,
@@ -1223,7 +1241,10 @@ fn cli_and_daemon_change_record_replaces_entry_under_same_identifier() {
     match found {
         Output::RecordFound(record) => {
             assert_eq!(record.record_identifier, record_identifier);
-            assert_eq!(record.entry.domains, domain_fixtures::domains(&["meaning"]));
+            assert_eq!(
+                record.entry.domains,
+                domain_fixtures::domains(&["documentation"])
+            );
             assert_eq!(record.entry.kind, Kind::Correction);
             assert_eq!(record.entry.description.payload(), "replacement record");
             assert_eq!(record.entry.certainty, Magnitude::High);

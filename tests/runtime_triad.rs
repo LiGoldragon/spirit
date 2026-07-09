@@ -46,9 +46,12 @@ use {
 
 #[cfg(feature = "agent-guardian")]
 use {
-    signal_agent::{
-        Completion, CompletionText, Input as AgentInput, Output as AgentOutput, StopReasonText,
-        TokenUsage,
+    signal_frame::{ExchangeFrameBody, NonEmpty, Reply, ShortHeader as JudgeShortHeader, SubReply},
+    signal_spirit_judge::{
+        AdmissionJudgePacket, AdmissionJudgeResponse, AdmissionJudgeVerdict,
+        AdmissionRejectionReason, JudgeDiagnostic, RedactedText, ReferentRegistrationJudgeResponse,
+        ReferentRegistrationJudgeVerdict, ReferentRegistrationRejectionReason, SpiritJudgeFrame,
+        SpiritJudgeReply, SpiritJudgeRequest,
     },
     spirit::{
         AgentGuardian, AgentGuardianConfiguration,
@@ -56,13 +59,12 @@ use {
         schema::signal::ReferentGuardianRejectionReason,
     },
     std::{
-        io::Write,
+        io::{Read, Write},
         os::unix::net::{UnixListener, UnixStream},
         sync::{Arc, Mutex},
         thread,
         time::Duration,
     },
-    triad_runtime::{FrameBody, LengthPrefixedCodec},
 };
 
 struct SemaFile {
@@ -112,97 +114,204 @@ struct FakeCriomeAuthorizationSocket {
 }
 
 #[cfg(feature = "agent-guardian")]
-struct FakeGuardianAgent {
+struct FakeSpiritJudge {
     _directory: TempDir,
     socket_path: std::path::PathBuf,
-    captured_prompts: Arc<Mutex<Vec<String>>>,
+    captured_requests: Arc<Mutex<Vec<SpiritJudgeRequest>>>,
     thread: thread::JoinHandle<()>,
 }
 
 #[cfg(feature = "agent-guardian")]
-impl FakeGuardianAgent {
+impl FakeSpiritJudge {
     fn spawn(verdict: GuardianVerdict) -> Self {
-        Self::spawn_texts(vec![verdict.to_nota()])
+        Self::spawn_replies(vec![Self::admission_reply(verdict)])
     }
 
     fn spawn_many(verdicts: Vec<GuardianVerdict>) -> Self {
-        Self::spawn_texts(
-            verdicts
-                .into_iter()
-                .map(|verdict| verdict.to_nota())
-                .collect(),
-        )
+        Self::spawn_replies(verdicts.into_iter().map(Self::admission_reply).collect())
     }
 
     fn spawn_referent(verdict: ReferentGuardianVerdict) -> Self {
-        Self::spawn_texts(vec![verdict.to_nota()])
+        Self::spawn_replies(vec![Self::referent_reply(verdict)])
     }
 
-    fn spawn_texts(replies: Vec<String>) -> Self {
-        Self::spawn_texts_with_capture(replies, Arc::new(Mutex::new(Vec::new())))
-    }
-
-    fn spawn_texts_with_capture(
-        replies: Vec<String>,
-        captured_prompts: Arc<Mutex<Vec<String>>>,
-    ) -> Self {
-        let directory = TempDir::new().expect("agent tempdir");
-        let socket_path = directory.path().join("agent.sock");
-        let listener = UnixListener::bind(&socket_path).expect("bind fake agent socket");
-        let thread_captured_prompts = Arc::clone(&captured_prompts);
+    fn spawn_replies(replies: Vec<SpiritJudgeReply>) -> Self {
+        let directory = TempDir::new().expect("judge tempdir");
+        let socket_path = directory.path().join("spirit-judge.sock");
+        let listener = UnixListener::bind(&socket_path).expect("bind fake spirit judge socket");
+        let captured_requests = Arc::new(Mutex::new(Vec::new()));
+        let thread_captured_requests = Arc::clone(&captured_requests);
         let thread = thread::spawn(move || {
-            for reply in replies {
-                let (stream, _) = listener.accept().expect("accept agent call");
-                Self::answer(stream, reply, &thread_captured_prompts);
+            let mut replies = std::collections::VecDeque::from(replies);
+            while !replies.is_empty() {
+                let (mut stream, _) = listener.accept().expect("accept spirit judge call");
+                let request_frame = FrameIo::new(&mut stream).read_frame();
+                let ExchangeFrameBody::Request { exchange, request } = request_frame.into_body()
+                else {
+                    panic!("expected spirit judge request frame");
+                };
+                let request_payload = request.payloads().head().clone();
+                let reply = Self::reply_for_request(&request_payload, &mut replies);
+                thread_captured_requests
+                    .lock()
+                    .expect("capture judge requests")
+                    .push(request_payload);
+                let reply_frame = SpiritJudgeFrame::with_short_header(
+                    JudgeShortHeader::empty(),
+                    ExchangeFrameBody::Reply {
+                        exchange,
+                        reply: Reply::committed(
+                            NonEmpty::try_from_vec(vec![SubReply::Ok(reply)])
+                                .expect("reply list is non-empty"),
+                        ),
+                    },
+                );
+                FrameIo::new(&mut stream).write_frame(&reply_frame);
             }
         });
         Self {
             _directory: directory,
             socket_path,
-            captured_prompts,
+            captured_requests,
             thread,
         }
     }
 
-    fn answer(mut stream: UnixStream, reply: String, captured_prompts: &Arc<Mutex<Vec<String>>>) {
-        let codec = LengthPrefixedCodec::default();
-        let request = codec
-            .read_body(&mut stream)
-            .expect("read agent request")
-            .into_bytes();
-        let (_route, input) =
-            AgentInput::decode_signal_frame(&request).expect("decode agent input");
-        let AgentInput::Call(call) = input else {
-            panic!("expected Call input, got {input:?}");
+    fn admission_reply(verdict: GuardianVerdict) -> SpiritJudgeReply {
+        let (verdict, diagnostic) = match verdict {
+            GuardianVerdict::Accept => (
+                AdmissionJudgeVerdict::Accept,
+                Self::diagnostic("accepted by typed fake judge"),
+            ),
+            GuardianVerdict::Reject(rejection) => (
+                AdmissionJudgeVerdict::Reject(Self::admission_rejection_reason(
+                    &rejection.guardian_rejection_reason,
+                )),
+                Self::diagnostic(rejection.explanation.payload()),
+            ),
         };
-        assert!(
-            call.payload().chat_transcript().payload()[0]
-                .user_text
-                .payload()
-                .contains("Operation:")
-        );
-        captured_prompts.lock().expect("capture prompts").push(
-            call.payload().chat_transcript().payload()[0]
-                .user_text
-                .payload()
-                .clone(),
-        );
-        assert_eq!(
-            call.payload().prompt_options().maximum_output_tokens(),
-            None
-        );
-        let output = AgentOutput::completed(Completion {
-            completion_text: CompletionText::new(reply),
-            stop_reason_text: StopReasonText::new("stop"),
-            token_usage: TokenUsage::new(None, None),
-        });
-        codec
-            .write_body(
-                &mut stream,
-                &FrameBody::new(output.encode_signal_frame().expect("encode agent output")),
-            )
-            .expect("write agent output");
-        stream.flush().expect("flush agent output");
+        SpiritJudgeReply::AdmissionJudged(AdmissionJudgeResponse::new(verdict, diagnostic))
+    }
+
+    fn referent_reply(verdict: ReferentGuardianVerdict) -> SpiritJudgeReply {
+        let (verdict, diagnostic) = match verdict {
+            ReferentGuardianVerdict::Accept => (
+                ReferentRegistrationJudgeVerdict::Accept,
+                Self::diagnostic("accepted by typed fake judge"),
+            ),
+            ReferentGuardianVerdict::RejectReferent(rejection) => (
+                ReferentRegistrationJudgeVerdict::RejectReferent(Self::referent_rejection_reason(
+                    &rejection.referent_guardian_rejection_reason,
+                )),
+                Self::diagnostic(rejection.explanation.payload()),
+            ),
+        };
+        SpiritJudgeReply::ReferentRegistrationJudged(ReferentRegistrationJudgeResponse::new(
+            verdict, diagnostic,
+        ))
+    }
+
+    fn diagnostic(text: &str) -> JudgeDiagnostic {
+        JudgeDiagnostic::redacted(
+            RedactedText::new(if text.is_empty() {
+                "typed judge reply"
+            } else {
+                text
+            })
+            .expect("diagnostic text is non-empty"),
+        )
+    }
+
+    fn admission_rejection_reason(reason: &GuardianRejectionReason) -> AdmissionRejectionReason {
+        match reason {
+            GuardianRejectionReason::Duplicate => AdmissionRejectionReason::Duplicate,
+            GuardianRejectionReason::Contradiction => AdmissionRejectionReason::Contradiction,
+            GuardianRejectionReason::Compound => AdmissionRejectionReason::Compound,
+            GuardianRejectionReason::NonIntent => AdmissionRejectionReason::NonIntent,
+            GuardianRejectionReason::NegativeGuideline => {
+                AdmissionRejectionReason::NegativeGuideline
+            }
+            GuardianRejectionReason::Matter => AdmissionRejectionReason::Matter,
+            GuardianRejectionReason::UnclearPrivacy => AdmissionRejectionReason::UnclearPrivacy,
+            GuardianRejectionReason::UnclearDomain => AdmissionRejectionReason::UnclearDomain,
+            GuardianRejectionReason::ClarifyTramples => AdmissionRejectionReason::ClarifyTramples,
+            GuardianRejectionReason::ClarifyLosesMeaning => {
+                AdmissionRejectionReason::ClarifyLosesMeaning
+            }
+            GuardianRejectionReason::SupersedeTargetMissing => {
+                AdmissionRejectionReason::SupersedeTargetMissing
+            }
+            GuardianRejectionReason::RetrievalInsufficient => {
+                AdmissionRejectionReason::RetrievalInsufficient
+            }
+            GuardianRejectionReason::MissingTestimony => AdmissionRejectionReason::MissingTestimony,
+            GuardianRejectionReason::TestimonyFabricated => {
+                AdmissionRejectionReason::TestimonyFabricated
+            }
+            GuardianRejectionReason::InsufficientWarrant => {
+                AdmissionRejectionReason::InsufficientWarrant
+            }
+            GuardianRejectionReason::Overstated => AdmissionRejectionReason::Overstated,
+            GuardianRejectionReason::ImportanceUnsupported => {
+                AdmissionRejectionReason::ImportanceUnsupported
+            }
+            GuardianRejectionReason::HarnessUnavailable => {
+                AdmissionRejectionReason::JudgeUnavailable
+            }
+            GuardianRejectionReason::HarnessMalformed => AdmissionRejectionReason::JudgeMalformed,
+            GuardianRejectionReason::HarnessTimedOut => AdmissionRejectionReason::JudgeTimedOut,
+        }
+    }
+
+    fn referent_rejection_reason(
+        reason: &ReferentGuardianRejectionReason,
+    ) -> ReferentRegistrationRejectionReason {
+        match reason {
+            ReferentGuardianRejectionReason::Duplicate => {
+                ReferentRegistrationRejectionReason::Duplicate
+            }
+            ReferentGuardianRejectionReason::Ambiguous => {
+                ReferentRegistrationRejectionReason::Ambiguous
+            }
+            ReferentGuardianRejectionReason::TooVague => {
+                ReferentRegistrationRejectionReason::TooVague
+            }
+            ReferentGuardianRejectionReason::AliasCollision => {
+                ReferentRegistrationRejectionReason::AliasCollision
+            }
+            ReferentGuardianRejectionReason::NonReferent => {
+                ReferentRegistrationRejectionReason::NonReferent
+            }
+            ReferentGuardianRejectionReason::UnclearJustification => {
+                ReferentRegistrationRejectionReason::UnclearJustification
+            }
+            ReferentGuardianRejectionReason::HarnessUnavailable => {
+                ReferentRegistrationRejectionReason::JudgeUnavailable
+            }
+            ReferentGuardianRejectionReason::HarnessMalformed => {
+                ReferentRegistrationRejectionReason::JudgeMalformed
+            }
+            ReferentGuardianRejectionReason::HarnessTimedOut => {
+                ReferentRegistrationRejectionReason::JudgeTimedOut
+            }
+        }
+    }
+
+    fn reply_for_request(
+        request: &SpiritJudgeRequest,
+        replies: &mut std::collections::VecDeque<SpiritJudgeReply>,
+    ) -> SpiritJudgeReply {
+        match (request, replies.front()) {
+            (SpiritJudgeRequest::JudgeAdmission(_), Some(SpiritJudgeReply::AdmissionJudged(_)))
+            | (
+                SpiritJudgeRequest::JudgeReferentRegistration(_),
+                Some(SpiritJudgeReply::ReferentRegistrationJudged(_)),
+            ) => replies.pop_front().expect("front reply exists"),
+            (SpiritJudgeRequest::JudgeReferentRegistration(_), _) => {
+                Self::referent_reply(ReferentGuardianVerdict::Accept)
+            }
+            other => panic!("fake judge reply does not match request kind: {other:?}"),
+        }
     }
 
     fn guardian(&self) -> AgentGuardian {
@@ -215,16 +324,64 @@ impl FakeGuardianAgent {
         ))
     }
 
-    fn join(self) {
-        self.thread.join().expect("fake agent joins");
-    }
-
-    fn captured_prompts(&self) -> Vec<String> {
-        self.captured_prompts
+    fn join(self) -> Vec<SpiritJudgeRequest> {
+        self.thread.join().expect("fake spirit judge joins");
+        self.captured_requests
             .lock()
-            .expect("read captured prompts")
+            .expect("read captured judge requests")
             .clone()
     }
+}
+
+#[cfg(feature = "agent-guardian")]
+struct FrameIo<'stream> {
+    stream: &'stream mut UnixStream,
+}
+
+#[cfg(feature = "agent-guardian")]
+impl<'stream> FrameIo<'stream> {
+    fn new(stream: &'stream mut UnixStream) -> Self {
+        Self { stream }
+    }
+
+    fn read_frame(&mut self) -> SpiritJudgeFrame {
+        let mut prefix = [0_u8; 4];
+        self.stream
+            .read_exact(&mut prefix)
+            .expect("read judge frame prefix");
+        let length = u32::from_be_bytes(prefix) as usize;
+        let mut bytes = Vec::with_capacity(4 + length);
+        bytes.extend_from_slice(&prefix);
+        bytes.resize(4 + length, 0);
+        self.stream
+            .read_exact(&mut bytes[4..])
+            .expect("read judge frame body");
+        SpiritJudgeFrame::decode_length_prefixed(bytes.as_slice()).expect("decode judge frame")
+    }
+
+    fn write_frame(&mut self, frame: &SpiritJudgeFrame) {
+        let bytes = frame.encode_length_prefixed().expect("encode judge frame");
+        self.stream
+            .write_all(bytes.as_slice())
+            .expect("write judge frame");
+        self.stream.flush().expect("flush judge frame");
+    }
+}
+
+#[cfg(feature = "agent-guardian")]
+fn only_admission_packet(requests: &[SpiritJudgeRequest]) -> &AdmissionJudgePacket {
+    assert_eq!(
+        requests.len(),
+        1,
+        "expected exactly one typed admission judge request"
+    );
+    let SpiritJudgeRequest::JudgeAdmission(packet) = &requests[0] else {
+        panic!(
+            "expected typed admission judge request, got {:?}",
+            requests[0]
+        );
+    };
+    packet
 }
 
 #[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
@@ -337,7 +494,7 @@ fn entry_with_domains(domains: &[&str], description: &str) -> Entry {
     }
 }
 
-#[cfg(all(feature = "agent-guardian", feature = "mirror-shipper"))]
+#[cfg(feature = "agent-guardian")]
 fn entry_without_referents(description: &str) -> Entry {
     Entry {
         domains: domains_from_slice(&["runtime-triad"]),
@@ -1240,10 +1397,12 @@ fn signal_write_operations_propose_clarify_supersede_and_retire() {
 #[test]
 fn agent_guardian_accept_verdict_admits_proposal() {
     let sema = SemaFile::new();
-    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::Accept);
+    let fake_agent = FakeSpiritJudge::spawn(GuardianVerdict::Accept);
     let mut engine = sema.engine_with_guardian(fake_agent.guardian());
 
-    let output = engine.handle(input_propose(entry("model accepted forward arrow")));
+    let output = engine.handle(input_propose(entry_without_referents(
+        "model accepted forward arrow",
+    )));
 
     assert!(matches!(output.root(), Output::Proposed(_)));
     assert_eq!(engine.record_count(), 1);
@@ -1255,13 +1414,15 @@ fn agent_guardian_accept_verdict_admits_proposal() {
 #[test]
 fn agent_guardian_reject_verdict_blocks_proposal() {
     let sema = SemaFile::new();
-    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::reject(Reject {
+    let fake_agent = FakeSpiritJudge::spawn(GuardianVerdict::reject(Reject {
         guardian_rejection_reason: GuardianRejectionReason::NonIntent,
         explanation: spirit::schema::signal::Explanation::new("not settled intent"),
     }));
     let mut engine = sema.engine_with_guardian(fake_agent.guardian());
 
-    let output = engine.handle(input_propose(entry("model rejected forward arrow")));
+    let output = engine.handle(input_propose(entry_without_referents(
+        "model rejected forward arrow",
+    )));
 
     match output.root() {
         Output::GuardianRejected(rejection) => {
@@ -1285,7 +1446,7 @@ fn agent_guardian_reject_verdict_blocks_proposal() {
 #[test]
 fn guardian_rejection_does_not_contact_criome_operation_authorizer() {
     let sema = SemaFile::new();
-    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::reject(Reject {
+    let fake_agent = FakeSpiritJudge::spawn(GuardianVerdict::reject(Reject {
         guardian_rejection_reason: GuardianRejectionReason::NonIntent,
         explanation: spirit::schema::signal::Explanation::new("not settled intent"),
     }));
@@ -1318,7 +1479,7 @@ fn guardian_rejection_does_not_contact_criome_operation_authorizer() {
 #[test]
 fn guardian_acceptance_sends_spirit_context_to_criome_before_write() {
     let sema = SemaFile::new();
-    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::Accept);
+    let fake_agent = FakeSpiritJudge::spawn(GuardianVerdict::Accept);
     let fake_criome = FakeCriomeAuthorizationSocket::spawn_pending();
     let mut engine = sema.engine_with_guardian(fake_agent.guardian());
     let configured = engine.configure(ConfigureRequest::new(
@@ -1374,13 +1535,15 @@ fn guardian_acceptance_sends_spirit_context_to_criome_before_write() {
 #[test]
 fn agent_guardian_reject_verdict_blocks_record() {
     let sema = SemaFile::new();
-    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::reject(Reject {
+    let fake_agent = FakeSpiritJudge::spawn(GuardianVerdict::reject(Reject {
         guardian_rejection_reason: GuardianRejectionReason::NonIntent,
         explanation: spirit::schema::signal::Explanation::new("not durable intent"),
     }));
     let mut engine = sema.engine_with_guardian(fake_agent.guardian());
 
-    let output = engine.handle(input_record(entry("raw record should still be guarded")));
+    let output = engine.handle(input_record(entry_without_referents(
+        "raw record should still be guarded",
+    )));
 
     assert!(matches!(output.root(), Output::GuardianRejected(_)));
     assert_eq!(engine.record_count(), 0);
@@ -1395,7 +1558,9 @@ fn required_guardian_rejects_writes_when_unconfigured() {
     let mut engine = sema.engine();
     engine.require_guardian();
 
-    let output = engine.handle(input_record(entry("unguarded write should fail closed")));
+    let output = engine.handle(input_record(entry_without_referents(
+        "unguarded write should fail closed",
+    )));
 
     match output.root() {
         Output::GuardianRejected(rejection) => {
@@ -1500,7 +1665,7 @@ fn agent_guardian_duplicate_rejection_bumps_importance() {
         other => panic!("expected setup Proposed, got {other:?}"),
     };
     drop(setup_engine);
-    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::reject(Reject {
+    let fake_agent = FakeSpiritJudge::spawn(GuardianVerdict::reject(Reject {
         guardian_rejection_reason: GuardianRejectionReason::Duplicate,
         explanation: spirit::schema::signal::Explanation::new("same arrow already exists"),
     }));
@@ -1533,7 +1698,7 @@ fn agent_guardian_duplicate_rejection_bumps_importance() {
 
 #[cfg(feature = "agent-guardian")]
 #[test]
-fn agent_guardian_prompt_bundle_includes_equivalent_domain_records() {
+fn agent_guardian_typed_packet_includes_equivalent_domain_records() {
     let sema = SemaFile::new();
     let mut setup_engine = sema.engine();
     assert!(matches!(
@@ -1547,7 +1712,7 @@ fn agent_guardian_prompt_bundle_includes_equivalent_domain_records() {
     ));
     drop(setup_engine);
 
-    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::Accept);
+    let fake_agent = FakeSpiritJudge::spawn(GuardianVerdict::Accept);
     let mut engine = sema.engine_with_guardian(fake_agent.guardian());
     let output = engine.handle(input_propose(entry_with_domain(
         Domain::Technology(Technology::Software(Software::Data(DataLeaf::All))),
@@ -1555,32 +1720,36 @@ fn agent_guardian_prompt_bundle_includes_equivalent_domain_records() {
     )));
 
     assert!(matches!(output.root(), Output::Proposed(_)));
-    let prompts = fake_agent.captured_prompts();
-    assert_eq!(prompts.len(), 1);
+    let requests = fake_agent.join();
+    let packet = only_admission_packet(&requests);
     assert!(
-        prompts[0].contains("database-live"),
-        "guardian prompt should include the equivalent information-database record: {}",
-        prompts[0]
+        packet.records.payload().iter().any(|record| {
+            record.entry.description.payload() == "database-live"
+                && record
+                    .entry
+                    .domains
+                    .payload()
+                    .contains(&Domain::Information(Information::Database))
+        }),
+        "typed judge packet should include the equivalent information-database record: {:?}",
+        packet.records
     );
-    assert!(
-        prompts[0].contains("(Information Database)"),
-        "guardian prompt should preserve the equivalent record's enum domain: {}",
-        prompts[0]
-    );
-    fake_agent.join();
 }
 
 #[cfg(feature = "agent-guardian")]
 #[test]
-fn agent_guardian_prompt_bundle_excludes_unmatched_live_records() {
+fn agent_guardian_typed_packet_excludes_unmatched_live_records() {
     let sema = SemaFile::new();
     let mut setup_engine = sema.engine();
     assert!(matches!(
         setup_engine
-            .handle(input_record(entry_with_domain(
-                Domain::Health(spirit::schema::signal::Health::Medicine),
-                "same-kind-only-live",
-            )))
+            .handle(input_record(Entry {
+                domains: Domains::new(vec![Domain::Health(
+                    spirit::schema::signal::Health::Medicine,
+                )]),
+                referents: referents_from_slice(&["medicine"]),
+                ..entry("same-kind-only-live")
+            }))
             .root(),
         Output::RecordAccepted(_)
     ));
@@ -1597,7 +1766,7 @@ fn agent_guardian_prompt_bundle_excludes_unmatched_live_records() {
     ));
     drop(setup_engine);
 
-    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::Accept);
+    let fake_agent = FakeSpiritJudge::spawn(GuardianVerdict::Accept);
     let mut engine = sema.engine_with_guardian(fake_agent.guardian());
     let output = engine.handle(input_propose(entry_with_domain(
         Domain::Technology(Technology::Software(Software::Security(
@@ -1607,24 +1776,31 @@ fn agent_guardian_prompt_bundle_excludes_unmatched_live_records() {
     )));
 
     assert!(matches!(output.root(), Output::Proposed(_)));
-    let prompts = fake_agent.captured_prompts();
-    assert_eq!(prompts.len(), 1);
+    let requests = fake_agent.join();
+    let packet = only_admission_packet(&requests);
     assert!(
-        prompts[0].contains("authorization-live"),
-        "guardian prompt should include domain-relevant records: {}",
-        prompts[0]
+        packet
+            .records
+            .payload()
+            .iter()
+            .any(|record| record.entry.description.payload() == "authorization-live"),
+        "typed judge packet should include domain-relevant records: {:?}",
+        packet.records
     );
     assert!(
-        !prompts[0].contains("same-kind-only-live"),
-        "guardian prompt should exclude records outside the domain/referent neighborhood: {}",
-        prompts[0]
+        !packet
+            .records
+            .payload()
+            .iter()
+            .any(|record| record.entry.description.payload() == "same-kind-only-live"),
+        "typed judge packet should exclude records outside the domain/referent neighborhood: {:?}",
+        packet.records
     );
-    fake_agent.join();
 }
 
 #[cfg(feature = "agent-guardian")]
 #[test]
-fn agent_guardian_prompt_bundle_stays_bounded_as_corpus_grows() {
+fn agent_guardian_typed_packet_stays_bounded_as_corpus_grows() {
     let sema = SemaFile::new();
     let mut setup_engine = sema.engine();
     assert!(matches!(
@@ -1670,7 +1846,7 @@ fn agent_guardian_prompt_bundle_stays_bounded_as_corpus_grows() {
     ));
     drop(setup_engine);
 
-    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::Accept);
+    let fake_agent = FakeSpiritJudge::spawn(GuardianVerdict::Accept);
     let mut engine = sema.engine_with_guardian(fake_agent.guardian());
     let output = engine.handle(input_propose(Entry {
         domains: Domains::new(vec![Domain::Technology(Technology::Software(
@@ -1681,25 +1857,41 @@ fn agent_guardian_prompt_bundle_stays_bounded_as_corpus_grows() {
     }));
 
     assert!(matches!(output.root(), Output::Proposed(_)));
-    let prompts = fake_agent.captured_prompts();
-    assert_eq!(prompts.len(), 1);
+    let requests = fake_agent.join();
+    let packet = only_admission_packet(&requests);
     assert_eq!(
-        prompts[0].matches("guardian-unrelated-live-").count(),
+        packet
+            .records
+            .payload()
+            .iter()
+            .filter(|record| record
+                .entry
+                .description
+                .payload()
+                .starts_with("guardian-unrelated-live-"))
+            .count(),
         0,
-        "guardian prompt should not scale with unrelated corpus size: {}",
-        prompts[0]
+        "typed judge packet should not scale with unrelated corpus size: {:?}",
+        packet.records
     );
     assert!(
-        prompts[0].contains("guardian-domain-neighbor-live"),
-        "guardian prompt should include exact-domain neighbors: {}",
-        prompts[0]
+        packet
+            .records
+            .payload()
+            .iter()
+            .any(|record| record.entry.description.payload() == "guardian-domain-neighbor-live"),
+        "typed judge packet should include exact-domain neighbors: {:?}",
+        packet.records
     );
     assert!(
-        prompts[0].contains("guardian-referent-neighbor-live"),
-        "guardian prompt should include shared-referent neighbors: {}",
-        prompts[0]
+        packet
+            .records
+            .payload()
+            .iter()
+            .any(|record| record.entry.description.payload() == "guardian-referent-neighbor-live"),
+        "typed judge packet should include shared-referent neighbors: {:?}",
+        packet.records
     );
-    fake_agent.join();
 }
 
 #[cfg(feature = "agent-guardian")]
@@ -1715,7 +1907,7 @@ fn agent_guardian_reject_verdict_blocks_clarify_supersede_and_retire() {
         other => panic!("expected setup RecordAccepted, got {other:?}"),
     };
     drop(setup_engine);
-    let fake_agent = FakeGuardianAgent::spawn_many(vec![
+    let fake_agent = FakeSpiritJudge::spawn_many(vec![
         GuardianVerdict::reject(Reject {
             guardian_rejection_reason: GuardianRejectionReason::ClarifyTramples,
             explanation: spirit::schema::signal::Explanation::new("changes the arrow"),
@@ -1762,7 +1954,7 @@ fn agent_guardian_reject_verdict_blocks_clarify_supersede_and_retire() {
 #[test]
 fn agent_guardian_accept_verdict_admits_referent_registration() {
     let sema = SemaFile::new();
-    let fake_agent = FakeGuardianAgent::spawn_referent(ReferentGuardianVerdict::Accept);
+    let fake_agent = FakeSpiritJudge::spawn_referent(ReferentGuardianVerdict::Accept);
     let mut engine = sema.engine_with_guardian(fake_agent.guardian());
 
     let output = engine.handle(input_register_referent("schema", &["schema-alias"]));
@@ -1781,12 +1973,11 @@ fn agent_guardian_accept_verdict_admits_referent_registration() {
 #[test]
 fn agent_guardian_reject_verdict_blocks_referent_registration() {
     let sema = SemaFile::new();
-    let fake_agent = FakeGuardianAgent::spawn_referent(ReferentGuardianVerdict::reject_referent(
-        RejectReferent {
+    let fake_agent =
+        FakeSpiritJudge::spawn_referent(ReferentGuardianVerdict::reject_referent(RejectReferent {
             referent_guardian_rejection_reason: ReferentGuardianRejectionReason::TooVague,
             explanation: spirit::schema::signal::Explanation::new("not a concrete referent"),
-        },
-    ));
+        }));
     let mut engine = sema.engine_with_guardian(fake_agent.guardian());
 
     let output = engine.handle(input_register_referent("thing", &[]));
@@ -1812,12 +2003,11 @@ fn agent_guardian_reject_verdict_blocks_referent_registration() {
 #[test]
 fn agent_guardian_reject_verdict_blocks_embedded_referent_registration() {
     let sema = SemaFile::new();
-    let fake_agent = FakeGuardianAgent::spawn_referent(ReferentGuardianVerdict::reject_referent(
-        RejectReferent {
+    let fake_agent =
+        FakeSpiritJudge::spawn_referent(ReferentGuardianVerdict::reject_referent(RejectReferent {
             referent_guardian_rejection_reason: ReferentGuardianRejectionReason::TooVague,
             explanation: spirit::schema::signal::Explanation::new("not a concrete referent"),
-        },
-    ));
+        }));
     let mut engine = sema.engine_with_guardian(fake_agent.guardian());
 
     let output = engine.handle(input_record(entry_with_referents(
@@ -1843,9 +2033,9 @@ fn agent_guardian_reject_verdict_blocks_embedded_referent_registration() {
 #[test]
 fn agent_guardian_accepts_embedded_referent_before_guarding_record() {
     let sema = SemaFile::new();
-    let fake_agent = FakeGuardianAgent::spawn_texts(vec![
-        ReferentGuardianVerdict::Accept.to_nota(),
-        GuardianVerdict::Accept.to_nota(),
+    let fake_agent = FakeSpiritJudge::spawn_replies(vec![
+        FakeSpiritJudge::referent_reply(ReferentGuardianVerdict::Accept),
+        FakeSpiritJudge::admission_reply(GuardianVerdict::Accept),
     ]);
     let mut engine = sema.engine_with_guardian(fake_agent.guardian());
 
@@ -1865,49 +2055,18 @@ fn agent_guardian_accepts_embedded_referent_before_guarding_record() {
 
 #[cfg(feature = "agent-guardian")]
 #[test]
-fn agent_guardian_repairs_malformed_verdict_shape() {
-    let sema = SemaFile::new();
-    let fake_agent = FakeGuardianAgent::spawn_texts(vec![
-        "(Reject NonIntent [flat rejection is not the generated verdict shape])".to_owned(),
-        GuardianVerdict::reject(Reject {
-            guardian_rejection_reason: GuardianRejectionReason::NonIntent,
-            explanation: spirit::schema::signal::Explanation::new("not settled intent"),
-        })
-        .to_nota(),
-    ]);
-    let mut engine = sema.engine_with_guardian(fake_agent.guardian());
-
-    let output = engine.handle(input_propose(entry("model repairs malformed verdict")));
-
-    match output.root() {
-        Output::GuardianRejected(rejection) => {
-            assert_eq!(
-                rejection.payload().guardian_rejection_reason,
-                GuardianRejectionReason::NonIntent
-            );
-            assert_eq!(
-                rejection.payload().explanation.payload(),
-                "not settled intent"
-            );
-        }
-        other => panic!("expected repaired GuardianRejected, got {other:?}"),
-    }
-    assert_eq!(engine.record_count(), 0);
-    fake_agent.join();
-}
-
-#[cfg(feature = "agent-guardian")]
-#[test]
 fn agent_guardian_preserves_large_rejection_explanation() {
     let sema = SemaFile::new();
     let explanation = vec!["This rejection explanation is intentionally long."; 300].join(" ");
-    let fake_agent = FakeGuardianAgent::spawn(GuardianVerdict::reject(Reject {
+    let fake_agent = FakeSpiritJudge::spawn(GuardianVerdict::reject(Reject {
         guardian_rejection_reason: GuardianRejectionReason::Contradiction,
         explanation: spirit::schema::signal::Explanation::new(explanation.clone()),
     }));
     let mut engine = sema.engine_with_guardian(fake_agent.guardian());
 
-    let output = engine.handle(input_propose(entry("model provides a long explanation")));
+    let output = engine.handle(input_propose(entry_without_referents(
+        "model provides a long explanation",
+    )));
 
     match output.root() {
         Output::GuardianRejected(rejection) => {
