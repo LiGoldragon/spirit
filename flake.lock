@@ -174,11 +174,11 @@
     "meta-signal-router-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783441596,
-        "narHash": "sha256-E0Q0BnJQeQdccVxm5Cf91KEU/u1CdVlmZTpkHQ4+QiM=",
+        "lastModified": 1783616503,
+        "narHash": "sha256-eXPh16/vgDpzap/r0Uc1u+Ty2tmSkYYEUnyPtgfJIbU=",
         "owner": "LiGoldragon",
         "repo": "meta-signal-router",
-        "rev": "3ad1727250afcf79e0c45df4b2e2d7c436ae4910",
+        "rev": "1475d4be54bffbd5afb70b105312f68177c775a1",
         "type": "github"
       },
       "original": {
@@ -711,11 +711,11 @@
     "signal-standard-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783244925,
-        "narHash": "sha256-59Gqt3LCUpWsQHhvSEIUegylcdbql939DuJ4y9NK6Y0=",
+        "lastModified": 1783617398,
+        "narHash": "sha256-d0et7dHfRexM6l6oiLv3/iW5vYLgMvNg102MVj/PG30=",
         "owner": "LiGoldragon",
         "repo": "signal-standard",
-        "rev": "a2fcdb9db2101853f8ffac8cdb34692540deeb62",
+        "rev": "08df24f5287630ce69f5146e8d422159fbdf1a8a",
         "type": "github"
       },
       "original": {
