@@ -24,12 +24,12 @@ use crate::{
 // version (see `Store::guardian_journal_path`), so a new daemon opens a fresh
 // file instead of failing on an incompatible layout; older files stay on disk
 // untouched, readable by the matching previous engine.
-const GUARDIAN_JOURNAL_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(5);
+const GUARDIAN_JOURNAL_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(6);
 const GUARDIAN_DECISIONS_TABLE: TableName = TableName::new("guardian-decisions");
 // The journal is hand-written audit state, not a schema-declared wire family,
 // so its family identity hashes the journal version label by hand. The label
 // moves with GUARDIAN_JOURNAL_SCHEMA_VERSION.
-const GUARDIAN_DECISIONS_FAMILY_LABEL: &str = "spirit:guardian-journal:v5";
+const GUARDIAN_DECISIONS_FAMILY_LABEL: &str = "spirit:guardian-journal:v6";
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub(crate) enum GuardianOperation {
