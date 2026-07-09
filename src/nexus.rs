@@ -688,9 +688,6 @@ impl Nexus {
         &mut self,
         proposal: Proposal,
     ) -> Result<Result<SemaReceipt, GuardianRejection>, StoreError> {
-        if self.guardian.is_none() {
-            return self.store.guard_propose(proposal.entry);
-        }
         let entry = proposal.entry.clone();
         let operation = GuardianOperation::propose(proposal);
         let authorization_operation = operation.clone();
@@ -699,7 +696,7 @@ impl Nexus {
         }
         self.authorize_guardian_operation(&authorization_operation)
             .await?;
-        Ok(Ok(self.store.propose(entry)?))
+        self.store.guard_propose(entry)
     }
 
     #[cfg(not(feature = "agent-guardian"))]

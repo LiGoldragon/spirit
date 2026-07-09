@@ -141,7 +141,7 @@ impl AgentGuardian {
         database_marker: DatabaseMarker,
     ) -> AgentGuardianDecision {
         let packet = AdmissionJudgePacket::new(
-            JudgmentScopeProjection::new(operation).into_contract(),
+            JudgmentScopeProjection::new(operation, &records).into_contract(),
             AdmissionJudgeOperationProjection::new(operation).into_contract(),
             records.clone(),
             database_marker.clone(),
@@ -361,26 +361,34 @@ impl<'operation> AdmissionJudgeOperationProjection<'operation> {
     }
 }
 
-struct JudgmentScopeProjection<'operation> {
+struct JudgmentScopeProjection<'operation, 'records> {
     operation: &'operation GuardianOperation,
+    records: &'records RecordSet,
 }
 
-impl<'operation> JudgmentScopeProjection<'operation> {
-    fn new(operation: &'operation GuardianOperation) -> Self {
-        Self { operation }
+impl<'operation, 'records> JudgmentScopeProjection<'operation, 'records> {
+    fn new(operation: &'operation GuardianOperation, records: &'records RecordSet) -> Self {
+        Self { operation, records }
     }
 
     fn into_contract(self) -> JudgmentScope {
-        if self
-            .operation
-            .candidate_entries()
-            .iter()
-            .any(|entry| entry.is_private())
-        {
+        if self.includes_private_context() {
             JudgmentScope::private_hashes_and_redaction()
         } else {
             JudgmentScope::public()
         }
+    }
+
+    fn includes_private_context(&self) -> bool {
+        self.operation
+            .candidate_entries()
+            .iter()
+            .any(|entry| entry.is_private())
+            || self
+                .records
+                .payload()
+                .iter()
+                .any(|record| record.entry.is_private())
     }
 }
 
@@ -388,7 +396,7 @@ trait EntryPrivacy {
     fn is_private(&self) -> bool;
 }
 
-impl EntryPrivacy for &Entry {
+impl EntryPrivacy for Entry {
     fn is_private(&self) -> bool {
         self.privacy.payload() != &Magnitude::Zero
     }
