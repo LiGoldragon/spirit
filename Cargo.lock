@@ -840,8 +840,8 @@ dependencies = [
 
 [[package]]
 name = "meta-signal-router"
-version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-router.git?branch=main#3ad1727250afcf79e0c45df4b2e2d7c436ae4910"
+version = "0.4.0"
+source = "git+https://github.com/LiGoldragon/meta-signal-router.git?branch=main#1475d4be54bffbd5afb70b105312f68177c775a1"
 dependencies = [
  "rkyv",
  "schema-rust 0.7.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
@@ -1751,8 +1751,8 @@ dependencies = [
 
 [[package]]
 name = "signal-standard"
-version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/signal-standard.git?branch=main#a2fcdb9db2101853f8ffac8cdb34692540deeb62"
+version = "0.2.0"
+source = "git+https://github.com/LiGoldragon/signal-standard.git?branch=main#08df24f5287630ce69f5146e8d422159fbdf1a8a"
 dependencies = [
  "rkyv",
  "schema-rust 0.7.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
