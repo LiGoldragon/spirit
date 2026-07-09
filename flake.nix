@@ -348,6 +348,23 @@
                 --replace-fail 'schema-language = { git = "https://github.com/LiGoldragon/schema-language.git", rev = "6aae825d668e3f607a2754afa6b7d94e9f246c41" }' 'schema-language = { path = "vendor-sources/schema-language" }' \
                 --replace-fail 'signal-sema = { git = "https://github.com/LiGoldragon/signal-sema.git", branch = "main" }' 'signal-sema = { path = "vendor-sources/signal-sema" }'
 
+              ${pkgs.python3}/bin/python3 - "$out/Cargo.toml" <<'PYEOF'
+              from pathlib import Path
+              import re
+              import sys
+
+              cargo_toml = Path(sys.argv[1])
+              text = cargo_toml.read_text()
+              text = re.sub(
+                  r'\n\[patch\."https://github\.com/LiGoldragon/schema-next\.git"\]\n'
+                  r'schema = \{ path = "vendor-sources/schema" \}\n'
+                  r'schema-cc = \{ path = "vendor-sources/schema/schema-cc" \}\n',
+                  '\n',
+                  text,
+              )
+              cargo_toml.write_text(text)
+              PYEOF
+
               ${pkgs.python3}/bin/python3 - "$out/vendor-sources/schema-rust/Cargo.toml" <<'PYEOF'
               from pathlib import Path
               import sys
@@ -427,9 +444,6 @@
               [patch."https://github.com/LiGoldragon/kameo.git"]
               kameo = { path = "vendor-sources/kameo" }
               kameo_macros = { path = "vendor-sources/kameo/macros" }
-
-              [patch."https://github.com/LiGoldragon/schema.git"]
-              schema = { path = "vendor-sources/schema" }
 
               [patch."https://github.com/LiGoldragon/schema-rust.git"]
               schema-rust = { path = "vendor-sources/schema-rust" }
@@ -644,9 +658,11 @@
                   entry = entry.replace('"windows-sys 0.52.0",', '"windows-sys 0.61.2",')
               stripped.append(entry)
           patched_text = header + "".join("[[package]]" + entry for entry in stripped)
-          schema_unused_patch = '\n[[patch.unused]]\nname = "schema"\nversion = "0.2.0"\n'
-          while patched_text.count('[[patch.unused]]\nname = "schema"\nversion = "0.2.0"') < 2:
-              patched_text += schema_unused_patch
+          patched_text = re.sub(
+              r'\n\[\[patch\.unused\]\]\nname = "(?:schema|schema-cc)"\nversion = "[^"]+"\n',
+              '\n',
+              patched_text,
+          )
           open(sys.argv[2], "w").write(patched_text)
           PYEOF
         '';
