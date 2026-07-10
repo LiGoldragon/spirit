@@ -191,7 +191,7 @@ meta-signal-router = { git = "https://github.com/LiGoldragon/meta-signal-router.
 meta-signal-criome = { git = "https://github.com/LiGoldragon/meta-signal-criome.git", branch = "main", default-features = false, optional = true }
 signal-standard = { git = "https://github.com/LiGoldragon/signal-standard.git", branch = "main", default-features = false, optional = true }
 signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main", optional = true }
-signal-spirit-judge = { git = "https://github.com/LiGoldragon/signal-spirit-judge.git", rev = "49bec17c5978", optional = true }
+signal-spirit-judge = { git = "https://github.com/LiGoldragon/signal-spirit-judge.git", rev = "8f24ff2198a861eeb13ac54087447cf651de18b3", optional = true }
 # The shared wire contract for the tracing -> introspect slice (report 716):
 # spirit projects its own `TraceEvent` onto `signal_introspect::ComponentTraceEvent`
 # and pushes that contract type over the testing-trace socket, so introspect

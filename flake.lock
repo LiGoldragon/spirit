@@ -678,17 +678,17 @@
     "signal-spirit-judge-source": {
       "flake": false,
       "locked": {
-        "lastModified": 1783594229,
-        "narHash": "sha256-5sf+P7Wr4MnT/+kbaljZ0wZlraCjk1gi+iRRZNr4+dk=",
+        "lastModified": 1783708564,
+        "narHash": "sha256-fVIhE52Eo8Qm7AUnPrkZbl9+jdmYenAudsjrHKs6jvo=",
         "owner": "LiGoldragon",
         "repo": "signal-spirit-judge",
-        "rev": "49bec17c5978a70d608b4bd31889fbeff63d7926",
+        "rev": "8f24ff2198a861eeb13ac54087447cf651de18b3",
         "type": "github"
       },
       "original": {
         "owner": "LiGoldragon",
-        "ref": "49bec17c5978",
         "repo": "signal-spirit-judge",
+        "rev": "8f24ff2198a861eeb13ac54087447cf651de18b3",
         "type": "github"
       }
     },
