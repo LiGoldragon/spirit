@@ -77,7 +77,7 @@
       flake = false;
     };
     signal-spirit-judge-source = {
-      url = "github:LiGoldragon/signal-spirit-judge/8f24ff2198a861eeb13ac54087447cf651de18b3";
+      url = "github:LiGoldragon/signal-spirit-judge/7c25b71a34858c0d912dff8fd0b4f4ac213d7cd1";
       flake = false;
     };
     nota-text-query-source = {
@@ -337,7 +337,7 @@
                 --replace-fail 'signal-introspect = { git = "https://github.com/LiGoldragon/signal-introspect.git", branch = "main", default-features = false, optional = true }' 'signal-introspect = { path = "vendor-sources/signal-introspect", default-features = false, optional = true }' \
                 --replace-fail 'signal-persona = { git = "https://github.com/LiGoldragon/signal-persona.git", branch = "main", optional = true }' 'signal-persona = { path = "vendor-sources/signal-persona", optional = true }' \
                 --replace-fail 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", rev = "1cf7c010029de46369b742687da4fa1ca6def9a9" }' 'signal-spirit = { path = "vendor-sources/signal-spirit" }' \
-                --replace-fail 'signal-spirit-judge = { git = "https://github.com/LiGoldragon/signal-spirit-judge.git", rev = "8f24ff2198a861eeb13ac54087447cf651de18b3", optional = true }' 'signal-spirit-judge = { path = "vendor-sources/signal-spirit-judge", optional = true }' \
+                --replace-fail 'signal-spirit-judge = { git = "https://github.com/LiGoldragon/signal-spirit-judge.git", rev = "7c25b71a34858c0d912dff8fd0b4f4ac213d7cd1", optional = true }' 'signal-spirit-judge = { path = "vendor-sources/signal-spirit-judge", optional = true }' \
                 --replace-fail 'meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", rev = "0a7a2438c8e5d57cb1fd413452d0a7ddad4fb9b3" }' 'meta-signal-spirit = { path = "vendor-sources/meta-signal-spirit" }' \
                 --replace-fail 'nota-text-query = { git = "https://github.com/LiGoldragon/nota-text-query.git", rev = "6140a3e9afe3f81c18a39cb0a11dec4eab68b561", default-features = false }' 'nota-text-query = { path = "vendor-sources/nota-text-query", default-features = false }' \
                 --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "vendor-sources/triad-runtime" }' \
