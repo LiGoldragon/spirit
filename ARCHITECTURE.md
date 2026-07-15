@@ -546,20 +546,20 @@ one that vanishes mid-collection is `RecordAlreadyRemoved`. The meta op replies
 `Output::RemovalCandidatesCollected`.
 
 `Tap`/`Untap` port old persona-spirit's observer (meta-observation) stream as a
-request/reply surface. Every admitted working operation is recorded in the
-`ObserverTapTable` operation log as a typed `OperationKind`. `Tap(ObserverFilter)`
-emits `CommandEffect(OpenObserverTap(...))`, mints an observer token, and replies
-`ObservationTapped(ObserverSubscription)` carrying the operations observed so far
-filtered by the `[All | OperationsOnly | EffectsOnly]` filter. `Untap(token)`
-emits `CommandEffect(CloseObserverTap(...))` and replies
-`ObservationUntapped(ObserverRetraction)` with the tap's final filtered
-observations, retiring the subscription. `Watch`/`Unwatch` reconciliation:
-old `Watch` (records subscription) is already covered by `SubscribeIntent`; the
-un-covered half — token-based cancellation — is what `Untap` restores. The
-observer event push-stream (`OperationReceived`/`EffectEmitted` as live frames)
-is not wired because the generated streaming `Frame` carries a single event type
-(`IntentEvent`); the operation history is the load-bearing observer content and
-is delivered request/reply.
+request/reply surface. A `Tap(ObserverFilter)` opens at the current operation
+revision and emits `CommandEffect(OpenObserverTap(...))`; it replies with an empty
+`ObservationTapped(ObserverSubscription)`. Every later admitted operation is
+retained as a typed `OperationKind` only while at least one active tap can still
+consume it. `Untap(token)` emits `CommandEffect(CloseObserverTap(...))` and
+replies `ObservationUntapped(ObserverRetraction)` with that tap's filtered suffix,
+then reclaims the prefix no remaining tap can observe. `Watch`/`Unwatch`
+reconciliation: old `Watch` (records subscription) is already covered by
+`SubscribeIntent`; the un-covered half — token-based cancellation — is what
+`Untap` restores. The observer event push-stream
+(`OperationReceived`/`EffectEmitted` as live frames) is not wired because the
+generated streaming `Frame` carries a single event type (`IntentEvent`); the
+active-tap suffix is the load-bearing observer content and is delivered
+request/reply.
 
 ### Judge admission
 
@@ -791,8 +791,8 @@ attaches behavior to those nouns or to state-owning runtime objects:
 - `sema::Sema<sema::WriteOutput>` or `sema::Sema<sema::ReadOutput>` becomes
   `nexus::Work::SemaWriteCompleted` or `nexus::Work::SemaReadCompleted`, then generated
   `signal::Signal<signal::Output>` carrying a `DatabaseMarker`.
-- `MailLedgerEvent` stores sent and processed mail markers, including their
-  `OriginRoute`, in the ledger Nexus owns.
+- `MailLedger` holds only sent mail currently in flight, including its
+  `OriginRoute`; the matching processed marker removes that entry immediately.
 
 Production-candidate handover is exercised by copying a seeded `.sema`
 database file before starting the candidate daemon. The candidate must observe
@@ -966,9 +966,9 @@ where the component is headed.
   the intended audience, it does not protect it. The feature may later be
   implemented as secure-private; until then a nonzero rung is a label, not a
   seal.
-- The mail ledger is still in-memory (it is observability, not durable state):
-  the `MailLedgerEvent` history resets on daemon restart. Only the SEMA records
-  and commit ledger are durable.
+- The mail ledger is in-memory current state, not durable observability history:
+  in-flight sent mail resets on daemon restart and terminal mail is reclaimed.
+  Only the SEMA records and commit ledger are durable.
 - Schema diff/upgrade is absent (the generated `UpgradeFrom`/`AcceptPrevious`
   traits exist but nothing implements them yet).
 - The repo-triad split (`spirit`, `signal-spirit`, `meta-signal-spirit`) is now

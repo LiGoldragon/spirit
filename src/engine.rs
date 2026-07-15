@@ -1,4 +1,4 @@
-use std::{convert::Infallible, sync::Mutex as StdMutex};
+use std::{collections::HashMap, convert::Infallible, sync::Mutex as StdMutex};
 
 #[cfg(feature = "mirror-shipper")]
 use crate::shipper::{MirrorShipper, MirrorShipperError};
@@ -433,9 +433,22 @@ pub struct SignalRejected {
     validation_error: ValidationError,
 }
 
+/// The current in-flight mail state owned by Nexus.
+///
+/// A sent mail marker is retained only until its matching terminal processed
+/// marker arrives. Processed markers are lifecycle transitions, not history, so
+/// completed or duplicate terminal events leave no daemon-lifetime retention.
 #[derive(Debug, Default)]
 pub struct MailLedger {
-    events: StdMutex<Vec<MailLedgerEvent>>,
+    state: StdMutex<MailLedgerState>,
+}
+
+/// The bounded mail lifecycle state: current sent mail plus aggregate metrics.
+#[derive(Debug, Default)]
+struct MailLedgerState {
+    in_flight: HashMap<Integer, SentMail>,
+    sent_count: usize,
+    processed_count: usize,
 }
 
 #[derive(Debug)]
@@ -566,6 +579,17 @@ impl Engine {
         self.nexus.store()
     }
 
+    /// The live recovery stashes awaiting their one `LookupStash` consumer.
+    pub fn stash_table(&self) -> &crate::nexus::StashTable {
+        self.nexus.stash_table()
+    }
+
+    /// The live observer registry, retaining only operations an active tap can
+    /// still consume.
+    pub fn observer_tap_table(&self) -> &crate::nexus::ObserverTapTable {
+        self.nexus.observer_tap_table()
+    }
+
     /// The current versioned-log head `EntryDigest` after the latest local
     /// commit. Under the everywhere-gate this only ever names ACCEPTED state:
     /// with the gate Enabled, a head-advancing operation materializes only
@@ -595,6 +619,10 @@ impl Engine {
 
     pub fn processed_message_count(&self) -> usize {
         self.nexus.mail_ledger().processed_message_count()
+    }
+
+    pub fn in_flight_mail_count(&self) -> usize {
+        self.nexus.mail_ledger().in_flight_count()
     }
 
     pub fn mail_ledger(&self) -> Vec<MailLedgerEvent> {
@@ -1351,26 +1379,35 @@ impl MailLedger {
         MailLedgerHook { ledger: self }
     }
 
+    /// The currently in-flight sent markers. Terminal mail is reclaimed rather
+    /// than retained as an unbounded history.
     pub fn events(&self) -> Vec<MailLedgerEvent> {
-        self.events.lock().expect("mail ledger lock").clone()
+        let mut sent: Vec<_> = self
+            .state
+            .lock()
+            .expect("mail ledger lock")
+            .in_flight
+            .values()
+            .cloned()
+            .collect();
+        sent.sort_by_key(|mail| mail.mail_identifier.payload());
+        sent.into_iter().map(MailLedgerEvent::sent).collect()
     }
 
+    /// Total admitted sent messages. This aggregate metric is bounded state;
+    /// individual terminal events are not retained.
     pub fn sent_message_count(&self) -> usize {
-        self.events
-            .lock()
-            .expect("mail ledger lock")
-            .iter()
-            .filter(|event| event.is_sent())
-            .count()
+        self.state.lock().expect("mail ledger lock").sent_count
     }
 
+    /// Total processed messages. This aggregate metric preserves the existing
+    /// count surface without keeping completed mail events.
     pub fn processed_message_count(&self) -> usize {
-        self.events
-            .lock()
-            .expect("mail ledger lock")
-            .iter()
-            .filter(|event| event.is_processed())
-            .count()
+        self.state.lock().expect("mail ledger lock").processed_count
+    }
+
+    pub fn in_flight_count(&self) -> usize {
+        self.state.lock().expect("mail ledger lock").in_flight.len()
     }
 }
 
@@ -1378,11 +1415,13 @@ impl MessageSentHook for MailLedgerHook<'_> {
     type Error = Infallible;
 
     fn message_sent(&mut self, event: MessageSent) -> Result<(), Self::Error> {
-        self.ledger
-            .events
-            .lock()
-            .expect("mail ledger lock")
-            .push(event.into_mail_ledger_event());
+        let identifier = event.identifier.as_integer();
+        let MailLedgerEvent::Sent(sent) = event.into_mail_ledger_event() else {
+            unreachable!("a MessageSent event always projects to sent mail")
+        };
+        let mut state = self.ledger.state.lock().expect("mail ledger lock");
+        state.sent_count = state.sent_count.saturating_add(1);
+        state.in_flight.insert(identifier, sent);
         Ok(())
     }
 }
@@ -1391,11 +1430,9 @@ impl MessageProcessedHook<Output> for MailLedgerHook<'_> {
     type Error = Infallible;
 
     fn message_processed(&mut self, event: MessageProcessed<Output>) -> Result<(), Self::Error> {
-        self.ledger
-            .events
-            .lock()
-            .expect("mail ledger lock")
-            .push(event.processed_mail_event());
+        let mut state = self.ledger.state.lock().expect("mail ledger lock");
+        state.processed_count = state.processed_count.saturating_add(1);
+        state.in_flight.remove(&event.identifier().as_integer());
         Ok(())
     }
 }

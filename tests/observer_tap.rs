@@ -3,13 +3,13 @@
 //! Old spirit's `OperationKind` carried `Tap` and `Untap`: a meta-observation
 //! stream that filtered `OperationReceived` events by an `ObserverFilter`
 //! (`All` / `OperationsOnly` / `EffectsOnly`). The new spirit had dropped both.
-//! This ports them as a request/reply observer surface: every admitted working
-//! operation is recorded in a typed operation log, `Tap(ObserverFilter)` mints
-//! an observer subscription and returns the operations observed so far filtered
-//! by the chosen filter, and `Untap(token)` retires the subscription and
-//! returns its final filtered observations. `Watch`/`Unwatch` reconciliation:
-//! `SubscribeIntent` already covers old `Watch` (records subscription), so the
-//! un-covered half — token-based cancellation — is what `Untap` restores.
+//! This ports them as a request/reply observer surface: `Tap(ObserverFilter)`
+//! mints an observer subscription at the current operation revision and
+//! `Untap(token)` returns its filtered observations since that revision. The
+//! registry retains operations only while an active tap can consume them.
+//! `Watch`/`Unwatch` reconciliation: `SubscribeIntent` already covers old
+//! `Watch` (records subscription), so the un-covered half — token-based
+//! cancellation — is what `Untap` restores.
 
 mod support;
 
@@ -71,10 +71,11 @@ fn engine() -> (TempDir, Engine) {
 }
 
 #[test]
-fn tap_returns_the_operations_observed_so_far() {
+fn tap_starts_at_the_current_revision_without_replaying_inactive_history() {
     let (_temp, mut engine) = engine();
 
-    // Drive a few working operations; each is recorded in the observer log.
+    // No tap exists, so this daemon-lifetime traffic has no consumer and must
+    // not become replay history for a later tap.
     let _ = engine
         .handle(Input::record(record_request("first intent")))
         .into_root();
@@ -82,8 +83,12 @@ fn tap_returns_the_operations_observed_so_far() {
         .handle(Input::record(record_request("second intent")))
         .into_root();
     let _ = engine.handle(Input::observe(observe_query())).into_root();
+    assert_eq!(
+        engine.observer_tap_table().retained_operation_count(),
+        0,
+        "operations without a tap retain no observer history"
+    );
 
-    // Tap with the `All` filter: the reply lists the operations observed so far.
     let reply = engine.handle(Input::tap(ObserverFilter::All)).into_root();
     let Output::ObservationTapped(subscription) = reply else {
         panic!("expected ObservationTapped, got {reply:?}")
@@ -97,21 +102,103 @@ fn tap_returns_the_operations_observed_so_far() {
         ObserverFilter::All,
         "the reply echoes the requested observer filter"
     );
-    // Record, Record, Observe, then the Tap itself: four observed operations.
-    let kinds: Vec<OperationKind> = subscription
+    assert!(
+        subscription.observed_operations.is_empty(),
+        "a new tap starts from its opening revision rather than replaying history"
+    );
+
+    let _ = engine
+        .handle(Input::record(record_request("observed after tap")))
+        .into_root();
+    let untapped = engine
+        .handle(Input::untap(subscription.subscription_token.clone()))
+        .into_root();
+    let Output::ObservationUntapped(retraction) = untapped else {
+        panic!("expected ObservationUntapped, got {untapped:?}")
+    };
+    let kinds: Vec<OperationKind> = retraction
         .observed_operations
         .iter()
         .map(|operation| *operation.payload())
         .collect();
     assert_eq!(
         kinds,
-        vec![
-            OperationKind::Record,
-            OperationKind::Record,
-            OperationKind::Observe,
-            OperationKind::Tap,
-        ],
-        "the tap observed every admitted operation in order"
+        vec![OperationKind::Record, OperationKind::Untap],
+        "the tap returns only operations from its active lifetime"
+    );
+    assert_eq!(
+        engine.observer_tap_table().retained_operation_count(),
+        0,
+        "closing the final tap clears its consumed operation history"
+    );
+}
+
+#[test]
+fn observer_retention_is_bounded_by_active_tap_lag() {
+    let (_temp, mut engine) = engine();
+
+    for _ in 0..1024 {
+        let _ = engine.handle(Input::Version).into_root();
+    }
+    assert_eq!(
+        engine.observer_tap_table().retained_operation_count(),
+        0,
+        "high-volume traffic without taps retains no operation history"
+    );
+
+    let first = engine.handle(Input::tap(ObserverFilter::All)).into_root();
+    let Output::ObservationTapped(first) = first else {
+        panic!("expected first ObservationTapped, got {first:?}")
+    };
+    for _ in 0..1024 {
+        let _ = engine.handle(Input::Version).into_root();
+    }
+    assert_eq!(
+        engine.observer_tap_table().retained_operation_count(),
+        1024,
+        "the first tap retains exactly its outstanding operation lag"
+    );
+
+    let second = engine.handle(Input::tap(ObserverFilter::All)).into_root();
+    let Output::ObservationTapped(second) = second else {
+        panic!("expected second ObservationTapped, got {second:?}")
+    };
+    for _ in 0..128 {
+        let _ = engine.handle(Input::Version).into_root();
+    }
+
+    let first_retraction = engine
+        .handle(Input::untap(first.subscription_token.clone()))
+        .into_root();
+    let Output::ObservationUntapped(first_retraction) = first_retraction else {
+        panic!("expected first ObservationUntapped, got {first_retraction:?}")
+    };
+    assert_eq!(
+        first_retraction.observed_operations.len(),
+        1154,
+        "the lagging tap receives every operation from its opening revision"
+    );
+    assert_eq!(
+        engine.observer_tap_table().retained_operation_count(),
+        129,
+        "closing the lagging tap reclaims its prefix while preserving the later tap's lag"
+    );
+
+    let second_retraction = engine
+        .handle(Input::untap(second.subscription_token.clone()))
+        .into_root();
+    let Output::ObservationUntapped(second_retraction) = second_retraction else {
+        panic!("expected second ObservationUntapped, got {second_retraction:?}")
+    };
+    assert_eq!(
+        second_retraction.observed_operations.len(),
+        130,
+        "the later tap receives only its own outstanding lag before final reclamation"
+    );
+    assert_eq!(
+        engine.observer_tap_table().retained_operation_count(),
+        0,
+        "closing every tap clears the operation log regardless of prior traffic volume"
     );
 }
 

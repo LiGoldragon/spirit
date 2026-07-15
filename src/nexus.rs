@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 #[cfg(feature = "agent-guardian")]
 use crate::guardian_journal::GuardianOperation;
@@ -46,7 +46,7 @@ use signal_frame::SubscriptionTokenInner;
 use tokio::runtime::{Handle, RuntimeFlavor};
 use triad_runtime::{ContinuationExhausted, ContinuationLimit, SubscriptionTokenIssuer};
 
-/// The stash table — the durable handle store backing the Stash effect.
+/// The stash table — the in-memory recovery-handle store backing the Stash effect.
 ///
 /// The full-records observation gets archived under a freshly minted
 /// `StashHandle`; the reply carries the handle, count, and records together.
@@ -69,51 +69,98 @@ pub struct ClassificationPolicy {
 /// The observer-tap registry — the meta-observation surface ported from old
 /// spirit's `Tap`/`Untap` operator stream.
 ///
-/// Every admitted working operation is appended to the operation log as a typed
-/// `OperationKind`. `Tap(ObserverFilter)` mints an observer subscription token,
-/// records the filter, and returns the operation log filtered by that observer
-/// filter so the caller sees what has been observed so far. `Untap(token)`
-/// retires the subscription and returns its final filtered observations. This
-/// is the request/reply half of the old observer stream: the operation history
-/// is the load-bearing `OperationReceived` content, scoped by `ObserverFilter`.
+/// An observer tap starts at the current operation revision. Every later
+/// admitted working operation is retained only while an active tap can return it
+/// from `Untap(token)`. When the slowest tap closes, its consumed prefix is
+/// reclaimed; when no taps remain, no operation history remains.
 #[derive(Debug, Default)]
 pub struct ObserverTapTable {
     next_token: u64,
-    operation_log: Vec<OperationKind>,
-    taps: HashMap<u64, ObserverFilter>,
+    first_retained_operation: u64,
+    operation_log: VecDeque<OperationKind>,
+    taps: HashMap<u64, ObserverTap>,
+}
+
+#[derive(Debug)]
+struct ObserverTap {
+    filter: ObserverFilter,
+    first_observed_operation: u64,
 }
 
 impl ObserverTapTable {
-    /// Record one admitted operation in the observer log.
+    /// Record one admitted operation only when an active tap may consume it.
     pub fn observe_operation(&mut self, operation: OperationKind) {
-        self.operation_log.push(operation);
+        if !self.taps.is_empty() {
+            self.operation_log.push_back(operation);
+        }
     }
 
-    /// Open an observer tap under a freshly minted token and return the
-    /// operations observed so far, filtered by `filter`.
+    /// Open an observer tap at the current operation revision. A new tap does
+    /// not replay daemon-lifetime traffic that no active consumer retained.
     pub fn open(&mut self, filter: ObserverFilter) -> (u64, ObserverFilter, ObservedOperations) {
         self.next_token += 1;
         let token = self.next_token;
-        self.taps.insert(token, filter);
-        (token, filter, self.observed_operations(&filter))
+        self.taps.insert(
+            token,
+            ObserverTap {
+                filter,
+                first_observed_operation: self.next_operation_revision(),
+            },
+        );
+        (token, filter, ObservedOperations::new(Vec::new()))
     }
 
     /// Close an observer tap. Returns the tap's final filtered observations when
-    /// the token was registered, and `None` when it was not.
+    /// the token was registered, and `None` when it was not. Afterwards, reclaims
+    /// every prefix no remaining tap can consume.
     pub fn close(&mut self, token: SubscriptionToken) -> Option<ObservedOperations> {
-        let filter = self.taps.remove(token.payload())?;
-        Some(self.observed_operations(&filter))
+        let tap = self.taps.remove(token.payload())?;
+        let observed_operations = self.observed_operations(&tap);
+        self.reclaim_consumed_operations();
+        Some(observed_operations)
     }
 
-    fn observed_operations(&self, filter: &ObserverFilter) -> ObservedOperations {
+    fn next_operation_revision(&self) -> u64 {
+        self.first_retained_operation
+            .checked_add(
+                u64::try_from(self.operation_log.len())
+                    .expect("operation log length exceeds the observer revision range"),
+            )
+            .expect("observer operation revision overflow")
+    }
+
+    fn observed_operations(&self, tap: &ObserverTap) -> ObservedOperations {
+        let retained_prefix_length =
+            usize::try_from(tap.first_observed_operation - self.first_retained_operation)
+                .expect("observer tap cursor precedes the retained operation prefix");
         ObservedOperations::new(
             self.operation_log
                 .iter()
-                .filter(|operation| filter.observes_operation(operation))
+                .skip(retained_prefix_length)
+                .filter(|operation| tap.filter.observes_operation(operation))
                 .cloned()
                 .map(ObservedOperation::new)
                 .collect(),
         )
+    }
+
+    fn reclaim_consumed_operations(&mut self) {
+        let next_retained_operation = self
+            .taps
+            .values()
+            .map(|tap| tap.first_observed_operation)
+            .min()
+            .unwrap_or_else(|| self.next_operation_revision());
+        let consumed_prefix_length =
+            usize::try_from(next_retained_operation - self.first_retained_operation)
+                .expect("observer cursor precedes the retained operation prefix");
+        self.operation_log.drain(..consumed_prefix_length);
+        self.first_retained_operation = next_retained_operation;
+    }
+
+    /// Number of operation entries retained for active observer taps.
+    pub fn retained_operation_count(&self) -> usize {
+        self.operation_log.len()
     }
 
     pub fn len(&self) -> usize {
@@ -153,12 +200,13 @@ impl StashTable {
         }
     }
 
-    /// Look up records by handle. Returns the archived records plus the
-    /// marker the stash was sealed under.
-    pub fn lookup(&self, handle: &StashHandle) -> Option<(Records, DatabaseMarker)> {
+    /// Consume the records under one recovery handle. A stash handle has one
+    /// active consumer: its follow-up `LookupStash`, after which no stale
+    /// records remain retained in the daemon.
+    pub fn take(&mut self, handle: &StashHandle) -> Option<(Records, DatabaseMarker)> {
         self.entries
-            .get(handle.payload())
-            .map(|entry| (entry.records.clone(), entry.database_marker.clone()))
+            .remove(handle.payload())
+            .map(|entry| (entry.records, entry.database_marker))
     }
 
     pub fn len(&self) -> usize {
@@ -1246,7 +1294,7 @@ impl Nexus {
             Input::RegisterReferent(register) => NexusAction::command_effect(
                 NexusEffectCommand::guard_referent_registration(register.into_payload()),
             ),
-            Input::LookupStash(handle) => match self.stash_table.lookup(handle.payload()) {
+            Input::LookupStash(handle) => match self.stash_table.take(handle.payload()) {
                 Some((records, _database_marker)) => NexusAction::reply_to_signal(
                     Output::records_observed(crate::schema::signal::ObservedRecords::new(
                         crate::schema::signal::RecordSet::new(records.into_payload()),

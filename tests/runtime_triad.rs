@@ -3,8 +3,9 @@ mod support;
 #[cfg(feature = "nota-text")]
 use spirit::schema::signal::{Export, Import, NotaEncode};
 use spirit::{
-    Engine, MailIdentifier, MailLedgerEvent, MessageIdentifier, MessageSent, MessageSentHook,
-    Nexus, OriginRoute, SentMail, ShortHeader, SignalAdmission, Store,
+    Engine, MailIdentifier, MailLedger, MailLedgerEvent, MessageIdentifier, MessageProcessed,
+    MessageSent, MessageSentHook, Nexus, OriginRoute, SentMail, ShortHeader, SignalAdmission,
+    Store,
     schema::{
         nexus::{self, CommandSemaWrite, NexusAction, NexusEffectCommand, NexusEngine, NexusWork},
         sema::{
@@ -2124,6 +2125,35 @@ fn signal_admission_pushes_accepted_message_through_sent_hook_before_nexus_holds
 }
 
 #[test]
+fn mail_ledger_reclaims_terminal_mail_and_ignores_duplicate_terminal_events() {
+    let identifier = MessageIdentifier::new(7);
+    let origin_route = route(7);
+    let ledger = MailLedger::default();
+    MessageSent::new(identifier, origin_route, 42)
+        .push_to(&mut ledger.hook())
+        .expect("store sent mail");
+    assert_eq!(ledger.in_flight_count(), 1);
+
+    let terminal = MessageProcessed::new(
+        identifier,
+        origin_route,
+        Output::rejected(SignalRejection::new(ValidationError::EmptyDomain)),
+    );
+    terminal
+        .clone()
+        .push_to(&mut ledger.hook())
+        .expect("process mail");
+    terminal
+        .push_to(&mut ledger.hook())
+        .expect("repeat terminal mail");
+
+    assert_eq!(ledger.in_flight_count(), 0);
+    assert!(ledger.events().is_empty());
+    assert_eq!(ledger.sent_message_count(), 1);
+    assert_eq!(ledger.processed_message_count(), 2);
+}
+
+#[test]
 fn nexus_step_decide_routes_signal_arrival_to_sema_command_without_committing() {
     // Designer 480: the runner loop's step plane is now visible through
     // Nexus's hand-written decision center. A SignalArrived(Record) becomes
@@ -3112,6 +3142,8 @@ fn nexus_runs_sema_while_holding_mail_then_replies_through_schema_objects() {
     }
     assert_eq!(engine.sent_message_count(), 1);
     assert_eq!(engine.processed_message_count(), 1);
+    assert_eq!(engine.in_flight_mail_count(), 0);
+    assert!(engine.mail_ledger().is_empty());
     assert_eq!(engine.record_count(), 1);
 }
 
@@ -3256,6 +3288,8 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
     assert_eq!(*record_marker.commit_sequence.payload(), 2);
     assert_eq!(engine.sent_message_count(), 1);
     assert_eq!(engine.processed_message_count(), 1);
+    assert_eq!(engine.in_flight_mail_count(), 0);
+    assert!(engine.mail_ledger().is_empty());
 
     let observed = engine.handle(input_observe(Query {
         domain_match: DomainMatch::full(domain_fixtures::scopes(&["runtime-triad"])),
@@ -3285,9 +3319,12 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
     };
     assert_eq!(engine.sent_message_count(), 2);
     assert_eq!(engine.processed_message_count(), 2);
+    assert_eq!(engine.in_flight_mail_count(), 0);
+    assert!(engine.mail_ledger().is_empty());
+    assert_eq!(engine.stash_table().len(), 1);
 
-    // Recovery witness: follow up with LookupStash and get the same records.
-    let looked_up = engine.handle(input_lookup_stash(stash_handle));
+    // Recovery witness: one LookupStash consumes the returned recovery handle.
+    let looked_up = engine.handle(input_lookup_stash(stash_handle.clone()));
     assert_eq!(looked_up.origin_route(), route(3));
     match looked_up.root() {
         Output::RecordsObserved(records) => {
@@ -3303,22 +3340,17 @@ fn full_runtime_triad_records_then_observes_through_durable_sema_with_stash() {
     }
     assert_eq!(engine.sent_message_count(), 3);
     assert_eq!(engine.processed_message_count(), 3);
+    assert_eq!(engine.in_flight_mail_count(), 0);
+    assert!(engine.mail_ledger().is_empty());
+    assert!(engine.stash_table().is_empty());
 
-    assert_eq!(
-        engine.mail_ledger().len(),
-        6,
-        "three round-trips through the mail ledger: Record, Observe (with stash), LookupStash"
+    let stale_lookup = engine.handle(input_lookup_stash(stash_handle));
+    assert!(
+        matches!(stale_lookup.root(), Output::Rejected(_)),
+        "a consumed recovery handle must not retain or replay stale records"
     );
-
-    // First two mail-ledger events are the Record cycle.
-    assert!(matches!(
-        engine.mail_ledger()[0],
-        MailLedgerEvent::Sent(ref sent) if sent.mail_identifier.payload() == 1
-    ));
-    assert!(matches!(
-        engine.mail_ledger()[1],
-        MailLedgerEvent::Processed(ref processed) if processed.mail_identifier.payload() == 1
-    ));
+    assert!(engine.stash_table().is_empty());
+    assert!(engine.mail_ledger().is_empty());
 }
 
 #[test]
