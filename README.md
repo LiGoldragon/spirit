@@ -112,6 +112,16 @@ importance predicates or exhaustive stashed results.
   while `Store::observe` takes shared read input. Both operate over the durable
   `.sema` component database through `sema-engine`.
 
+## Process-test safety
+
+Process-boundary tests run children with an empty inherited environment and
+put sockets, configuration, databases, archives, and build artifacts below an
+auto-cleaned temporary directory. Automated tests use synthetic disposable
+stores only. Candidate live and archive inputs for a future manual
+migrated-copy run must already be isolated from production. They are explicit,
+never inferred; missing configuration is an error, and the source files are
+fingerprinted as raw files without opening them as a Spirit store.
+
 ## Remote schema stack check
 
 When editing `nota`, `schema`, or `schema-rust` together with

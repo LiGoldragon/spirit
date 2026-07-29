@@ -1,4 +1,8 @@
+mod support;
+
 use std::{fs, path::PathBuf, process::Command};
+
+use support::process::{CommandIsolation, NonSecretEnvironmentVariable};
 
 struct WorkspaceManifest {
     path: PathBuf,
@@ -30,7 +34,15 @@ impl WorkspaceManifest {
     }
 
     fn cargo_tree(&self, arguments: &[&str]) -> String {
-        let output = Command::new(env!("CARGO"))
+        let mut command = Command::isolated(env!("CARGO"));
+        command
+            .restore_nonsecret(NonSecretEnvironmentVariable::Path)
+            .expect("PATH is available to the Cargo toolchain");
+        command
+            .restore_nonsecret_if_present(NonSecretEnvironmentVariable::NixCargoHome)
+            .expect("restore only an ephemeral Nix-owned Cargo home when present")
+            .env("CARGO_NET_OFFLINE", "true");
+        let output = command
             .arg("tree")
             .args(arguments)
             .current_dir(&self.path)

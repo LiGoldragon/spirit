@@ -1,3 +1,7 @@
+#[allow(dead_code)]
+pub mod process;
+
+#[allow(dead_code)]
 pub mod domain_fixtures {
     use spirit::schema::signal::{
         DataLeaf, Domain, DomainScope, DomainScopes, Domains, Governance, Information, Knowledge,

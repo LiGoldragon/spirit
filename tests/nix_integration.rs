@@ -93,13 +93,15 @@ use std::{
     env,
     io::Read,
     path::{Path, PathBuf},
-    process::{Child, Command, Stdio},
+    process::{Command, Stdio},
     str::FromStr,
     sync::OnceLock,
-    thread,
-    time::{Duration, Instant},
+    time::Duration,
 };
-use support::domain_fixtures;
+use support::{
+    domain_fixtures,
+    process::{CommandIsolation, ManagedChild, NonSecretEnvironmentVariable, ProcessSandbox},
+};
 
 use spirit::Configuration;
 use spirit::schema::meta_signal::{
@@ -109,8 +111,6 @@ use spirit::schema::signal::{
     Description, Entry, Kind, Magnitude, Output, OutputRoute, Privacy, RecordIdentifier,
     ReferentGuardianRejectionReason, SignalRejection, ValidationError,
 };
-use tempfile::TempDir;
-
 fn assert_short_record_identifier(identifier: &RecordIdentifier) {
     assert!(
         (4..=7).contains(&identifier.payload().len()),
@@ -222,7 +222,14 @@ impl NixBuiltBinaries {
             let _ = std::fs::remove_file(&temp_link);
         }
 
-        let mut command = Command::new("nix");
+        let command_sandbox =
+            ProcessSandbox::new("nested-nix-build").expect("create Nix command sandbox");
+        let mut command = Command::isolated("nix");
+        command
+            .restore_nonsecret(NonSecretEnvironmentVariable::Path)
+            .expect("restore reviewed PATH for Nix")
+            .env("HOME", command_sandbox.root())
+            .env("TMPDIR", command_sandbox.root());
         command
             .arg("build")
             .arg("--log-format")
@@ -309,7 +316,11 @@ impl GitHead {
     }
 
     fn commit(&self) -> Option<String> {
-        let output = Command::new("git")
+        let mut command = Command::isolated("git");
+        command
+            .restore_nonsecret(NonSecretEnvironmentVariable::Path)
+            .ok()?;
+        let output = command
             .arg("rev-parse")
             .arg("HEAD")
             .current_dir(&self.repository)
@@ -336,54 +347,47 @@ fn target_reference() -> String {
 
 /// RAII handle to a spawned daemon process. Drop kills the process.
 struct DaemonProcess {
-    child: Child,
+    child: ManagedChild,
     socket_path: PathBuf,
     meta_socket_path: PathBuf,
-    #[allow(dead_code)]
-    temp_directory: TempDir,
+    _sandbox: ProcessSandbox,
 }
 
 impl DaemonProcess {
     fn spawn(binaries: &NixBuiltBinaries) -> Self {
-        let temp_directory = TempDir::new().expect("create tempdir");
-        let socket_path = temp_directory.path().join("spirit.sock");
-        let meta_socket_path = temp_directory.path().join("spirit-meta.sock");
-        let database_path = temp_directory.path().join("spirit.sema");
-        let configuration_path = temp_directory.path().join("spirit.config.rkyv");
+        let sandbox = ProcessSandbox::new("nix-integration").expect("create process sandbox");
+        let socket_path = sandbox.working_socket();
+        let meta_socket_path = sandbox.meta_socket();
+        let database_path = sandbox.live_database();
+        let configuration_path = sandbox.configuration();
         Configuration::new(&socket_path, &database_path)
             .with_meta_socket_path(&meta_socket_path)
             .write_binary_file(&configuration_path)
             .expect("write binary daemon configuration");
 
-        let child = Command::new(&binaries.spirit_daemon)
+        let mut command = Command::isolated(&binaries.spirit_daemon);
+        command
             .arg(configuration_path)
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .expect("spawn daemon");
+            .stderr(Stdio::piped());
+        let child =
+            ManagedChild::spawn(&mut command, "Nix-built Spirit daemon").expect("spawn daemon");
 
-        let process = Self {
+        let mut process = Self {
             child,
             socket_path,
             meta_socket_path,
-            temp_directory,
+            _sandbox: sandbox,
         };
-        process.wait_for_socket();
         process
-    }
-
-    fn wait_for_socket(&self) {
-        let deadline = Instant::now() + Duration::from_secs(5);
-        while Instant::now() < deadline {
-            if self.socket_path.exists() {
-                return;
-            }
-            thread::sleep(Duration::from_millis(20));
-        }
-        panic!(
-            "daemon socket did not appear at {}",
-            self.socket_path.display()
-        );
+            .child
+            .wait_for_unix_socket(&process.socket_path, Duration::from_secs(5))
+            .expect("Nix-built Spirit working socket readiness");
+        process
+            .child
+            .wait_for_unix_socket(&process.meta_socket_path, Duration::from_secs(5))
+            .expect("Nix-built Spirit meta socket readiness");
+        process
     }
 
     fn socket(&self) -> &Path {
@@ -395,18 +399,11 @@ impl DaemonProcess {
     }
 }
 
-impl Drop for DaemonProcess {
-    fn drop(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
-    }
-}
-
 /// Run the CLI binary against the daemon's socket with one NOTA
 /// argument. Returns the parsed schema-emitted `Output` — no raw
 /// string assertions in callers (record 995/996/997).
 fn run_cli_for_output(binaries: &NixBuiltBinaries, socket: &Path, nota_argument: &str) -> Output {
-    let output = Command::new(&binaries.spirit_cli)
+    let output = Command::isolated(&binaries.spirit_cli)
         .arg(nota_argument)
         .env("SPIRIT_SOCKET", socket)
         .output()
@@ -430,7 +427,7 @@ fn run_meta_cli_for_output(
     meta_socket: &Path,
     nota_argument: &str,
 ) -> MetaOutput {
-    let output = Command::new(&binaries.meta_spirit_cli)
+    let output = Command::isolated(&binaries.meta_spirit_cli)
         .arg(nota_argument)
         .env("SPIRIT_META_SOCKET", meta_socket)
         .output()
@@ -853,19 +850,19 @@ fn nix_built_daemon_alias_state_across_separate_cli_processes() {
     assert_short_record_identifier(&record_identifier);
 
     // Independent process — exec a fresh CLI binary for the read.
-    let mut child_a = Command::new(&binaries.spirit_cli)
+    let mut command = Command::isolated(&binaries.spirit_cli);
+    command
         .arg("(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))")
         .env("SPIRIT_SOCKET", daemon.socket())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("spawn CLI process a");
+        .stderr(Stdio::piped());
+    let mut child_a =
+        ManagedChild::spawn(&mut command, "Nix-built Spirit CLI").expect("spawn CLI process a");
     let exit_a = child_a.wait().expect("CLI process a wait");
     assert!(exit_a.success(), "CLI process a failed");
     let mut stdout_a = String::new();
     child_a
-        .stdout
-        .take()
+        .take_stdout()
         .expect("CLI a stdout")
         .read_to_string(&mut stdout_a)
         .expect("read CLI a stdout");

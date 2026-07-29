@@ -4,13 +4,16 @@ use std::{
     fs,
     io::{BufRead, BufReader},
     path::Path,
-    process::{Child, ChildStdout, Command, Stdio},
+    process::{ChildStdout, Command, Stdio},
     str::FromStr,
     sync::mpsc::{self, Receiver},
     thread,
-    time::{Duration, Instant},
+    time::Duration,
 };
-use support::domain_fixtures;
+use support::{
+    domain_fixtures,
+    process::{CommandIsolation, ManagedChild},
+};
 
 use nota::NotaEncode;
 #[cfg(feature = "testing-trace")]
@@ -48,7 +51,7 @@ use std::{
 use tempfile::TempDir;
 
 struct DaemonProcess {
-    child: Child,
+    child: ManagedChild,
     #[cfg(feature = "agent-guardian")]
     _spirit_judge: FakeSpiritJudge,
 }
@@ -61,16 +64,9 @@ struct FakeSpiritJudge {
 }
 
 struct SubscriberProcess {
-    child: Child,
+    child: ManagedChild,
     lines: Receiver<String>,
     reader_thread: Option<thread::JoinHandle<()>>,
-}
-
-impl Drop for DaemonProcess {
-    fn drop(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
-    }
 }
 
 #[cfg(feature = "agent-guardian")]
@@ -85,8 +81,7 @@ impl Drop for FakeSpiritJudge {
 
 impl Drop for SubscriberProcess {
     fn drop(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        let _ = self.child.terminate();
         if let Some(reader_thread) = self.reader_thread.take() {
             let _ = reader_thread.join();
         }
@@ -245,17 +240,22 @@ impl DaemonProcess {
         configuration
             .write_binary_file(&configuration_path)
             .expect("write binary daemon configuration");
-        let child = Command::new(env!("CARGO_BIN_EXE_spirit-daemon"))
-            .arg(configuration_path)
-            .spawn()
-            .expect("spawn daemon");
-        let process = Self {
+        let mut command = Command::isolated(env!("CARGO_BIN_EXE_spirit-daemon"));
+        command.arg(configuration_path);
+        let child = ManagedChild::spawn(&mut command, "Spirit daemon").expect("spawn daemon");
+        let mut process = Self {
             child,
             #[cfg(feature = "agent-guardian")]
             _spirit_judge: spirit_judge,
         };
-        wait_for_socket(socket_path);
-        wait_for_socket(&meta_socket_path);
+        process
+            .child
+            .wait_for_unix_socket(socket_path, Duration::from_secs(5))
+            .expect("working socket readiness");
+        process
+            .child
+            .wait_for_unix_socket(&meta_socket_path, Duration::from_secs(5))
+            .expect("meta socket readiness");
         process
     }
 
@@ -281,7 +281,7 @@ impl DaemonProcess {
             nota_path(spirit_judge.socket_path()),
             nota_path(&configuration_path)
         );
-        let output = Command::new(env!("CARGO_BIN_EXE_spirit-write-configuration"))
+        let output = Command::isolated(env!("CARGO_BIN_EXE_spirit-write-configuration"))
             .arg(request)
             .output()
             .expect("run configuration writer");
@@ -296,17 +296,23 @@ impl DaemonProcess {
             stdout.trim(),
             format!("(ConfigurationWritten {})", nota_path(&configuration_path))
         );
-        let child = Command::new(env!("CARGO_BIN_EXE_spirit-daemon"))
-            .arg(configuration_path)
-            .spawn()
+        let mut command = Command::isolated(env!("CARGO_BIN_EXE_spirit-daemon"));
+        command.arg(configuration_path);
+        let child = ManagedChild::spawn(&mut command, "Spirit daemon")
             .expect("spawn daemon from writer-built configuration");
-        let process = Self {
+        let mut process = Self {
             child,
             #[cfg(feature = "agent-guardian")]
             _spirit_judge: spirit_judge,
         };
-        wait_for_socket(socket_path);
-        wait_for_socket(&meta_socket_path);
+        process
+            .child
+            .wait_for_unix_socket(socket_path, Duration::from_secs(5))
+            .expect("working socket readiness");
+        process
+            .child
+            .wait_for_unix_socket(&meta_socket_path, Duration::from_secs(5))
+            .expect("meta socket readiness");
         process
     }
 
@@ -328,17 +334,22 @@ impl DaemonProcess {
         configuration
             .write_binary_file(&configuration_path)
             .expect("write binary daemon configuration with trace socket");
-        let child = Command::new(env!("CARGO_BIN_EXE_spirit-daemon"))
-            .arg(configuration_path)
-            .spawn()
-            .expect("spawn daemon");
-        let process = Self {
+        let mut command = Command::isolated(env!("CARGO_BIN_EXE_spirit-daemon"));
+        command.arg(configuration_path);
+        let child = ManagedChild::spawn(&mut command, "Spirit trace daemon").expect("spawn daemon");
+        let mut process = Self {
             child,
             #[cfg(feature = "agent-guardian")]
             _spirit_judge: spirit_judge,
         };
-        wait_for_socket(socket_path);
-        wait_for_socket(&meta_socket_path);
+        process
+            .child
+            .wait_for_unix_socket(socket_path, Duration::from_secs(5))
+            .expect("working socket readiness");
+        process
+            .child
+            .wait_for_unix_socket(&meta_socket_path, Duration::from_secs(5))
+            .expect("meta socket readiness");
         process
     }
 }
@@ -360,7 +371,7 @@ fn configuration_writer_accepts_judge_socket_without_output_budget() {
         nota_path(&configuration_path)
     );
 
-    let output = Command::new(env!("CARGO_BIN_EXE_spirit-write-configuration"))
+    let output = Command::isolated(env!("CARGO_BIN_EXE_spirit-write-configuration"))
         .arg(request)
         .output()
         .expect("run configuration writer");
@@ -402,7 +413,7 @@ fn configuration_writer_omitted_legacy_provider_stays_unowned_by_daemon_judge() 
         nota_path(&configuration_path)
     );
 
-    let output = Command::new(env!("CARGO_BIN_EXE_spirit-write-configuration"))
+    let output = Command::isolated(env!("CARGO_BIN_EXE_spirit-write-configuration"))
         .arg(request)
         .output()
         .expect("run configuration writer");
@@ -448,7 +459,7 @@ fn legacy_provider_model_fields_are_ignored_by_daemon_judge_configuration() {
         nota_path(&configuration_path)
     );
 
-    let output = Command::new(env!("CARGO_BIN_EXE_spirit-write-configuration"))
+    let output = Command::isolated(env!("CARGO_BIN_EXE_spirit-write-configuration"))
         .arg(request)
         .output()
         .expect("run configuration writer");
@@ -490,7 +501,7 @@ fn configuration_writer_encodes_observing_authorization_mode() {
         nota_path(&configuration_path)
     );
 
-    let output = Command::new(env!("CARGO_BIN_EXE_spirit-write-configuration"))
+    let output = Command::isolated(env!("CARGO_BIN_EXE_spirit-write-configuration"))
         .arg(request)
         .output()
         .expect("run configuration writer");
@@ -512,13 +523,14 @@ fn configuration_writer_encodes_observing_authorization_mode() {
 
 impl SubscriberProcess {
     fn spawn(socket_path: &Path, nota_argument: &str) -> Self {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_spirit"))
+        let mut command = Command::isolated(env!("CARGO_BIN_EXE_spirit"));
+        command
             .env("SPIRIT_SOCKET", socket_path)
             .arg(nota_argument)
-            .stdout(Stdio::piped())
-            .spawn()
-            .expect("spawn subscriber cli");
-        let stdout = child.stdout.take().expect("subscriber stdout");
+            .stdout(Stdio::piped());
+        let mut child =
+            ManagedChild::spawn(&mut command, "Spirit subscriber").expect("spawn subscriber cli");
+        let stdout = child.take_stdout().expect("subscriber stdout");
         let output = SubscriberOutput::new(stdout);
         Self {
             child,
@@ -571,7 +583,7 @@ impl SubscriberOutput {
 }
 
 fn run_cli(socket_path: &Path, nota_argument: &str) -> Output {
-    let output = Command::new(env!("CARGO_BIN_EXE_spirit"))
+    let output = Command::isolated(env!("CARGO_BIN_EXE_spirit"))
         .env("SPIRIT_SOCKET", socket_path)
         .arg(nota_argument)
         .output()
@@ -716,7 +728,7 @@ fn run_cli_with_trace(
     trace_socket_path: &Path,
     nota_argument: &str,
 ) -> TraceCliOutput {
-    let output = Command::new(env!("CARGO_BIN_EXE_spirit"))
+    let output = Command::isolated(env!("CARGO_BIN_EXE_spirit"))
         .env("SPIRIT_SOCKET", socket_path)
         .env("SPIRIT_TRACE_SOCKET", trace_socket_path)
         .arg(nota_argument)
@@ -1271,7 +1283,7 @@ fn cli_renders_alias_payload_outputs_without_wrapper_repetition() {
 
     let _daemon = DaemonProcess::spawn(&socket_path, &database_path);
 
-    let rejected = Command::new(env!("CARGO_BIN_EXE_spirit"))
+    let rejected = Command::isolated(env!("CARGO_BIN_EXE_spirit"))
         .env("SPIRIT_SOCKET", &socket_path)
         .arg(record_nota("[]", "Constraint", "alias payload rejection"))
         .output()
@@ -1295,7 +1307,7 @@ fn cli_renders_alias_payload_outputs_without_wrapper_repetition() {
         "parsed rejection should be direct Output::Rejected payload"
     );
 
-    let recorded = Command::new(env!("CARGO_BIN_EXE_spirit"))
+    let recorded = Command::isolated(env!("CARGO_BIN_EXE_spirit"))
         .env("SPIRIT_SOCKET", &socket_path)
         .arg(record_nota(
             "[(Information Documentation)]",
@@ -1604,15 +1616,4 @@ fn stashed_descriptions(_socket_path: &Path, output: Output) -> Vec<String> {
         }
         other => panic!("expected RecordsStashed, got {other:?}"),
     }
-}
-
-fn wait_for_socket(path: &Path) {
-    let started = Instant::now();
-    while started.elapsed() < Duration::from_secs(5) {
-        if path.exists() {
-            return;
-        }
-        thread::sleep(Duration::from_millis(25));
-    }
-    panic!("socket did not appear at {}", path.display());
 }

@@ -836,6 +836,30 @@ The flake exposes normal and trace package surfaces:
 - `checks.test-testing-trace-process-boundary` proves live CLI/daemon trace
   delivery over Unix sockets.
 
+Process-level tests share `tests/support/process.rs` as their safety boundary.
+Every command crossing this boundary starts with an empty environment and
+restores only an explicit, reviewed nonsecret variable when a toolchain
+executable needs it. The optional Cargo configuration root is accepted only
+when Nix owns it below that build's ephemeral `NIX_BUILD_TOP`.
+Sockets, binary configuration, databases, archives, and nested build outputs
+default to one auto-cleaned temporary directory. Keeping those artifacts
+requires a separately constructed manual opt-in with a non-empty reason; no
+automated gate uses that path. Managed child handles watch for early exit,
+accept readiness only when the filesystem object is an actual Unix socket,
+and kill and reap a remaining child before the handle drops.
+
+Candidate-store preparation is also explicit and test-only. The live source
+and the archive choice are separate inputs; the archive is either an absolute
+path or the exact `absent` choice, never an inferred sibling. Missing manual
+configuration is a typed hard error. Preparation refuses symlinks and
+non-regular files, copies inputs into a fresh auto-cleaned sandbox, verifies
+that candidate and source are distinct filesystem objects, and fingerprints
+source bytes and metadata without constructing a Spirit `Store`. Automatic
+tests exercise only synthetic disposable source files. A future migrated-copy
+acceptance run may reuse these mechanics only with source files that are
+already isolated from production; it must remain an explicit manual operation
+and must never point a daemon at the source files.
+
 No `last-version` package is exposed yet. That package needs a real previous
 release input/tag so upgrade tests compare current code against a previous
 artifact rather than an alias of current main.
