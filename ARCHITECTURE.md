@@ -2,19 +2,32 @@
 
 ## Purpose
 
-`spirit` is the running proof that schema can create an interface used by
-a real CLI and daemon pair.
+`spirit` is the running proof that generated schema can create an interface
+used by a real CLI and daemon pair.
 
-It is also the current copyable exemplar for the schema-derived triad engine
-stack. The repo is intentionally one daemon crate, but it is not an all-in-one
+**Current implementation: wired legacy toolchain, not the approved
+architecture.** This repo currently builds through the schema/schema-language/
+schema-rust pipeline described below. That pipeline is dead under its old
+name: the language was renamed Ethos on 2026-07-27, and legacy schema,
+schema-language, and schema-rust die under their old names (S1R entry 7).
+Spirit's port onto Ethos-based generation has not landed; it is in progress
+and is blocked at bead `protos-engine-po1.10.11`. The spirit-port acceptance
+test requires a working system against an isolated migrated copy of
+production data, zero build or runtime dependency on schema-rust, and no
+compatibility adapters (SSR entry 8, psyche-confirmed). Until the port lands,
+do not copy this repo's schema/schema-rust build pipeline as the pattern for
+new components.
+
+The repo is intentionally one daemon crate, but it is not an all-in-one
 schema shape: the ordinary public signal/domain contract is generated in the
 `signal-spirit` contract crate, the owner-only meta-policy signal contract is
 generated in the `meta-signal-spirit` contract crate, and Spirit generates only
 daemon-local Nexus, SEMA, and daemon runtime modules through the shared driver.
 It consumes those contracts and daemon-local modules through `triad-runtime`
-plus `sema-engine`. Future component daemon repos should copy this
-plane/runtime shape while placing their external ordinary/meta signal contracts
-in separate contract repos where rebuild and policy boundaries require it.
+plus `sema-engine`. The plane/runtime shape — split ordinary/meta contract
+crates, daemon-local Nexus/SEMA generation — is the pattern future component
+daemon repos should reproduce once it is carried onto Ethos-based generation;
+the schema/schema-rust generation step itself is superseded.
 
 ## Intent model
 

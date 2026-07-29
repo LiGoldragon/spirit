@@ -1,7 +1,7 @@
 # spirit
 
-`spirit` is the production Spirit daemon and the first practical version of the
-new schema-derived architecture:
+`spirit` is the production Spirit daemon. Its current build pipeline is the
+wired legacy schema/schema-rust toolchain, not the approved architecture:
 
 ```text
 schema/{signal,nexus,sema}.schema
@@ -18,9 +18,18 @@ schema/{signal,nexus,sema}.schema
   -> CLI NOTA output
 ```
 
-It is also the copyable triad exemplar for newer components: authored schema
-source generates the Signal/Nexus/SEMA nouns, the CLI is a text edge, daemon
-traffic is binary rkyv, and the durable store is owned by SEMA.
+That toolchain is dead under its old name: the language was renamed Ethos on
+2026-07-27, and legacy schema, schema-language, and schema-rust die under
+their old names (S1R entry 7). Spirit's port onto Ethos-based generation has
+not landed — it is in progress and blocked at bead
+`protos-engine-po1.10.11` — and the spirit-port acceptance test requires zero
+build or runtime dependency on schema-rust with no compatibility adapters
+(SSR entry 8, psyche-confirmed). Do not copy this repo's current pipeline as
+the pattern for new components until the port lands. The triad shape it
+demonstrates — authored schema source generating the Signal/Nexus/SEMA nouns,
+the CLI as a text edge, binary rkyv daemon traffic, and SEMA owning the
+durable store — is the shape carrying forward; only the schema/schema-rust
+generation step is superseded.
 
 `build.rs` decodes `schema/{signal,nexus,sema}.schema` into typed
 `SchemaSource` values, validates canonical text and rkyv round-trips, emits
