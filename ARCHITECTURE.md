@@ -981,8 +981,8 @@ where the component is headed.
   error. Upgrade orders that trigger the smart handover arrive through the
   component's owner socket, and `signal-version-handover` is the single discovery
   mechanism for next-version daemons (the old `PeerCheck` is retired). The
-  longer-horizon schema-migration shape is in-process versioned reads: every
-  record carries a schema-version tag, the daemon links every prior version's
+  longer-horizon ethos-migration shape is in-process versioned reads: every
+  record carries an ethos-version tag, the daemon links every prior version's
   types and dispatches read-side on the tag, migrating older records on read for
   zero downtime per bump, with a per-type migration trait that knows whether to
   consult the next-version daemon over the version-handover protocol.
@@ -1020,7 +1020,7 @@ where the component is headed.
 - The mail ledger is in-memory current state, not durable observability history:
   in-flight sent mail resets on daemon restart and terminal mail is reclaimed.
   Only the SEMA records and commit ledger are durable.
-- Schema diff/upgrade is absent (the generated `UpgradeFrom`/`AcceptPrevious`
+- Ethos diff/upgrade is absent (the generated `UpgradeFrom`/`AcceptPrevious`
   traits exist but nothing implements them yet).
 - The repo-triad split (`spirit`, `signal-spirit`, `meta-signal-spirit`) is now
   present for both external contracts: the daemon imports the ordinary
@@ -1033,5 +1033,5 @@ where the component is headed.
 - `Store` still lives inside the `Nexus` mutex rather than a kameo
   single-writer actor. The database boundary is now sema-engine; the remaining
   question is runner/actor ownership, not raw storage access.
-- The next slice should make the mail support schema-authored, move the durable
-  marker toward a shared `schema-core` type, and start schema diff/upgrade.
+- The next slice should make the mail support ethos-authored, move the durable
+  marker toward a shared `ethos-core` type, and start ethos diff/upgrade.
