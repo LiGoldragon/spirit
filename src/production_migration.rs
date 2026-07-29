@@ -45,6 +45,15 @@
 //! sibling (`<stem>.archive.sema`) is swapped with the same backup-link plus
 //! single-rename pattern and recovers the same way.
 
+/// Frozen schema-version-13 readers and the typed seam for the later Ethos
+/// family fold.
+///
+/// This module is intentionally nested below `production_migration`, which is
+/// itself compiled only for the offline migration binary. The running daemon,
+/// ordinary client, and owner meta client cannot reach these historical
+/// layouts.
+pub mod v13;
+
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -4173,7 +4182,7 @@ mod tests {
             },
             signal::{
                 Certainty, CertaintySelection, DataLeaf, Description, Domain, DomainMatch,
-                DomainScopes, Domains, Entry, HardwareLeaf, Health, Importance,
+                DomainScope, DomainScopes, Domains, Entry, HardwareLeaf, Health, Importance,
                 ImportanceSelection, Information, KeywordMatch, Kind, Magnitude, OperationsLeaf,
                 Privacy, PrivacySelection, Query, RecordIdentifier, Referent, ReferentSelection,
                 Referents, SelectedKind, Software, Technology, TextMatch,
@@ -4250,9 +4259,7 @@ mod tests {
 
     fn query_for_domain(domain: Domain) -> Query {
         Query {
-            domain_match: DomainMatch::full(DomainScopes::from_domains(&Domains::new(vec![
-                domain,
-            ]))),
+            domain_match: DomainMatch::full(DomainScopes::from(vec![DomainScope::from(domain)])),
             keyword_match: KeywordMatch::Any,
             text_match: TextMatch::Any,
             referent_selection: ReferentSelection::Any,

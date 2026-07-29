@@ -112,6 +112,24 @@ importance predicates or exhaustive stashed results.
   while `Store::observe` takes shared read input. Both operate over the durable
   `.sema` component database through `sema-engine`.
 
+## Migration-only v13 reader
+
+The `production-migration` feature contains
+`production_migration::v13::{LiveReader, ArchiveReader, FoldSink}`. This is a
+frozen offline reader for the Schema-produced schema-version-13 records,
+referents, migrations, and records-only archive families. Its historical Rust
+layouts and family hashes are local to the migration module and are unavailable
+to the daemon, ordinary CLI, and owner meta CLI.
+
+The reader validates the complete stored family catalog before enumerating any
+row and exposes no source-write operation. Tests use synthetic disposable
+stores to prove stable record identifiers, repeatable enumeration, typed sink
+failure, wrong-version and corrupt-family refusal, and the one-family archive
+shape without changing the source inventory, marker, or catalog. The
+`FoldSink` seam is not the final migration: folding into Ethos-generated
+current families remains pending until those types exist. No production store
+is read by this proof.
+
 ## Process-test safety
 
 Process-boundary tests run children with an empty inherited environment and

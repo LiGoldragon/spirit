@@ -24,6 +24,14 @@ impl<'tree> CargoTree<'tree> {
                 .starts_with(&package_prefix)
         })
     }
+
+    fn contains_package_version(&self, package: &str, version: &str) -> bool {
+        let package_prefix = format!("{package} v{version}");
+        self.text.lines().any(|line| {
+            line.trim_start_matches([' ', '│', '├', '└', '─'])
+                .starts_with(&package_prefix)
+        })
+    }
 }
 
 impl WorkspaceManifest {
@@ -96,5 +104,35 @@ fn text_client_surface_has_nota_runtime_dependency() {
     assert!(
         CargoTree::new(&tree).contains_package("nota"),
         "nota-text runtime dependency tree must contain nota:\n{tree}"
+    );
+}
+
+#[test]
+fn normal_runtime_has_no_migration_only_legacy_dependency_path() {
+    let manifest = WorkspaceManifest::from_environment();
+    let tree_text = manifest.cargo_tree(&["--edges", "normal", "--no-default-features"]);
+    let tree = CargoTree::new(&tree_text);
+    let library =
+        fs::read_to_string(manifest.path.join("src/lib.rs")).expect("src/lib.rs is readable");
+    let migration = fs::read_to_string(manifest.path.join("src/production_migration.rs"))
+        .expect("production migration module is readable");
+
+    assert!(
+        !tree.contains_package_version("sema-engine", "0.2.3")
+            && !tree.contains_package_version("sema-engine", "0.4.0"),
+        "normal runtime must not contain either historical sema-engine generation:\n{tree_text}"
+    );
+    assert!(
+        !tree.contains_package("schema-rust"),
+        "normal runtime dependencies must not gain the retired Schema generator:\n{tree_text}"
+    );
+    assert!(
+        library
+            .contains("#[cfg(feature = \"production-migration\")]\npub mod production_migration;"),
+        "the historical reader's parent module must remain feature-gated"
+    );
+    assert!(
+        migration.contains("pub mod v13;"),
+        "the frozen v13 reader must remain nested below production migration"
     );
 }

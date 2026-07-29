@@ -687,6 +687,12 @@
             cargoExtraArgs = "--features nota-text";
           }
         );
+        productionMigrationCargoArtifacts = craneLib.buildDepsOnly (
+          commonArguments
+          // {
+            cargoExtraArgs = "--features production-migration";
+          }
+        );
         agentGuardianCargoArtifacts = craneLib.buildDepsOnly (
           commonArguments
           // {
@@ -772,7 +778,7 @@
         storeMigrationPackage = craneLib.buildPackage (
           commonArguments
           // {
-            cargoArtifacts = notaTextCargoArtifacts;
+            cargoArtifacts = productionMigrationCargoArtifacts;
             cargoExtraArgs = "--features production-migration --bin spirit-migrate-store";
           }
         );
@@ -861,6 +867,14 @@
             // {
               cargoArtifacts = notaTextCargoArtifacts;
               cargoExtraArgs = "--features nota-text";
+            }
+          );
+          test-production-migration-v13 = craneLib.cargoTest (
+            commonArguments
+            // {
+              cargoArtifacts = productionMigrationCargoArtifacts;
+              cargoExtraArgs = "--features production-migration";
+              cargoTestExtraArgs = "production_migration::v13::tests";
             }
           );
           # The owner-only meta ObserveHeadObject surfaces the head entry's rkyv

@@ -636,6 +636,20 @@ uses `sema-engine` over a `*.sema` file:
   data (the hash-to-former-ordinal mapping built while live lookup moves to hash
   identity) is stored as NOTA data, not in a SEMA store: SEMA is for
   schema/engine structure, not for the migration data file itself.
+- `production_migration::v13` is a narrower frozen-reader surface for the
+  schema-version-13 handoff. `LiveReader` admits exactly the published
+  records/referents/migrations catalog; `ArchiveReader` admits exactly the
+  records-only archive catalog. Their local archived types reproduce the
+  published v13 generated layouts and family hashes, with exact row-byte,
+  archived-size/alignment, and enum-discriminant witnesses. Catalog validation
+  happens before typed table references are formed, and neither reader exposes
+  a source-write method. `FoldSink` is only the typed destination seam: the
+  final fold into Ethos-generated current families is incomplete until those
+  families exist. Disposable-store tests prove identifier retention, rerun
+  stability, wrong-version and corrupt-family refusal, and a partially
+  accepting sink while the source inventory, database marker, and catalog stay
+  unchanged. The module remains below the `production-migration` feature and is
+  absent from daemon, ordinary, owner-meta, and normal dependency surfaces.
 - The migration swap is crash-safe with single-rename exposure. The fold
   writes the fresh store beside the live one
   (`<stem>.schema-9-migrating-<pid>.sema`); the swap first hard-links the
