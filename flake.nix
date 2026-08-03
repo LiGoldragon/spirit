@@ -8,6 +8,22 @@
       url = "github:LiGoldragon/rust-build";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # One maintained Spirit release owns every component the user services
+    # execute. Consumers select these through Spirit's package/service outputs,
+    # never as sibling deployment inputs.
+    spirit-judge = {
+      url = "github:LiGoldragon/spirit-judge/901d1fe404f277778e32318871b97cdcaff85a43";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.rust-build.follows = "rust-build";
+    };
+    spirit-judge-config = {
+      url = "github:LiGoldragon/spirit-judge-config/b6a3fe7e0f91f2e5ff8ddec94ebfe2b489fc355d";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    judge-provider = {
+      url = "github:sadjow/codex-cli-nix/e4e3b0672bbb8fba7f32fe53cd9c604990970374";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     kameo-source = {
       url = "github:LiGoldragon/kameo";
       flake = false;
@@ -77,7 +93,11 @@
       flake = false;
     };
     signal-spirit-judge-source = {
-      url = "github:LiGoldragon/signal-spirit-judge/49bec17c5978";
+      # This is the exact source revision consumed by spirit-judge 0.1.0.
+      # Its typed source is unchanged from the former 49bec17c pin; selecting
+      # one revision removes split wire-contract authority without changing
+      # the durable/wire generation.
+      url = "github:LiGoldragon/signal-spirit-judge/7c25b71a34858c0d912dff8fd0b4f4ac213d7cd1";
       flake = false;
     };
     nota-text-query-source = {
@@ -164,6 +184,9 @@
       nixpkgs,
       flake-utils,
       rust-build,
+      spirit-judge,
+      spirit-judge-config,
+      judge-provider,
       kameo-source,
       nota-source,
       schema-source,
@@ -337,7 +360,7 @@
                 --replace-fail 'signal-introspect = { git = "https://github.com/LiGoldragon/signal-introspect.git", branch = "main", default-features = false, optional = true }' 'signal-introspect = { path = "vendor-sources/signal-introspect", default-features = false, optional = true }' \
                 --replace-fail 'signal-persona = { git = "https://github.com/LiGoldragon/signal-persona.git", branch = "main", optional = true }' 'signal-persona = { path = "vendor-sources/signal-persona", optional = true }' \
                 --replace-fail 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", rev = "1cf7c010029de46369b742687da4fa1ca6def9a9" }' 'signal-spirit = { path = "vendor-sources/signal-spirit" }' \
-                --replace-fail 'signal-spirit-judge = { git = "https://github.com/LiGoldragon/signal-spirit-judge.git", rev = "49bec17c5978", optional = true }' 'signal-spirit-judge = { path = "vendor-sources/signal-spirit-judge", optional = true }' \
+                --replace-fail 'signal-spirit-judge = { git = "https://github.com/LiGoldragon/signal-spirit-judge.git", rev = "7c25b71a3485", optional = true }' 'signal-spirit-judge = { path = "vendor-sources/signal-spirit-judge", optional = true }' \
                 --replace-fail 'meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", rev = "0a7a2438c8e5d57cb1fd413452d0a7ddad4fb9b3" }' 'meta-signal-spirit = { path = "vendor-sources/meta-signal-spirit" }' \
                 --replace-fail 'nota-text-query = { git = "https://github.com/LiGoldragon/nota-text-query.git", rev = "6140a3e9afe3f81c18a39cb0a11dec4eab68b561", default-features = false }' 'nota-text-query = { path = "vendor-sources/nota-text-query", default-features = false }' \
                 --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "vendor-sources/triad-runtime" }' \
@@ -805,6 +828,118 @@
           ln -s "${renderPackage}/bin/spirit-render" "$out/bin/spirit-render"
           ln -s "${storeMigrationPackage}/bin/spirit-migrate-store" "$out/bin/spirit-migrate-store"
         '';
+        releasePins = {
+          spiritJudge = "901d1fe404f277778e32318871b97cdcaff85a43";
+          spiritJudgeConfig = "b6a3fe7e0f91f2e5ff8ddec94ebfe2b489fc355d";
+          judgeProvider = "e4e3b0672bbb8fba7f32fe53cd9c604990970374";
+          signalSpirit = "1cf7c010029de46369b742687da4fa1ca6def9a9";
+          signalSpiritJudge = "7c25b71a34858c0d912dff8fd0b4f4ac213d7cd1";
+          metaSignalSpirit = "0a7a2438c8e5d57cb1fd413452d0a7ddad4fb9b3";
+          semaEngine = "b3b5fb714412f820f870c290a6cb7800acb9bdec";
+        };
+        judgeCargoManifest = builtins.readFile "${spirit-judge.outPath}/Cargo.toml";
+        judgeUsesReleaseContracts =
+          pkgs.lib.hasInfix ''signal-spirit        = { git = "https://github.com/LiGoldragon/signal-spirit.git", rev = "${releasePins.signalSpirit}"'' judgeCargoManifest
+          && pkgs.lib.hasInfix ''signal-spirit-judge  = { git = "https://github.com/LiGoldragon/signal-spirit-judge.git", rev = "${releasePins.signalSpiritJudge}"'' judgeCargoManifest;
+        judgePackage =
+          assert pkgs.lib.assertMsg (
+            (spirit-judge.rev or "") == releasePins.spiritJudge
+          ) "Spirit release: spirit-judge input revision is not the declared release pin";
+          assert pkgs.lib.assertMsg judgeUsesReleaseContracts
+            "Spirit release: daemon and judge contract source revisions diverge";
+          spirit-judge.packages.${system}.default;
+        judgeConfigPackage =
+          assert pkgs.lib.assertMsg (
+            (spirit-judge-config.rev or "") == releasePins.spiritJudgeConfig
+          ) "Spirit release: spirit-judge-config input revision is not the declared release pin";
+          spirit-judge-config.packages.${system}.default;
+        judgeProviderPackage =
+          assert pkgs.lib.assertMsg (
+            (judge-provider.rev or "") == releasePins.judgeProvider
+          ) "Spirit release: judge provider input revision is not the declared release pin";
+          judge-provider.packages.${system}.default;
+        releaseManifest = pkgs.writeText "spirit-release-manifest.dotos" ''
+          (SpiritRelease (0.25.1
+            (SpiritJudge ${releasePins.spiritJudge})
+            (SpiritJudgeConfig ${releasePins.spiritJudgeConfig})
+            (JudgeProvider ${releasePins.judgeProvider})
+            (SignalSpirit ${releasePins.signalSpirit})
+            (SignalSpiritJudge ${releasePins.signalSpiritJudge})
+            (MetaSignalSpirit ${releasePins.metaSignalSpirit})
+            (SemaEngine ${releasePins.semaEngine})))
+        '';
+        mkUserServiceArtifacts = import ./nix/service-bundle.nix {
+          inherit
+            pkgs
+            combinedPackage
+            judgePackage
+            judgeConfigPackage
+            judgeProviderPackage
+            ;
+          lib = pkgs.lib;
+        };
+        serviceBundleWitness = mkUserServiceArtifacts {
+          stateDirectory = "/tmp/spirit-release-check";
+        };
+        releaseInputAlignmentCheck = pkgs.runCommand "spirit-release-input-alignment" { } ''
+          set -eu
+
+          test ${pkgs.lib.escapeShellArg (spirit-judge.rev or "")} = ${releasePins.spiritJudge}
+          test ${pkgs.lib.escapeShellArg (spirit-judge-config.rev or "")} = ${releasePins.spiritJudgeConfig}
+          test ${pkgs.lib.escapeShellArg (judge-provider.rev or "")} = ${releasePins.judgeProvider}
+          test ${pkgs.lib.escapeShellArg (signal-spirit-source.rev or "")} = ${releasePins.signalSpirit}
+          test ${
+            pkgs.lib.escapeShellArg (signal-spirit-judge-source.rev or "")
+          } = ${releasePins.signalSpiritJudge}
+          test ${
+            pkgs.lib.escapeShellArg (meta-signal-spirit-source.rev or "")
+          } = ${releasePins.metaSignalSpirit}
+          test ${pkgs.lib.escapeShellArg (sema-engine-source.rev or "")} = ${releasePins.semaEngine}
+
+          grep -F 'signal-spirit        = { git = "https://github.com/LiGoldragon/signal-spirit.git", rev = "${releasePins.signalSpirit}"' \
+            ${spirit-judge.outPath}/Cargo.toml
+          grep -F 'signal-spirit-judge  = { git = "https://github.com/LiGoldragon/signal-spirit-judge.git", rev = "${releasePins.signalSpiritJudge}"' \
+            ${spirit-judge.outPath}/Cargo.toml
+          grep -F 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", rev = "${releasePins.signalSpirit}"' \
+            ${./Cargo.toml}
+          grep -F 'signal-spirit-judge = { git = "https://github.com/LiGoldragon/signal-spirit-judge.git", rev = "7c25b71a3485"' \
+            ${./Cargo.toml}
+
+          cp ${releaseManifest} "$out"
+        '';
+        serviceBundleInterfaceCheck = pkgs.runCommand "spirit-service-bundle-interface" { } ''
+          set -eu
+
+          test -s ${serviceBundleWitness.daemonConfiguration}/${serviceBundleWitness.paths.configurationPath}
+          test -d ${serviceBundleWitness.packages.judgeConfig}/prompts
+          test -x ${serviceBundleWitness.daemonServiceWrapper}/bin/spirit-daemon-service
+          test -x ${serviceBundleWitness.judgeServiceWrapper}/bin/spirit-judge-daemon-service
+          test -x ${serviceBundleWitness.commandLineWrapper}/bin/spirit
+          test -x ${serviceBundleWitness.metaSpiritCommandLineWrapper}/bin/meta-spirit
+
+          ${pkgs.bash}/bin/bash -n ${serviceBundleWitness.daemonServiceWrapper}/bin/spirit-daemon-service
+          ${pkgs.bash}/bin/bash -n ${serviceBundleWitness.judgeServiceWrapper}/bin/spirit-judge-daemon-service
+          grep -F '${combinedPackage}/bin/spirit-daemon' \
+            ${serviceBundleWitness.daemonServiceWrapper}/bin/spirit-daemon-service
+          grep -F '${serviceBundleWitness.daemonConfiguration}/${serviceBundleWitness.paths.configurationPath}' \
+            ${serviceBundleWitness.daemonServiceWrapper}/bin/spirit-daemon-service
+          grep -F '${judgePackage}/bin/spirit-judge' \
+            ${serviceBundleWitness.judgeServiceWrapper}/bin/spirit-judge-daemon-service
+          grep -F '${judgeConfigPackage}' \
+            ${serviceBundleWitness.judgeServiceWrapper}/bin/spirit-judge-daemon-service
+          grep -F '${judgeProviderPackage}/bin/codex' \
+            ${serviceBundleWitness.judgeServiceWrapper}/bin/spirit-judge-daemon-service
+          grep -F 'OpenAiCodex gpt-5.6-terra (Some Medium) 180000' \
+            ${serviceBundleWitness.judgeServiceWrapper}/bin/spirit-judge-daemon-service
+          grep -F '(Some codex-login)' \
+            ${serviceBundleWitness.judgeServiceWrapper}/bin/spirit-judge-daemon-service
+          grep -F '(AmbientSessionReference codex-login)' \
+            ${judgeConfigPackage}/config/provider-policy.nota
+          grep -F '(Production gpt-5.6-terra Medium)' \
+            ${judgeConfigPackage}/config/provider-policy.nota
+
+          touch "$out"
+        '';
         traceCombinedPackage = pkgs.runCommand "spirit-trace" { } ''
           mkdir -p "$out/bin"
           ln -s "${traceCliPackage}/bin/spirit" "$out/bin/spirit"
@@ -830,17 +965,23 @@
         packages.configuration-writer = configurationWriterPackage;
         packages.render = renderPackage;
         packages.store-migration = storeMigrationPackage;
+        packages.judge = judgePackage;
+        packages.judge-config = judgeConfigPackage;
+        packages.judge-provider = judgeProviderPackage;
+        packages.release-manifest = releaseManifest;
         packages.trace = traceCombinedPackage;
         packages."trace-cli" = traceCliPackage;
         packages."trace-daemon" = traceDaemonPackage;
-        packages."spirit-cluster-gates-acceptance-over-router-test" =
-          clusterAuthorizationLoopcheck;
+        packages."spirit-cluster-gates-acceptance-over-router-test" = clusterAuthorizationLoopcheck;
         apps.nix-integration-tests = {
           type = "app";
           program = "${nixIntegrationRunner}/bin/spirit-nix-integration-tests";
           meta.description = "Run Nix-built spirit integration tests";
         };
+        lib.mkUserServiceArtifacts = mkUserServiceArtifacts;
         checks = {
+          release-input-alignment = releaseInputAlignmentCheck;
+          service-bundle-interface = serviceBundleInterfaceCheck;
           build = craneLib.cargoBuild (
             commonArguments
             // {

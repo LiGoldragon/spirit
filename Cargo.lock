@@ -1741,7 +1741,7 @@ dependencies = [
 [[package]]
 name = "signal-spirit-judge"
 version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/signal-spirit-judge.git?rev=49bec17c5978#49bec17c5978a70d608b4bd31889fbeff63d7926"
+source = "git+https://github.com/LiGoldragon/signal-spirit-judge.git?rev=7c25b71a3485#7c25b71a34858c0d912dff8fd0b4f4ac213d7cd1"
 dependencies = [
  "rkyv",
  "signal-frame",
@@ -1789,7 +1789,7 @@ dependencies = [
 
 [[package]]
 name = "spirit"
-version = "0.25.0"
+version = "0.25.1"
 dependencies = [
  "agent",
  "blake3",

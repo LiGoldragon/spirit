@@ -37,6 +37,25 @@ Rust from those typed values, and fails the build if any generated
 `src/schema/*.rs` plane module is stale. The runtime imports the checked-in
 module directly; `OUT_DIR` is not part of the runtime schema surface.
 
+## Maintained release surface
+
+The Spirit flake is the component-version authority for the complete user
+service, not only the daemon binary. Alongside the existing daemon, CLI,
+configuration writer, and migration packages it exports:
+
+- `packages.<system>.judge`;
+- `packages.<system>.judge-config`;
+- `packages.<system>.judge-provider`;
+- `packages.<system>.release-manifest`;
+- `lib.<system>.mkUserServiceArtifacts { stateDirectory = ...; }`.
+
+`mkUserServiceArtifacts` accepts an absolute one-atom state directory and
+returns the Spirit path set, the binary daemon configuration, Spirit-only state
+initializers, daemon and judge service wrappers, and ordinary/meta CLI wrappers.
+Deployment flakes consume that constructor through one pinned Spirit input;
+they do not independently pin or assemble the judge, prompt set, provider,
+contracts, or wrappers.
+
 ## Run
 
 Create a startup archive with the text-edge writer, then start the daemon with

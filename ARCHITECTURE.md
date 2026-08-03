@@ -857,8 +857,21 @@ The flake exposes normal and trace package surfaces:
 
 - `packages.default`, `packages.cli`, and `packages.daemon` are the normal
   runtime pair.
+- `packages.judge`, `packages.judge-config`, and `packages.judge-provider` are
+  the one release-selected admission edge. Their revisions, the ordinary and
+  judge contracts, the owner contract, and the current store engine are named
+  by `packages.release-manifest` and enforced by
+  `checks.release-input-alignment`.
+- `lib.<system>.mkUserServiceArtifacts { stateDirectory = ...; }` is the stable
+  deployment constructor. It returns the typed Spirit path set plus the binary
+  daemon configuration, state initializers, daemon/judge service wrappers, and
+  ordinary/meta CLI wrappers. Downstream Home modules supply an absolute state
+  directory and consume these derivations; they do not select sibling judge,
+  prompt, provider, contract, or wrapper inputs.
 - `packages.trace`, `packages.trace-cli`, and `packages.trace-daemon` are the
   trace-enabled testing pair.
+- `checks.service-bundle-interface` proves the generated binary configuration
+  and the exact daemon, judge, prompt, and provider wrapper references.
 - `checks.test-testing-trace` proves the in-process event sequence.
 - `checks.test-testing-trace-process-boundary` proves live CLI/daemon trace
   delivery over Unix sockets.
