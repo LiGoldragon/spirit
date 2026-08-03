@@ -6,10 +6,9 @@ use spirit::{
         nexus::NexusObjectName,
         sema::SemaObjectName,
         signal::{
-            CertaintySelection, Description, DomainMatch, Domains, Entry, ImportanceSelection,
-            Input, Justification, Kind, Magnitude, Output, Privacy, PrivacySelection, Query,
-            QuoteText, Reasoning, RecordRequest, SelectedKind, SignalRejection, Testimony,
-            ValidationError, VerbatimQuote,
+            Description, DomainMatch, Domains, Entry, ImportanceSelection, Input, Justification,
+            Kind, Magnitude, Output, Query, QuoteText, Reasoning, RecordRequest, SelectedKind,
+            SignalRejection, Testimony, ValidationError, VerbatimQuote,
         },
     },
 };
@@ -39,12 +38,7 @@ fn entry(description: &str) -> Entry {
         domains: domain_fixtures::domains(&["trace"]),
         kind: Kind::Decision,
         description: Description::new(description),
-        certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
-        privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(vec![
-            spirit::schema::signal::Referent::new("spirit"),
-        ]),
     }
 }
 
@@ -78,10 +72,7 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
         domain_match: DomainMatch::full(domain_fixtures::scopes(&["trace"])),
         keyword_match: spirit::schema::signal::KeywordMatch::Any,
         text_match: spirit::schema::signal::TextMatch::Any,
-        referent_selection: spirit::schema::signal::ReferentSelection::Any,
         selected_kind: SelectedKind::new(Some(Kind::Decision)),
-        privacy_selection: PrivacySelection::default_observation_privacy(),
-        certainty_selection: CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
     }));
     // Observe flows through Stash and returns both records and a recovery
@@ -98,8 +89,6 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
         &[
             "SignalAdmitted",
             "SignalTriaged",
-            "NexusEntered",
-            "NexusDecided",
             "NexusEntered",
             "NexusDecided",
             "SemaWriteApplied",
@@ -127,8 +116,6 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
             ObjectName::Signal(SignalObjectName::Triaged),
             ObjectName::Nexus(NexusObjectName::Entered),
             ObjectName::Nexus(NexusObjectName::Decided),
-            ObjectName::Nexus(NexusObjectName::Entered),
-            ObjectName::Nexus(NexusObjectName::Decided),
             ObjectName::Sema(SemaObjectName::WriteApplied),
             ObjectName::Nexus(NexusObjectName::Entered),
             ObjectName::Nexus(NexusObjectName::Decided),
@@ -146,18 +133,18 @@ fn testing_trace_records_real_signal_nexus_and_sema_activations() {
         ],
     );
     let archive =
-        rkyv::to_bytes::<rkyv::rancor::Error>(&events[6]).expect("trace event archives as rkyv");
+        rkyv::to_bytes::<rkyv::rancor::Error>(&events[4]).expect("trace event archives as rkyv");
     let decoded = rkyv::from_bytes::<TraceEvent, rkyv::rancor::Error>(&archive)
         .expect("trace event decodes from rkyv");
-    assert_eq!(decoded, events[6]);
+    assert_eq!(decoded, events[4]);
     #[cfg(feature = "nota-text")]
     {
-        let rendered = events[6].to_string();
+        let rendered = events[4].to_string();
         assert_eq!(rendered, "(Sema WriteApplied)");
         let parsed = rendered
             .parse::<TraceEvent>()
             .expect("trace event parses from generated NOTA");
-        assert_eq!(parsed, events[6]);
+        assert_eq!(parsed, events[4]);
     }
     assert_ne!(
         *record_marker.state_digest.payload(),
@@ -230,8 +217,6 @@ fn testing_trace_builds_record_activations_by_default() {
         &[
             "SignalAdmitted",
             "SignalTriaged",
-            "NexusEntered",
-            "NexusDecided",
             "NexusEntered",
             "NexusDecided",
             "SemaWriteApplied",

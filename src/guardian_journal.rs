@@ -9,11 +9,10 @@ use sema_engine::{
 use crate::schema::signal::Input;
 use crate::{
     schema::{
-        nexus::{GuardianVerdict, ReferentGuardianVerdict},
+        nexus::GuardianVerdict,
         signal::{
             Clarification, ClarificationResolution, DatabaseMarker, Entry, Proposal, RecordChange,
-            RecordRequest, RecordSet, ReferentRegistration, RegisteredReferents, Retirement,
-            Supersession,
+            RecordRequest, RecordSet, Retirement, Supersession,
         },
     },
     store::StoreError,
@@ -24,12 +23,12 @@ use crate::{
 // version (see `Store::guardian_journal_path`), so a new daemon opens a fresh
 // file instead of failing on an incompatible layout; older files stay on disk
 // untouched, readable by the matching previous engine.
-const GUARDIAN_JOURNAL_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(6);
+const GUARDIAN_JOURNAL_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(7);
 const GUARDIAN_DECISIONS_TABLE: TableName = TableName::new("guardian-decisions");
 // The journal is hand-written audit state, not a schema-declared wire family,
 // so its family identity hashes the journal version label by hand. The label
 // moves with GUARDIAN_JOURNAL_SCHEMA_VERSION.
-const GUARDIAN_DECISIONS_FAMILY_LABEL: &str = "spirit:guardian-journal:v6";
+const GUARDIAN_DECISIONS_FAMILY_LABEL: &str = "spirit:guardian-journal:v7";
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub(crate) enum GuardianOperation {
@@ -44,16 +43,10 @@ pub(crate) enum GuardianOperation {
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub(crate) enum GuardianDecision {
-    Record {
+    Admission {
         operation: GuardianOperation,
         record_set: RecordSet,
         verdict: GuardianVerdict,
-        database_marker: DatabaseMarker,
-    },
-    Referent {
-        registration: ReferentRegistration,
-        registered_referents: RegisteredReferents,
-        verdict: ReferentGuardianVerdict,
         database_marker: DatabaseMarker,
     },
 }
@@ -158,23 +151,9 @@ impl GuardianDecision {
         verdict: GuardianVerdict,
         database_marker: DatabaseMarker,
     ) -> Self {
-        Self::Record {
+        Self::Admission {
             operation,
             record_set,
-            verdict,
-            database_marker,
-        }
-    }
-
-    pub(crate) fn referent(
-        registration: ReferentRegistration,
-        registered_referents: RegisteredReferents,
-        verdict: ReferentGuardianVerdict,
-        database_marker: DatabaseMarker,
-    ) -> Self {
-        Self::Referent {
-            registration,
-            registered_referents,
             verdict,
             database_marker,
         }

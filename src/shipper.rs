@@ -29,7 +29,7 @@ use sema_engine::{
 use signal_mirror::{EntrySuffix, Input as MirrorInput, Output as MirrorOutput};
 use thiserror::Error;
 
-use crate::schema::{meta_signal::MirrorTarget, sema::RecordFamily};
+use crate::schema::meta_signal::MirrorTarget;
 
 /// The gate over the component mirror shipper. `Off` is the default and the
 /// only state a daemon reaches without an owner `Configure` carrying a
@@ -58,7 +58,7 @@ impl MirrorShipper {
             armed: Some(ComponentShipper::from_shared_engine(
                 engine,
                 address,
-                VersionedStoreName::new(RecordFamily::STORE_NAME),
+                VersionedStoreName::new(crate::SPIRIT_STORE_NAME),
             )),
         }
     }
@@ -89,7 +89,7 @@ impl MirrorShipper {
                 Some(ComponentShipper::from_shared_engine(
                     engine,
                     socket_address,
-                    VersionedStoreName::new(RecordFamily::STORE_NAME),
+                    VersionedStoreName::new(crate::SPIRIT_STORE_NAME),
                 ))
             }
             Some(MirrorTarget::Default) | None => None,

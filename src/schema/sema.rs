@@ -16,33 +16,19 @@ pub use signal_spirit::schema::signal::Query as Query;
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::RecordIdentifier as RecordIdentifier;
 #[rustfmt::skip]
-pub use signal_spirit::schema::signal::Referent as Referent;
-#[rustfmt::skip]
-pub use signal_spirit::schema::signal::Referents as Referents;
-#[rustfmt::skip]
-pub use signal_spirit::schema::signal::Aliases as Aliases;
-#[rustfmt::skip]
 pub use signal_domain::schema::domain::DomainScopes as DomainScopes;
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::SearchText as SearchText;
-#[rustfmt::skip]
-pub use signal_spirit::schema::signal::CertaintyChange as CertaintyChange;
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::ImportanceBump as ImportanceBump;
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::RecordChange as RecordChange;
 #[rustfmt::skip]
-pub use signal_spirit::schema::signal::ReferentRegistration as ReferentRegistration;
-#[rustfmt::skip]
 pub use signal_spirit::schema::signal::SemaReceipt as SemaReceipt;
-#[rustfmt::skip]
-pub use signal_spirit::schema::signal::CertaintyChangeReceipt as CertaintyChangeReceipt;
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::ImportanceBumpReceipt as ImportanceBumpReceipt;
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::RecordChangeReceipt as RecordChangeReceipt;
-#[rustfmt::skip]
-pub use signal_spirit::schema::signal::ReferentRegistrationReceipt as ReferentRegistrationReceipt;
 #[rustfmt::skip]
 pub use signal_spirit::schema::signal::ObservedRecords as ObservedRecords;
 #[rustfmt::skip]
@@ -64,10 +50,8 @@ pub use nota::{NotaDecodeError, NotaEncode, NotaSource};
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum WriteInput {
     Record(Record),
-    ChangeCertainty(ChangeCertainty),
     BumpImportance(BumpImportance),
     ChangeRecord(ChangeRecord),
-    RegisterReferent(RegisterReferent),
 }
 
 #[rustfmt::skip]
@@ -77,14 +61,6 @@ pub enum WriteInput {
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Record(Entry);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ChangeCertainty(CertaintyChange);
 
 #[rustfmt::skip]
 #[cfg_attr(
@@ -108,18 +84,10 @@ pub struct ChangeRecord(RecordChange);
     derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct RegisterReferent(ReferentRegistration);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum ReadInput {
     Observe(Observe),
-    PublicIntent(PublicIntent),
-    PublicTextSearch(PublicTextSearch),
+    Intent(Intent),
+    TextSearch(TextSearch),
     Lookup(Lookup),
     Count(Count),
 }
@@ -138,7 +106,7 @@ pub struct Observe(Query);
     derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct PublicIntent(DomainScopes);
+pub struct Intent(DomainScopes);
 
 #[rustfmt::skip]
 #[cfg_attr(
@@ -146,7 +114,7 @@ pub struct PublicIntent(DomainScopes);
     derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct PublicTextSearch(SearchText);
+pub struct TextSearch(SearchText);
 
 #[rustfmt::skip]
 #[cfg_attr(
@@ -172,10 +140,8 @@ pub struct Count(Query);
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum WriteOutput {
     Recorded(Recorded),
-    CertaintyChanged(CertaintyChanged),
     ImportanceBumped(ImportanceBumped),
     RecordChanged(RecordChanged),
-    ReferentRegistered(ReferentRegistered),
     Missed(Missed),
 }
 
@@ -186,14 +152,6 @@ pub enum WriteOutput {
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Recorded(SemaReceipt);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct CertaintyChanged(CertaintyChangeReceipt);
 
 #[rustfmt::skip]
 #[cfg_attr(
@@ -217,14 +175,6 @@ pub struct RecordChanged(RecordChangeReceipt);
     derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct ReferentRegistered(ReferentRegistrationReceipt);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Missed(ErrorReport);
 
 #[rustfmt::skip]
@@ -235,8 +185,8 @@ pub struct Missed(ErrorReport);
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum ReadOutput {
     Observed(Observed),
-    PublicIntentResults(PublicIntentResults),
-    PublicTextSearchResults(PublicTextSearchResults),
+    IntentResults(IntentResults),
+    TextSearchResults(TextSearchResults),
     Found(Found),
     Counted(Counted),
     Missed(Missed),
@@ -256,7 +206,7 @@ pub struct Observed(ObservedRecords);
     derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct PublicIntentResults(ObservedRecords);
+pub struct IntentResults(ObservedRecords);
 
 #[rustfmt::skip]
 #[cfg_attr(
@@ -264,7 +214,7 @@ pub struct PublicIntentResults(ObservedRecords);
     derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct PublicTextSearchResults(ObservedRecords);
+pub struct TextSearchResults(ObservedRecords);
 
 #[rustfmt::skip]
 #[cfg_attr(
@@ -299,17 +249,6 @@ pub struct StoredRecord {
     derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct StoredReferent {
-    pub referent: Referent,
-    pub aliases: Aliases,
-}
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct SourceSchemaVersion(Integer);
 
 #[rustfmt::skip]
@@ -326,18 +265,9 @@ pub struct MigratedRecordCount(Integer);
     derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
 )]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct MigratedReferentCount(Integer);
-
-#[rustfmt::skip]
-#[cfg_attr(
-    feature = "nota-text",
-    derive(nota::NotaDecode, nota::NotaDecodeTraced, nota::NotaEncode)
-)]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Migration {
     pub source_schema_version: SourceSchemaVersion,
     pub migrated_record_count: MigratedRecordCount,
-    pub migrated_referent_count: MigratedReferentCount,
 }
 
 #[rustfmt::skip]
@@ -382,25 +312,6 @@ impl From<Entry> for Record {
 }
 
 #[rustfmt::skip]
-impl ChangeCertainty {
-    pub fn new(payload: CertaintyChange) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &CertaintyChange {
-        &self.0
-    }
-    pub fn into_payload(self) -> CertaintyChange {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<CertaintyChange> for ChangeCertainty {
-    fn from(payload: CertaintyChange) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
 impl BumpImportance {
     pub fn new(payload: ImportanceBump) -> Self {
         Self(payload)
@@ -439,25 +350,6 @@ impl From<RecordChange> for ChangeRecord {
 }
 
 #[rustfmt::skip]
-impl RegisterReferent {
-    pub fn new(payload: ReferentRegistration) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &ReferentRegistration {
-        &self.0
-    }
-    pub fn into_payload(self) -> ReferentRegistration {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<ReferentRegistration> for RegisterReferent {
-    fn from(payload: ReferentRegistration) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
 impl Observe {
     pub fn new(payload: Query) -> Self {
         Self(payload)
@@ -477,7 +369,7 @@ impl From<Query> for Observe {
 }
 
 #[rustfmt::skip]
-impl PublicIntent {
+impl Intent {
     pub fn new(payload: DomainScopes) -> Self {
         Self(payload)
     }
@@ -489,14 +381,14 @@ impl PublicIntent {
     }
 }
 #[rustfmt::skip]
-impl From<DomainScopes> for PublicIntent {
+impl From<DomainScopes> for Intent {
     fn from(payload: DomainScopes) -> Self {
         Self::new(payload)
     }
 }
 
 #[rustfmt::skip]
-impl PublicTextSearch {
+impl TextSearch {
     pub fn new(payload: SearchText) -> Self {
         Self(payload)
     }
@@ -508,7 +400,7 @@ impl PublicTextSearch {
     }
 }
 #[rustfmt::skip]
-impl From<SearchText> for PublicTextSearch {
+impl From<SearchText> for TextSearch {
     fn from(payload: SearchText) -> Self {
         Self::new(payload)
     }
@@ -572,25 +464,6 @@ impl From<SemaReceipt> for Recorded {
 }
 
 #[rustfmt::skip]
-impl CertaintyChanged {
-    pub fn new(payload: CertaintyChangeReceipt) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &CertaintyChangeReceipt {
-        &self.0
-    }
-    pub fn into_payload(self) -> CertaintyChangeReceipt {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<CertaintyChangeReceipt> for CertaintyChanged {
-    fn from(payload: CertaintyChangeReceipt) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
 impl ImportanceBumped {
     pub fn new(payload: ImportanceBumpReceipt) -> Self {
         Self(payload)
@@ -624,25 +497,6 @@ impl RecordChanged {
 #[rustfmt::skip]
 impl From<RecordChangeReceipt> for RecordChanged {
     fn from(payload: RecordChangeReceipt) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl ReferentRegistered {
-    pub fn new(payload: ReferentRegistrationReceipt) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &ReferentRegistrationReceipt {
-        &self.0
-    }
-    pub fn into_payload(self) -> ReferentRegistrationReceipt {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<ReferentRegistrationReceipt> for ReferentRegistered {
-    fn from(payload: ReferentRegistrationReceipt) -> Self {
         Self::new(payload)
     }
 }
@@ -686,7 +540,7 @@ impl From<ObservedRecords> for Observed {
 }
 
 #[rustfmt::skip]
-impl PublicIntentResults {
+impl IntentResults {
     pub fn new(payload: ObservedRecords) -> Self {
         Self(payload)
     }
@@ -698,14 +552,14 @@ impl PublicIntentResults {
     }
 }
 #[rustfmt::skip]
-impl From<ObservedRecords> for PublicIntentResults {
+impl From<ObservedRecords> for IntentResults {
     fn from(payload: ObservedRecords) -> Self {
         Self::new(payload)
     }
 }
 
 #[rustfmt::skip]
-impl PublicTextSearchResults {
+impl TextSearchResults {
     pub fn new(payload: ObservedRecords) -> Self {
         Self(payload)
     }
@@ -717,7 +571,7 @@ impl PublicTextSearchResults {
     }
 }
 #[rustfmt::skip]
-impl From<ObservedRecords> for PublicTextSearchResults {
+impl From<ObservedRecords> for TextSearchResults {
     fn from(payload: ObservedRecords) -> Self {
         Self::new(payload)
     }
@@ -800,40 +654,15 @@ impl From<Integer> for MigratedRecordCount {
 }
 
 #[rustfmt::skip]
-impl MigratedReferentCount {
-    pub fn new(payload: Integer) -> Self {
-        Self(payload)
-    }
-    pub fn payload(&self) -> &Integer {
-        &self.0
-    }
-    pub fn into_payload(self) -> Integer {
-        self.0
-    }
-}
-#[rustfmt::skip]
-impl From<Integer> for MigratedReferentCount {
-    fn from(payload: Integer) -> Self {
-        Self::new(payload)
-    }
-}
-
-#[rustfmt::skip]
 impl WriteInput {
     pub fn record(payload: Entry) -> Self {
         Self::Record(Record::new(payload))
-    }
-    pub fn change_certainty(payload: CertaintyChange) -> Self {
-        Self::ChangeCertainty(ChangeCertainty::new(payload))
     }
     pub fn bump_importance(payload: ImportanceBump) -> Self {
         Self::BumpImportance(BumpImportance::new(payload))
     }
     pub fn change_record(payload: RecordChange) -> Self {
         Self::ChangeRecord(ChangeRecord::new(payload))
-    }
-    pub fn register_referent(payload: ReferentRegistration) -> Self {
-        Self::RegisterReferent(RegisterReferent::new(payload))
     }
 }
 
@@ -842,11 +671,11 @@ impl ReadInput {
     pub fn observe(payload: Query) -> Self {
         Self::Observe(Observe::new(payload))
     }
-    pub fn public_intent(payload: DomainScopes) -> Self {
-        Self::PublicIntent(PublicIntent::new(payload))
+    pub fn intent(payload: DomainScopes) -> Self {
+        Self::Intent(Intent::new(payload))
     }
-    pub fn public_text_search(payload: SearchText) -> Self {
-        Self::PublicTextSearch(PublicTextSearch::new(payload))
+    pub fn text_search(payload: SearchText) -> Self {
+        Self::TextSearch(TextSearch::new(payload))
     }
     pub fn lookup(payload: RecordIdentifier) -> Self {
         Self::Lookup(Lookup::new(payload))
@@ -861,17 +690,11 @@ impl WriteOutput {
     pub fn recorded(payload: SemaReceipt) -> Self {
         Self::Recorded(Recorded::new(payload))
     }
-    pub fn certainty_changed(payload: CertaintyChangeReceipt) -> Self {
-        Self::CertaintyChanged(CertaintyChanged::new(payload))
-    }
     pub fn importance_bumped(payload: ImportanceBumpReceipt) -> Self {
         Self::ImportanceBumped(ImportanceBumped::new(payload))
     }
     pub fn record_changed(payload: RecordChangeReceipt) -> Self {
         Self::RecordChanged(RecordChanged::new(payload))
-    }
-    pub fn referent_registered(payload: ReferentRegistrationReceipt) -> Self {
-        Self::ReferentRegistered(ReferentRegistered::new(payload))
     }
     pub fn missed(payload: ErrorReport) -> Self {
         Self::Missed(Missed::new(payload))
@@ -883,11 +706,11 @@ impl ReadOutput {
     pub fn observed(payload: ObservedRecords) -> Self {
         Self::Observed(Observed::new(payload))
     }
-    pub fn public_intent_results(payload: ObservedRecords) -> Self {
-        Self::PublicIntentResults(PublicIntentResults::new(payload))
+    pub fn intent_results(payload: ObservedRecords) -> Self {
+        Self::IntentResults(IntentResults::new(payload))
     }
-    pub fn public_text_search_results(payload: ObservedRecords) -> Self {
-        Self::PublicTextSearchResults(PublicTextSearchResults::new(payload))
+    pub fn text_search_results(payload: ObservedRecords) -> Self {
+        Self::TextSearchResults(TextSearchResults::new(payload))
     }
     pub fn found(payload: FoundRecord) -> Self {
         Self::Found(Found::new(payload))
@@ -928,13 +751,6 @@ impl From<Record> for WriteInput {
 }
 
 #[rustfmt::skip]
-impl From<ChangeCertainty> for WriteInput {
-    fn from(payload: ChangeCertainty) -> Self {
-        Self::ChangeCertainty(payload)
-    }
-}
-
-#[rustfmt::skip]
 impl From<BumpImportance> for WriteInput {
     fn from(payload: BumpImportance) -> Self {
         Self::BumpImportance(payload)
@@ -949,13 +765,6 @@ impl From<ChangeRecord> for WriteInput {
 }
 
 #[rustfmt::skip]
-impl From<RegisterReferent> for WriteInput {
-    fn from(payload: RegisterReferent) -> Self {
-        Self::RegisterReferent(payload)
-    }
-}
-
-#[rustfmt::skip]
 impl From<Observe> for ReadInput {
     fn from(payload: Observe) -> Self {
         Self::Observe(payload)
@@ -963,16 +772,16 @@ impl From<Observe> for ReadInput {
 }
 
 #[rustfmt::skip]
-impl From<PublicIntent> for ReadInput {
-    fn from(payload: PublicIntent) -> Self {
-        Self::PublicIntent(payload)
+impl From<Intent> for ReadInput {
+    fn from(payload: Intent) -> Self {
+        Self::Intent(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<PublicTextSearch> for ReadInput {
-    fn from(payload: PublicTextSearch) -> Self {
-        Self::PublicTextSearch(payload)
+impl From<TextSearch> for ReadInput {
+    fn from(payload: TextSearch) -> Self {
+        Self::TextSearch(payload)
     }
 }
 
@@ -998,13 +807,6 @@ impl From<Recorded> for WriteOutput {
 }
 
 #[rustfmt::skip]
-impl From<CertaintyChanged> for WriteOutput {
-    fn from(payload: CertaintyChanged) -> Self {
-        Self::CertaintyChanged(payload)
-    }
-}
-
-#[rustfmt::skip]
 impl From<ImportanceBumped> for WriteOutput {
     fn from(payload: ImportanceBumped) -> Self {
         Self::ImportanceBumped(payload)
@@ -1015,13 +817,6 @@ impl From<ImportanceBumped> for WriteOutput {
 impl From<RecordChanged> for WriteOutput {
     fn from(payload: RecordChanged) -> Self {
         Self::RecordChanged(payload)
-    }
-}
-
-#[rustfmt::skip]
-impl From<ReferentRegistered> for WriteOutput {
-    fn from(payload: ReferentRegistered) -> Self {
-        Self::ReferentRegistered(payload)
     }
 }
 
@@ -1040,16 +835,16 @@ impl From<Observed> for ReadOutput {
 }
 
 #[rustfmt::skip]
-impl From<PublicIntentResults> for ReadOutput {
-    fn from(payload: PublicIntentResults) -> Self {
-        Self::PublicIntentResults(payload)
+impl From<IntentResults> for ReadOutput {
+    fn from(payload: IntentResults) -> Self {
+        Self::IntentResults(payload)
     }
 }
 
 #[rustfmt::skip]
-impl From<PublicTextSearchResults> for ReadOutput {
-    fn from(payload: PublicTextSearchResults) -> Self {
-        Self::PublicTextSearchResults(payload)
+impl From<TextSearchResults> for ReadOutput {
+    fn from(payload: TextSearchResults) -> Self {
+        Self::TextSearchResults(payload)
     }
 }
 
@@ -1140,13 +935,9 @@ pub mod family_identity {
         169, 167, 27, 203, 113, 158, 12, 113, 89, 93, 195, 166, 134, 208, 34, 40, 178,
         38, 203, 139, 155, 209, 108, 101, 12, 183, 180, 233, 6, 84, 230, 177,
     ];
-    pub const REFERENTS_FAMILY: [u8; 32] = [
-        104, 195, 227, 181, 142, 254, 234, 107, 128, 177, 214, 13, 194, 75, 25, 253, 10,
-        38, 233, 129, 32, 48, 247, 79, 147, 203, 30, 52, 248, 158, 148, 249,
-    ];
     pub const MIGRATIONS_FAMILY: [u8; 32] = [
-        162, 255, 229, 245, 220, 189, 118, 68, 34, 109, 161, 159, 253, 62, 185, 124, 148,
-        130, 225, 124, 212, 69, 80, 89, 118, 12, 161, 139, 156, 198, 112, 174,
+        230, 253, 154, 216, 87, 227, 13, 141, 82, 16, 203, 108, 170, 143, 69, 87, 143,
+        191, 234, 25, 90, 168, 75, 182, 238, 134, 0, 229, 158, 24, 20, 143,
     ];
 }
 
@@ -1187,7 +978,6 @@ impl std::error::Error for RecordFamilyError {}
 #[derive(Clone, Debug, PartialEq)]
 pub enum RecordFamily {
     RecordsFamily(StoredRecord),
-    ReferentsFamily(StoredReferent),
     MigrationsFamily(Migration),
 }
 #[rustfmt::skip]
@@ -1203,13 +993,6 @@ impl RecordFamily {
             sema_engine::TableName::new("records"),
             sema_engine::FamilyName::new("RecordsFamily"),
             sema_engine::SchemaHash::new(family_identity::RECORDS_FAMILY),
-        )
-    }
-    pub fn referents_family() -> sema_engine::TableDescriptor<StoredReferent> {
-        sema_engine::TableDescriptor::new(
-            sema_engine::TableName::new("referents"),
-            sema_engine::FamilyName::new("ReferentsFamily"),
-            sema_engine::SchemaHash::new(family_identity::REFERENTS_FAMILY),
         )
     }
     pub fn migrations_family() -> sema_engine::TableDescriptor<Migration> {
@@ -1240,26 +1023,6 @@ impl RecordFamily {
                         family: sema_engine::FamilyName::new("RecordsFamily"),
                     })?;
                 Ok(Self::RecordsFamily(record))
-            }
-            "ReferentsFamily" => {
-                let generated = sema_engine::SchemaHash::new(
-                    family_identity::REFERENTS_FAMILY,
-                );
-                if identity.schema_hash() != generated {
-                    return Err(RecordFamilyError::SchemaHashMismatch {
-                        family: sema_engine::FamilyName::new("ReferentsFamily"),
-                        stored: identity.schema_hash(),
-                        generated,
-                    });
-                }
-                let record = rkyv::from_bytes::<
-                    StoredReferent,
-                    rkyv::rancor::Error,
-                >(bytes)
-                    .map_err(|_| RecordFamilyError::RecordDecode {
-                        family: sema_engine::FamilyName::new("ReferentsFamily"),
-                    })?;
-                Ok(Self::ReferentsFamily(record))
             }
             "MigrationsFamily" => {
                 let generated = sema_engine::SchemaHash::new(
@@ -1304,10 +1067,8 @@ impl RecordFamily {
 )]
 pub enum WriteInputRoute {
     Record,
-    ChangeCertainty,
     BumpImportance,
     ChangeRecord,
-    RegisterReferent,
 }
 
 #[rustfmt::skip]
@@ -1315,10 +1076,8 @@ impl WriteInput {
     pub fn route(&self) -> WriteInputRoute {
         match self {
             Self::Record(_) => WriteInputRoute::Record,
-            Self::ChangeCertainty(_) => WriteInputRoute::ChangeCertainty,
             Self::BumpImportance(_) => WriteInputRoute::BumpImportance,
             Self::ChangeRecord(_) => WriteInputRoute::ChangeRecord,
-            Self::RegisterReferent(_) => WriteInputRoute::RegisterReferent,
         }
     }
 }
@@ -1340,8 +1099,8 @@ impl WriteInput {
 )]
 pub enum ReadInputRoute {
     Observe,
-    PublicIntent,
-    PublicTextSearch,
+    Intent,
+    TextSearch,
     Lookup,
     Count,
 }
@@ -1351,8 +1110,8 @@ impl ReadInput {
     pub fn route(&self) -> ReadInputRoute {
         match self {
             Self::Observe(_) => ReadInputRoute::Observe,
-            Self::PublicIntent(_) => ReadInputRoute::PublicIntent,
-            Self::PublicTextSearch(_) => ReadInputRoute::PublicTextSearch,
+            Self::Intent(_) => ReadInputRoute::Intent,
+            Self::TextSearch(_) => ReadInputRoute::TextSearch,
             Self::Lookup(_) => ReadInputRoute::Lookup,
             Self::Count(_) => ReadInputRoute::Count,
         }
@@ -1376,10 +1135,8 @@ impl ReadInput {
 )]
 pub enum WriteOutputRoute {
     Recorded,
-    CertaintyChanged,
     ImportanceBumped,
     RecordChanged,
-    ReferentRegistered,
     Missed,
 }
 
@@ -1388,10 +1145,8 @@ impl WriteOutput {
     pub fn route(&self) -> WriteOutputRoute {
         match self {
             Self::Recorded(_) => WriteOutputRoute::Recorded,
-            Self::CertaintyChanged(_) => WriteOutputRoute::CertaintyChanged,
             Self::ImportanceBumped(_) => WriteOutputRoute::ImportanceBumped,
             Self::RecordChanged(_) => WriteOutputRoute::RecordChanged,
-            Self::ReferentRegistered(_) => WriteOutputRoute::ReferentRegistered,
             Self::Missed(_) => WriteOutputRoute::Missed,
         }
     }
@@ -1414,8 +1169,8 @@ impl WriteOutput {
 )]
 pub enum ReadOutputRoute {
     Observed,
-    PublicIntentResults,
-    PublicTextSearchResults,
+    IntentResults,
+    TextSearchResults,
     Found,
     Counted,
     Missed,
@@ -1426,8 +1181,8 @@ impl ReadOutput {
     pub fn route(&self) -> ReadOutputRoute {
         match self {
             Self::Observed(_) => ReadOutputRoute::Observed,
-            Self::PublicIntentResults(_) => ReadOutputRoute::PublicIntentResults,
-            Self::PublicTextSearchResults(_) => ReadOutputRoute::PublicTextSearchResults,
+            Self::IntentResults(_) => ReadOutputRoute::IntentResults,
+            Self::TextSearchResults(_) => ReadOutputRoute::TextSearchResults,
             Self::Found(_) => ReadOutputRoute::Found,
             Self::Counted(_) => ReadOutputRoute::Counted,
             Self::Missed(_) => ReadOutputRoute::Missed,
@@ -1467,17 +1222,15 @@ impl SemaObjectName {
             Self::WriteInput(route) => {
                 match route {
                     WriteInputRoute::Record => "SemaWriteInputRecord",
-                    WriteInputRoute::ChangeCertainty => "SemaWriteInputChangeCertainty",
                     WriteInputRoute::BumpImportance => "SemaWriteInputBumpImportance",
                     WriteInputRoute::ChangeRecord => "SemaWriteInputChangeRecord",
-                    WriteInputRoute::RegisterReferent => "SemaWriteInputRegisterReferent",
                 }
             }
             Self::ReadInput(route) => {
                 match route {
                     ReadInputRoute::Observe => "SemaReadInputObserve",
-                    ReadInputRoute::PublicIntent => "SemaReadInputPublicIntent",
-                    ReadInputRoute::PublicTextSearch => "SemaReadInputPublicTextSearch",
+                    ReadInputRoute::Intent => "SemaReadInputIntent",
+                    ReadInputRoute::TextSearch => "SemaReadInputTextSearch",
                     ReadInputRoute::Lookup => "SemaReadInputLookup",
                     ReadInputRoute::Count => "SemaReadInputCount",
                 }
@@ -1485,27 +1238,19 @@ impl SemaObjectName {
             Self::WriteOutput(route) => {
                 match route {
                     WriteOutputRoute::Recorded => "SemaWriteOutputRecorded",
-                    WriteOutputRoute::CertaintyChanged => {
-                        "SemaWriteOutputCertaintyChanged"
-                    }
                     WriteOutputRoute::ImportanceBumped => {
                         "SemaWriteOutputImportanceBumped"
                     }
                     WriteOutputRoute::RecordChanged => "SemaWriteOutputRecordChanged",
-                    WriteOutputRoute::ReferentRegistered => {
-                        "SemaWriteOutputReferentRegistered"
-                    }
                     WriteOutputRoute::Missed => "SemaWriteOutputMissed",
                 }
             }
             Self::ReadOutput(route) => {
                 match route {
                     ReadOutputRoute::Observed => "SemaReadOutputObserved",
-                    ReadOutputRoute::PublicIntentResults => {
-                        "SemaReadOutputPublicIntentResults"
-                    }
-                    ReadOutputRoute::PublicTextSearchResults => {
-                        "SemaReadOutputPublicTextSearchResults"
+                    ReadOutputRoute::IntentResults => "SemaReadOutputIntentResults",
+                    ReadOutputRoute::TextSearchResults => {
+                        "SemaReadOutputTextSearchResults"
                     }
                     ReadOutputRoute::Found => "SemaReadOutputFound",
                     ReadOutputRoute::Counted => "SemaReadOutputCounted",

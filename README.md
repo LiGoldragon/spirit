@@ -1,185 +1,124 @@
 # spirit
 
-`spirit` is the production Spirit daemon. Its current build pipeline is the
-wired legacy schema/schema-rust toolchain, not the approved architecture:
+`spirit` is the durable intent service. Spirit 0.26 carries storage schema 14
+and the revision-2 signal contract.
+
+An active `Entry` has exactly four fields:
 
 ```text
-schema/{signal,nexus,sema}.schema
-  -> schema SchemaSource typed source objects
-  -> rkyv-serializable schema-in-Rust values
-  -> schema-rust checked-in generated Rust at src/schema/{signal,nexus,sema}.rs
-  -> CLI NOTA input
-  -> generated Signal frame (short header + rkyv)
-  -> daemon SignalActor
-  -> Nexus mail keeper / translator
-  -> generated SEMA input/output against Store
-  -> Nexus reply translation
-  -> generated Signal frame (short header + rkyv)
-  -> CLI NOTA output
+Entry { Domains Kind Description Importance }
 ```
 
-That toolchain is dead under its old name: the language was renamed Ethos on
-2026-07-27, and legacy schema, schema-language, and schema-rust die under
-their old names (S1R entry 7). Spirit's port onto Ethos-based generation has
-not landed — it is in progress and blocked at bead
-`protos-engine-po1.10.11` — and the spirit-port acceptance test requires zero
-build or runtime dependency on schema-rust with no compatibility adapters
-(SSR entry 8, psyche-confirmed). Do not copy this repo's current pipeline as
-the pattern for new components until the port lands. The triad shape it
-demonstrates — authored schema source generating the Signal/Nexus/SEMA nouns,
-the CLI as a text edge, binary rkyv daemon traffic, and SEMA owning the
-durable store — is the shape carrying forward; only the schema/schema-rust
-generation step is superseded.
+Every active record is visible through the same read plane. There are no
+secondary record classes or implicit cleanup candidates. Removal is expressed
+through the explicit lifecycle operations `Retire`, `Supersede`, and
+`ResolveClarification`; retired substance is copied to the lifecycle archive
+before the live row is retracted.
 
-`build.rs` decodes `schema/{signal,nexus,sema}.schema` into typed
-`SchemaSource` values, validates canonical text and rkyv round-trips, emits
-Rust from those typed values, and fails the build if any generated
-`src/schema/*.rs` plane module is stale. The runtime imports the checked-in
-module directly; `OUT_DIR` is not part of the runtime schema surface.
+## Runtime
 
-## Maintained release surface
+The authored schemas generate the checked-in Rust contracts:
 
-The Spirit flake is the component-version authority for the complete user
-service, not only the daemon binary. Alongside the existing daemon, CLI,
-configuration writer, and migration packages it exports:
+```text
+schema/{nexus,sema}.schema + producer schemas
+  -> build-time canonicalization and Rust generation
+  -> src/schema/{nexus,sema,daemon}.rs
+  -> Signal admission
+  -> Nexus decisions
+  -> SEMA reads and writes
+  -> Signal reply
+```
 
-- `packages.<system>.judge`;
-- `packages.<system>.judge-config`;
-- `packages.<system>.judge-provider`;
-- `packages.<system>.release-manifest`;
-- `lib.<system>.mkUserServiceArtifacts { stateDirectory = ...; }`.
+`build.rs` fails when a generated artifact is stale. CLI input and output use
+NOTA. Daemon sockets carry length-prefixed revision-2 signal frames with rkyv
+payloads. The working socket accepts ordinary operations; the owner-only meta
+socket carries configuration, import, and recovery controls.
 
-`mkUserServiceArtifacts` accepts an absolute one-atom state directory and
-returns the Spirit path set, the binary daemon configuration, Spirit-only state
-initializers, daemon and judge service wrappers, and ordinary/meta CLI wrappers.
-Deployment flakes consume that constructor through one pinned Spirit input;
-they do not independently pin or assemble the judge, prompt set, provider,
-contracts, or wrappers.
-
-## Run
-
-Create a startup archive with the text-edge writer, then start the daemon with
-one argument: the path to the binary rkyv `SpiritDaemonConfiguration` file. The
-configuration carries the Unix socket path, required meta socket path, `.sema`
-database path, and criome authorization mode. The daemon does not parse NOTA at
-startup.
+Create a binary daemon configuration and start a local instance:
 
 ```sh
-spirit-write-configuration "(ConfigurationWriteRequest (/tmp/spirit.sock (Some /tmp/spirit-meta.sock) /tmp/spirit.sema None Gating None /tmp/spirit.config.rkyv))"
+spirit-write-configuration \
+  "(ConfigurationWriteRequest (/tmp/spirit.sock (Some /tmp/spirit-meta.sock) /tmp/spirit.sema None Gating None /tmp/spirit.config.rkyv))"
 spirit-daemon /tmp/spirit.config.rkyv
 ```
 
-Call it from the CLI:
+Then use the working CLI:
 
 ```sh
-SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Record (([(Software (Data SchemaEvolution))] Constraint [schema creates the interface] Maximum Minimum Zero []) ([schema creates the interface] None)))"
+SPIRIT_SOCKET=/tmp/spirit.sock spirit \
+  "(Record (([(Technology (Software (Data SchemaEvolution)))] Constraint [schema creates the interface] Medium) ([([schema creates the interface] None)] [schema creates the interface])))"
 
-SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Observe ((Full [(Software (Data SchemaEvolution))]) Any Any Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))"
+SPIRIT_SOCKET=/tmp/spirit.sock spirit \
+  "(Observe ((Full [(Technology (Software (Data SchemaEvolution)))]) Any Any (Some Constraint) Any))"
 
-SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Observe ((Full [(Software (Data SchemaEvolution))]) Any Any Any (Some Constraint) (Exact Zero) (ExactCertainty Zero) Any))"
+SPIRIT_SOCKET=/tmp/spirit.sock spirit \
+  "(TextSearch [schema interface])"
 
-SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(Observe ((Full [(Software (Data SchemaEvolution))]) (AllKeywords [schema]) (ContainsText interface) Any (Some Constraint) (Exact Zero) (AtLeastCertainty Minimum) Any))"
-
-SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit "(PublicTextSearch [routing protocol])"
-
-SPIRIT_SOCKET=/tmp/spirit.sock \
-  spirit Version
+SPIRIT_SOCKET=/tmp/spirit.sock spirit Version
 ```
 
-Physical deletion is an owner-only meta operation, not a working verb. The
-owner archives-then-removes matching exact-Zero-certainty records by issuing
-`CollectRemovalCandidates` over the meta socket (the same socket that carries
-`Configure`/`Import`); there is no working hard-delete path.
+Queries contain domain, keyword, description-text, kind, and importance
+predicates. `TextSearch` is the compact ranked lookup over active record
+descriptions. `Intent` reads active records under typed domain scopes. Both
+return the same `ObservedRecord` shape as `Observe`.
 
-The CLI accepts NOTA. The daemon socket carries length-prefixed rkyv bytes
-with an 8-byte short header. When the admission feature is enabled, Spirit
-uses the legacy `SpiritGuardianAgentConfiguration` socket field as a
-compatibility alias for the external `signal-spirit-judge` socket; prompts,
-provider JSON, model selection, and NOTA verdict parsing live in `spirit-judge`,
-not inside the daemon.
+## Admission and lifecycle
 
-Entries carry a vector of domains. Queries use generated `DomainMatch` values:
-`(Partial [(Software (Data SchemaEvolution)) (Information Documentation)])` matches any requested
-domain, while `(Full [(Software (Data SchemaEvolution)) (Information Documentation)])` requires
-every requested domain. The query kind is optional: `(Some Decision)` filters
-by kind and `None` searches without a kind predicate. The full generated query
-carries domain, keyword, text, referent, kind, privacy, certainty, and
-importance predicates. `KeywordMatch` reads
-asterisk-marked description spans such as `*schema language*`; `TextMatch` is a
-case-insensitive full-text substring fallback. `ReferentSelection` filters by
-registered runtime referents; aliases are canonicalized through
-`RegisterReferent`. Ordinary `Observe` and `Count` should use
-`(AtLeastCertainty Minimum)` to hide zero-certainty removal candidates; use
-`(ExactCertainty Zero)` when reviewing candidates. Certainty and importance are
-separate stored axes: certainty names confidence/currentness, while importance
-names intrinsic significance and reaffirmation strength.
+When required, the daemon sends one typed `JudgeAdmission` request to the
+external Spirit judge for each proposed write. Its packet contains the typed
+operation, relevant existing-record context, and the database marker. The
+guardian either accepts or returns a typed rejection; unavailable, malformed,
+or timed-out judgment fails closed. Decisions are audit state in the separate
+schema-7 guardian journal.
 
-For ordinary agent lookup, prefer `PublicTextSearch` before spelling the full
-`Observe` predicate. It searches active public records by description text and
-referent text, tolerates unregistered words as search terms, ranks likely
-matches, and returns a capped `RecordsObserved` result directly. Use full
-`Observe` when you need exact domain / kind / referent / privacy / certainty /
-importance predicates or exhaustive stashed results.
+Lifecycle operations preserve retained fields:
 
-## Runtime triad
+- `ChangeRecord` replaces one live four-field entry under the same identifier.
+- `Retire` archives the live entry and retracts it.
+- `Supersede` archives and retracts its targets, then records replacements.
+- `ResolveClarification` edits its targets and archives/retracts the standalone
+  clarification.
 
-`spirit` is the implementation target for the refined runtime triad:
+## Storage schema 14 migration
 
-- Signal is generated `Input`/`Output` plus the generated route/header/rkyv
-  frame methods.
-- Nexus is the decision keeper and translator. It accepts schema-emitted Signal
-  mail, lowers it into generated SEMA write/read input, holds the origin route
-  while SEMA runs, and maps the generated SEMA output back to generated Signal
-  output.
-- SEMA is split by generated traits: `Store::apply` takes mutable write input,
-  while `Store::observe` takes shared read input. Both operate over the durable
-  `.sema` component database through `sema-engine`.
+`spirit-migrate-store` is an offline, one-way v13-to-v14 projection. Stop the
+daemon and operate on the intended state path only. The migration:
 
-## Migration-only v13 reader
+1. copies the exact quiesced v13 live store, optional archive, and optional
+   schema-6 guardian journal into a mode-`0700` rollback directory;
+2. validates every v13 family through the frozen migration-only reader;
+3. projects only identifier, domains, kind, description, and importance;
+4. builds fresh live and archive schema-14 stores and reopens both for
+   comparison before exposure;
+5. exposes the archive first and live store second;
+6. starts fresh schema-14 history with projected assertions and one migration
+   receipt; the current guardian journal starts at schema 7.
 
-The `production-migration` feature contains
-`production_migration::v13::{LiveReader, ArchiveReader, FoldSink}`. This is a
-frozen offline reader for the Schema-produced schema-version-13 records,
-referents, migrations, and records-only archive families. Its historical Rust
-layouts and family hashes are local to the migration module and are unavailable
-to the daemon, ordinary CLI, and owner meta CLI.
+The rollback directory is `<live-stem>.schema-13-rollback`. Its copies are the
+only supported recovery material for the discarded v13 representation. A
+second successful invocation reports `Current` without modifying the v14
+store. Corrupt or wrong-generation input is rejected without replacing it.
 
-The reader validates the complete stored family catalog before enumerating any
-row and exposes no source-write operation. Tests use synthetic disposable
-stores to prove stable record identifiers, repeatable enumeration, typed sink
-failure, wrong-version and corrupt-family refusal, and the one-family archive
-shape without changing the source inventory, marker, or catalog. The
-`FoldSink` seam is not the final migration: folding into Ethos-generated
-current families remains pending until those types exist. No production store
-is read by this proof.
+The old decoder exists only behind the `production-migration` feature in
+`production_migration::v13`; the daemon, working CLI, current schema, and
+current store do not contain legacy families or compatibility tables.
 
-## Process-test safety
+## Release surface
 
-Process-boundary tests run children with an empty inherited environment and
-put sockets, configuration, databases, archives, and build artifacts below an
-auto-cleaned temporary directory. Automated tests use synthetic disposable
-stores only. Candidate live and archive inputs for a future manual
-migrated-copy run must already be isolated from production. They are explicit,
-never inferred; missing configuration is an error, and the source files are
-fingerprinted as raw files without opening them as a Spirit store.
+The repository flake is the one-root authority for the complete Spirit user
+service. It exports the daemon, working and meta CLIs, configuration writer,
+store migration tool, judge, judge configuration, provider, release manifest,
+and `lib.<system>.mkUserServiceArtifacts`.
 
-## Remote schema stack check
+Consumers pin Spirit once and obtain the whole service bundle from that root.
+The release manifest asserts the exact producer-contract revisions used by the
+daemon and judge.
 
-When editing `nota`, `schema`, or `schema-rust` together with
-this consumer, commit and push the participating refs, then run the override
-check:
+## Test boundaries
 
-```sh
-SPIRIT_STACK_REF=operator/my-feature SPIRIT_TARGET_REF=operator/my-feature \
-scripts/check-local-schema-stack
-```
+Repository tests use disposable stores and isolated child-process
+environments. They never open deployed Spirit state. The migration suite seeds
+real schema-13 live/archive layouts, verifies byte-identical private rollback,
+checks the fresh schema-14 log and receipt, and proves a second run is a no-op.
 
-It runs `nix flake check` against pushed `github:LiGoldragon/...` refs while
-overriding the schema-stack source inputs to the same remote ref by default.
-Use per-repo variables such as `NOTA_REF`, `SCHEMA_REF`, and
-`SCHEMA_RUST_REF` when the stack does not share one branch or revision.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the contract and durability details.

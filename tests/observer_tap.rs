@@ -14,9 +14,9 @@
 mod support;
 
 use spirit::schema::signal::{
-    CertaintySelection, Description, DomainMatch, Entry, ImportanceSelection, Input, Justification,
-    Kind, Magnitude, ObserverFilter, OperationKind, Output, Privacy, PrivacySelection, Query,
-    QuoteText, Reasoning, RecordRequest, SelectedKind, Testimony, VerbatimQuote,
+    Description, DomainMatch, Entry, ImportanceSelection, Input, Justification, Kind, Magnitude,
+    ObserverFilter, OperationKind, Output, Query, QuoteText, Reasoning, RecordRequest,
+    SelectedKind, Testimony, VerbatimQuote,
 };
 use spirit::{Engine, Store};
 use support::domain_fixtures;
@@ -27,12 +27,7 @@ fn entry(description: &str) -> Entry {
         domains: domain_fixtures::domains(&["observer-tap"]),
         kind: Kind::Decision,
         description: Description::new(description),
-        certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
-        privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(vec![
-            spirit::schema::signal::Referent::new("spirit"),
-        ]),
     }
 }
 
@@ -54,10 +49,7 @@ fn observe_query() -> Query {
         domain_match: DomainMatch::full(domain_fixtures::scopes(&["observer-tap"])),
         keyword_match: spirit::schema::signal::KeywordMatch::Any,
         text_match: spirit::schema::signal::TextMatch::Any,
-        referent_selection: spirit::schema::signal::ReferentSelection::Any,
         selected_kind: SelectedKind::new(Some(Kind::Decision)),
-        privacy_selection: PrivacySelection::default_observation_privacy(),
-        certainty_selection: CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
     }
 }

@@ -13,17 +13,16 @@ use std::{
 use signal_frame::{ExchangeFrameBody, NonEmpty, Reply, ShortHeader, SubReply};
 use signal_spirit_judge::{
     AdmissionJudgeOperation, AdmissionJudgeResponse, AdmissionJudgeVerdict, JudgeDiagnostic,
-    PrivateDiagnosticPolicy, RedactedText, ReferentRegistrationJudgeResponse,
-    ReferentRegistrationJudgeVerdict, SpiritJudgeFrame, SpiritJudgeReply, SpiritJudgeRequest,
+    RedactedText, SpiritJudgeFrame, SpiritJudgeReply, SpiritJudgeRequest,
 };
 use spirit::{
     AgentGuardian, AgentGuardianConfiguration, Engine, Store,
     schema::signal::{
         Clarification, ClarificationRecordIdentifier, ClarificationResolution, Description,
         Domains, Entry, GuardianRejectionReason, Importance, Input, Justification, Kind, Magnitude,
-        Output, Privacy, Proposal, QuoteText, Reasoning, RecordChange, RecordIdentifier,
-        RecordRequest, Referents, Replacements, RetiredIdentifier, RetiredIdentifiers, Retirement,
-        Supersession, TargetClarification, TargetClarifications, Testimony, VerbatimQuote,
+        Output, Proposal, QuoteText, Reasoning, RecordChange, RecordIdentifier, RecordRequest,
+        Replacements, RetiredIdentifier, RetiredIdentifiers, Retirement, Supersession,
+        TargetClarification, TargetClarifications, Testimony, VerbatimQuote,
     },
 };
 use tempfile::TempDir;
@@ -38,7 +37,7 @@ struct FakeSpiritJudge {
 
 impl FakeSpiritJudge {
     fn accept_once() -> Self {
-        Self::accepting(2)
+        Self::accepting(1)
     }
 
     fn accepting(request_count: usize) -> Self {
@@ -67,16 +66,6 @@ impl FakeSpiritJudge {
                                 RedactedText::new("accepted").expect("static diagnostic"),
                             ),
                         ))
-                    }
-                    SpiritJudgeRequest::JudgeReferentRegistration(_) => {
-                        SpiritJudgeReply::ReferentRegistrationJudged(
-                            ReferentRegistrationJudgeResponse::new(
-                                ReferentRegistrationJudgeVerdict::Accept,
-                                JudgeDiagnostic::redacted(
-                                    RedactedText::new("accepted").expect("static diagnostic"),
-                                ),
-                            ),
-                        )
                     }
                 };
                 let frame = SpiritJudgeFrame::with_short_header(
@@ -148,15 +137,14 @@ impl<'stream> FrameIo<'stream> {
 }
 
 #[test]
-fn daemon_admission_sends_typed_spirit_judge_request_with_scope() {
+fn daemon_admission_sends_one_typed_spirit_judge_request() {
     let judge = FakeSpiritJudge::accept_once();
     let database = TempDir::new().expect("database tempdir");
     let mut engine = Engine::new(Store::open(database.path().join("intent.sema")).expect("store"));
     engine.set_guardian(judge.guardian());
 
-    let output = engine.handle(Input::record(record_request(entry_with_privacy(
+    let output = engine.handle(Input::record(record_request(entry(
         "typed judge request crosses the daemon boundary",
-        Magnitude::Minimum,
     ))));
 
     assert!(
@@ -165,40 +153,25 @@ fn daemon_admission_sends_typed_spirit_judge_request_with_scope() {
         output.root()
     );
     let requests = judge.join();
-    assert!(
-        matches!(
-            requests.first(),
-            Some(SpiritJudgeRequest::JudgeReferentRegistration(_))
-        ),
-        "the implied referent crosses the same typed judge socket first: {requests:?}"
-    );
-    let Some(SpiritJudgeRequest::JudgeAdmission(packet)) = requests.get(1) else {
-        panic!("expected the second judge request to be admission: {requests:?}");
+    let Some(SpiritJudgeRequest::JudgeAdmission(packet)) = requests.first() else {
+        panic!("expected one admission judge request: {requests:?}");
     };
-    assert!(matches!(
-        &packet.scope,
-        signal_spirit_judge::JudgmentScope::Private(private)
-            if matches!(private.diagnostic_policy, PrivateDiagnosticPolicy::HashesAndRedaction)
-    ));
     assert!(matches!(
         packet.operation,
         signal_spirit_judge::AdmissionJudgeOperation::Record(_)
     ));
+    assert!(packet.records.payload().is_empty());
 }
 
 #[test]
 fn required_guardian_rejects_proposal_when_judge_is_unconfigured() {
     let database = TempDir::new().expect("database tempdir");
     let mut engine = Engine::new(Store::open(database.path().join("intent.sema")).expect("store"));
-    let setup_identifier = accept_record(
-        &mut engine,
-        entry_with_privacy("registered referent setup", Magnitude::Zero),
-    );
+    let setup_identifier = accept_record(&mut engine, entry("existing setup record"));
     engine.require_guardian();
 
-    let output = engine.handle(input_propose(entry_with_privacy(
+    let output = engine.handle(input_propose(entry(
         "unguarded proposal should fail closed",
-        Magnitude::Zero,
     )));
 
     match output.root() {
@@ -220,35 +193,17 @@ fn required_guardian_rejects_proposal_when_judge_is_unconfigured() {
 }
 
 #[test]
-fn daemon_admission_scope_uses_private_existing_record_context() {
+fn daemon_admission_includes_existing_record_context_for_lifecycle_operations() {
     let judge = FakeSpiritJudge::accepting(5);
     let database = TempDir::new().expect("database tempdir");
     let mut engine = Engine::new(Store::open(database.path().join("intent.sema")).expect("store"));
 
-    let clarify_identifier = accept_record(
-        &mut engine,
-        entry_with_privacy("private clarify context", Magnitude::Minimum),
-    );
-    let change_identifier = accept_record(
-        &mut engine,
-        entry_with_privacy("private change context", Magnitude::Minimum),
-    );
-    let supersede_identifier = accept_record(
-        &mut engine,
-        entry_with_privacy("private supersede context", Magnitude::Minimum),
-    );
-    let retire_identifier = accept_record(
-        &mut engine,
-        entry_with_privacy("private retire context", Magnitude::Minimum),
-    );
-    let resolution_identifier = accept_record(
-        &mut engine,
-        entry_with_privacy("private resolution context", Magnitude::Minimum),
-    );
-    let resolution_target_identifier = accept_record(
-        &mut engine,
-        entry_with_privacy("private resolution target", Magnitude::Minimum),
-    );
+    let clarify_identifier = accept_record(&mut engine, entry("clarify context"));
+    let change_identifier = accept_record(&mut engine, entry("change context"));
+    let supersede_identifier = accept_record(&mut engine, entry("supersede context"));
+    let retire_identifier = accept_record(&mut engine, entry("retire context"));
+    let resolution_identifier = accept_record(&mut engine, entry("resolution context"));
+    let resolution_target_identifier = accept_record(&mut engine, entry("resolution target"));
     engine.set_guardian(judge.guardian());
 
     let clarified = engine.handle(input_clarify(
@@ -258,12 +213,12 @@ fn daemon_admission_scope_uses_private_existing_record_context() {
     assert!(matches!(clarified.root(), Output::Clarified(_)));
     let changed = engine.handle(input_change_record(
         change_identifier,
-        entry_with_privacy("public change replacement", Magnitude::Zero),
+        entry("change replacement"),
     ));
     assert!(matches!(changed.root(), Output::RecordChanged(_)));
     let superseded = engine.handle(input_supersede(
         supersede_identifier,
-        entry_with_privacy("public supersede replacement", Magnitude::Zero),
+        entry("supersede replacement"),
     ));
     assert!(matches!(superseded.root(), Output::Superseded(_)));
     let retired = engine.handle(input_retire(retire_identifier));
@@ -282,36 +237,29 @@ fn daemon_admission_scope_uses_private_existing_record_context() {
         "expected one admission request per operation"
     );
     assert!(matches!(
-        private_admission_operation(&requests[0]),
+        admission_operation(&requests[0]),
         AdmissionJudgeOperation::Clarify(_)
     ));
     assert!(matches!(
-        private_admission_operation(&requests[1]),
+        admission_operation(&requests[1]),
         AdmissionJudgeOperation::ChangeRecord(_)
     ));
     assert!(matches!(
-        private_admission_operation(&requests[2]),
+        admission_operation(&requests[2]),
         AdmissionJudgeOperation::Supersede(_)
     ));
     assert!(matches!(
-        private_admission_operation(&requests[3]),
+        admission_operation(&requests[3]),
         AdmissionJudgeOperation::Retire(_)
     ));
     assert!(matches!(
-        private_admission_operation(&requests[4]),
+        admission_operation(&requests[4]),
         AdmissionJudgeOperation::ResolveClarification(_)
     ));
 }
 
-fn private_admission_operation(request: &SpiritJudgeRequest) -> &AdmissionJudgeOperation {
-    let SpiritJudgeRequest::JudgeAdmission(packet) = request else {
-        panic!("expected admission judge request, got {request:?}");
-    };
-    assert!(matches!(
-        &packet.scope,
-        signal_spirit_judge::JudgmentScope::Private(private)
-            if matches!(private.diagnostic_policy, PrivateDiagnosticPolicy::HashesAndRedaction)
-    ));
+fn admission_operation(request: &SpiritJudgeRequest) -> &AdmissionJudgeOperation {
+    let SpiritJudgeRequest::JudgeAdmission(packet) = request;
     &packet.operation
 }
 
@@ -322,15 +270,12 @@ fn accept_record(engine: &mut Engine, entry: Entry) -> RecordIdentifier {
     }
 }
 
-fn entry_with_privacy(description: &str, privacy: Magnitude) -> Entry {
+fn entry(description: &str) -> Entry {
     Entry {
         domains: Domains::new(domain_fixtures::domains(&["judge-socket"]).into_payload()),
         kind: Kind::Decision,
         description: Description::new(description),
-        certainty: Magnitude::Maximum.into(),
         importance: Importance::new(Magnitude::Minimum),
-        privacy: Privacy::new(privacy),
-        referents: Referents::new(vec![spirit::schema::signal::Referent::new("spirit")]),
     }
 }
 

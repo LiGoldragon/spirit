@@ -42,8 +42,6 @@ mod plane;
 pub mod production_migration;
 #[cfg(feature = "mirror-shipper")]
 pub mod propagation;
-#[cfg(feature = "nota-text")]
-pub mod render;
 #[cfg(feature = "mirror-shipper")]
 pub mod shipper;
 pub mod store;
@@ -112,7 +110,7 @@ pub use production_migration::{
 pub use schema::daemon::{ComponentDaemon, DaemonCommand, DaemonEntry, DaemonError, ListenerTier};
 #[cfg(feature = "mirror-shipper")]
 pub use shipper::{MirrorShipper, MirrorShipperError};
-pub use store::{Store, StoreError, StoreFamilyDirectory};
+pub use store::{SPIRIT_STORE_NAME, Store, StoreError, StoreFamilyDirectory};
 #[cfg(feature = "testing-trace")]
 pub use trace::{TraceClient, TraceError, TraceLog, TraceSocketListener, TraceSocketPath};
 pub use trace_event::{AuthorizationObjectName, ObjectName, TraceEvent};

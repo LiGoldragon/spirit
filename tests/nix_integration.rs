@@ -108,8 +108,8 @@ use spirit::schema::meta_signal::{
     ImportedRecord, ImportedRecords, Input as MetaInput, Output as MetaOutput,
 };
 use spirit::schema::signal::{
-    Description, Entry, Kind, Magnitude, Output, OutputRoute, Privacy, RecordIdentifier,
-    ReferentGuardianRejectionReason, SignalRejection, ValidationError,
+    Description, Entry, GuardianRejectionReason, Kind, Magnitude, Output, OutputRoute,
+    RecordIdentifier, SignalRejection, ValidationError,
 };
 fn assert_short_record_identifier(identifier: &RecordIdentifier) {
     assert!(
@@ -144,7 +144,7 @@ fn nota_text(value: &str) -> String {
 fn record_nota(domains: &str, kind: &str, description: &str) -> String {
     let description = nota_text(description);
     format!(
-        "(Record (({domains} {kind} {description} Maximum Minimum Zero [spirit]) ([({description} None)] {description})))"
+        "(Record (({domains} {kind} {description} Minimum) ([({description} None)] {description})))"
     )
 }
 
@@ -455,12 +455,7 @@ fn entry(description: &str) -> Entry {
         domains: domain_fixtures::domains(&["nix-integration"]),
         kind: Kind::Decision,
         description: Description::new(description),
-        certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
-        privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(vec![
-            spirit::schema::signal::Referent::new("spirit"),
-        ]),
     }
 }
 
@@ -542,13 +537,13 @@ fn nix_built_spirit_cli_records_through_real_socket_to_nix_built_daemon() {
     // With no guardian agent configured in this sandbox, working writes fail
     // closed; privileged test seeding goes through owner-only meta Import below.
     match output {
-        Output::ReferentGuardianRejected(rejection) => {
+        Output::GuardianRejected(rejection) => {
             assert_eq!(
-                rejection.payload().referent_guardian_rejection_reason,
-                ReferentGuardianRejectionReason::HarnessUnavailable
+                rejection.payload().guardian_rejection_reason,
+                GuardianRejectionReason::HarnessUnavailable
             );
         }
-        other => panic!("expected schema-emitted ReferentGuardianRejected, got {other:?}"),
+        other => panic!("expected schema-emitted GuardianRejected, got {other:?}"),
     }
 }
 
@@ -632,7 +627,7 @@ fn nix_built_daemon_observes_recorded_entries_back_through_query() {
     let observed = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any (Some Decision) Any))",
     );
 
     let stash_handle = match observed {
@@ -684,7 +679,7 @@ fn nix_built_daemon_returns_missed_when_no_matching_record_exists() {
     let output = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [(Technology (Software (Intelligence AgentSystems)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Technology (Software (Intelligence AgentSystems)))]) Any Any (Some Decision) Any))",
     );
 
     match output {
@@ -720,7 +715,7 @@ fn nix_built_daemon_handles_back_to_back_inputs_through_one_socket() {
     let counted = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Count ((Full [(Technology (Software (Operations Deployment)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Count ((Full [(Technology (Software (Operations Deployment)))]) Any Any (Some Decision) Any))",
     );
     match counted {
         Output::RecordsCounted(counted) => assert_eq!(*counted.payload().payload().payload(), 3),
@@ -739,9 +734,8 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     // itself cannot parse, which would silently break tooling.
     //
     // Variants exercised: VersionReported (component version),
-    // ReferentGuardianRejected (fail-closed referent registration without
-    // configured guardian),
-    // CertaintyChanged (SEMA mutate on an imported record), Rejected (Signal
+    // GuardianRejected (fail-closed admission without a configured guardian),
+    // ImportanceBumped (SEMA mutate on an imported record), Rejected (Signal
     // validation), Error (SEMA missed), RecordsStashed (after Import +
     // Observe). Six typed assertions, all parsed through `Output::from_str`.
     let binaries = NixBuiltBinaries::ensure();
@@ -760,7 +754,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     }
     assert_eq!(version.route(), OutputRoute::VersionReported);
 
-    // Variant 2: ReferentGuardianRejected.
+    // Variant 2: GuardianRejected.
     let guarded = run_cli_for_output(
         &binaries,
         daemon.socket(),
@@ -771,32 +765,32 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
         ),
     );
     match &guarded {
-        Output::ReferentGuardianRejected(rejection) => assert_eq!(
-            rejection.payload().referent_guardian_rejection_reason,
-            ReferentGuardianRejectionReason::HarnessUnavailable
+        Output::GuardianRejected(rejection) => assert_eq!(
+            rejection.payload().guardian_rejection_reason,
+            GuardianRejectionReason::HarnessUnavailable
         ),
-        other => panic!("expected ReferentGuardianRejected, got {other:?}"),
+        other => panic!("expected GuardianRejected, got {other:?}"),
     };
     assert_eq!(
         guarded.route(),
-        OutputRoute::ReferentGuardianRejected,
+        OutputRoute::GuardianRejected,
         "schema-emitted OutputRoute round-trips through CLI stdout"
     );
 
     let rerecorded_identifier = import_record(&binaries, &daemon, "nixt1", "variant tour");
     assert_short_record_identifier(&rerecorded_identifier);
 
-    // Variant 3: CertaintyChanged.
+    // Variant 3: ImportanceBumped.
     let changed = run_cli_for_output(
         &binaries,
         daemon.socket(),
         &format!(
-            "(ChangeCertainty ({} Zero))",
+            "(BumpImportance {})",
             record_identifier_argument(&rerecorded_identifier)
         ),
     );
-    assert!(matches!(changed, Output::CertaintyChanged(_)));
-    assert_eq!(changed.route(), OutputRoute::CertaintyChanged);
+    assert!(matches!(changed, Output::ImportanceBumped(_)));
+    assert_eq!(changed.route(), OutputRoute::ImportanceBumped);
 
     // Variant 4: Rejected (Signal validation).
     let rejected = run_cli_for_output(
@@ -811,7 +805,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let errored = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [(Technology (Software (Intelligence AgentSystems)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Technology (Software (Intelligence AgentSystems)))]) Any Any (Some Decision) Any))",
     );
     assert!(matches!(errored, Output::Error(_)));
     assert_eq!(errored.route(), OutputRoute::Error);
@@ -822,7 +816,7 @@ fn nix_built_binaries_round_trip_representative_schema_outputs() {
     let observed = run_cli_for_output(
         &binaries,
         daemon.socket(),
-        "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))",
+        "(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any (Some Decision) Any))",
     );
     assert!(matches!(observed, Output::RecordsStashed(_)));
     assert_eq!(observed.route(), OutputRoute::RecordsStashed);
@@ -852,7 +846,7 @@ fn nix_built_daemon_alias_state_across_separate_cli_processes() {
     // Independent process — exec a fresh CLI binary for the read.
     let mut command = Command::isolated(&binaries.spirit_cli);
     command
-        .arg("(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any Any (Some Decision) (Exact Zero) (AtLeastCertainty Minimum) Any))")
+        .arg("(Observe ((Full [(Technology (Software (Operations Deployment)))]) Any Any (Some Decision) Any))")
         .env("SPIRIT_SOCKET", daemon.socket())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());

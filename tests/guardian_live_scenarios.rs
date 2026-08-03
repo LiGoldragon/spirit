@@ -26,8 +26,8 @@ use spirit::{
     AgentGuardian, AgentGuardianConfiguration, Engine, Store,
     schema::signal::{
         Antecedent, Description, Entry, GuardianRejectionReason, Importance, Input, Kind,
-        Magnitude, Output, Privacy, Proposal, QuoteText, Reasoning, RecordIdentifier, Referent,
-        Referents, Testimony, VerbatimQuote,
+        Magnitude, Output, Proposal, QuoteText, Reasoning, RecordIdentifier, Testimony,
+        VerbatimQuote,
     },
 };
 use tempfile::TempDir;
@@ -232,14 +232,12 @@ impl FixtureLine<'_> {
             "MissingTestimony" => GuardianRejectionReason::MissingTestimony,
             "TestimonyFabricated" => GuardianRejectionReason::TestimonyFabricated,
             "InsufficientWarrant" => GuardianRejectionReason::InsufficientWarrant,
-            "Overstated" => GuardianRejectionReason::Overstated,
             "ImportanceUnsupported" => GuardianRejectionReason::ImportanceUnsupported,
             "NonIntent" => GuardianRejectionReason::NonIntent,
             "NegativeGuideline" => GuardianRejectionReason::NegativeGuideline,
             "Matter" => GuardianRejectionReason::Matter,
             "Compound" => GuardianRejectionReason::Compound,
             "UnclearDomain" => GuardianRejectionReason::UnclearDomain,
-            "UnclearPrivacy" => GuardianRejectionReason::UnclearPrivacy,
             "Duplicate" => GuardianRejectionReason::Duplicate,
             "Contradiction" => GuardianRejectionReason::Contradiction,
             "ClarifyTramples" => GuardianRejectionReason::ClarifyTramples,
@@ -365,12 +363,12 @@ fn judge_live_eval_fixture_loads_and_imports_seed_corpus() {
     corpus.prepopulate(&mut engine);
     assert_eq!(
         corpus.seeds.len(),
-        14,
+        12,
         "fixture seed count should stay intentional"
     );
     assert_eq!(
         corpus.scenarios.len(),
-        21,
+        19,
         "fixture scenario count should stay intentional"
     );
 }
@@ -591,21 +589,12 @@ fn eval_flash_vs_pro_guardian() {
     server.join();
 }
 
-fn eval_entry(
-    domains: &[&str],
-    kind: Kind,
-    certainty: Magnitude,
-    importance: Magnitude,
-    description: &str,
-) -> Entry {
+fn eval_entry(domains: &[&str], kind: Kind, importance: Magnitude, description: &str) -> Entry {
     Entry {
         domains: domain_fixtures::domains(domains),
         kind,
         description: Description::new(description),
-        certainty: certainty.into(),
         importance: Importance::new(importance),
-        privacy: Privacy::new(Magnitude::Zero),
-        referents: Referents::new(vec![Referent::new("spirit")]),
     }
 }
 
@@ -636,7 +625,6 @@ fn eval_cases() -> Vec<EvalCase> {
             entry: eval_entry(
                 &["software", "spirit"],
                 Kind::Decision,
-                Magnitude::Low,
                 Magnitude::Minimum,
                 "Guardian tests could use sandbox stores with realistic accept and reject proposals.",
             ),
@@ -644,7 +632,7 @@ fn eval_cases() -> Vec<EvalCase> {
                 "I think we could use a sandbox store for the guardian tests",
                 None,
             )],
-            reasoning: "A tentative lean, recorded at Low certainty to match the hedge.",
+            reasoning: "A tentative preference with deliberately modest importance.",
             expected: EvalExpect::Accept,
         },
         EvalCase {
@@ -652,7 +640,6 @@ fn eval_cases() -> Vec<EvalCase> {
             entry: eval_entry(
                 &["software", "spirit"],
                 Kind::Decision,
-                Magnitude::High,
                 Magnitude::Minimum,
                 "Guardian tests use sandbox stores with realistic accept and reject proposals.",
             ),
@@ -660,15 +647,14 @@ fn eval_cases() -> Vec<EvalCase> {
                 "I think we could use a sandbox store for the guardian tests",
                 None,
             )],
-            reasoning: "Recorded firmly at High certainty.",
-            expected: EvalExpect::Reject(GuardianRejectionReason::Overstated),
+            reasoning: "The testimony does not warrant the absolute statement.",
+            expected: EvalExpect::Reject(GuardianRejectionReason::InsufficientWarrant),
         },
         EvalCase {
             name: "firm-high-accept",
             entry: eval_entry(
                 &["software", "spirit"],
                 Kind::Decision,
-                Magnitude::High,
                 Magnitude::Minimum,
                 "The meta-signal Import is the guardian-bypassing path for id-preserving restores.",
             ),
@@ -684,7 +670,6 @@ fn eval_cases() -> Vec<EvalCase> {
             entry: eval_entry(
                 &["software", "spirit"],
                 Kind::Decision,
-                Magnitude::Maximum,
                 Magnitude::Minimum,
                 "The meta-signal Import is the guardian-bypassing path for id-preserving restores.",
             ),
@@ -692,15 +677,14 @@ fn eval_cases() -> Vec<EvalCase> {
                 "we are going with the meta-signal Import as the guardian bypass, that is the rule",
                 None,
             )],
-            reasoning: "Recorded at Maximum certainty.",
-            expected: EvalExpect::Reject(GuardianRejectionReason::Overstated),
+            reasoning: "The testimony does not warrant the absolute statement.",
+            expected: EvalExpect::Reject(GuardianRejectionReason::InsufficientWarrant),
         },
         EvalCase {
             name: "missing-testimony-reject",
             entry: eval_entry(
                 &["software", "spirit"],
                 Kind::Decision,
-                Magnitude::Medium,
                 Magnitude::Minimum,
                 "The guardian decision journal stays separate from the live intent store.",
             ),
@@ -713,7 +697,6 @@ fn eval_cases() -> Vec<EvalCase> {
             entry: eval_entry(
                 &["software", "spirit"],
                 Kind::Decision,
-                Magnitude::VeryLow,
                 Magnitude::High,
                 "Whether the guardian should be one model or two is still unresolved.",
             ),
@@ -721,7 +704,7 @@ fn eval_cases() -> Vec<EvalCase> {
                 "I keep coming back to whether the guardian should be one model or two and I am really not sure yet",
                 None,
             )],
-            reasoning: "The topic recurs across three sessions and blocks the guardian design, so importance is High while certainty stays VeryLow.",
+            reasoning: "The topic recurs across three sessions and blocks the guardian design, so its importance is High.",
             expected: EvalExpect::Accept,
         },
         EvalCase {
@@ -729,7 +712,6 @@ fn eval_cases() -> Vec<EvalCase> {
             entry: eval_entry(
                 &["software", "spirit"],
                 Kind::Decision,
-                Magnitude::VeryLow,
                 Magnitude::High,
                 "Running two guardian models in parallel might be interesting.",
             ),
@@ -742,7 +724,6 @@ fn eval_cases() -> Vec<EvalCase> {
             entry: eval_entry(
                 &["software", "agent"],
                 Kind::Decision,
-                Magnitude::High,
                 Magnitude::Minimum,
                 "Agent resolves DeepSeek keys through gopass and Spirit deploys the guardian immediately.",
             ),
@@ -758,7 +739,6 @@ fn eval_cases() -> Vec<EvalCase> {
             entry: eval_entry(
                 &["software", "spirit"],
                 Kind::Decision,
-                Magnitude::Medium,
                 Magnitude::Minimum,
                 "The corpus rebuild may not be ready yet.",
             ),
@@ -774,7 +754,6 @@ fn eval_cases() -> Vec<EvalCase> {
             entry: eval_entry(
                 &["software", "spirit"],
                 Kind::Correction,
-                Magnitude::Medium,
                 Magnitude::Minimum,
                 "Canonical prose names are criome for the authentication component and criomos for the operating system name; creome and creomos are misspellings.",
             ),
@@ -787,7 +766,6 @@ fn eval_cases() -> Vec<EvalCase> {
             entry: eval_entry(
                 &["software", "agent"],
                 Kind::Decision,
-                Magnitude::High,
                 Magnitude::Minimum,
                 "Agent provider secrets are resolved by the agent daemon from configured secret-source backends.",
             ),
@@ -803,7 +781,6 @@ fn eval_cases() -> Vec<EvalCase> {
             entry: eval_entry(
                 &["software", "nota"],
                 Kind::Decision,
-                Magnitude::High,
                 Magnitude::Minimum,
                 "NOTA strings should use quotation marks as the canonical representation.",
             ),
@@ -819,7 +796,6 @@ fn eval_cases() -> Vec<EvalCase> {
             entry: eval_entry(
                 &["software", "spirit"],
                 Kind::Decision,
-                Magnitude::High,
                 Magnitude::Minimum,
                 "The daemon rejects inline NOTA configuration.",
             ),
@@ -835,7 +811,6 @@ fn eval_cases() -> Vec<EvalCase> {
             entry: eval_entry(
                 &["software", "spirit"],
                 Kind::Decision,
-                Magnitude::High,
                 Magnitude::Minimum,
                 "The daemon rejects inline NOTA configuration.",
             ),

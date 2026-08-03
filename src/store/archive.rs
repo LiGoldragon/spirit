@@ -1,14 +1,16 @@
 //! The SEPARATE archive database: a sema-engine keyed table over its own
 //! `*.sema` file, distinct from the live intent log.
 //!
-//! `CollectRemovalCandidates` opens one of these on demand at the
-//! owner-configured [`ArchiveDatabaseTarget`](crate::schema::meta_signal::ArchiveDatabaseTarget),
-//! asserts each removal-candidate `Entry` into it, and drops the handle when
-//! the collection completes. The archive owns no relationship to the live
-//! `Store` database beyond holding the records the live log let go.
+//! Explicit lifecycle operations open one of these on demand at the
+//! owner-configured [`ArchiveDatabaseTarget`](crate::schema::meta_signal::ArchiveDatabaseTarget)
+//! and capture the prior record before mutating or retracting it. The archive
+//! owns no relationship to the live `Store` database beyond preserving those
+//! lifecycle records.
 
 use std::path::PathBuf;
 
+#[cfg(feature = "production-migration")]
+use sema_engine::QueryPlan;
 use sema_engine::{Assertion, Engine as SemaDatabase, EngineOpen, TableReference};
 
 use crate::schema::sema::{RecordFamily, StoredRecord};
@@ -57,5 +59,22 @@ impl ArchiveDatabase {
     ) -> Result<(), StoreError> {
         self.database.assert(Assertion::new(self.entries, record))?;
         Ok(())
+    }
+
+    /// Enumerate projected archive rows for offline migration validation and
+    /// crash recovery. This is not a runtime archive-query surface.
+    #[cfg(feature = "production-migration")]
+    pub(crate) fn migration_records(&self) -> Result<Vec<StoredRecord>, StoreError> {
+        let mut records = self
+            .database
+            .match_records(QueryPlan::all(self.entries))?
+            .records()
+            .to_vec();
+        records.sort_by(|left, right| {
+            left.record_identifier
+                .payload()
+                .cmp(right.record_identifier.payload())
+        });
+        Ok(records)
     }
 }

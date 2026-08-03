@@ -24,10 +24,10 @@ use tempfile::TempDir;
 
 // The previous journal's exact storage coordinates, as the previous daemon
 // wrote them.
-const PREVIOUS_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(5);
-const CURRENT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(6);
+const PREVIOUS_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(6);
+const CURRENT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(7);
 const GUARDIAN_DECISIONS_TABLE: TableName = TableName::new("guardian-decisions");
-const PREVIOUS_FAMILY_LABEL: &str = "spirit:guardian-journal:v5";
+const PREVIOUS_FAMILY_LABEL: &str = "spirit:guardian-journal:v6";
 
 /// A stand-in for the crate-private previous `GuardianJournalEntry`. The
 /// current daemon never decodes this record — it opens a different file — so

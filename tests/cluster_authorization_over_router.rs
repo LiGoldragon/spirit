@@ -85,18 +85,17 @@ use spirit::schema::meta_signal::{
     ArchiveDatabaseTarget, ConfigureRequest, MirrorAddress, MirrorAddressText, MirrorTarget,
     Output as SpiritMetaOutput,
 };
-use spirit::schema::sema::RecordFamily;
 use spirit::schema::signal::{
-    Certainty, Description, Entry, Importance, Input, Justification, Kind, Magnitude, Output,
-    Privacy, QuoteText, Reasoning, RecordRequest, Referent, Referents, Testimony, VerbatimQuote,
+    Description, Entry, Importance, Input, Justification, Kind, Magnitude, Output, QuoteText,
+    Reasoning, RecordRequest, Testimony, VerbatimQuote,
 };
-use spirit::{ClusterAuthorizer, CriomeAuthorization, Engine, Store};
+use spirit::{ClusterAuthorizer, CriomeAuthorization, Engine, SPIRIT_STORE_NAME, Store};
 use tokio::io::AsyncWriteExt;
 use tokio::net::UnixListener;
 use triad_runtime::kameo::actor::{ActorRef, Spawn};
 use triad_runtime::{FrameBody, LengthPrefixedCodec};
 
-const STORE_NAME: &str = RecordFamily::STORE_NAME;
+const STORE_NAME: &str = SPIRIT_STORE_NAME;
 const CRIOME_ALPHA: &str = "criome-alpha";
 const CRIOME_BETA: &str = "criome-beta";
 /// Seconds in tests (the settled window posture): two rounds plus loopback
@@ -462,10 +461,7 @@ fn record_request(description: &str) -> RecordRequest {
             domains: domain_fixtures::domains(&["Information/Documentation"]),
             kind: Kind::Decision,
             description: Description::new(description),
-            certainty: Certainty::new(Magnitude::High),
             importance: Importance::new(Magnitude::Medium),
-            privacy: Privacy::new(Magnitude::Zero),
-            referents: Referents::new(vec![Referent::new("spirit")]),
         },
         justification: Justification {
             testimony: Testimony::new(vec![VerbatimQuote::new(QuoteText::new(description), None)]),
@@ -780,9 +776,9 @@ async fn spirit_cluster_authorizes_head_advance_over_the_router() {
     let (_, mid_round_reads) = tokio::join!(advance.resolve(), async {
         let version = engine.handle_async(Input::Version).await.into_root();
         let observed = engine
-            .handle_async(Input::public_text_search(
-                spirit::schema::signal::SearchText::new("residue"),
-            ))
+            .handle_async(Input::text_search(spirit::schema::signal::SearchText::new(
+                "residue",
+            )))
             .await
             .into_root();
         (version, observed)

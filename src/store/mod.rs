@@ -17,7 +17,7 @@ use sema_engine::PortableCheckpoint;
 use sema_engine::{
     Assertion, Checkpoint, CheckpointReceipt, CommitSequence, Engine as SemaDatabase, EngineOpen,
     EngineRecord, EntryDigest, Mutation, QueryPlan, RecordKey, Retraction, SchemaVersion,
-    TableReference, VersionedCommitLogEntry,
+    TableReference, VersionedCommitLogEntry, VersionedStoreName, VersioningPolicy,
 };
 
 pub(crate) use archive::ArchiveDatabase;
@@ -37,65 +37,40 @@ use crate::schema::{
     sema::{
         self as sema_schema, EngineStartFailure as SemaEngineStartFailure,
         EngineStopFailure as SemaEngineStopFailure, Migration, ReadInput as SemaReadInput,
-        ReadOutput as SemaReadOutput, RecordFamily, SemaEngine, StoredRecord, StoredReferent,
+        ReadOutput as SemaReadOutput, RecordFamily, SemaEngine, StoredRecord,
         WriteInput as SemaWriteInput, WriteOutput as SemaWriteOutput,
     },
     signal::{
-        Aliases, Certainty, CertaintyChange, CertaintyChangeReceipt, CertaintySelection,
         Clarification, ClarificationReceipt, ClarificationRecordIdentifier,
         ClarificationResolution, ClarificationResolutionReceipt, CountedRecords, DatabaseMarker,
         Description, Domain, DomainMatch, DomainScope, DomainScopes, Entry, ErrorMessage,
         ErrorReport, Explanation, FoundRecord, GuardianRejection, GuardianRejectionReason,
         Importance, ImportanceBump, ImportanceBumpReceipt, ImportanceSelection, Keyword,
-        KeywordMatch, Keywords, Magnitude, ObservedRecord, ObservedRecords, Privacy,
-        PrivacySelection, Query, RecordChange, RecordChangeReceipt, RecordCount, RecordIdentifier,
-        RecordIdentifiers, RecordSet, Referent, ReferentRegistration, ReferentRegistrationReceipt,
-        ReferentSelection, Referents, RemovalArchiveRecord, RemovalArchiveRecords,
-        RemovalCandidateCollection, RemovalCandidatesCollection, RemovedIdentifier,
-        RemovedIdentifiers, Retirement, RetirementReceipt, SearchText, SemaReceipt,
-        SkippedRemovalCandidate, SkippedRemovalCandidates, Supersession, SupersessionReceipt,
+        KeywordMatch, Keywords, Magnitude, ObservedRecord, ObservedRecords, Query, RecordChange,
+        RecordChangeReceipt, RecordCount, RecordIdentifier, RecordIdentifiers, RecordSet,
+        Retirement, RetirementReceipt, SearchText, SemaReceipt, Supersession, SupersessionReceipt,
         TextMatch,
     },
 };
 
-const PUBLIC_TEXT_SEARCH_LIMIT: usize = 25;
+const TEXT_SEARCH_LIMIT: usize = 25;
 
 #[cfg(feature = "agent-guardian")]
-use crate::schema::signal::{RegisteredReferent, RegisteredReferents, SelectedKind};
+use crate::schema::signal::SelectedKind;
 use signal_spirit::SpiritDomainScopes;
 
 #[cfg(feature = "testing-trace")]
 use crate::{ObjectName, TraceEvent, TraceLog, schema::sema::SemaObjectName};
 
-// Version 9 is the versioned-store bootstrap: the store opts into the
-// sema-engine versioned commit log through the schema-generated family
-// descriptors and versioning policy, so every durable write from this version
-// on is replayable history. Version 8 and earlier are pre-versioning stores
-// readable only through `sema-engine-previous` in `production_migration`.
-//
-// Version 10 coarsens the stored Technology/Software domain enum: fine leaves
-// that belonged in keywords are folded into terminal-able sub-domain values.
-//
-// Version 11 adopts the strict-positional signal-spirit domain contract: every
-// Technology/Software value-leaf enum gains a leading `All` member (shifting all
-// existing leaf discriminants by +1), and each sub-domain payload becomes a
-// required leaf (`Software::Data(DataLeaf)`) instead of an optional one
-// (`Software::Data(Option<DataLeaf>)`). Both axes change the archived rkyv
-// layout of a stored `Domain`, so a version-10 store's bytes would be silently
-// misread under version 11. `production_migration` reads version-10 bytes with a
-// frozen snapshot of the old layout and folds them forward: an absent payload
-// becomes the new `All` member and a present leaf is remapped across the +1
-// discriminant shift.
-//
-// Version 12 adopts the signal-spirit `Aliases` wrapper in the durable referent
-// family so the stored alias role uses the same public contract noun as
-// referent registration and observation.
-//
-// Version 13 adopts the signal-spirit top-level `Domain::All` contract. Adding
-// the root enum member shifts every stored `Domain` discriminant, so version-12
-// `Entry` bytes must be folded through `production_migration` instead of being
-// decoded directly by this build.
-pub(super) const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(13);
+// Version 14 contains only live records and migration receipts. The offline
+// migration projects v13 live and lifecycle-archive records into fresh v14
+// stores; no prior log or retired-family row is replayed.
+pub(super) const SPIRIT_SCHEMA_VERSION: SchemaVersion = SchemaVersion::new(14);
+
+/// The v14 mirror/log generation. It is deliberately distinct from the v13
+/// `spirit:sema` root, so no current checkpoint or suffix can attach to the
+/// legacy history that contains retired fields.
+pub const SPIRIT_STORE_NAME: &str = "spirit:sema:v14";
 
 /// The SEMA durable store: a sema-engine keyed table written to a `*.sema`
 /// file.
@@ -111,7 +86,6 @@ pub struct Store {
     // store no longer needs exclusive ownership of the database handle.
     database: Arc<SemaDatabase>,
     entries: TableReference<StoredRecord>,
-    referents: TableReference<StoredReferent>,
     migrations: TableReference<Migration>,
     path: PathBuf,
     archive_target: ArchiveDatabaseTarget,
@@ -214,17 +188,6 @@ impl SemaEngine for Store {
                     SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(error.to_string())))
                 }
             },
-            SemaWriteInput::ChangeCertainty(change) => {
-                match self.change_certainty(change.into_payload()) {
-                    Ok(Some(receipt)) => SemaWriteOutput::certainty_changed(receipt),
-                    Ok(None) => SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(
-                        "record not found",
-                    ))),
-                    Err(error) => SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(
-                        error.to_string(),
-                    ))),
-                }
-            }
             SemaWriteInput::BumpImportance(change) => {
                 match self.bump_importance(change.into_payload()) {
                     Ok(Some(receipt)) => SemaWriteOutput::importance_bumped(receipt),
@@ -246,14 +209,6 @@ impl SemaEngine for Store {
                     SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(error.to_string())))
                 }
             },
-            SemaWriteInput::RegisterReferent(register) => {
-                match self.register_referent(register.into_payload()) {
-                    Ok(receipt) => SemaWriteOutput::referent_registered(receipt),
-                    Err(error) => SemaWriteOutput::missed(ErrorReport::new(ErrorMessage::new(
-                        error.to_string(),
-                    ))),
-                }
-            }
         };
         output.with_origin_route(origin_route)
     }
@@ -275,23 +230,19 @@ impl SemaEngine for Store {
                     SemaReadOutput::missed(ErrorReport::new(ErrorMessage::new(error.to_string())))
                 }
             },
-            SemaReadInput::PublicIntent(public_intent) => {
-                match self.public_intent(public_intent.payload()) {
-                    Ok(entries) if !entries.is_empty() => SemaReadOutput::public_intent_results(
-                        ObservedRecords::new(RecordSet::new(entries)),
-                    ),
-                    Ok(_) => SemaReadOutput::missed(ErrorReport::new(ErrorMessage::new(
-                        "no matching record",
-                    ))),
-                    Err(error) => SemaReadOutput::missed(ErrorReport::new(ErrorMessage::new(
-                        error.to_string(),
-                    ))),
+            SemaReadInput::Intent(intent) => match self.intent(intent.payload()) {
+                Ok(entries) if !entries.is_empty() => {
+                    SemaReadOutput::intent_results(ObservedRecords::new(RecordSet::new(entries)))
                 }
-            }
-            SemaReadInput::PublicTextSearch(search) => match self
-                .public_text_search(search.payload())
-            {
-                Ok(entries) if !entries.is_empty() => SemaReadOutput::public_text_search_results(
+                Ok(_) => SemaReadOutput::missed(ErrorReport::new(ErrorMessage::new(
+                    "no matching record",
+                ))),
+                Err(error) => {
+                    SemaReadOutput::missed(ErrorReport::new(ErrorMessage::new(error.to_string())))
+                }
+            },
+            SemaReadInput::TextSearch(search) => match self.text_search(search.payload()) {
+                Ok(entries) if !entries.is_empty() => SemaReadOutput::text_search_results(
                     ObservedRecords::new(RecordSet::new(entries)),
                 ),
                 Ok(_) => SemaReadOutput::missed(ErrorReport::new(ErrorMessage::new(
@@ -328,6 +279,10 @@ impl SemaEngine for Store {
 }
 
 impl Store {
+    fn versioning_policy() -> VersioningPolicy {
+        VersioningPolicy::new(VersionedStoreName::new(SPIRIT_STORE_NAME))
+    }
+
     /// Open or create the durable SEMA database at `path`.
     ///
     /// A fresh file is created with empty engine counters; an existing
@@ -341,15 +296,13 @@ impl Store {
         let path = path.into();
         let mut database = SemaDatabase::open(
             EngineOpen::new(path.clone(), SPIRIT_SCHEMA_VERSION)
-                .with_versioning(RecordFamily::versioning_policy()),
+                .with_versioning(Self::versioning_policy()),
         )?;
         let entries = database.register_table(RecordFamily::records_family())?;
-        let referents = database.register_table(RecordFamily::referents_family())?;
         let migrations = database.register_table(RecordFamily::migrations_family())?;
         Ok(Self {
             database: Arc::new(database),
             entries,
-            referents,
             migrations,
             path,
             archive_target: ArchiveDatabaseTarget::Default,
@@ -382,10 +335,9 @@ impl Store {
     /// The archive is a SEPARATE database from the live intent log. This
     /// method records WHERE that separate archive database lives; it does NOT
     /// open, move, or touch the live database in any way. Every subsequent
-    /// `Record` / `ChangeCertainty` / `Remove` / `Observe` keeps landing on the
-    /// same live `*.sema` file the store was opened with. The configured target
-    /// is consumed only by `collect_removal_candidates`, which opens the
-    /// separate archive database on demand.
+    /// Every working read and write keeps landing on the same live `*.sema`
+    /// file the store was opened with. Explicit lifecycle operations consume
+    /// this target when they capture a record before mutation or retraction.
     ///
     /// This is owner-config storage, not a database operation, so it is
     /// infallible — there is no sema-engine open at configure time.
@@ -505,19 +457,17 @@ impl Store {
         let path = path.into();
         let mut database = SemaDatabase::open(
             EngineOpen::new(path.clone(), SPIRIT_SCHEMA_VERSION)
-                .with_versioning(RecordFamily::versioning_policy()),
+                .with_versioning(Self::versioning_policy()),
         )?;
         let mut session = database.begin_import()?;
         session.ingest_checkpoint(checkpoint)?;
         session.ingest_suffix(suffix);
         session.commit(&StoreFamilyDirectory::from_generated_families())?;
         let entries = database.register_table(RecordFamily::records_family())?;
-        let referents = database.register_table(RecordFamily::referents_family())?;
         let migrations = database.register_table(RecordFamily::migrations_family())?;
         Ok(Self {
             database: Arc::new(database),
             entries,
-            referents,
             migrations,
             path,
             archive_target: ArchiveDatabaseTarget::Default,
@@ -542,7 +492,6 @@ impl Store {
     pub fn family_directory(&self) -> StoreFamilyDirectory {
         StoreFamilyDirectory {
             entries: self.entries,
-            referents: self.referents,
             migrations: self.migrations,
         }
     }
@@ -564,14 +513,6 @@ impl Store {
             .to_vec();
         migrations.sort_by_key(|migration| *migration.source_schema_version.payload());
         Ok(migrations)
-    }
-
-    /// Import one pre-vetted referent registration with its canonical atom
-    /// and aliases unchanged — the migration sibling of [`Self::import_record`].
-    pub fn import_referent(&self, referent: StoredReferent) -> Result<(), StoreError> {
-        self.database
-            .assert(Assertion::new(self.referents, referent))?;
-        Ok(())
     }
 
     /// Resolve the configured archive target to a concrete `*.sema` path for
@@ -604,12 +545,9 @@ impl Store {
             .file_stem()
             .map(|stem| stem.to_string_lossy().into_owned())
             .unwrap_or_else(|| String::from("spirit"));
-        // The version suffix tracks GUARDIAN_JOURNAL_SCHEMA_VERSION: a
-        // journal-schema change lands a fresh file rather than reading an
-        // incompatible layout. Version 6 carries the top-level `Domain::All`
-        // `Entry` layout in stored GuardianOperation payloads; older journal
-        // files stay on disk untouched, orphaned and ignored by this engine.
-        self.path.with_file_name(format!("{stem}.guardian.v6.sema"))
+        // Version 7 starts a fresh admission-only journal over v14 entries.
+        // Older files stay on disk untouched as rollback material.
+        self.path.with_file_name(format!("{stem}.guardian.v7.sema"))
     }
 
     #[cfg(feature = "agent-guardian")]
@@ -628,75 +566,6 @@ impl Store {
     #[cfg(feature = "agent-guardian")]
     pub fn guardian_decision_count(&self) -> Result<usize, StoreError> {
         self.open_guardian_journal()?.len()
-    }
-
-    #[cfg(feature = "agent-guardian")]
-    pub(crate) fn registered_referents(&self) -> Result<RegisteredReferents, StoreError> {
-        Ok(RegisteredReferents::new(
-            self.referents()?
-                .into_iter()
-                .map(StoredReferent::into_registered_referent)
-                .collect(),
-        ))
-    }
-
-    /// Collect removal-candidate records, archive them into the SEPARATE
-    /// archive database at the owner-configured target, and remove them from
-    /// the live log.
-    ///
-    /// This is the peer-callable working operation. For every record matching
-    /// the candidate query it asserts a copy into the separate archive database
-    /// (opened on demand at the configured target — never the live database),
-    /// then retracts the original from the live log. A record that fails to
-    /// archive is left in the live log and reported as a
-    /// [`SkippedRemovalCandidate`] with
-    /// `RemovalCandidateSkipReason::ArchiveFailed`; a record that vanishes
-    /// between the match and the retraction is reported with
-    /// `RemovalCandidateSkipReason::RecordAlreadyRemoved`. The reply
-    /// carries the archived records, the removed identifiers, the skipped
-    /// candidates, and the live database's post-removal marker.
-    pub fn collect_removal_candidates(
-        &self,
-        collection: RemovalCandidateCollection,
-    ) -> Result<RemovalCandidatesCollection, StoreError> {
-        let query = collection.record_query.into_payload();
-        let mut archive = self.open_archive_database()?;
-        let mut archived_records = Vec::new();
-        let mut removed_identifiers = Vec::new();
-        let mut skipped_candidates = Vec::new();
-        for record in self.records()? {
-            let identifier = record.record_identifier.payload().clone();
-            if !EntryStoreExt::matches(&record.entry, &query) {
-                continue;
-            }
-            match archive.archive_record(record.clone(), self.archive_identifier(&identifier)) {
-                Ok(()) => match self.remove(&identifier)? {
-                    true => {
-                        archived_records.push(RemovalArchiveRecord {
-                            record_identifier: RecordIdentifier::new(identifier.clone()),
-                            entry: record.entry,
-                        });
-                        removed_identifiers
-                            .push(RemovedIdentifier::new(RecordIdentifier::new(identifier)));
-                    }
-                    false => skipped_candidates.push(SkippedRemovalCandidate {
-                        record_identifier: RecordIdentifier::new(identifier.clone()),
-                        removal_candidate_skip_reason:
-                            crate::schema::signal::RemovalCandidateSkipReason::RecordAlreadyRemoved,
-                    }),
-                },
-                Err(_error) => skipped_candidates.push(SkippedRemovalCandidate {
-                    record_identifier: RecordIdentifier::new(identifier.clone()),
-                    removal_candidate_skip_reason:
-                        crate::schema::signal::RemovalCandidateSkipReason::ArchiveFailed,
-                }),
-            }
-        }
-        Ok(RemovalCandidatesCollection {
-            removal_archive_records: RemovalArchiveRecords::new(archived_records),
-            removed_identifiers: RemovedIdentifiers::new(removed_identifiers),
-            skipped_removal_candidates: SkippedRemovalCandidates::new(skipped_candidates),
-        })
     }
 
     /// Open the SEPARATE archive database at the owner-configured target. This
@@ -718,24 +587,11 @@ impl Store {
         record_identifier: String,
         entry: Entry,
     ) -> Result<String, StoreError> {
-        // Owner bypass: a corpus import carries its own referents. Auto-register
-        // any not-yet-registered referent (kebab-validated) directly, without the
-        // referent guardian, so the import is self-contained rather than failing
-        // on UnregisteredReferent the way the guarded working path would.
-        for referent in entry.referents.payload() {
-            if self.canonical_referent(referent)?.is_none() {
-                self.register_referent_record(
-                    referent.clone(),
-                    Aliases::new(Referents::new(Vec::new())),
-                )?;
-            }
-        }
-        let entry = self.canonicalized_entry(entry)?;
         let record = StoredRecord::new(record_identifier.clone(), entry);
         // Upsert: overwrite an existing record in place (owner curation /
         // maintenance), insert a new one (restore into an empty store). The
         // SEMA `assert` rejects an existing key, so an existing id needs
-        // `mutate` — matching the change_record / change_certainty update path.
+        // `mutate` — matching the change-record update path.
         if self
             .entry_by_identifier(record_identifier.as_str())?
             .is_some()
@@ -745,68 +601,6 @@ impl Store {
             self.database.assert(Assertion::new(self.entries, record))?;
         }
         Ok(record_identifier)
-    }
-
-    pub fn register_referent(
-        &self,
-        registration: ReferentRegistration,
-    ) -> Result<ReferentRegistrationReceipt, StoreError> {
-        if let Some(receipt) = self.settled_referent_registration_receipt(&registration)? {
-            return Ok(receipt);
-        }
-        self.register_referent_record(registration.referent, registration.aliases)
-    }
-
-    /// The justification-free core of referent registration, shared by the
-    /// guarded working path and the owner import bypass. A brand-new referent
-    /// name must be lowercase kebab-case; already-registered names are
-    /// grandfathered (alias merge), so legacy capitalized referents keep working
-    /// while no new non-kebab name can enter the store.
-    fn register_referent_record(
-        &self,
-        referent: Referent,
-        aliases: Aliases,
-    ) -> Result<ReferentRegistrationReceipt, StoreError> {
-        let mut record = StoredReferent::new(referent, aliases);
-        self.reject_conflicting_referent_names(&record)?;
-        if let Some(existing) = self.referent_by_key(record.referent.payload())? {
-            record = existing.with_aliases_merged(record.aliases);
-            self.database
-                .mutate(Mutation::new(self.referents, record.clone()))?;
-        } else {
-            Self::validate_kebab_referent(record.referent.payload())?;
-            self.database
-                .assert(Assertion::new(self.referents, record.clone()))?;
-        }
-        Ok(ReferentRegistrationReceipt::new(record.referent))
-    }
-
-    /// A referent name is lowercase kebab-case: ASCII lowercase/digit groups
-    /// joined by single hyphens, no leading/trailing/double hyphen.
-    fn validate_kebab_referent(name: &str) -> Result<(), StoreError> {
-        let well_formed = !name.is_empty()
-            && !name.starts_with('-')
-            && !name.ends_with('-')
-            && !name.contains("--")
-            && name
-                .bytes()
-                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-');
-        if well_formed {
-            Ok(())
-        } else {
-            Err(StoreError::NonKebabReferent(name.to_string()))
-        }
-    }
-
-    pub(crate) fn settled_referent_registration_receipt(
-        &self,
-        registration: &ReferentRegistration,
-    ) -> Result<Option<ReferentRegistrationReceipt>, StoreError> {
-        Ok(self
-            .referents()?
-            .into_iter()
-            .find(|referent| referent.contains_registration(registration))
-            .map(|referent| ReferentRegistrationReceipt::new(referent.referent)))
     }
 
     fn record(&self, entry: Entry) -> Result<String, StoreError> {
@@ -856,54 +650,37 @@ impl Store {
     }
 
     fn observe(&self, query: &Query) -> Result<Vec<ObservedRecord>, StoreError> {
-        let query = self.canonicalized_query(query.clone())?;
         let mut records = self
             .records()?
             .into_iter()
-            .filter(|record| EntryStoreExt::matches(&record.entry, &query))
+            .filter(|record| EntryStoreExt::matches(&record.entry, query))
             .collect::<Vec<_>>();
-        records.sort_by_key(|record| {
-            std::cmp::Reverse((
-                record.entry.certainty_rank(),
-                record.entry.importance_rank(),
-            ))
-        });
+        records.sort_by_key(|record| std::cmp::Reverse(record.entry.importance_rank()));
         Ok(records
             .into_iter()
             .map(StoredRecord::into_observed_record)
             .collect())
     }
 
-    fn public_intent(
-        &self,
-        requested_scopes: &DomainScopes,
-    ) -> Result<Vec<ObservedRecord>, StoreError> {
-        let query = PublicIntentQuery::new(requested_scopes.clone());
+    fn intent(&self, requested_scopes: &DomainScopes) -> Result<Vec<ObservedRecord>, StoreError> {
+        let query = IntentQuery::new(requested_scopes.clone());
         let mut records = Vec::new();
         let mut seen = BTreeSet::new();
         for record in self
             .records()?
             .into_iter()
-            .filter(|record| record.entry.is_public_active() && query.matches_entry(&record.entry))
+            .filter(|record| query.matches_entry(&record.entry))
         {
             if seen.insert(record.record_identifier.payload().clone()) {
                 records.push(record.into_observed_record());
             }
         }
-        records.sort_by_key(|record| {
-            std::cmp::Reverse((
-                record.entry.certainty_rank(),
-                record.entry.importance_rank(),
-            ))
-        });
+        records.sort_by_key(|record| std::cmp::Reverse(record.entry.importance_rank()));
         Ok(records)
     }
 
-    fn public_text_search(
-        &self,
-        search_text: &SearchText,
-    ) -> Result<Vec<ObservedRecord>, StoreError> {
-        let needle = PublicTextSearchNeedle::new(search_text);
+    fn text_search(&self, search_text: &SearchText) -> Result<Vec<ObservedRecord>, StoreError> {
+        let needle = TextSearchNeedle::new(search_text);
         if needle.is_empty() {
             return Ok(Vec::new());
         }
@@ -911,22 +688,17 @@ impl Store {
         let mut scored = self
             .records()?
             .into_iter()
-            .filter(|record| record.entry.is_public_active())
             .filter_map(|record| {
                 let score = needle.score_entry(&record.entry)?;
                 Some((score, record))
             })
             .collect::<Vec<_>>();
         scored.sort_by_key(|(score, record)| {
-            std::cmp::Reverse((
-                *score,
-                record.entry.certainty_rank(),
-                record.entry.importance_rank(),
-            ))
+            std::cmp::Reverse((*score, record.entry.importance_rank()))
         });
         Ok(scored
             .into_iter()
-            .take(PUBLIC_TEXT_SEARCH_LIMIT)
+            .take(TEXT_SEARCH_LIMIT)
             .map(|(_score, record)| record.into_observed_record())
             .collect())
     }
@@ -1001,16 +773,10 @@ impl Store {
 
     #[cfg(feature = "agent-guardian")]
     fn guardian_records_for_entry(&self, proposed: &Entry) -> Result<RecordSet, StoreError> {
-        let proposed = self.canonicalized_entry(proposed.clone())?;
         let mut bundle = GuardianRecordBundle::new();
         for scope in proposed.guardian_domain_scopes().into_payload() {
             bundle.extend(RecordSet::new(
                 self.observe(&Query::guardian_domain_scope(scope))?,
-            ));
-        }
-        if !proposed.referents.payload().is_empty() {
-            bundle.extend(RecordSet::new(
-                self.observe(&Query::guardian_referents(proposed.referents.clone()))?,
             ));
         }
         Ok(bundle.into_record_set())
@@ -1032,7 +798,6 @@ impl Store {
     }
 
     fn duplicate_record(&self, proposed: &Entry) -> Result<Option<StoredRecord>, StoreError> {
-        let proposed = self.canonicalized_entry(proposed.clone())?;
         Ok(self.records()?.into_iter().find(|record| {
             record.entry.kind == proposed.kind
                 && record.entry.domains == proposed.domains
@@ -1116,26 +881,6 @@ impl Store {
         Ok(Some(RetirementReceipt::new(record_identifier)))
     }
 
-    fn change_certainty(
-        &self,
-        change: CertaintyChange,
-    ) -> Result<Option<CertaintyChangeReceipt>, StoreError> {
-        let record_identifier = change.record_identifier;
-        let identifier_text = record_identifier.payload().clone();
-        let Some(mut entry) = self.entry_by_identifier(record_identifier.payload())? else {
-            return Ok(None);
-        };
-        entry.certainty = change.certainty.clone();
-        self.database.mutate(Mutation::new(
-            self.entries,
-            StoredRecord::new(identifier_text, entry),
-        ))?;
-        Ok(Some(CertaintyChangeReceipt {
-            record_identifier,
-            certainty: change.certainty,
-        }))
-    }
-
     fn bump_importance(
         &self,
         change: ImportanceBump,
@@ -1169,7 +914,7 @@ impl Store {
         {
             return Ok(None);
         }
-        let entry = self.canonicalized_entry(change.entry)?;
+        let entry = change.entry;
         self.database.mutate(Mutation::new(
             self.entries,
             StoredRecord::new(identifier_text, entry),
@@ -1334,15 +1079,13 @@ impl Store {
     }
 
     /// A content-addressed digest of committed state: blake3 over each
-    /// record's `(identifier, archived bytes)` and registered referent,
-    /// folded with the commit
+    /// record's `(identifier, archived bytes)`, folded with the commit
     /// sequence, reduced to the schema's `Integer` digest width. An empty
     /// store (no committed records) digests to zero, so a marker taken
     /// before any write reads `(0, 0)`.
     fn state_digest(&self) -> Result<u64, StoreError> {
         let records = self.records()?;
-        let referents = self.referents()?;
-        if records.is_empty() && referents.is_empty() {
+        if records.is_empty() {
             return Ok(0);
         }
         let commit_sequence = self.commit_sequence()?;
@@ -1352,12 +1095,6 @@ impl Store {
             let archive = rkyv::to_bytes::<rkyv::rancor::Error>(&record)
                 .map_err(|_| StoreError::ArchiveEncode)?;
             hasher.update(record.record_identifier.payload().as_bytes());
-            hasher.update(&archive);
-        }
-        for referent in referents {
-            let archive = rkyv::to_bytes::<rkyv::rancor::Error>(&referent)
-                .map_err(|_| StoreError::ArchiveEncode)?;
-            hasher.update(referent.referent.payload().as_bytes());
             hasher.update(&archive);
         }
         let digest = hasher.finalize();
@@ -1372,86 +1109,6 @@ impl Store {
             .match_records(QueryPlan::all(self.entries))?
             .records()
             .to_vec())
-    }
-
-    fn referents(&self) -> Result<Vec<StoredReferent>, StoreError> {
-        Ok(self
-            .database
-            .match_records(QueryPlan::all(self.referents))?
-            .records()
-            .to_vec())
-    }
-
-    fn referent_by_key(&self, referent: &str) -> Result<Option<StoredReferent>, StoreError> {
-        Ok(self
-            .database
-            .match_records(QueryPlan::key(self.referents, RecordKey::new(referent)))?
-            .records()
-            .iter()
-            .next()
-            .cloned())
-    }
-
-    fn reject_conflicting_referent_names(
-        &self,
-        candidate: &StoredReferent,
-    ) -> Result<(), StoreError> {
-        for existing in self.referents()? {
-            if existing.referent == candidate.referent {
-                continue;
-            }
-            if existing.has_any_name(candidate) {
-                return Err(StoreError::ReferentNameConflict(
-                    candidate.referent.payload().clone(),
-                ));
-            }
-        }
-        Ok(())
-    }
-
-    fn canonicalized_entry(&self, mut entry: Entry) -> Result<Entry, StoreError> {
-        entry.referents = self.canonicalized_referents(entry.referents)?;
-        Ok(entry)
-    }
-
-    fn canonicalized_query(&self, mut query: Query) -> Result<Query, StoreError> {
-        query.referent_selection =
-            self.canonicalized_referent_selection(query.referent_selection)?;
-        Ok(query)
-    }
-
-    fn canonicalized_referent_selection(
-        &self,
-        selection: ReferentSelection,
-    ) -> Result<ReferentSelection, StoreError> {
-        match selection {
-            ReferentSelection::Any => Ok(ReferentSelection::Any),
-            ReferentSelection::AnyReferent(referents) => Ok(ReferentSelection::any_referent(
-                self.canonicalized_referents(referents.into_payload())?,
-            )),
-            ReferentSelection::AllReferents(referents) => Ok(ReferentSelection::all_referents(
-                self.canonicalized_referents(referents.into_payload())?,
-            )),
-        }
-    }
-
-    fn canonicalized_referents(&self, referents: Referents) -> Result<Referents, StoreError> {
-        let mut canonical = Vec::new();
-        for referent in referents.into_payload() {
-            canonical.push(
-                self.canonical_referent(&referent)?
-                    .ok_or_else(|| StoreError::UnregisteredReferent(referent.payload().clone()))?,
-            );
-        }
-        Ok(Referents::new(canonical))
-    }
-
-    fn canonical_referent(&self, referent: &Referent) -> Result<Option<Referent>, StoreError> {
-        Ok(self
-            .referents()?
-            .into_iter()
-            .find(|registered| registered.matches(referent))
-            .map(|registered| registered.referent))
     }
 
     fn next_record_identifier(&self) -> Result<String, StoreError> {
@@ -1485,61 +1142,6 @@ impl EngineRecord for StoredRecord {
     }
 }
 
-impl StoredReferent {
-    fn new(referent: Referent, aliases: Aliases) -> Self {
-        Self { referent, aliases }
-    }
-
-    fn with_aliases_merged(mut self, aliases: Aliases) -> Self {
-        let mut merged = self.aliases.into_payload().into_payload();
-        for alias in aliases.into_payload().into_payload() {
-            if alias != self.referent && !merged.contains(&alias) {
-                merged.push(alias);
-            }
-        }
-        self.aliases = Aliases::new(Referents::new(merged));
-        self
-    }
-
-    fn matches(&self, referent: &Referent) -> bool {
-        &self.referent == referent || self.aliases.payload().payload().contains(referent)
-    }
-
-    fn has_any_name(&self, other: &StoredReferent) -> bool {
-        self.matches(&other.referent)
-            || other
-                .aliases
-                .payload()
-                .payload()
-                .iter()
-                .any(|alias| self.matches(alias))
-    }
-
-    fn contains_registration(&self, registration: &ReferentRegistration) -> bool {
-        self.matches(&registration.referent)
-            && registration
-                .aliases
-                .payload()
-                .payload()
-                .iter()
-                .all(|alias| self.matches(alias))
-    }
-
-    #[cfg(feature = "agent-guardian")]
-    fn into_registered_referent(self) -> RegisteredReferent {
-        RegisteredReferent {
-            referent: self.referent,
-            aliases: self.aliases,
-        }
-    }
-}
-
-impl EngineRecord for StoredReferent {
-    fn record_key(&self) -> RecordKey {
-        RecordKey::new(self.referent.payload().clone())
-    }
-}
-
 #[cfg(feature = "agent-guardian")]
 pub trait GuardianEntryExt {
     fn guardian_domain_scopes(&self) -> DomainScopes;
@@ -1562,43 +1164,32 @@ impl GuardianEntryExt for Entry {
 #[cfg(feature = "agent-guardian")]
 pub trait GuardianQueryExt {
     fn guardian_domain_scope(scope: DomainScope) -> Self;
-    fn guardian_referents(referents: Referents) -> Self;
-    fn guardian_context(domain_match: DomainMatch, referent_selection: ReferentSelection) -> Self;
+    fn guardian_context(domain_match: DomainMatch) -> Self;
 }
 
 #[cfg(feature = "agent-guardian")]
 impl GuardianQueryExt for Query {
     fn guardian_domain_scope(scope: DomainScope) -> Self {
-        Self::guardian_context(
-            DomainMatch::full(DomainScopes::new(vec![scope])),
-            ReferentSelection::Any,
-        )
+        Self::guardian_context(DomainMatch::full(DomainScopes::new(vec![scope])))
     }
 
-    fn guardian_referents(referents: Referents) -> Self {
-        Self::guardian_context(DomainMatch::Any, ReferentSelection::any_referent(referents))
-    }
-
-    fn guardian_context(domain_match: DomainMatch, referent_selection: ReferentSelection) -> Self {
+    fn guardian_context(domain_match: DomainMatch) -> Self {
         Self {
             domain_match,
             keyword_match: KeywordMatch::Any,
             text_match: TextMatch::Any,
-            referent_selection,
             selected_kind: SelectedKind::new(None),
-            privacy_selection: PrivacySelection::Any,
-            certainty_selection: CertaintySelection::default_observation_certainty(),
             importance_selection: ImportanceSelection::default_observation_importance(),
         }
     }
 }
 
 #[derive(Clone, Debug)]
-struct PublicIntentQuery {
+struct IntentQuery {
     requested_scopes: DomainScopes,
 }
 
-impl PublicIntentQuery {
+impl IntentQuery {
     fn new(requested_scopes: DomainScopes) -> Self {
         Self { requested_scopes }
     }
@@ -1618,12 +1209,12 @@ impl PublicIntentQuery {
     }
 }
 
-struct PublicTextSearchNeedle {
+struct TextSearchNeedle {
     words: Vec<String>,
     empty: bool,
 }
 
-impl PublicTextSearchNeedle {
+impl TextSearchNeedle {
     fn new(search_text: &SearchText) -> Self {
         let words = Self::normalized_words(search_text.payload());
         let empty = words.is_empty();
@@ -1643,25 +1234,12 @@ impl PublicTextSearchNeedle {
     }
 
     fn score_entry(&self, entry: &Entry) -> Option<u64> {
-        let score =
-            self.score_description(&entry.description) + self.score_referents(&entry.referents);
+        let score = self.score_description(&entry.description);
         (score > 0).then_some(score)
     }
 
     fn score_description(&self, description: &Description) -> u64 {
         self.score_text(description.payload(), 100, 10)
-    }
-
-    fn score_referents(&self, referents: &Referents) -> u64 {
-        let mut score = 0;
-        for referent in referents.payload() {
-            if Self::normalized_words(referent.payload()) == self.words {
-                score += 120;
-            } else {
-                score += self.score_text(referent.payload(), 60, 15);
-            }
-        }
-        score
     }
 
     fn score_text(&self, text: &str, phrase_score: u64, word_score: u64) -> u64 {
@@ -1726,8 +1304,6 @@ impl DomainStoreExt for Domain {
 pub trait EntryStoreExt {
     fn matches(&self, query: &Query) -> bool;
     fn matches_domain_match(&self, domain_match: &DomainMatch) -> bool;
-    fn is_public_active(&self) -> bool;
-    fn certainty_rank(&self) -> u64;
     fn importance_rank(&self) -> u64;
 }
 
@@ -1736,14 +1312,11 @@ impl EntryStoreExt for Entry {
         self.matches_domain_match(&query.domain_match)
             && query.keyword_match.matches(&self.description)
             && query.text_match.matches(&self.description)
-            && query.referent_selection.matches(&self.referents)
             && query
                 .selected_kind
                 .payload()
                 .as_ref()
                 .is_none_or(|kind| &self.kind == kind)
-            && query.privacy_selection.matches(&self.privacy)
-            && query.certainty_selection.matches(&self.certainty)
             && query.importance_selection.matches(&self.importance)
     }
 
@@ -1768,16 +1341,6 @@ impl EntryStoreExt for Entry {
                     .any(|domain| expanded.matches_domain(domain))
             }),
         }
-    }
-
-    fn is_public_active(&self) -> bool {
-        PrivacySelection::default_observation_privacy().matches(&self.privacy)
-            && CertaintySelection::default_observation_certainty().matches(&self.certainty)
-            && ImportanceSelection::default_observation_importance().matches(&self.importance)
-    }
-
-    fn certainty_rank(&self) -> u64 {
-        self.certainty.payload().rank()
     }
 
     fn importance_rank(&self) -> u64 {
@@ -1880,28 +1443,6 @@ impl QueryStoreExt for Query {
     }
 }
 
-pub trait ReferentSelectionStoreExt {
-    fn matches(&self, entry_referents: &Referents) -> bool;
-}
-
-impl ReferentSelectionStoreExt for ReferentSelection {
-    fn matches(&self, entry_referents: &Referents) -> bool {
-        match self {
-            Self::Any => true,
-            Self::AnyReferent(expected) => expected
-                .payload()
-                .payload()
-                .iter()
-                .any(|referent| entry_referents.payload().contains(referent)),
-            Self::AllReferents(expected) => expected
-                .payload()
-                .payload()
-                .iter()
-                .all(|referent| entry_referents.payload().contains(referent)),
-        }
-    }
-}
-
 pub trait KeywordMatchStoreExt {
     fn matches(&self, description: &Description) -> bool;
 }
@@ -1926,58 +1467,6 @@ impl TextMatchStoreExt for TextMatch {
             Self::Any => true,
             Self::ContainsText(search_text) => {
                 description.contains_search_text(search_text.payload())
-            }
-        }
-    }
-}
-
-pub trait PrivacySelectionStoreExt {
-    fn default_observation_privacy() -> Self;
-    fn matches(&self, privacy: &Privacy) -> bool;
-}
-
-impl PrivacySelectionStoreExt for PrivacySelection {
-    fn default_observation_privacy() -> Self {
-        Self::exact(Privacy::new(Magnitude::Zero))
-    }
-
-    fn matches(&self, privacy: &Privacy) -> bool {
-        match self {
-            Self::Any => true,
-            Self::Exact(expected) => privacy == expected.payload(),
-            Self::AtMost(maximum) => privacy.payload().rank() <= maximum.payload().payload().rank(),
-            Self::AtLeast(minimum) => {
-                privacy.payload().rank() >= minimum.payload().payload().rank()
-            }
-        }
-    }
-}
-
-pub trait CertaintySelectionStoreExt {
-    fn default_observation_certainty() -> Self;
-    fn removal_candidate_certainty() -> Self;
-    fn matches(&self, certainty: &Certainty) -> bool;
-}
-
-impl CertaintySelectionStoreExt for CertaintySelection {
-    fn default_observation_certainty() -> Self {
-        Self::at_least_certainty(Certainty::new(Magnitude::Minimum))
-    }
-
-    fn removal_candidate_certainty() -> Self {
-        Self::exact_certainty(Certainty::new(Magnitude::Zero))
-    }
-
-    fn matches(&self, certainty: &Certainty) -> bool {
-        let certainty = certainty.payload();
-        match self {
-            Self::Any => true,
-            Self::ExactCertainty(expected) => certainty == expected.payload().payload(),
-            Self::AtMostCertainty(maximum) => {
-                certainty.rank() <= maximum.payload().payload().rank()
-            }
-            Self::AtLeastCertainty(minimum) => {
-                certainty.rank() >= minimum.payload().payload().rank()
             }
         }
     }

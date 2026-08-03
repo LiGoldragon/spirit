@@ -24,19 +24,14 @@
   RecordChangeReceipt signal-spirit:signal:RecordChangeReceipt
   GuardianRejection signal-spirit:signal:GuardianRejection
   GuardianRejectionReason signal-spirit:signal:GuardianRejectionReason
-  ReferentGuardianRejection signal-spirit:signal:ReferentGuardianRejection
-  ReferentGuardianRejectionReason signal-spirit:signal:ReferentGuardianRejectionReason
   Explanation signal-spirit:signal:Explanation
   ErrorReport signal-spirit:signal:ErrorReport
   Query signal-spirit:signal:Query
   SubscriptionToken signal-spirit:signal:SubscriptionToken
   IntentSubscription signal-spirit:signal:IntentSubscription
   RecordIdentifier signal-spirit:signal:RecordIdentifier
-  CertaintyChange signal-spirit:signal:CertaintyChange
   ImportanceBump signal-spirit:signal:ImportanceBump
   RecordChange signal-spirit:signal:RecordChange
-  ReferentRegistration signal-spirit:signal:ReferentRegistration
-  ReferentRegistrationReceipt signal-spirit:signal:ReferentRegistrationReceipt
   ObserverFilter signal-spirit:signal:ObserverFilter
   ObserverSubscription signal-spirit:signal:ObserverSubscription
   ObserverRetraction signal-spirit:signal:ObserverRetraction
@@ -47,41 +42,30 @@
   (| Work Event WriteDone ReadDone EffectDone |) [(SignalArrived Event) (SemaWriteCompleted WriteDone) (SemaReadCompleted ReadDone) (EffectCompleted EffectDone)]
   (| Action Reply Write Read Effect Continuation |) [(ReplyToSignal Reply) (CommandSemaWrite Write) (CommandSemaRead Read) (CommandEffect Effect) (Continue Continuation)]
 
-  CommandSemaWrite [(Record) (ChangeCertainty) (BumpImportance) (ChangeRecord) (RegisterReferent)]
+  CommandSemaWrite [(Record) (BumpImportance) (ChangeRecord)]
   Record Entry
-  ChangeCertainty CertaintyChange
   BumpImportance ImportanceBump
   ChangeRecord RecordChange
-  RegisterReferent ReferentRegistration
 
   NexusWork (Work SignalInput SemaWriteOutput SemaReadOutput NexusEffectResult)
   NexusAction (Action SignalOutput CommandSemaWrite SemaReadInput NexusEffectCommand NexusWork)
 
-  NexusEffectCommand [(Stash) (ClassifyState) (RecordWithImpliedReferents) (GuardRecord) (ProposeWithImpliedReferents) (Propose) (Clarify) (SupersedeWithImpliedReferents) (Supersede) (Retire) (ResolveClarification) (ChangeRecordWithImpliedReferents) (GuardChangeRecord) (GuardReferentRegistration) (OpenIntentSubscription) (OpenObserverTap) (CloseObserverTap)]
+  NexusEffectCommand [(Stash) (ClassifyState) (GuardRecord) (Propose) (Clarify) (Supersede) (Retire) (ResolveClarification) (GuardChangeRecord) (OpenIntentSubscription) (OpenObserverTap) (CloseObserverTap)]
   Stash StashRequest
   ClassifyState Statement
-  RecordWithImpliedReferents RecordRequest
   GuardRecord RecordRequest
-  ProposeWithImpliedReferents Proposal
   Propose Proposal
   Clarify Clarification
-  SupersedeWithImpliedReferents Supersession
   Supersede Supersession
   Retire Retirement
   ResolveClarification ClarificationResolution
-  ChangeRecordWithImpliedReferents RecordChange
   GuardChangeRecord RecordChange
-  GuardReferentRegistration ReferentRegistration
   OpenIntentSubscription Query
   OpenObserverTap ObserverFilter
   CloseObserverTap SubscriptionToken
-  NexusEffectResult [(Stashed) (StateClassified) (RecordReferentsSettled) (ProposeReferentsSettled) (SupersedeReferentsSettled) (ChangeRecordReferentsSettled) (Recorded) (Proposed) (Clarified) (Superseded) (Retired) (ClarificationResolved) (RecordChanged) (GuardianRejected) (ReferentRegistered) (ReferentGuardianRejected) (OperationFailed) (IntentSubscriptionOpened) (ObserverTapOpened) (ObserverTapClosed)]
+  NexusEffectResult [(Stashed) (StateClassified) (Recorded) (Proposed) (Clarified) (Superseded) (Retired) (ClarificationResolved) (RecordChanged) (GuardianRejected) (OperationFailed) (IntentSubscriptionOpened) (ObserverTapOpened) (ObserverTapClosed)]
   Stashed StashResult
   StateClassified RecordRequest
-  RecordReferentsSettled RecordRequest
-  ProposeReferentsSettled Proposal
-  SupersedeReferentsSettled Supersession
-  ChangeRecordReferentsSettled RecordChange
   Recorded SemaReceipt
   Proposed SemaReceipt
   Clarified ClarificationReceipt
@@ -90,8 +74,6 @@
   ClarificationResolved ClarificationResolutionReceipt
   RecordChanged RecordChangeReceipt
   GuardianRejected GuardianRejection
-  ReferentRegistered ReferentRegistrationReceipt
-  ReferentGuardianRejected ReferentGuardianRejection
   OperationFailed ErrorReport
   IntentSubscriptionOpened IntentSubscription
   ObserverTapOpened ObserverSubscription
@@ -100,6 +82,4 @@
   StashResult { StashHandle RecordCount DatabaseMarker Records }
   GuardianVerdict [Accept (Reject)]
   Reject { GuardianRejectionReason Explanation }
-  ReferentGuardianVerdict [Accept (RejectReferent)]
-  RejectReferent { ReferentGuardianRejectionReason Explanation }
 }

@@ -32,17 +32,15 @@ use spirit::schema::meta_signal::{
     ArchiveDatabaseTarget, ConfigureRequest, MirrorAddress, MirrorAddressText, MirrorTarget,
     Output as MetaOutput,
 };
-use spirit::schema::sema::RecordFamily;
 use spirit::schema::signal::{
-    Certainty, Description, Domains, Entry, Importance, Input, Justification, Kind, Magnitude,
-    Output, Privacy, QuoteText, Reasoning, RecordRequest, Referent, Referents, Testimony,
-    VerbatimQuote,
+    Description, Domains, Entry, Importance, Input, Justification, Kind, Magnitude, Output,
+    QuoteText, Reasoning, RecordRequest, Testimony, VerbatimQuote,
 };
-use spirit::{ClusterAuthorizer, CriomeAuthorization, Engine, Store};
+use spirit::{ClusterAuthorizer, CriomeAuthorization, Engine, SPIRIT_STORE_NAME, Store};
 use tempfile::TempDir;
 use triad_runtime::kameo::actor::Spawn;
 
-const STORE_NAME: &str = RecordFamily::STORE_NAME;
+const STORE_NAME: &str = SPIRIT_STORE_NAME;
 
 fn runtime() -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_multi_thread()
@@ -57,10 +55,7 @@ fn record_request(description: &str) -> RecordRequest {
             domains: domain_fixtures::domains(&["Information/Documentation"]),
             kind: Kind::Decision,
             description: Description::new(description),
-            certainty: Certainty::new(Magnitude::High),
             importance: Importance::new(Magnitude::Medium),
-            privacy: Privacy::new(Magnitude::Zero),
-            referents: Referents::new(vec![Referent::new("spirit")]),
         },
         justification: Justification {
             testimony: Testimony::new(vec![VerbatimQuote::new(QuoteText::new(description), None)]),

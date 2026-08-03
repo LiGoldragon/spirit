@@ -30,15 +30,6 @@ pub enum StoreError {
     #[error("failed to mint record identifier: {0}")]
     IdentifierMint(String),
 
-    #[error("unregistered referent: {0}")]
-    UnregisteredReferent(String),
-
-    #[error("referent name already registered under another canonical referent: {0}")]
-    ReferentNameConflict(String),
-
-    #[error("referent name is not lowercase kebab-case: {0}")]
-    NonKebabReferent(String),
-
     #[error("duplicate record vanished during guardian proposal handling: {0}")]
     DuplicateRecordVanished(String),
 

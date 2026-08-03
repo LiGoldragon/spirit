@@ -12,21 +12,17 @@ use signal_frame::{
 use signal_spirit::SpiritGuardianAgentConfiguration;
 use signal_spirit_judge::{
     AdmissionJudgeOperation, AdmissionJudgePacket, AdmissionJudgeResponse, AdmissionJudgeVerdict,
-    AdmissionRejectionReason, JudgeDiagnostic, JudgmentScope, ReferentRegistrationJudgePacket,
-    ReferentRegistrationJudgeResponse, ReferentRegistrationJudgeVerdict,
-    ReferentRegistrationRejectionReason, SpiritJudgeFrame, SpiritJudgeReply, SpiritJudgeRequest,
-    SpiritJudgeRequestRejection, SpiritJudgeRequestRejectionReason,
+    AdmissionRejectionReason, JudgeDiagnostic, SpiritJudgeFrame, SpiritJudgeReply,
+    SpiritJudgeRequest, SpiritJudgeRequestRejection, SpiritJudgeRequestRejectionReason,
 };
 use thiserror::Error;
 
 use crate::{
     guardian_journal::{GuardianDecision, GuardianOperation},
     schema::{
-        nexus::{GuardianVerdict, ReferentGuardianVerdict, Reject, RejectReferent},
+        nexus::{GuardianVerdict, Reject},
         signal::{
-            DatabaseMarker, Entry, Explanation, GuardianRejection, GuardianRejectionReason,
-            Magnitude, RecordSet, ReferentGuardianRejection, ReferentGuardianRejectionReason,
-            ReferentRegistration, RegisteredReferents,
+            DatabaseMarker, Explanation, GuardianRejection, GuardianRejectionReason, RecordSet,
         },
     },
 };
@@ -54,13 +50,6 @@ pub struct AgentGuardianRejection {
 pub struct AgentGuardianDecision {
     verdict: GuardianVerdict,
     records: RecordSet,
-    database_marker: DatabaseMarker,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AgentReferentGuardianDecision {
-    verdict: ReferentGuardianVerdict,
-    registered_referents: RegisteredReferents,
     database_marker: DatabaseMarker,
 }
 
@@ -141,7 +130,6 @@ impl AgentGuardian {
         database_marker: DatabaseMarker,
     ) -> AgentGuardianDecision {
         let packet = AdmissionJudgePacket::new(
-            JudgmentScopeProjection::new(operation, &records).into_contract(),
             AdmissionJudgeOperationProjection::new(operation).into_contract(),
             records.clone(),
             database_marker.clone(),
@@ -153,50 +141,9 @@ impl AgentGuardian {
             Ok(SpiritJudgeReply::RequestRejected(rejection)) => {
                 GuardianVerdict::from_request_rejection(rejection)
             }
-            Ok(SpiritJudgeReply::ReferentRegistrationJudged(_)) => {
-                GuardianVerdict::reject(Reject {
-                    guardian_rejection_reason: GuardianRejectionReason::HarnessMalformed,
-                    explanation: Explanation::new(
-                        "spirit judge returned a referent reply for an admission request",
-                    ),
-                })
-            }
             Err(error) => GuardianVerdict::from_judge_error(error),
         };
         AgentGuardianDecision::new(verdict, records, database_marker)
-    }
-
-    pub(crate) fn guard_referent(
-        &self,
-        registration: &ReferentRegistration,
-        registered_referents: RegisteredReferents,
-        database_marker: DatabaseMarker,
-    ) -> AgentReferentGuardianDecision {
-        let packet = ReferentRegistrationJudgePacket::new(
-            JudgmentScope::private_hashes_and_redaction(),
-            registration.clone(),
-            registered_referents.clone(),
-            database_marker.clone(),
-        );
-        let verdict = match self.call_judge(SpiritJudgeRequest::JudgeReferentRegistration(packet)) {
-            Ok(SpiritJudgeReply::ReferentRegistrationJudged(response)) => {
-                ReferentGuardianVerdict::from_referent_response(response)
-            }
-            Ok(SpiritJudgeReply::RequestRejected(rejection)) => {
-                ReferentGuardianVerdict::from_request_rejection(rejection)
-            }
-            Ok(SpiritJudgeReply::AdmissionJudged(_)) => {
-                ReferentGuardianVerdict::reject_referent(RejectReferent {
-                    referent_guardian_rejection_reason:
-                        ReferentGuardianRejectionReason::HarnessMalformed,
-                    explanation: Explanation::new(
-                        "spirit judge returned an admission reply for a referent request",
-                    ),
-                })
-            }
-            Err(error) => ReferentGuardianVerdict::from_judge_error(error),
-        };
-        AgentReferentGuardianDecision::new(verdict, registered_referents, database_marker)
     }
 
     fn call_judge(
@@ -361,47 +308,6 @@ impl<'operation> AdmissionJudgeOperationProjection<'operation> {
     }
 }
 
-struct JudgmentScopeProjection<'operation, 'records> {
-    operation: &'operation GuardianOperation,
-    records: &'records RecordSet,
-}
-
-impl<'operation, 'records> JudgmentScopeProjection<'operation, 'records> {
-    fn new(operation: &'operation GuardianOperation, records: &'records RecordSet) -> Self {
-        Self { operation, records }
-    }
-
-    fn into_contract(self) -> JudgmentScope {
-        if self.includes_private_context() {
-            JudgmentScope::private_hashes_and_redaction()
-        } else {
-            JudgmentScope::public()
-        }
-    }
-
-    fn includes_private_context(&self) -> bool {
-        self.operation
-            .candidate_entries()
-            .iter()
-            .any(|entry| entry.is_private())
-            || self
-                .records
-                .payload()
-                .iter()
-                .any(|record| record.entry.is_private())
-    }
-}
-
-trait EntryPrivacy {
-    fn is_private(&self) -> bool;
-}
-
-impl EntryPrivacy for Entry {
-    fn is_private(&self) -> bool {
-        self.privacy.payload() != &Magnitude::Zero
-    }
-}
-
 impl GuardianVerdict {
     fn from_admission_response(response: AdmissionJudgeResponse) -> Self {
         match response.verdict {
@@ -424,37 +330,6 @@ impl GuardianVerdict {
     fn from_judge_error(error: AgentGuardianError) -> Self {
         Self::reject(Reject {
             guardian_rejection_reason: error.guardian_rejection_reason(),
-            explanation: Explanation::new(error.to_string()),
-        })
-    }
-}
-
-impl ReferentGuardianVerdict {
-    fn from_referent_response(response: ReferentRegistrationJudgeResponse) -> Self {
-        match response.verdict {
-            ReferentRegistrationJudgeVerdict::Accept => Self::Accept,
-            ReferentRegistrationJudgeVerdict::RejectReferent(reason) => {
-                Self::reject_referent(RejectReferent {
-                    referent_guardian_rejection_reason: ReferentRejectionProjection::new(reason)
-                        .into_signal(),
-                    explanation: JudgeDiagnosticProjection::new(response.diagnostic)
-                        .into_explanation(),
-                })
-            }
-        }
-    }
-
-    fn from_request_rejection(rejection: SpiritJudgeRequestRejection) -> Self {
-        Self::reject_referent(RejectReferent {
-            referent_guardian_rejection_reason: RequestRejectionProjection::new(rejection.reason)
-                .to_referent_reason(),
-            explanation: JudgeDiagnosticProjection::new(rejection.diagnostic).into_explanation(),
-        })
-    }
-
-    fn from_judge_error(error: AgentGuardianError) -> Self {
-        Self::reject_referent(RejectReferent {
-            referent_guardian_rejection_reason: error.referent_guardian_rejection_reason(),
             explanation: Explanation::new(error.to_string()),
         })
     }
@@ -508,7 +383,6 @@ impl AdmissionRejectionProjection {
                 GuardianRejectionReason::NegativeGuideline
             }
             AdmissionRejectionReason::Matter => GuardianRejectionReason::Matter,
-            AdmissionRejectionReason::UnclearPrivacy => GuardianRejectionReason::UnclearPrivacy,
             AdmissionRejectionReason::UnclearDomain => GuardianRejectionReason::UnclearDomain,
             AdmissionRejectionReason::ClarifyTramples => GuardianRejectionReason::ClarifyTramples,
             AdmissionRejectionReason::ClarifyLosesMeaning => {
@@ -527,7 +401,6 @@ impl AdmissionRejectionProjection {
             AdmissionRejectionReason::InsufficientWarrant => {
                 GuardianRejectionReason::InsufficientWarrant
             }
-            AdmissionRejectionReason::Overstated => GuardianRejectionReason::Overstated,
             AdmissionRejectionReason::ImportanceUnsupported => {
                 GuardianRejectionReason::ImportanceUnsupported
             }
@@ -562,62 +435,6 @@ impl RequestRejectionProjection {
             }
         }
     }
-
-    fn to_referent_reason(&self) -> ReferentGuardianRejectionReason {
-        match self.reason {
-            SpiritJudgeRequestRejectionReason::InvalidRequest
-            | SpiritJudgeRequestRejectionReason::ConfigurationUnavailable
-            | SpiritJudgeRequestRejectionReason::ResponseFormatFailure => {
-                ReferentGuardianRejectionReason::HarnessMalformed
-            }
-            SpiritJudgeRequestRejectionReason::ProviderUnavailable
-            | SpiritJudgeRequestRejectionReason::ProviderRejected => {
-                ReferentGuardianRejectionReason::HarnessUnavailable
-            }
-        }
-    }
-}
-
-struct ReferentRejectionProjection {
-    reason: ReferentRegistrationRejectionReason,
-}
-
-impl ReferentRejectionProjection {
-    fn new(reason: ReferentRegistrationRejectionReason) -> Self {
-        Self { reason }
-    }
-
-    fn into_signal(self) -> ReferentGuardianRejectionReason {
-        match self.reason {
-            ReferentRegistrationRejectionReason::Duplicate => {
-                ReferentGuardianRejectionReason::Duplicate
-            }
-            ReferentRegistrationRejectionReason::Ambiguous => {
-                ReferentGuardianRejectionReason::Ambiguous
-            }
-            ReferentRegistrationRejectionReason::TooVague => {
-                ReferentGuardianRejectionReason::TooVague
-            }
-            ReferentRegistrationRejectionReason::AliasCollision => {
-                ReferentGuardianRejectionReason::AliasCollision
-            }
-            ReferentRegistrationRejectionReason::NonReferent => {
-                ReferentGuardianRejectionReason::NonReferent
-            }
-            ReferentRegistrationRejectionReason::UnclearJustification => {
-                ReferentGuardianRejectionReason::UnclearJustification
-            }
-            ReferentRegistrationRejectionReason::JudgeUnavailable => {
-                ReferentGuardianRejectionReason::HarnessUnavailable
-            }
-            ReferentRegistrationRejectionReason::JudgeMalformed => {
-                ReferentGuardianRejectionReason::HarnessMalformed
-            }
-            ReferentRegistrationRejectionReason::JudgeTimedOut => {
-                ReferentGuardianRejectionReason::HarnessTimedOut
-            }
-        }
-    }
 }
 
 impl AgentGuardianError {
@@ -633,22 +450,6 @@ impl AgentGuardianError {
             }
             Self::Socket(_) | Self::Frame(_) | Self::WrongReply(_) => {
                 GuardianRejectionReason::HarnessUnavailable
-            }
-        }
-    }
-
-    fn referent_guardian_rejection_reason(&self) -> ReferentGuardianRejectionReason {
-        match self {
-            Self::Socket(error)
-                if matches!(
-                    error.kind(),
-                    std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
-                ) =>
-            {
-                ReferentGuardianRejectionReason::HarnessTimedOut
-            }
-            Self::Socket(_) | Self::Frame(_) | Self::WrongReply(_) => {
-                ReferentGuardianRejectionReason::HarnessUnavailable
             }
         }
     }
@@ -679,74 +480,6 @@ impl AgentGuardianDecision {
                 AgentGuardianRejection::from_reject(rejection, self.records, self.database_marker)
                     .into_guardian_rejection(),
             ),
-        }
-    }
-}
-
-impl AgentReferentGuardianDecision {
-    fn new(
-        verdict: ReferentGuardianVerdict,
-        registered_referents: RegisteredReferents,
-        database_marker: DatabaseMarker,
-    ) -> Self {
-        Self {
-            verdict,
-            registered_referents,
-            database_marker,
-        }
-    }
-
-    pub(crate) fn journal_decision(&self, registration: ReferentRegistration) -> GuardianDecision {
-        GuardianDecision::referent(
-            registration,
-            self.registered_referents.clone(),
-            self.verdict.clone(),
-            self.database_marker.clone(),
-        )
-    }
-
-    pub(crate) fn into_guardian_rejection(self) -> Option<ReferentGuardianRejection> {
-        match self.verdict {
-            ReferentGuardianVerdict::Accept => None,
-            ReferentGuardianVerdict::RejectReferent(rejection) => Some(
-                AgentReferentGuardianRejection::from_reject(
-                    rejection,
-                    self.registered_referents,
-                    self.database_marker,
-                )
-                .into_guardian_rejection(),
-            ),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-struct AgentReferentGuardianRejection {
-    reason: ReferentGuardianRejectionReason,
-    registered_referents: RegisteredReferents,
-    explanation: Explanation,
-    database_marker: DatabaseMarker,
-}
-
-impl AgentReferentGuardianRejection {
-    fn from_reject(
-        rejection: RejectReferent,
-        registered_referents: RegisteredReferents,
-        database_marker: DatabaseMarker,
-    ) -> Self {
-        Self {
-            reason: rejection.referent_guardian_rejection_reason,
-            registered_referents,
-            explanation: rejection.explanation,
-            database_marker,
-        }
-    }
-
-    fn into_guardian_rejection(self) -> ReferentGuardianRejection {
-        ReferentGuardianRejection {
-            referent_guardian_rejection_reason: self.reason,
-            registered_referents: self.registered_referents,
-            explanation: self.explanation,
         }
     }
 }

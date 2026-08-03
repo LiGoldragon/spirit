@@ -128,7 +128,7 @@ impl From<&LocalHeadCapture> for AuthorizedObjectReference {
 /// staged group is discarded: nothing is recorded anywhere, fail-closed.
 /// Reads are unaffected.
 ///
-/// The owner-only meta plane (`Import`, `CollectRemovalCandidates`) stays
+/// The owner-only meta plane (`Import`, `Configure`) stays
 /// owner-trust and is not policed by this option; `Import` is the privileged
 /// escape hatch that writes locally without a round.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

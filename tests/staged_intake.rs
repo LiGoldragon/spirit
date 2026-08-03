@@ -29,17 +29,18 @@ use signal_criome::{
     SignatureAuthorizationResult, TimestampNanos,
 };
 use spirit::schema::daemon::{ComponentDaemon, WorkingInputLane};
-use spirit::schema::sema::RecordFamily;
 use spirit::schema::signal::{
-    AdvanceRefusalReason, Certainty, CertaintyChange, Description, Entry, Importance, Input,
-    Justification, Kind, Magnitude, Output, Privacy, QuoteText, Reasoning, RecordIdentifier,
-    RecordRequest, Referent, Referents, SearchText, Statement, StatementText, Testimony,
-    VerbatimQuote,
+    AdvanceRefusalReason, Description, Entry, Importance, ImportanceBump, Input, Justification,
+    Kind, Magnitude, Output, QuoteText, Reasoning, RecordIdentifier, RecordRequest, SearchText,
+    Statement, StatementText, Testimony, VerbatimQuote,
 };
-use spirit::{ClusterAuthorizer, CriomeAuthorization, Engine, SpiritDaemon, StagedIntake, Store};
+use spirit::{
+    ClusterAuthorizer, CriomeAuthorization, Engine, SPIRIT_STORE_NAME, SpiritDaemon, StagedIntake,
+    Store,
+};
 use support::domain_fixtures;
 
-const _STORE_NAME: &str = RecordFamily::STORE_NAME;
+const _STORE_NAME: &str = SPIRIT_STORE_NAME;
 
 fn runtime() -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_multi_thread()
@@ -54,10 +55,7 @@ fn record_request(description: &str) -> RecordRequest {
             domains: domain_fixtures::domains(&["Information/Documentation"]),
             kind: Kind::Decision,
             description: Description::new(description),
-            certainty: Certainty::new(Magnitude::High),
             importance: Importance::new(Magnitude::Medium),
-            privacy: Privacy::new(Magnitude::Zero),
-            referents: Referents::new(vec![Referent::new("spirit")]),
         },
         justification: Justification {
             testimony: Testimony::new(vec![VerbatimQuote::new(QuoteText::new(description), None)]),
@@ -102,10 +100,7 @@ fn head_advancing_inputs_stage_and_reads_stay_immediate() {
     let advancing: Vec<Input> = vec![
         Input::record(record_request("a lane witness record")),
         Input::state(Statement::new(StatementText::new("a raw statement"))),
-        Input::change_certainty(CertaintyChange {
-            record_identifier: RecordIdentifier::new("record-1"),
-            certainty: Certainty::new(Magnitude::High),
-        }),
+        Input::bump_importance(ImportanceBump::new(RecordIdentifier::new("record-1"))),
         Input::retire(spirit::schema::signal::Retirement {
             record_identifier: RecordIdentifier::new("record-1"),
             justification: record_request("justify").justification,
@@ -121,7 +116,7 @@ fn head_advancing_inputs_stage_and_reads_stay_immediate() {
     let immediate: Vec<Input> = vec![
         Input::Version,
         Input::Marker,
-        Input::public_text_search(SearchText::new("anything")),
+        Input::text_search(SearchText::new("anything")),
     ];
     for input in &immediate {
         assert_eq!(
@@ -156,7 +151,7 @@ fn reads_flow_ungated_while_the_gate_is_enabled_and_criome_is_absent() {
             "reads stay served under an enabled gate, got {version:?}"
         );
         let search = engine
-            .handle_async(Input::public_text_search(SearchText::new("seeded")))
+            .handle_async(Input::text_search(SearchText::new("seeded")))
             .await
             .into_root();
         assert!(

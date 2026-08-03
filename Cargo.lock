@@ -225,7 +225,7 @@ dependencies = [
  "meta-signal-criome",
  "rkyv",
  "rustix",
- "sema-engine 0.7.0",
+ "sema-engine",
  "signal-criome",
  "signal-frame",
  "signal-router",
@@ -850,8 +850,8 @@ dependencies = [
 
 [[package]]
 name = "meta-signal-spirit"
-version = "0.7.1"
-source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?rev=0a7a2438c8e5d57cb1fd413452d0a7ddad4fb9b3#0a7a2438c8e5d57cb1fd413452d0a7ddad4fb9b3"
+version = "0.8.0"
+source = "git+https://github.com/LiGoldragon/meta-signal-spirit.git?rev=009cb6c8ddf985244189a79d554aa5d5c24605c8#009cb6c8ddf985244189a79d554aa5d5c24605c8"
 dependencies = [
  "nota",
  "rkyv",
@@ -882,7 +882,7 @@ dependencies = [
  "nota",
  "rkyv",
  "schema-rust 0.7.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
- "sema-engine 0.7.0",
+ "sema-engine",
  "signal-frame",
  "signal-mirror",
  "thiserror",
@@ -913,7 +913,7 @@ dependencies = [
 [[package]]
 name = "nota"
 version = "0.5.1"
-source = "git+https://github.com/LiGoldragon/nota.git?branch=main#d25c08a87b897f2eac28621fb6c3d25801cdccfc"
+source = "git+https://github.com/LiGoldragon/nota.git?branch=main#ce7c564de0a0518eaa1938d55dccc460a67cadb4"
 dependencies = [
  "nota-derive",
  "rkyv",
@@ -922,7 +922,7 @@ dependencies = [
 [[package]]
 name = "nota-derive"
 version = "0.3.0"
-source = "git+https://github.com/LiGoldragon/nota.git?branch=main#d25c08a87b897f2eac28621fb6c3d25801cdccfc"
+source = "git+https://github.com/LiGoldragon/nota.git?branch=main#ce7c564de0a0518eaa1938d55dccc460a67cadb4"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1272,7 +1272,7 @@ dependencies = [
  "rand_core 0.6.4",
  "rkyv",
  "schema-rust 0.7.0 (git+https://github.com/LiGoldragon/schema-rust.git?branch=main)",
- "sema-engine 0.7.0",
+ "sema-engine",
  "signal-criome",
  "signal-frame",
  "signal-harness",
@@ -1455,31 +1455,6 @@ source = "git+https://github.com/LiGoldragon/sema.git?branch=main#51d7927c872f0d
 dependencies = [
  "redb",
  "rkyv",
- "thiserror",
-]
-
-[[package]]
-name = "sema-engine"
-version = "0.2.3"
-source = "git+https://github.com/LiGoldragon/sema-engine.git?rev=ebee6e44ba6ee4afcb26998007bcfd128641b54c#ebee6e44ba6ee4afcb26998007bcfd128641b54c"
-dependencies = [
- "rkyv",
- "sema",
- "signal-frame",
- "signal-sema",
- "thiserror",
-]
-
-[[package]]
-name = "sema-engine"
-version = "0.4.0"
-source = "git+https://github.com/LiGoldragon/sema-engine.git?rev=dbe29427d9a2c6c194909385485ad42b008048b8#dbe29427d9a2c6c194909385485ad42b008048b8"
-dependencies = [
- "blake3",
- "rkyv",
- "sema",
- "signal-frame",
- "signal-sema",
  "thiserror",
 ]
 
@@ -1725,8 +1700,8 @@ dependencies = [
 
 [[package]]
 name = "signal-spirit"
-version = "0.13.0"
-source = "git+https://github.com/LiGoldragon/signal-spirit.git?rev=1cf7c010029de46369b742687da4fa1ca6def9a9#1cf7c010029de46369b742687da4fa1ca6def9a9"
+version = "0.14.0"
+source = "git+https://github.com/LiGoldragon/signal-spirit.git?rev=b37fc963292c157452d06e150296c19005dae3f2#b37fc963292c157452d06e150296c19005dae3f2"
 dependencies = [
  "nota",
  "rkyv",
@@ -1740,8 +1715,8 @@ dependencies = [
 
 [[package]]
 name = "signal-spirit-judge"
-version = "0.1.0"
-source = "git+https://github.com/LiGoldragon/signal-spirit-judge.git?rev=7c25b71a3485#7c25b71a34858c0d912dff8fd0b4f4ac213d7cd1"
+version = "0.2.0"
+source = "git+https://github.com/LiGoldragon/signal-spirit-judge.git?rev=4fc339fee6adf3aeed82125aa0de8940bdd1f589#4fc339fee6adf3aeed82125aa0de8940bdd1f589"
 dependencies = [
  "rkyv",
  "signal-frame",
@@ -1789,7 +1764,7 @@ dependencies = [
 
 [[package]]
 name = "spirit"
-version = "0.25.1"
+version = "0.26.0"
 dependencies = [
  "agent",
  "blake3",
@@ -1806,9 +1781,7 @@ dependencies = [
  "router",
  "schema-language",
  "schema-rust 0.7.0 (git+https://github.com/LiGoldragon/schema-rust.git?rev=f3b4563163dd11ba1cbbcca8081701ab7830b8f5)",
- "sema-engine 0.2.3",
- "sema-engine 0.4.0",
- "sema-engine 0.7.0",
+ "sema-engine",
  "signal-agent",
  "signal-criome",
  "signal-domain",

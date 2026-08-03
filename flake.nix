@@ -12,12 +12,12 @@
     # execute. Consumers select these through Spirit's package/service outputs,
     # never as sibling deployment inputs.
     spirit-judge = {
-      url = "github:LiGoldragon/spirit-judge/901d1fe404f277778e32318871b97cdcaff85a43";
+      url = "github:LiGoldragon/spirit-judge/b7ccd5a32758fff0607b9e9dfc2dc6a36fb5909e";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.rust-build.follows = "rust-build";
     };
     spirit-judge-config = {
-      url = "github:LiGoldragon/spirit-judge-config/b6a3fe7e0f91f2e5ff8ddec94ebfe2b489fc355d";
+      url = "github:LiGoldragon/spirit-judge-config/4351b80e49a3ca3640ccd7bbc9bcfd48787ccc17";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     judge-provider = {
@@ -52,18 +52,6 @@
       url = "github:LiGoldragon/sema-engine";
       flake = false;
     };
-    # The previous engine generation: reads pre-versioning stores for the
-    # production-migration bootstrap.
-    sema-engine-previous-source = {
-      url = "github:LiGoldragon/sema-engine/ebee6e44ba6ee4afcb26998007bcfd128641b54c";
-      flake = false;
-    };
-    # The deployed v9/layout-3 engine generation: reads materialized rows
-    # from the live 0.12.1 store for the production-migration bootstrap.
-    sema-engine-layout3-source = {
-      url = "github:LiGoldragon/sema-engine/dbe29427d9a2c6c194909385485ad42b008048b8";
-      flake = false;
-    };
     signal-frame-source = {
       url = "git+https://github.com/LiGoldragon/signal-frame.git?ref=main";
       flake = false;
@@ -89,15 +77,11 @@
       flake = false;
     };
     signal-spirit-source = {
-      url = "github:LiGoldragon/signal-spirit";
+      url = "github:LiGoldragon/signal-spirit/b37fc963292c157452d06e150296c19005dae3f2";
       flake = false;
     };
     signal-spirit-judge-source = {
-      # This is the exact source revision consumed by spirit-judge 0.1.0.
-      # Its typed source is unchanged from the former 49bec17c pin; selecting
-      # one revision removes split wire-contract authority without changing
-      # the durable/wire generation.
-      url = "github:LiGoldragon/signal-spirit-judge/7c25b71a34858c0d912dff8fd0b4f4ac213d7cd1";
+      url = "github:LiGoldragon/signal-spirit-judge/4fc339fee6adf3aeed82125aa0de8940bdd1f589";
       flake = false;
     };
     nota-text-query-source = {
@@ -105,7 +89,7 @@
       flake = false;
     };
     meta-signal-spirit-source = {
-      url = "github:LiGoldragon/meta-signal-spirit";
+      url = "github:LiGoldragon/meta-signal-spirit/009cb6c8ddf985244189a79d554aa5d5c24605c8";
       flake = false;
     };
     signal-agent-source = {
@@ -194,8 +178,6 @@
       schema-rust-source,
       sema-source,
       sema-engine-source,
-      sema-engine-previous-source,
-      sema-engine-layout3-source,
       signal-frame-source,
       signal-sema-source,
       triad-runtime-source,
@@ -246,7 +228,7 @@
           ];
         };
         src =
-          pkgs.runCommand "spirit-source-with-local-schema-patches"
+          pkgs.runCommand "spirit-v14-source-with-local-schema-patches"
             {
               kameoSource = kameo-source;
               notaNextSource = nota-source;
@@ -255,8 +237,6 @@
               schemaRustNextSource = schema-rust-source;
               semaSource = sema-source;
               semaEngineSource = sema-engine-source;
-              semaEnginePreviousSource = sema-engine-previous-source;
-              semaEngineLayout3Source = sema-engine-layout3-source;
               signalFrameSource = signal-frame-source;
               signalSemaSource = signal-sema-source;
               triadRuntimeSource = triad-runtime-source;
@@ -296,8 +276,6 @@
               cp -R "$schemaRustNextSource" $out/vendor-sources/schema-rust
               cp -R "$semaSource" $out/vendor-sources/sema
               cp -R "$semaEngineSource" $out/vendor-sources/sema-engine
-              cp -R "$semaEnginePreviousSource" $out/vendor-sources/sema-engine-previous
-              cp -R "$semaEngineLayout3Source" $out/vendor-sources/sema-engine-layout3
               cp -R "$signalFrameSource" $out/vendor-sources/signal-frame
               cp -R "$signalSemaSource" $out/vendor-sources/signal-sema
               cp -R "$triadRuntimeSource" $out/vendor-sources/triad-runtime
@@ -348,8 +326,6 @@
                 --replace-fail 'nota = { package = "nota", git = "https://github.com/LiGoldragon/nota.git", branch = "main" }' 'nota = { path = "vendor-sources/nota" }' \
                 --replace-fail 'nota-derive = { package = "nota-derive", git = "https://github.com/LiGoldragon/nota.git", branch = "main" }' 'nota-derive = { path = "vendor-sources/nota/derive" }' \
                 --replace-fail 'sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", branch = "main" }' 'sema-engine = { path = "vendor-sources/sema-engine" }' \
-                --replace-fail 'sema-engine-previous = { git = "https://github.com/LiGoldragon/sema-engine.git", rev = "ebee6e44ba6ee4afcb26998007bcfd128641b54c", package = "sema-engine", optional = true }' 'sema-engine-previous = { path = "vendor-sources/sema-engine-previous", package = "sema-engine", optional = true }' \
-                --replace-fail 'sema-engine-layout3 = { git = "https://github.com/LiGoldragon/sema-engine.git", rev = "dbe29427d9a2c6c194909385485ad42b008048b8", package = "sema-engine", optional = true }' 'sema-engine-layout3 = { path = "vendor-sources/sema-engine-layout3", package = "sema-engine", optional = true }' \
                 --replace-fail 'signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", branch = "main" }' 'signal-frame = { path = "vendor-sources/signal-frame" }' \
                 --replace-fail 'criome = { git = "https://github.com/LiGoldragon/criome.git", branch = "main", optional = true }' 'criome = { path = "vendor-sources/criome", optional = true }' \
                 --replace-fail 'signal-criome = { git = "https://github.com/LiGoldragon/signal-criome.git", branch = "main", default-features = false, optional = true }' 'signal-criome = { path = "vendor-sources/signal-criome", default-features = false, optional = true }' \
@@ -359,9 +335,9 @@
                 --replace-fail 'signal-agent = { git = "https://github.com/LiGoldragon/signal-agent.git", branch = "main", optional = true }' 'signal-agent = { path = "vendor-sources/signal-agent", optional = true }' \
                 --replace-fail 'signal-introspect = { git = "https://github.com/LiGoldragon/signal-introspect.git", branch = "main", default-features = false, optional = true }' 'signal-introspect = { path = "vendor-sources/signal-introspect", default-features = false, optional = true }' \
                 --replace-fail 'signal-persona = { git = "https://github.com/LiGoldragon/signal-persona.git", branch = "main", optional = true }' 'signal-persona = { path = "vendor-sources/signal-persona", optional = true }' \
-                --replace-fail 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", rev = "1cf7c010029de46369b742687da4fa1ca6def9a9" }' 'signal-spirit = { path = "vendor-sources/signal-spirit" }' \
-                --replace-fail 'signal-spirit-judge = { git = "https://github.com/LiGoldragon/signal-spirit-judge.git", rev = "7c25b71a3485", optional = true }' 'signal-spirit-judge = { path = "vendor-sources/signal-spirit-judge", optional = true }' \
-                --replace-fail 'meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", rev = "0a7a2438c8e5d57cb1fd413452d0a7ddad4fb9b3" }' 'meta-signal-spirit = { path = "vendor-sources/meta-signal-spirit" }' \
+                --replace-fail 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", rev = "b37fc963292c157452d06e150296c19005dae3f2" }' 'signal-spirit = { path = "vendor-sources/signal-spirit" }' \
+                --replace-fail 'signal-spirit-judge = { git = "https://github.com/LiGoldragon/signal-spirit-judge.git", rev = "4fc339fee6adf3aeed82125aa0de8940bdd1f589", optional = true }' 'signal-spirit-judge = { path = "vendor-sources/signal-spirit-judge", optional = true }' \
+                --replace-fail 'meta-signal-spirit = { git = "https://github.com/LiGoldragon/meta-signal-spirit.git", rev = "009cb6c8ddf985244189a79d554aa5d5c24605c8" }' 'meta-signal-spirit = { path = "vendor-sources/meta-signal-spirit" }' \
                 --replace-fail 'nota-text-query = { git = "https://github.com/LiGoldragon/nota-text-query.git", rev = "6140a3e9afe3f81c18a39cb0a11dec4eab68b561", default-features = false }' 'nota-text-query = { path = "vendor-sources/nota-text-query", default-features = false }' \
                 --replace-fail 'triad-runtime = { git = "https://github.com/LiGoldragon/triad-runtime.git", branch = "main" }' 'triad-runtime = { path = "vendor-sources/triad-runtime" }' \
                 --replace-fail 'schema-rust = { package = "schema-rust", git = "https://github.com/LiGoldragon/schema-rust.git", rev = "f3b4563163dd11ba1cbbcca8081701ab7830b8f5" }' 'schema-rust = { path = "vendor-sources/schema-rust", package = "schema-rust" }' \
@@ -480,8 +456,6 @@
 
               [patch."https://github.com/LiGoldragon/sema-engine.git"]
               sema-engine = { path = "vendor-sources/sema-engine" }
-              sema-engine-layout3 = { path = "vendor-sources/sema-engine-layout3", package = "sema-engine" }
-              sema-engine-previous = { path = "vendor-sources/sema-engine-previous", package = "sema-engine" }
 
               [patch."https://github.com/LiGoldragon/signal-frame.git"]
               signal-frame = { path = "vendor-sources/signal-frame" }
@@ -791,13 +765,6 @@
             cargoExtraArgs = "--features nota-text --bin spirit-write-configuration";
           }
         );
-        renderPackage = craneLib.buildPackage (
-          commonArguments
-          // {
-            cargoArtifacts = notaTextCargoArtifacts;
-            cargoExtraArgs = "--features nota-text --bin spirit-render";
-          }
-        );
         storeMigrationPackage = craneLib.buildPackage (
           commonArguments
           // {
@@ -825,16 +792,15 @@
           ln -s "${metaSpiritCliPackage}/bin/meta-spirit" "$out/bin/meta-spirit"
           ln -s "${daemonPackage}/bin/spirit-daemon" "$out/bin/spirit-daemon"
           ln -s "${configurationWriterPackage}/bin/spirit-write-configuration" "$out/bin/spirit-write-configuration"
-          ln -s "${renderPackage}/bin/spirit-render" "$out/bin/spirit-render"
           ln -s "${storeMigrationPackage}/bin/spirit-migrate-store" "$out/bin/spirit-migrate-store"
         '';
         releasePins = {
-          spiritJudge = "901d1fe404f277778e32318871b97cdcaff85a43";
-          spiritJudgeConfig = "b6a3fe7e0f91f2e5ff8ddec94ebfe2b489fc355d";
+          spiritJudge = "b7ccd5a32758fff0607b9e9dfc2dc6a36fb5909e";
+          spiritJudgeConfig = "4351b80e49a3ca3640ccd7bbc9bcfd48787ccc17";
           judgeProvider = "e4e3b0672bbb8fba7f32fe53cd9c604990970374";
-          signalSpirit = "1cf7c010029de46369b742687da4fa1ca6def9a9";
-          signalSpiritJudge = "7c25b71a34858c0d912dff8fd0b4f4ac213d7cd1";
-          metaSignalSpirit = "0a7a2438c8e5d57cb1fd413452d0a7ddad4fb9b3";
+          signalSpirit = "b37fc963292c157452d06e150296c19005dae3f2";
+          signalSpiritJudge = "4fc339fee6adf3aeed82125aa0de8940bdd1f589";
+          metaSignalSpirit = "009cb6c8ddf985244189a79d554aa5d5c24605c8";
           semaEngine = "b3b5fb714412f820f870c290a6cb7800acb9bdec";
         };
         judgeCargoManifest = builtins.readFile "${spirit-judge.outPath}/Cargo.toml";
@@ -859,7 +825,7 @@
           ) "Spirit release: judge provider input revision is not the declared release pin";
           judge-provider.packages.${system}.default;
         releaseManifest = pkgs.writeText "spirit-release-manifest.dotos" ''
-          (SpiritRelease (0.25.1
+          (SpiritRelease (0.26.0
             (SpiritJudge ${releasePins.spiritJudge})
             (SpiritJudgeConfig ${releasePins.spiritJudgeConfig})
             (JudgeProvider ${releasePins.judgeProvider})
@@ -902,7 +868,7 @@
             ${spirit-judge.outPath}/Cargo.toml
           grep -F 'signal-spirit = { git = "https://github.com/LiGoldragon/signal-spirit.git", rev = "${releasePins.signalSpirit}"' \
             ${./Cargo.toml}
-          grep -F 'signal-spirit-judge = { git = "https://github.com/LiGoldragon/signal-spirit-judge.git", rev = "7c25b71a3485"' \
+          grep -F 'signal-spirit-judge = { git = "https://github.com/LiGoldragon/signal-spirit-judge.git", rev = "4fc339fee6adf3aeed82125aa0de8940bdd1f589"' \
             ${./Cargo.toml}
 
           cp ${releaseManifest} "$out"
@@ -963,7 +929,6 @@
         packages.cli = cliPackage;
         packages.daemon = daemonPackage;
         packages.configuration-writer = configurationWriterPackage;
-        packages.render = renderPackage;
         packages.store-migration = storeMigrationPackage;
         packages.judge = judgePackage;
         packages.judge-config = judgeConfigPackage;
@@ -1016,6 +981,13 @@
               cargoArtifacts = productionMigrationCargoArtifacts;
               cargoExtraArgs = "--features production-migration";
               cargoTestExtraArgs = "production_migration::v13::tests";
+            }
+          );
+          test-production-migration-v14 = craneLib.cargoTest (
+            commonArguments
+            // {
+              cargoArtifacts = null;
+              cargoExtraArgs = "--features production-migration,agent-guardian --test store_migration_v14";
             }
           );
           # The owner-only meta ObserveHeadObject surfaces the head entry's rkyv

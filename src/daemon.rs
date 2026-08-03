@@ -189,15 +189,11 @@ impl ComponentDaemon for SpiritDaemon {
             | Input::ResolveClarification(_)
             | Input::Supersede(_)
             | Input::Retire(_)
-            | Input::ChangeCertainty(_)
             | Input::BumpImportance(_)
-            | Input::ChangeRecord(_)
-            | Input::RegisterReferent(_) => crate::schema::daemon::WorkingInputLane::Staged,
+            | Input::ChangeRecord(_) => crate::schema::daemon::WorkingInputLane::Staged,
             Input::Observe(_)
-            | Input::PublicIntent(_)
-            | Input::PublicTextSearch(_)
-            | Input::PublicRecords(_)
-            | Input::PrivateRecords(_)
+            | Input::Intent(_)
+            | Input::TextSearch(_)
             | Input::Lookup(_)
             | Input::Count(_)
             | Input::LookupStash(_)
@@ -255,11 +251,6 @@ impl ComponentDaemon for SpiritDaemon {
         let reply = match input {
             MetaInput::Configure(request) => engine.configure_async(request.into_payload()).await,
             MetaInput::Import(request) => engine.import_async(request.into_payload()).await,
-            MetaInput::CollectRemovalCandidates(request) => {
-                engine
-                    .collect_removal_candidates_async(request.into_payload())
-                    .await
-            }
             MetaInput::ObserveHead => engine.observe_head_async().await,
             MetaInput::ObserveHeadObject => engine.observe_head_object_async().await,
         };
@@ -288,16 +279,12 @@ impl ComponentDaemon for SpiritDaemon {
             | Input::Supersede(_)
             | Input::Retire(_)
             | Input::Observe(_)
-            | Input::PublicIntent(_)
-            | Input::PublicTextSearch(_)
-            | Input::PublicRecords(_)
-            | Input::PrivateRecords(_)
+            | Input::Intent(_)
+            | Input::TextSearch(_)
             | Input::Lookup(_)
             | Input::Count(_)
-            | Input::ChangeCertainty(_)
             | Input::BumpImportance(_)
             | Input::ChangeRecord(_)
-            | Input::RegisterReferent(_)
             | Input::LookupStash(_)
             | Input::Tap(_)
             | Input::Untap(_)

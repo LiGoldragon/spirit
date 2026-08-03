@@ -20,13 +20,12 @@ use support::domain_fixtures;
 use spirit::schema::meta_signal::{ArchiveDatabaseTarget, ConfigureRequest, Output as MetaOutput};
 #[cfg(feature = "agent-guardian")]
 use spirit::schema::meta_signal::{GuardianPromptTarget, GuardianPromptText};
+#[cfg(feature = "agent-guardian")]
+use spirit::schema::signal::GuardianRejectionReason;
 use spirit::schema::signal::{
     Description, DomainMatch, Entry, ImportanceSelection, Input, Justification, Kind, Magnitude,
-    Output, Privacy, Query, QuoteText, Reasoning, RecordRequest, SelectedKind, Testimony,
-    VerbatimQuote,
+    Output, Query, QuoteText, Reasoning, RecordRequest, SelectedKind, Testimony, VerbatimQuote,
 };
-#[cfg(feature = "agent-guardian")]
-use spirit::schema::signal::{GuardianRejectionReason, ReferentGuardianRejectionReason};
 use spirit::{
     Configuration, Daemon, DaemonError, MetaSignalTransport, SignalTransport, SpiritDaemon,
 };
@@ -79,12 +78,7 @@ fn decision_entry(description: &str) -> Entry {
         domains: domain_fixtures::domains(&["meta-configure"]),
         kind: Kind::Decision,
         description: Description::new(description),
-        certainty: Magnitude::Maximum.into(),
         importance: Magnitude::Minimum.into(),
-        privacy: Privacy::new(Magnitude::Zero),
-        referents: spirit::schema::signal::Referents::new(vec![
-            spirit::schema::signal::Referent::new("spirit"),
-        ]),
     }
 }
 
@@ -106,11 +100,7 @@ fn observe_query() -> Query {
         domain_match: DomainMatch::full(domain_fixtures::scopes(&["meta-configure"])),
         keyword_match: spirit::schema::signal::KeywordMatch::Any,
         text_match: spirit::schema::signal::TextMatch::Any,
-        referent_selection: spirit::schema::signal::ReferentSelection::Any,
         selected_kind: SelectedKind::new(Some(Kind::Decision)),
-        privacy_selection: spirit::schema::signal::PrivacySelection::default_observation_privacy(),
-        certainty_selection:
-            spirit::schema::signal::CertaintySelection::default_observation_certainty(),
         importance_selection: ImportanceSelection::default_observation_importance(),
     }
 }
@@ -157,9 +147,6 @@ fn configure_sets_archive_target_and_leaves_live_database_unchanged() {
         MetaOutput::Imported(imported) => {
             panic!("configure unexpectedly imported records: {imported:?}")
         }
-        MetaOutput::RemovalCandidatesCollected(collected) => {
-            panic!("configure unexpectedly collected removal candidates: {collected:?}")
-        }
         MetaOutput::HeadObserved(head) => {
             panic!("configure unexpectedly observed a head: {head:?}")
         }
@@ -189,12 +176,6 @@ fn configure_sets_archive_target_and_leaves_live_database_unchanged() {
             assert_eq!(
                 rejection.payload().guardian_rejection_reason,
                 GuardianRejectionReason::HarnessUnavailable
-            );
-        }
-        Output::ReferentGuardianRejected(rejection) => {
-            assert_eq!(
-                rejection.payload().referent_guardian_rejection_reason,
-                ReferentGuardianRejectionReason::HarnessUnavailable
             );
         }
         other => panic!("working write should fail closed without judge, got {other:?}"),

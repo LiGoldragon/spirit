@@ -6,9 +6,8 @@ use crate::{
     nexus::Nexus,
     schema::{
         meta_signal::{
-            CollectRemovalCandidatesRequest, ConfigureReceipt, ConfigureRejection,
-            ConfigureRejectionReason, ConfigureRequest, HeadDigestHex, HeadObjectHex,
-            ImportReceipt, ImportRequest, Output as MetaOutput, RemovalCandidatesCollectedReceipt,
+            ConfigureReceipt, ConfigureRejection, ConfigureRejectionReason, ConfigureRequest,
+            HeadDigestHex, HeadObjectHex, ImportReceipt, ImportRequest, Output as MetaOutput,
             SelectedHeadDigest, SelectedHeadObject, VersionedLogHead, VersionedLogHeadObject,
         },
         nexus::{self as nexus_schema, NexusAction, NexusEngine, NexusWork},
@@ -374,10 +373,8 @@ impl ReplyFate {
             | Output::ClarificationResolved(_)
             | Output::Superseded(_)
             | Output::Retired(_)
-            | Output::CertaintyChanged(_)
             | Output::ImportanceBumped(_)
-            | Output::RecordChanged(_)
-            | Output::ReferentRegistered(_) => Self::Accepting,
+            | Output::RecordChanged(_) => Self::Accepting,
             // `RecordApplied` is the §4 acceptance-by-verification reply: the
             // carried authorization already gated that state cluster-wide, so
             // an apply never opens an intake round (and today's nexus answers
@@ -385,7 +382,6 @@ impl ReplyFate {
             Output::Error(_)
             | Output::Rejected(_)
             | Output::GuardianRejected(_)
-            | Output::ReferentGuardianRejected(_)
             | Output::ApplyRefused(_)
             | Output::AdvanceRefused(_)
             | Output::RecordApplied(_)
@@ -638,8 +634,8 @@ impl Engine {
     /// live database marker.
     ///
     /// This is the owner-config meta-socket effect. It records the archive
-    /// target the peer-callable `CollectRemovalCandidates` will write to; it
-    /// does NOT open, move, or touch the live database, and it never re-enters
+    /// target explicit lifecycle operations will write to; it does NOT open,
+    /// move, or touch the live database, and it never re-enters
     /// the Signal -> Nexus -> SEMA working pipeline (there is no SEMA log
     /// write). It takes `&mut self`, so the schema-emitted `EngineActor`
     /// mailbox serialises a reconfigure against every working write — a
@@ -1135,45 +1131,6 @@ impl Engine {
         self.observe_head_object()
     }
 
-    /// Owner-only meta-socket `CollectRemovalCandidates`: archive every record
-    /// matching the supplied query into the SEPARATE archive database at the
-    /// owner-configured target, then physically retract it from the live log.
-    /// This is the ONLY physical-deletion path; it runs with NO guardian, on the
-    /// owner-only meta plane, mirroring `Import` — `&mut self` gives the
-    /// schema-emitted `EngineActor` mailbox the same serialised exclusivity
-    /// against every working write, without any component-internal lock. It
-    /// reuses the store's `collect_removal_candidates` archive-then-retract
-    /// primitive unchanged, and reports the archived / removed / skipped triple
-    /// with the live database marker.
-    pub fn collect_removal_candidates(
-        &mut self,
-        request: CollectRemovalCandidatesRequest,
-    ) -> MetaOutput {
-        match self
-            .nexus
-            .store()
-            .collect_removal_candidates(request.into_payload())
-        {
-            Ok(removal_candidates_collection) => {
-                MetaOutput::removal_candidates_collected(RemovalCandidatesCollectedReceipt {
-                    removal_candidates_collection,
-                    database_marker: self.nexus.database_marker(),
-                })
-            }
-            Err(_) => MetaOutput::rejected(ConfigureRejection {
-                configure_rejection_reason: ConfigureRejectionReason::InternalError,
-                database_marker: self.nexus.database_marker(),
-            }),
-        }
-    }
-
-    pub async fn collect_removal_candidates_async(
-        &mut self,
-        request: CollectRemovalCandidatesRequest,
-    ) -> MetaOutput {
-        self.collect_removal_candidates(request)
-    }
-
     pub fn intent_recorded_event(
         &self,
         record_identifier: &signal_schema::RecordIdentifier,
@@ -1458,14 +1415,6 @@ impl std::ops::Deref for crate::schema::sema::Recorded {
     }
 }
 
-impl std::ops::Deref for crate::schema::sema::CertaintyChanged {
-    type Target = signal_schema::CertaintyChangeReceipt;
-
-    fn deref(&self) -> &Self::Target {
-        self.payload()
-    }
-}
-
 impl std::ops::Deref for crate::schema::sema::RecordChanged {
     type Target = signal_schema::RecordChangeReceipt;
 
@@ -1492,14 +1441,6 @@ impl std::ops::Deref for crate::schema::sema::Found {
 
 impl std::ops::Deref for crate::schema::sema::Counted {
     type Target = signal_schema::CountedRecords;
-
-    fn deref(&self) -> &Self::Target {
-        self.payload()
-    }
-}
-
-impl std::ops::Deref for nexus_schema::ChangeCertainty {
-    type Target = signal_schema::CertaintyChange;
 
     fn deref(&self) -> &Self::Target {
         self.payload()

@@ -10,10 +10,9 @@
 //! - signal-spirit: `1cf7c010029de46369b742687da4fa1ca6def9a9`
 //! - signal-domain: `801e1c5bcc824c9760e246205826e3c8e962d005`
 //!
-//! The final fold into Ethos-generated current families is deliberately not
-//! implemented here because those current family types do not exist yet.
-//! [`crate::production_migration::v13::FoldSink`] is the typed handoff point
-//! for that later migration.
+//! The parent migration module projects the retained fields from these rows
+//! into the current schema. Nothing in this module is a runtime compatibility
+//! decoder, and none of its removed-field types escape that one-way fold.
 
 use std::path::{Path, PathBuf};
 
@@ -46,6 +45,7 @@ macro_rules! archived_unit_enum {
             rkyv::Archive,
             rkyv::Serialize,
             rkyv::Deserialize,
+            nota::NotaEncode,
             Clone,
             Copy,
             Debug,
@@ -447,7 +447,9 @@ archived_unit_enum!(EngineeringLeaf {
     Modularity,
 });
 
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, nota::NotaEncode, Clone, Debug, PartialEq, Eq,
+)]
 pub enum Domain {
     All,
     Health(Health),
@@ -476,13 +478,17 @@ pub enum Domain {
     Technology(Technology),
 }
 
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, nota::NotaEncode, Clone, Debug, PartialEq, Eq,
+)]
 pub enum Technology {
     Hardware(HardwareLeaf),
     Software(Software),
 }
 
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, nota::NotaEncode, Clone, Debug, PartialEq, Eq,
+)]
 pub enum Software {
     Programming(ProgrammingLeaf),
     Theory,
@@ -519,7 +525,14 @@ archived_unit_enum!(Magnitude {
 macro_rules! archived_newtype {
     ($name:ident($inner:ty)) => {
         #[derive(
-            rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq,
+            rkyv::Archive,
+            rkyv::Serialize,
+            rkyv::Deserialize,
+            nota::NotaEncode,
+            Clone,
+            Debug,
+            PartialEq,
+            Eq,
         )]
         pub struct $name($inner);
 
