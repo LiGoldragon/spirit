@@ -1,6 +1,6 @@
 # Spirit architecture
 
-This document describes Spirit 0.26, storage schema 14, and signal wire
+This document describes Spirit 0.27.0, storage schema 14, and signal wire
 revision 2.
 
 ## Contract ownership
@@ -52,9 +52,13 @@ materialized database reads and writes. Effects own state outside the direct
 SEMA root, including the lifecycle archive, guardian exchange, stashes, and
 subscriptions.
 
-The daemon keeps working and meta sockets distinct. Configuration is a binary
-startup artifact; the daemon does not parse text configuration. NOTA is an edge
-format for CLIs and configuration writers, never the daemon transport.
+The daemon keeps working and meta sockets distinct. `spirit` and `meta-spirit`
+are the public object CLIs: each accepts exactly one inline NOTA/DOTOS object,
+including a bare typed atom, and accepts neither flags nor file-path
+indirection. Configuration is instead a private binary startup artifact; the
+daemon does not parse text configuration. NOTA is an edge format for CLIs and
+configuration writers, never the daemon transport. The daemon configuration
+path is a service interface, not an exception to the public CLI grammar.
 
 ## Read semantics
 
@@ -195,8 +199,9 @@ already accepted state.
 
 `flake.nix` is the single release root. It pins the daemon and judge contracts,
 the judge implementation/configuration/provider, and exports
-`mkUserServiceArtifacts`. A consumer pins Spirit once rather than assembling a
-second release graph.
+`mkUserServiceArtifacts`. The declared production judge profile is OpenAI Codex
+`gpt-5.6-luna` with `XHigh` reasoning; the session reference remains opaque.
+A consumer pins Spirit once rather than assembling a second release graph.
 
 The release checks cover generated-artifact freshness, binary-only and NOTA
 builds, runtime tests, migration readers and projection, guardian protocol,

@@ -1,4 +1,4 @@
-use std::{env, fs, path::PathBuf};
+use std::env;
 
 use nota::NotaDecodeError;
 use spirit::{MetaSignalTransport, MetaTransportError, schema::meta_signal::Input as MetaInput};
@@ -42,17 +42,8 @@ impl MetaSpiritCli {
             ComponentArgument::InlineNota(argument) => {
                 Ok(MetaSpiritInputSource::new(argument.into_string()))
             }
-            ComponentArgument::NotaFile(file) => {
-                let path = file.into_path();
-                fs::read_to_string(&path)
-                    .map(MetaSpiritInputSource::new)
-                    .map_err(|source| MetaSpiritCliError::ReadNotaFile { path, source })
-            }
-            ComponentArgument::SignalFile(file) => {
-                let path = file.into_path();
-                fs::read_to_string(&path)
-                    .map(MetaSpiritInputSource::new)
-                    .map_err(|source| MetaSpiritCliError::ReadNotaFile { path, source })
+            ComponentArgument::NotaFile(_) | ComponentArgument::SignalFile(_) => {
+                Err(MetaSpiritCliError::InlineNotaRequired)
             }
         }
     }
@@ -77,12 +68,8 @@ enum MetaSpiritCliError {
     #[error("component argument error: {0}")]
     Argument(#[from] ArgumentError),
 
-    #[error("failed to read NOTA file {}: {source}", path.display())]
-    ReadNotaFile {
-        path: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
+    #[error("meta-spirit requires exactly one inline NOTA/DOTOS input object")]
+    InlineNotaRequired,
 
     #[error("invalid NOTA input: {0}")]
     NotaDecode(#[from] NotaDecodeError),

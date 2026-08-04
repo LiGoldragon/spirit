@@ -593,6 +593,47 @@ fn run_cli(socket_path: &Path, nota_argument: &str) -> Output {
     })
 }
 
+#[test]
+fn public_clis_reject_non_object_and_file_operands_before_transport() {
+    let temp = TempDir::new().expect("tempdir");
+    let nota_file = temp.path().join("must-not-read.nota");
+    fs::write(&nota_file, "Version").expect("write sentinel file");
+
+    for binary in [
+        env!("CARGO_BIN_EXE_spirit"),
+        env!("CARGO_BIN_EXE_meta-spirit"),
+    ] {
+        for arguments in [
+            Vec::<String>::new(),
+            vec![String::from("--help")],
+            vec![String::from("--pretty")],
+            vec![String::from("Version"), String::from("Marker")],
+            vec![nota_file.display().to_string()],
+        ] {
+            let output = Command::isolated(binary)
+                .env("SPIRIT_SOCKET", temp.path().join("unreachable.sock"))
+                .env(
+                    "SPIRIT_META_SOCKET",
+                    temp.path().join("unreachable-meta.sock"),
+                )
+                .args(&arguments)
+                .output()
+                .expect("run public cli");
+            assert!(
+                !output.status.success(),
+                "{binary} unexpectedly accepted arguments {arguments:?}"
+            );
+            if arguments == [nota_file.display().to_string()] {
+                assert!(
+                    String::from_utf8_lossy(&output.stderr).contains("inline NOTA/DOTOS"),
+                    "{binary} must reject a file as an object boundary, stderr: {}",
+                    String::from_utf8_lossy(&output.stderr)
+                );
+            }
+        }
+    }
+}
+
 fn record_nota(domains: &str, kind: &str, description: &str) -> String {
     format!(
         "(Record (({domains} {kind} [{description}] Minimum) ([([{description}] None)] [{description}])))"

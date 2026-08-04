@@ -780,17 +780,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1785787915,
-        "narHash": "sha256-lqfUFWPdkFP/05QCOqctry39y6SefvnB7GwE28jB+xU=",
+        "lastModified": 1785837420,
+        "narHash": "sha256-ZQkogFkjk7HefrB5TLdCgBSkDgu39d1HorxrKxbcNx0=",
         "owner": "LiGoldragon",
         "repo": "spirit-judge",
-        "rev": "b7ccd5a32758fff0607b9e9dfc2dc6a36fb5909e",
+        "rev": "b590c2bdd6499cc391ac01dddf2ab67b0d53bd6a",
         "type": "github"
       },
       "original": {
         "owner": "LiGoldragon",
         "repo": "spirit-judge",
-        "rev": "b7ccd5a32758fff0607b9e9dfc2dc6a36fb5909e",
+        "rev": "b590c2bdd6499cc391ac01dddf2ab67b0d53bd6a",
         "type": "github"
       }
     },
@@ -802,17 +802,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1785787505,
-        "narHash": "sha256-IEwqQTBjT4FZhQEFp+bXOlHRei6zDD5VHbRCGb3HtlY=",
+        "lastModified": 1785837524,
+        "narHash": "sha256-zJy4RI3Y0H6bmWUD86DRNJWlZpgIGkeRe2xa3Tk5QEw=",
         "owner": "LiGoldragon",
         "repo": "spirit-judge-config",
-        "rev": "4351b80e49a3ca3640ccd7bbc9bcfd48787ccc17",
+        "rev": "fc648d2796513b83cee27ffeb319ceb01134a60e",
         "type": "github"
       },
       "original": {
         "owner": "LiGoldragon",
         "repo": "spirit-judge-config",
-        "rev": "4351b80e49a3ca3640ccd7bbc9bcfd48787ccc17",
+        "rev": "fc648d2796513b83cee27ffeb319ceb01134a60e",
         "type": "github"
       }
     },

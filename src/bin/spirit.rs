@@ -1,4 +1,4 @@
-use std::{env, fs, io::ErrorKind, os::unix::net::UnixStream, path::PathBuf};
+use std::{env, io::ErrorKind, os::unix::net::UnixStream};
 
 use nota::NotaDecodeError;
 use spirit::{
@@ -73,17 +73,8 @@ impl SpiritCli {
             ComponentArgument::InlineNota(argument) => {
                 Ok(SpiritInputSource::new(argument.into_string()))
             }
-            ComponentArgument::NotaFile(file) => {
-                let path = file.into_path();
-                fs::read_to_string(&path)
-                    .map(SpiritInputSource::new)
-                    .map_err(|source| SpiritCliError::ReadNotaFile { path, source })
-            }
-            ComponentArgument::SignalFile(file) => {
-                let path = file.into_path();
-                fs::read_to_string(&path)
-                    .map(SpiritInputSource::new)
-                    .map_err(|source| SpiritCliError::ReadNotaFile { path, source })
+            ComponentArgument::NotaFile(_) | ComponentArgument::SignalFile(_) => {
+                Err(SpiritCliError::InlineNotaRequired)
             }
         }
     }
@@ -108,12 +99,8 @@ enum SpiritCliError {
     #[error("component argument error: {0}")]
     Argument(#[from] ArgumentError),
 
-    #[error("failed to read NOTA file {}: {source}", path.display())]
-    ReadNotaFile {
-        path: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
+    #[error("spirit requires exactly one inline NOTA/DOTOS input object")]
+    InlineNotaRequired,
 
     #[error("invalid NOTA input: {0}")]
     NotaDecode(#[from] NotaDecodeError),

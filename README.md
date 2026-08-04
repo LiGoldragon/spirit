@@ -1,124 +1,68 @@
 # spirit
 
-`spirit` is the durable intent service. Spirit 0.26 carries storage schema 14
-and the revision-2 signal contract.
-
-An active `Entry` has exactly four fields:
+`spirit` is the durable intent service. Spirit 0.27.0 uses storage schema 14
+and revision-2 Signal frames. Its active-record noun is exactly:
 
 ```text
 Entry { Domains Kind Description Importance }
 ```
 
-Every active record is visible through the same read plane. There are no
-secondary record classes or implicit cleanup candidates. Removal is expressed
-through the explicit lifecycle operations `Retire`, `Supersede`, and
-`ResolveClarification`; retired substance is copied to the lifecycle archive
-before the live row is retracted.
-
-## Runtime
-
-The authored schemas generate the checked-in Rust contracts:
+The query noun is exactly:
 
 ```text
-schema/{nexus,sema}.schema + producer schemas
-  -> build-time canonicalization and Rust generation
-  -> src/schema/{nexus,sema,daemon}.rs
-  -> Signal admission
-  -> Nexus decisions
-  -> SEMA reads and writes
-  -> Signal reply
+Query { DomainMatch KeywordMatch TextMatch SelectedKind ImportanceSelection }
 ```
 
-`build.rs` fails when a generated artifact is stale. CLI input and output use
-NOTA. Daemon sockets carry length-prefixed revision-2 signal frames with rkyv
-payloads. The working socket accepts ordinary operations; the owner-only meta
-socket carries configuration, import, and recovery controls.
+Justification belongs to a write request, not to `Entry`. There is no core
+certainty, privacy, referent, relation, or public/private record field.
 
-Create a binary daemon configuration and start a local instance:
+## User boundary
+
+`spirit` and the owner-only `meta-spirit` each take exactly one inline
+NOTA/DOTOS object. A bare selector such as `Version`, `Marker`, `ObserveHead`,
+or `ObserveHeadObject` is already an object. File paths are not input
+indirection, and flags (including `--help` and `--pretty`), zero operands, and
+extra operands are invalid by design.
+
+`SPIRIT_SOCKET` selects the ordinary socket and `SPIRIT_META_SOCKET` selects
+the owner-only socket; neither adds a CLI operand. For example:
 
 ```sh
-spirit-write-configuration \
-  "(ConfigurationWriteRequest (/tmp/spirit.sock (Some /tmp/spirit-meta.sock) /tmp/spirit.sema None Gating None /tmp/spirit.config.rkyv))"
-spirit-daemon /tmp/spirit.config.rkyv
-```
-
-Then use the working CLI:
-
-```sh
-SPIRIT_SOCKET=/tmp/spirit.sock spirit \
-  "(Record (([(Technology (Software (Data SchemaEvolution)))] Constraint [schema creates the interface] Medium) ([([schema creates the interface] None)] [schema creates the interface])))"
-
-SPIRIT_SOCKET=/tmp/spirit.sock spirit \
-  "(Observe ((Full [(Technology (Software (Data SchemaEvolution)))]) Any Any (Some Constraint) Any))"
-
-SPIRIT_SOCKET=/tmp/spirit.sock spirit \
-  "(TextSearch [schema interface])"
-
 SPIRIT_SOCKET=/tmp/spirit.sock spirit Version
+SPIRIT_SOCKET=/tmp/spirit.sock spirit Marker
+SPIRIT_SOCKET=/tmp/spirit.sock spirit '(Count (Any Any Any None Any))'
+SPIRIT_SOCKET=/tmp/spirit.sock spirit '(TextSearch [schema interface])'
+SPIRIT_SOCKET=/tmp/spirit.sock spirit '(Observe (Full [(Technology (Software (Data SchemaEvolution)))]) Any Any (Some Constraint) Any)'
+SPIRIT_META_SOCKET=/tmp/meta-spirit.sock meta-spirit ObserveHead
 ```
 
-Queries contain domain, keyword, description-text, kind, and importance
-predicates. `TextSearch` is the compact ranked lookup over active record
-descriptions. `Intent` reads active records under typed domain scopes. Both
-return the same `ObservedRecord` shape as `Observe`.
+The exact ordinary command/type authority is
+[`signal-spirit`](https://github.com/LiGoldragon/signal-spirit/tree/b37fc963292c157452d06e150296c19005dae3f2/schema);
+the owner authority is
+[`meta-signal-spirit`](https://github.com/LiGoldragon/meta-signal-spirit/tree/009cb6c8ddf985244189a79d554aa5d5c24605c8/schema).
+See [manual.md](manual.md) for the complete current object index.
 
-## Admission and lifecycle
+## Runtime and release
 
-When required, the daemon sends one typed `JudgeAdmission` request to the
-external Spirit judge for each proposed write. Its packet contains the typed
-operation, relevant existing-record context, and the database marker. The
-guardian either accepts or returns a typed rejection; unavailable, malformed,
-or timed-out judgment fails closed. Decisions are audit state in the separate
-schema-7 guardian journal.
+NOTA is an edge format only. The daemon receives binary revision-2 Signal
+frames; its startup configuration is a private immutable binary artifact,
+written by `spirit-write-configuration` and consumed by the daemon service.
+It is not an exception to the public CLI grammar.
 
-Lifecycle operations preserve retained fields:
+The working socket carries the 21 ordinary roots; the owner-only socket carries
+`Configure`, `Import`, `ObserveHead`, and `ObserveHeadObject`. Explicit
+`Retire`, `Supersede`, and `ResolveClarification` archive retained entry data
+before retracting a live row.
 
-- `ChangeRecord` replaces one live four-field entry under the same identifier.
-- `Retire` archives the live entry and retracts it.
-- `Supersede` archives and retracts its targets, then records replacements.
-- `ResolveClarification` edits its targets and archives/retracts the standalone
-  clarification.
+When admission is enabled, Spirit uses the pinned external judge in the
+declared production profile: OpenAI Codex `gpt-5.6-luna` with `XHigh` reasoning.
+The provider session reference and all request/output content remain opaque;
+diagnostics cross the contract boundary only in redacted form.
 
-## Storage schema 14 migration
+`flake.nix` is the single service release root. It pins judge
+`b590c2bdd6499cc391ac01dddf2ab67b0d53bd6a`, judge configuration
+`fc648d2796513b83cee27ffeb319ceb01134a60e`, and provider
+`6753f8b89f173e633cdf2809bd370ac4f93c6bc0`, and exports the daemon, public
+CLIs, service bundle, and release manifest.
 
-`spirit-migrate-store` is an offline, one-way v13-to-v14 projection. Stop the
-daemon and operate on the intended state path only. The migration:
-
-1. copies the exact quiesced v13 live store, optional archive, and optional
-   schema-6 guardian journal into a mode-`0700` rollback directory;
-2. validates every v13 family through the frozen migration-only reader;
-3. projects only identifier, domains, kind, description, and importance;
-4. builds fresh live and archive schema-14 stores and reopens both for
-   comparison before exposure;
-5. exposes the archive first and live store second;
-6. starts fresh schema-14 history with projected assertions and one migration
-   receipt; the current guardian journal starts at schema 7.
-
-The rollback directory is `<live-stem>.schema-13-rollback`. Its copies are the
-only supported recovery material for the discarded v13 representation. A
-second successful invocation reports `Current` without modifying the v14
-store. Corrupt or wrong-generation input is rejected without replacing it.
-
-The old decoder exists only behind the `production-migration` feature in
-`production_migration::v13`; the daemon, working CLI, current schema, and
-current store do not contain legacy families or compatibility tables.
-
-## Release surface
-
-The repository flake is the one-root authority for the complete Spirit user
-service. It exports the daemon, working and meta CLIs, configuration writer,
-store migration tool, judge, judge configuration, provider, release manifest,
-and `lib.<system>.mkUserServiceArtifacts`.
-
-Consumers pin Spirit once and obtain the whole service bundle from that root.
-The release manifest asserts the exact producer-contract revisions used by the
-daemon and judge.
-
-## Test boundaries
-
-Repository tests use disposable stores and isolated child-process
-environments. They never open deployed Spirit state. The migration suite seeds
-real schema-13 live/archive layouts, verifies byte-identical private rollback,
-checks the fresh schema-14 log and receipt, and proves a second run is a no-op.
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the contract and durability details.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for runtime and durability boundaries.

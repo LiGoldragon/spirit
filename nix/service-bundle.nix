@@ -25,8 +25,8 @@ let
     ];
   stateDirectoryIsAbsolute = builtins.isString stateDirectory && lib.hasPrefix "/" stateDirectory;
   stateDirectoryIsDotosAtom = isDotosAtom stateDirectory;
-  judgeModel = "gpt-5.6-terra";
-  judgeReasoningEffort = "Medium";
+  judgeModel = "gpt-5.6-luna";
+  judgeReasoningEffort = "XHigh";
   judgeTimeoutMilliseconds = 180000;
   judgeSessionReference = "codex-login";
 

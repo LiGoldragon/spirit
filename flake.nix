@@ -12,12 +12,12 @@
     # execute. Consumers select these through Spirit's package/service outputs,
     # never as sibling deployment inputs.
     spirit-judge = {
-      url = "github:LiGoldragon/spirit-judge/b7ccd5a32758fff0607b9e9dfc2dc6a36fb5909e";
+      url = "github:LiGoldragon/spirit-judge/b590c2bdd6499cc391ac01dddf2ab67b0d53bd6a";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.rust-build.follows = "rust-build";
     };
     spirit-judge-config = {
-      url = "github:LiGoldragon/spirit-judge-config/4351b80e49a3ca3640ccd7bbc9bcfd48787ccc17";
+      url = "github:LiGoldragon/spirit-judge-config/fc648d2796513b83cee27ffeb319ceb01134a60e";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     judge-provider = {
@@ -795,8 +795,8 @@
           ln -s "${storeMigrationPackage}/bin/spirit-migrate-store" "$out/bin/spirit-migrate-store"
         '';
         releasePins = {
-          spiritJudge = "b7ccd5a32758fff0607b9e9dfc2dc6a36fb5909e";
-          spiritJudgeConfig = "4351b80e49a3ca3640ccd7bbc9bcfd48787ccc17";
+          spiritJudge = "b590c2bdd6499cc391ac01dddf2ab67b0d53bd6a";
+          spiritJudgeConfig = "fc648d2796513b83cee27ffeb319ceb01134a60e";
           judgeProvider = "e4e3b0672bbb8fba7f32fe53cd9c604990970374";
           signalSpirit = "b37fc963292c157452d06e150296c19005dae3f2";
           signalSpiritJudge = "4fc339fee6adf3aeed82125aa0de8940bdd1f589";
@@ -825,7 +825,7 @@
           ) "Spirit release: judge provider input revision is not the declared release pin";
           judge-provider.packages.${system}.default;
         releaseManifest = pkgs.writeText "spirit-release-manifest.dotos" ''
-          (SpiritRelease (0.26.0
+          (SpiritRelease (0.27.0
             (SpiritJudge ${releasePins.spiritJudge})
             (SpiritJudgeConfig ${releasePins.spiritJudgeConfig})
             (JudgeProvider ${releasePins.judgeProvider})
@@ -895,13 +895,17 @@
             ${serviceBundleWitness.judgeServiceWrapper}/bin/spirit-judge-daemon-service
           grep -F '${judgeProviderPackage}/bin/codex' \
             ${serviceBundleWitness.judgeServiceWrapper}/bin/spirit-judge-daemon-service
-          grep -F 'OpenAiCodex gpt-5.6-terra (Some Medium) 180000' \
+          grep -F 'OpenAiCodex gpt-5.6-luna (Some XHigh) 180000' \
+            ${serviceBundleWitness.judgeServiceWrapper}/bin/spirit-judge-daemon-service
+          ! grep -F 'gpt-5.6-terra' \
+            ${serviceBundleWitness.judgeServiceWrapper}/bin/spirit-judge-daemon-service
+          ! grep -F '(Some Medium)' \
             ${serviceBundleWitness.judgeServiceWrapper}/bin/spirit-judge-daemon-service
           grep -F '(Some codex-login)' \
             ${serviceBundleWitness.judgeServiceWrapper}/bin/spirit-judge-daemon-service
           grep -F '(AmbientSessionReference codex-login)' \
             ${judgeConfigPackage}/config/provider-policy.nota
-          grep -F '(Production gpt-5.6-terra Medium)' \
+          grep -F '(Production gpt-5.6-luna XHigh)' \
             ${judgeConfigPackage}/config/provider-policy.nota
 
           touch "$out"
