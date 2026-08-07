@@ -1,0 +1,55 @@
+;; psyche-grasp: unseen (2026-08-08)
+;; rescued from spirit-ethos cb7cdd6, syntax re-spelled to current blessed form
+;; sections 1-2: psyche-authored (spirit-ethos Sema.1 original)
+;; section 3: night transcription from spirit/schema/sema.schema wire/decision
+;;   types, pending psyche morning review
+
+Sema.{1 0 0}
+[interface/{Entry RecordIdentifier Query SearchText RecordCount
+            ImportanceBump RecordChange SemaReceipt ImportanceBumpReceipt
+            RecordChangeReceipt ObservedRecords FoundRecord CountedRecords
+            ErrorReport}]
+[signal-domain/{DomainScopes}]
+{
+  [
+    StoredRecord.{RecordIdentifier Entry}
+    SourceSchemaVersion.Integer
+    MigratedRecordCount.Integer
+    Migration.{SourceSchemaVersion MigratedRecordCount}
+  ]
+  [
+    records.{StoredRecord RecordIdentifier}
+    migrations.{Migration SourceSchemaVersion}
+  ]
+  [
+    ;; night transcription: wire/decision types from schema/sema.schema (2026-08-08)
+    ;; pending psyche morning review
+    ;; imports reference interface types not yet defined there; forward-references
+
+    WriteInput.[Record.Entry BumpImportance.ImportanceBump ChangeRecord.RecordChange]
+
+    ReadInput.[
+      Observe.Query
+      Intent.DomainScopes
+      TextSearch.SearchText
+      Lookup.RecordIdentifier
+      Count.Query
+    ]
+
+    WriteOutput.[
+      Recorded.SemaReceipt
+      ImportanceBumped.ImportanceBumpReceipt
+      RecordChanged.RecordChangeReceipt
+      Missed.ErrorReport
+    ]
+
+    ReadOutput.[
+      Observed.ObservedRecords
+      IntentResults.ObservedRecords
+      TextSearchResults.ObservedRecords
+      Found.FoundRecord
+      Counted.CountedRecords
+      Missed.ErrorReport
+    ]
+  ]
+}

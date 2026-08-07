@@ -1,0 +1,73 @@
+;; psyche-grasp: unseen (2026-08-08)
+;; rescued from spirit-ethos cb7cdd6, syntax re-spelled to current blessed form
+;; sections 1-2: psyche-authored (spirit-ethos Nexus.1 original)
+;; section 3: night transcription from spirit/schema/nexus.schema wire/decision
+;;   types, pending psyche morning review
+
+Nexus.{1 0 0}
+[interface/{Entry RecordSet RecordRequest GuardianReason Query IntentEvent
+            RecordIdentifier RecordCount StashHandle DatabaseMarker Explanation
+            ImportanceBump RecordChange Records Statement Proposal Clarification
+            ClarificationResolution Supersession Retirement SemaReceipt
+            ClarificationReceipt SupersessionReceipt RetirementReceipt
+            ClarificationResolutionReceipt RecordChangeReceipt GuardianRejection
+            GuardianRejectionReason ErrorReport SubscriptionToken
+            IntentSubscription ObserverSubscription ObserverRetraction
+            ObserverFilter}]
+{
+  [
+    AdmissionDecision.[Accepted Rejected.GuardianReason]
+    GuardianDecision.[Admit Refuse.GuardianReason]
+    LifecycleDecision.[Persist Emit]
+  ]
+  [
+    SignalAdmission
+    AgentGuardian
+    RecordStore
+    IntentObserver
+  ]
+  [
+    ;; night transcription: wire/decision types from schema/nexus.schema (2026-08-08)
+    ;; NexusEffectCommand has 12 variants in schema (task listed 11; all transcribed)
+    ;; imports reference interface types not yet defined there; forward-references
+
+    CommandSemaWrite.[Record.Entry BumpImportance.ImportanceBump ChangeRecord.RecordChange]
+
+    NexusEffectCommand.[
+      Stash.StashRequest
+      ClassifyState.Statement
+      GuardRecord.RecordRequest
+      Propose.Proposal
+      Clarify.Clarification
+      Supersede.Supersession
+      Retire.Retirement
+      ResolveClarification.ClarificationResolution
+      GuardChangeRecord.RecordChange
+      OpenIntentSubscription.Query
+      OpenObserverTap.ObserverFilter
+      CloseObserverTap.SubscriptionToken
+    ]
+
+    NexusEffectResult.[
+      Stashed.StashResult
+      StateClassified.RecordRequest
+      Recorded.SemaReceipt
+      Proposed.SemaReceipt
+      Clarified.ClarificationReceipt
+      Superseded.SupersessionReceipt
+      Retired.RetirementReceipt
+      ClarificationResolved.ClarificationResolutionReceipt
+      RecordChanged.RecordChangeReceipt
+      GuardianRejected.GuardianRejection
+      OperationFailed.ErrorReport
+      IntentSubscriptionOpened.IntentSubscription
+      ObserverTapOpened.ObserverSubscription
+      ObserverTapClosed.ObserverRetraction
+    ]
+
+    StashRequest.{Records DatabaseMarker}
+    StashResult.{StashHandle RecordCount DatabaseMarker Records}
+    GuardianVerdict.[Accept Reject]
+    Reject.{GuardianRejectionReason Explanation}
+  ]
+}
