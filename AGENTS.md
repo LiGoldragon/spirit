@@ -15,13 +15,19 @@ runtime schema surfaces.
 
 Load-bearing rules for this repo:
 
-- Keep the daemon binary on the one binary rkyv configuration argument; NOTA is
+- Keep the daemon binary on the one binary rkyv configuration argument; DOTOS is
   a CLI/text-edge feature, not daemon startup parsing.
 - Do not hand-edit generated runtime modules as the effective fix. Edit
   `schema/*.schema` (the current, not-yet-ported schema/schema-rust toolchain)
   and regenerate with `SPIRIT_UPDATE_SCHEMA_ARTIFACTS=1 cargo build`; commit
   the checked-in generated `src/schema/*.rs` outputs when they change.
-- Preserve the no-NOTA daemon dependency invariant: `nota-text` gates the text
+- Preserve the no-DOTOS daemon dependency invariant: `dotos-text` gates the text
   surface, and `tests/dependency_surface.rs` guards the binary-only build.
 - Process-boundary behavior should be proven through the real daemon/CLI path,
   not only in-memory helpers.
+
+## Protos estate status
+
+Stack: correct-new destination
+Status: active component, current checkout legacy-wired
+This checkout is not proof of correct-new adoption.
