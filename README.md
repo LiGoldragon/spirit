@@ -9,6 +9,11 @@ migration target. Do not add new consumers or resume the unfinished migration
 without new explicit direction. The documentation below describes historical
 behavior and does not establish active status.
 
+`schema/nexus.ethos` and `schema/sema.ethos` are not authoritative: they are
+drafts in a dialect ethos-zero does not read (`Nexus.{1 0 0}`), nothing is
+generated from them, and the running code follows `schema/*.schema`. They are
+kept as donor evidence for their psyche-authored sections.
+
 `spirit` is the durable intent service. Spirit 0.27.0 uses storage schema 14
 and revision-2 Signal frames. Its active-record noun is exactly:
 
